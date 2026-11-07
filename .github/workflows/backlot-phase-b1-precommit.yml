@@ -59,7 +59,7 @@ jobs:
               ('B01RestorePrecommitPolicyTest', 20),
               ('StabilizationPersonalMutationGateTest', 20),
               ('B04InterruptedRecoveryPolicyTest', 16),
-              ('B04OwnerRecoveryConsentPolicyTest', 14),
+              ('B04OwnerRecoveryConsentPolicyTest', 16),
               ('StabilizationRestoreWriteAheadJournalTest', 17),
               ('StabilizationVerifiedPhotoInstallerTest', 12),
           ):
