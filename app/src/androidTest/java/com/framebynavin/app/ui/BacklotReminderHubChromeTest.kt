@@ -111,4 +111,29 @@ class BacklotReminderHubChromeTest {
         rule.runOnIdle { assertEquals(1, navigations) }
     }
 
+    @Test fun realPersonalEditorHidesSuggestionsUntilRequested() {
+        // Only a disposable CI emulator may host the real Personal editor.
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.setContent {
+            FrameByNavinTheme {
+                V2232PersonalEditor(
+                    existing = null,
+                    saving = false,
+                    onDismiss = {},
+                    onSave = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("v2232-personal-title").assertExists()
+        rule.onNodeWithTag("phase1-personal-toggle-suggestions").assertExists()
+        rule.onNodeWithTag("v288-quick-suggestions").assertDoesNotExist()
+        rule.onNodeWithTag("phase1-personal-toggle-suggestions").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("v288-quick-suggestions").assertExists()
+        rule.onNodeWithTag("v274-personal-purpose-picker").assertExists()
+        rule.onNodeWithTag("phase1-personal-toggle-suggestions").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("v288-quick-suggestions").assertDoesNotExist()
+    }
+
 }
