@@ -204,8 +204,25 @@ class B03AdditiveRestoreDeviceTest {
         assertThrows(IllegalStateException::class.java) {
             runBlocking { PersonalReminderStore(app).delete(incoming.id) }
         }
-        // The escrow and journal are retained until B4 owner-mediated recovery,
-        // not silently cleared at the end of the test-only B3 transaction.
-        assertTrue(journalRoot.exists())
+        // The owner separately approves FINALIZATION after a restarted,
+        // authenticated target review. The encrypted rollback escrow and the
+        // journal remain in private history; ordinary writes unlock only now.
+        val retainedJournal = B04OwnerFinalizedRecoveryCoordinator(app)
+            .finalizeOwnerApprovedTarget(escrow.id, passphrase, ownerConsent)
+        assertFalse(journalRoot.exists())
+        assertEquals(
+            checkpoint,
+            StabilizationRestoreWriteAheadJournal(retainedJournal).inspectAfterRestart(),
+        )
+        assertTrue(File(app.filesDir,
+            "backlot-personal-rollback-escrow-v1/${escrow.id}/archive.zip").isFile)
+        assertEquals(
+            "Owner reminder remains editable after verified recovery",
+            PersonalReminderStore(app).update(owner.id) {
+                it.copy(title = "Owner reminder remains editable after verified recovery")
+            }.first().title,
+        )
+        assertEquals(incoming, PersonalReminderStore(app).load()[1])
+        // No restore writer or alarm scheduler is exposed by this test.
     }
 }
