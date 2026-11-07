@@ -109,14 +109,34 @@ private val Rounded = RoundedCornerShape(19.dp)
     Surface(color=Ink,modifier=Modifier.fillMaxSize()){
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             if(screen=="alarm") Alarm()
+            else if(screen=="challenge-create") {
+                // Keep the one primary action visible on compact phones.
+                // Only the form content scrolls; this is a debug-only visual fixture.
+                Column(Modifier.fillMaxSize()) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())
+                        .padding(horizontal=24.dp).padding(top=20.dp,bottom=24.dp),
+                        verticalArrangement=Arrangement.spacedBy(14.dp)) {
+                        Header("?")
+                        Spacer(Modifier.height(10.dp))
+                        ChallengeCreate()
+                    }
+                    Column(Modifier.fillMaxWidth().background(Ink)
+                        .padding(horizontal=24.dp).padding(top=10.dp,bottom=10.dp),
+                        verticalArrangement=Arrangement.spacedBy(7.dp)) {
+                        HorizontalDivider(color=Border)
+                        Primary("Start my 21 days     →")
+                        Text("Preview concept · Nothing scheduled yet",color=Muted,fontSize=12.sp,
+                            textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
+                    }
+                }
+            }
             else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .padding(horizontal=24.dp).padding(top=20.dp,bottom=28.dp),
                 verticalArrangement=Arrangement.spacedBy(14.dp)){
-                Header(if(screen=="challenge-create"||screen=="delete-account")"?" else "···")
+                Header(if(screen=="delete-account")"?" else "···")
                 Spacer(Modifier.height(10.dp))
                 when(screen){
                     "cloud"->Cloud()
-                    "challenge-create"->ChallengeCreate()
                     "challenge-dashboard"->ChallengeDashboard()
                     "delete-account"->DeleteAccount()
                     else->Text("Review screen unavailable",color=Ivory)
@@ -191,9 +211,6 @@ private val Rounded = RoundedCornerShape(19.dp)
         Note("Advanced: missed days, pause, notes")
         Text("Show ›",color=Gold,fontSize=14.sp)
     }
-    Primary("Start my 21 days     →")
-    Text("Preview concept · Nothing scheduled yet",color=Muted,fontSize=12.sp,
-        textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
 }
 @Composable private fun ChallengeDashboard(){
     Label("21-DAY CHALLENGE")
