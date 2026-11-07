@@ -25,7 +25,7 @@ for scene in personal-hub creator-hub; do
   adb exec-out screencap -p > "$out/$scene.png"
   test -s "$out/$scene.png"
   python3 - "$out/$scene.png" <<'PY'
-import sys, struct, zlib
+import sys, struct
 from pathlib import Path
 p = Path(sys.argv[1])
 b = p.read_bytes()
@@ -33,7 +33,7 @@ assert b[:8] == b'\x89PNG\r\n\x1a\n', f'not PNG: {p}'
 assert len(b) > 2000, f'PNG too small: {p}'
 w, h = struct.unpack('>II', b[16:24])
 assert w >= 600 and h >= 1000, f'unexpected screenshot bounds: {w}x{h}'
-assert b[-12:-8] == b'IEND', f'PNG lacks ending chunk: {p}'
+assert b[-8:-4] == b'IEND', f'PNG lacks ending chunk: {p}'
 print(f'Valid Android emulator PNG: {p} {w}x{h} {len(b)} bytes')
 PY
   rm -f "$out/$scene.activity.txt"
