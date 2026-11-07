@@ -182,9 +182,15 @@ class B05NoPhotoProcessDeathDeviceTest {
         )
         assertEquals(B04RollbackWriteStep.VERIFIED, result.actionState)
         assertEquals(result.expectedOriginalDigest, result.actualOriginalDigest)
-        assertEquals(listOf(owner()), PersonalReminderStore(app).load())
-        assertTrue(V297ChallengeStore(app).load().isEmpty())
-        assertTrue(V298ReminderGroupStore(app).load().isEmpty())
+        // The forward journal must remain active until separate owner
+        // finalization. Verify parity under read-only recovery inspection:
+        // an ordinary app load is correctly blocked at this checkpoint.
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(forwardRoot) { active ->
+            assertEquals(interrupted, active)
+            assertEquals(listOf(owner()), PersonalReminderStore(app).load())
+            assertTrue(V297ChallengeStore(app).load().isEmpty())
+            assertTrue(V298ReminderGroupStore(app).load().isEmpty())
+        }
         val db = V289SpacesDatabase.open(app)
         try {
             assertTrue(db.spaces().loadSpaces().isEmpty())

@@ -183,7 +183,12 @@ class B05VerifiedPhotoForwardResumeDeviceTest {
         try {assertEquals(photo,verifiedDb.spaces().getPhoto(photoId))}
         finally {verifiedDb.close()}
         assertArrayEquals(jpeg,file.readBytes())
-        assertEquals(listOf(owner,incoming),PersonalReminderStore(app).load())
+        // VERIFYING is still a locked transaction. Inspect it with the
+        // existing read-only recovery permit, never an ordinary app reader.
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(root) { active ->
+            assertEquals(StabilizationRestoreWriteStep.VERIFYING, active.step)
+            assertEquals(listOf(owner,incoming),PersonalReminderStore(app).load())
+        }
         val current=checkNotNull(StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart())
         val approval=consent.copy(
             selectedChoice=B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET,
