@@ -4,5 +4,8 @@
     <!-- Debug-only screenshot fixture. No production activity or user data access. -->
     <activity android:name=".phase1.Phase1VisualReviewActivity"
       android:exported="true" android:theme="@style/Theme.FrameByNavin" />
+    <!-- Disposable one-activity Android 15 review, explicit CI-emulator gate in Activity. -->
+    <activity android:name=".phase1.Phase1HabitInteractiveReviewActivity"
+      android:exported="true" android:theme="@style/Theme.FrameByNavin" />
   </application>
 </manifest>
