@@ -179,7 +179,7 @@ internal fun V157ReminderCenterUi(
                         lineHeight = 17.sp,
                         modifier = Modifier.weight(1f),
                     )
-                    Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedGold)
+                    Icon(Icons.Outlined.ChevronRight, "Reminder settings", tint = MutedText)
                 }
             }
         }
@@ -207,15 +207,10 @@ internal fun V157ReminderCenterUi(
                         Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory)
                     }
                     Spacer(Modifier.width(3.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("REMINDERS", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        Text(
-                            if (selectionMode) "${selected.size} SELECTED" else "Stay on track",
-                            color = ProjectorIvory,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
+                    BacklotReminderHubHeading(
+                        title = if (selectionMode) "${selected.size} SELECTED" else "Stay on track",
+                        modifier = Modifier.weight(1f),
+                    )
                     if (selectionMode) {
                         TextButton(onClick = {
                             selected = if (selected == visibleSelectionIds) emptySet() else visibleSelectionIds
@@ -228,7 +223,7 @@ internal fun V157ReminderCenterUi(
                             onClick = { activityOpen = true },
                             modifier = Modifier.testTag("v306-open-activity"),
                         ) {
-                            Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedGold)
+                            Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedText)
                         }
                         IconButton(onClick = onNew) {
                             Icon(Icons.Outlined.Add, "Add", tint = ProjectorIvory)
@@ -236,37 +231,15 @@ internal fun V157ReminderCenterUi(
                     }
                 }
 
-                // V223.2: explicit workspace separation. This callback only
-                // switches presentation; it never migrates CreatorTask data.
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 7.dp)
+                // Shared Director's Cut chrome; the existing callback still owns
+                // navigation and NEVER migrates CreatorTask data.
+                BacklotReminderHubWorkspaceTabs(
+                    selected = BacklotReminderWorkspace.CREATOR,
+                    onOpenPersonal = onPersonal,
+                    onOpenCreator = {},
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp)
                         .testTag("v2232-reminders-space-switcher"),
-                    horizontalArrangement = Arrangement.spacedBy(9.dp),
-                ) {
-                    Surface(
-                        modifier = Modifier.weight(1f).height(43.dp),
-                        color = RecRed.copy(alpha = .17f),
-                        shape = RoundedCornerShape(13.dp),
-                        border = BorderStroke(1.dp, RecRed.copy(alpha = .65f)),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("CREATOR", color = ProjectorIvory,
-                                fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-                    Surface(
-                        onClick = onPersonal,
-                        modifier = Modifier.weight(1f).height(43.dp).testTag("v2232-open-personal"),
-                        color = CinemaSurface,
-                        shape = RoundedCornerShape(13.dp),
-                        border = BorderStroke(1.dp, CinemaLine),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("PERSONAL", color = ProjectorIvory,
-                                fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-                }
+                )
 
                 Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -288,7 +261,7 @@ internal fun V157ReminderCenterUi(
                     val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
-                        V157InboxCount("TODAY", todayCount, MutedGold, Modifier.weight(1f))
+                        V157InboxCount("TODAY", todayCount, MutedText, Modifier.weight(1f))
                         V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
                     }
                     }
@@ -321,11 +294,11 @@ internal fun V157ReminderCenterUi(
                         placeholder = { Text("Title or notes", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         modifier = Modifier.fillMaxWidth().testTag("v219-search-input"),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MutedGold,
+                            focusedBorderColor = RecRed,
                             unfocusedBorderColor = CinemaLine,
                             focusedTextColor = ProjectorIvory,
                             unfocusedTextColor = ProjectorIvory,
-                            focusedLabelColor = MutedGold,
+                            focusedLabelColor = RecRed,
                             unfocusedLabelColor = MutedText,
                         ),
                     )
@@ -379,7 +352,7 @@ internal fun V157ReminderCenterUi(
                                 },
                                 modifier = Modifier.testTag("v2193-history-tab"),
                             ) {
-                                Text("HISTORY", color = MutedGold, fontSize = 11.sp)
+                                Text("HISTORY", color = RecRed, fontSize = 11.sp)
                             }
                         }
                     }
@@ -417,7 +390,7 @@ internal fun V157ReminderCenterUi(
                             label = "TODAY",
                             subtitle = "Coming up in the next 24 hours",
                             tasks = matchingGroups[ReminderCenterGroup.TODAY].orEmpty(),
-                            accent = MutedGold,
+                            accent = MutedText,
                             now = now,
                             selectionMode = selectionMode,
                             selected = selected,
@@ -609,14 +582,14 @@ private fun V157ReminderGroup(
                         if (task.reminderAtMillis > 0L) {
                             Text(
                                 "Next alert: ${pFormatDateTime(task.reminderAtMillis)}",
-                                color = if (task.reminderAtMillis <= now) RecRed else MutedGold,
+                                color = if (task.reminderAtMillis <= now) RecRed else MutedText,
                                 fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(top = 5.dp),
                             )
                         } else {
                             Text(
                                 "Choose a time for your next check-in",
-                                color = MutedGold, fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp),
+                                color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp),
                             )
                         }
                     }
@@ -694,7 +667,7 @@ private fun V157ReminderGroup(
                 if (!selectionMode && !actionable) {
                     Spacer(Modifier.height(7.dp))
                     TextButton(onClick = { onEdit(task.id) }) {
-                        Text("SET UP NEXT REMINDER", color = MutedGold, fontSize = 11.sp)
+                        Text("SET UP NEXT REMINDER", color = RecRed, fontSize = 11.sp)
                     }
                 }
             }
@@ -705,7 +678,7 @@ private fun V157ReminderGroup(
 @Composable
 private fun V157EmptyReminderCenter(onNew: () -> Unit) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Outlined.NotificationsNone, null, tint = MutedGold, modifier = Modifier.size(40.dp))
+        Icon(Icons.Outlined.NotificationsNone, null, tint = MutedText, modifier = Modifier.size(40.dp))
         Spacer(Modifier.height(9.dp))
         Text("Nothing needs attention", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         Text(

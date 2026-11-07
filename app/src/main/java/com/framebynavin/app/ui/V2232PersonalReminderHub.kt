@@ -238,16 +238,15 @@ internal fun V2232PersonalReminderHub(
                         "Back to personal Today" else "Close reminders",
                     tint = ProjectorIvory)
             }
-            Column(Modifier.weight(1f)) {
-                Text("BACKLOT / PERSONAL", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Text(if (personalPageName == "TODAY") "My day" else "Personal settings",
-                    color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-            }
+            BacklotReminderHubHeading(
+                title = if (personalPageName == "TODAY") "My day" else "Personal settings",
+                modifier = Modifier.weight(1f),
+            )
             IconButton(
                 onClick = onOpenActivity,
                 modifier = Modifier.testTag("v306-personal-open-activity"),
             ) {
-                Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedGold)
+                Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedText)
             }
             IconButton(
                 onClick = { personalPageName = if (personalPageName == "TODAY") "SETTINGS" else "TODAY" },
@@ -257,7 +256,7 @@ internal fun V2232PersonalReminderHub(
                      else Icons.Outlined.Home,
                      contentDescription = if (personalPageName == "TODAY") "Personal settings"
                          else "Back to personal Today",
-                     tint = MutedGold)
+                     tint = MutedText)
             }
             IconButton(
                 enabled = !busy && loadError == null,
@@ -268,41 +267,34 @@ internal fun V2232PersonalReminderHub(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 3.dp)
+        // Same real, shared Director's Cut tab surfaces as Creator. Keep the
+        // original workspace and Spaces callbacks/test tags and distinct stores.
+        BacklotReminderHubWorkspaceTabs(
+            selected = BacklotReminderWorkspace.PERSONAL,
+            onOpenPersonal = {},
+            onOpenCreator = onCreator,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp)
                 .testTag("v2232-personal-space-switcher"),
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                onClick = onCreator,
-                modifier = Modifier.height(34.dp).testTag("v2232-open-creator"),
-                color = CinemaSurface,
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, CinemaLine),
+        )
+        if (personalPageName == "TODAY") {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                horizontalArrangement = Arrangement.End,
             ) {
-                Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Movie, null, tint = MutedGold, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(7.dp))
-                    Text("Creator", color = ProjectorIvory, fontSize = 12.sp)
-                }
-            }
-            Text("PERSONAL", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            if (personalPageName == "TODAY") {
                 TextButton(
                     onClick = { spacesOpen = true },
                     enabled = loaded && loadError == null,
                     modifier = Modifier.testTag("v289-open-spaces"),
                 ) {
                     Icon(Icons.Outlined.AutoAwesome, null,
-                        tint = MutedGold, modifier = Modifier.size(17.dp))
+                        tint = RecRed, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text("My Spaces", color = ProjectorIvory, fontSize = 13.sp,
+                    Text("My Spaces", color = RecRed, fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold)
                 }
             }
         }
+
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(personalPageScroll)
                 .padding(horizontal = 18.dp, vertical = 10.dp)
@@ -356,7 +348,7 @@ internal fun V2232PersonalReminderHub(
                         )
                     }
                     if (followUpSettings.enabled) {
-                        Text("FOLLOW UP AFTER", color = MutedGold,
+                        Text("FOLLOW UP AFTER", color = MutedText,
                             fontWeight = FontWeight.Bold, fontSize = 10.sp)
                         Row(Modifier.horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -396,13 +388,13 @@ internal fun V2232PersonalReminderHub(
                                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
                             }
                         }) {
-                            Text("ENABLE NOTIFICATIONS", color = MutedGold)
+                            Text("ENABLE NOTIFICATIONS", color = RecRed)
                         }
                     }
                 }
             } else if (!preciseReady) {
                 Text("Exact timing is unavailable; Android may deliver personal alerts later.",
-                    color = MutedGold, fontSize = 11.sp)
+                    color = MutedText, fontSize = 11.sp)
             }
             // The standalone Personal media/ringing services are intentionally
             // not enabled: a selected Voice or Alarm is clearly labeled fallback.
@@ -464,7 +456,7 @@ internal fun V2232PersonalReminderHub(
                 Text(loadError.orEmpty(), color = RecRed,
                     modifier = Modifier.testTag("v2232-personal-load-error"))
             } else if (!loaded) {
-                CircularProgressIndicator(color = MutedGold)
+                CircularProgressIndicator(color = RecRed)
             } else if (reminders.isEmpty()) {
                 Surface(
                     color = CinemaSurface, shape = RoundedCornerShape(20.dp),
@@ -473,7 +465,7 @@ internal fun V2232PersonalReminderHub(
                 ) {
                     Column(Modifier.padding(23.dp), horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Outlined.NotificationsNone, null, tint = MutedGold,
+                        Icon(Icons.Outlined.NotificationsNone, null, tint = MutedText,
                             modifier = Modifier.size(30.dp))
                         Text("No reminders yet", color = ProjectorIvory,
                             fontWeight = FontWeight.Bold)
@@ -486,7 +478,7 @@ internal fun V2232PersonalReminderHub(
                 }
             } else {
                 Text("YOUR REMINDERS · ${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
-                    color = MutedGold, fontWeight = FontWeight.Bold, fontSize = 10.sp,
+                    color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
@@ -523,7 +515,7 @@ internal fun V2232PersonalReminderHub(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(group.section.label, color = if (group.section == PersonalAgendaSection.NEEDS_ATTENTION)
-                            RecRed else MutedGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            RecRed else MutedText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         Text("${group.items.size}", color = MutedText, fontSize = 11.sp)
                     }
                     group.items.forEach { item ->
@@ -686,7 +678,7 @@ private fun V2232PersonalItem(
     Surface(
         color = CinemaSurface,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (needsAttention) MutedGold.copy(alpha = .55f)
+        border = BorderStroke(1.dp, if (needsAttention) RecRed.copy(alpha = .55f)
             else CinemaLine),
         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-item"),
     ) {
@@ -707,7 +699,7 @@ private fun V2232PersonalItem(
                             needsAttention -> "Needs attention · " + whenLabel
                             else -> whenLabel
                         },
-                        color = if (needsAttention) MutedGold else MutedText,
+                        color = if (needsAttention) RecRed else MutedText,
                         fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -719,7 +711,7 @@ private fun V2232PersonalItem(
                         else Icons.Outlined.MoreVert,
                         contentDescription = if (expanded) "Hide reminder details"
                             else "Show reminder options",
-                        tint = MutedGold)
+                        tint = MutedText)
                 }
             }
             if (actionReady) {
@@ -745,12 +737,12 @@ private fun V2232PersonalItem(
                 Text("${reminder.repeat.name.replace('_', ' ')} · ${reminder.alert.name}",
                     color = MutedText, fontSize = 10.sp)
                 Text(deliveryHealth.label,
-                    color = if (deliveryHealth.needsAttention) RecRed else MutedGold,
+                    color = if (deliveryHealth.needsAttention) RecRed else MutedText,
                     fontSize = 11.sp,
                     modifier = Modifier.testTag("v2282-personal-delivery-health"))
                 if (reminder.lastMissedOccurrenceMillis > reminder.lastAcknowledgedOccurrenceMillis) {
                     Text("An earlier alert received no response",
-                        color = MutedGold, fontSize = 10.sp,
+                        color = RecRed, fontSize = 10.sp,
                         modifier = Modifier.testTag("v2234-personal-missed"))
                 }
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -760,7 +752,7 @@ private fun V2232PersonalItem(
                     }
                     TextButton(enabled = !busy, onClick = onPause) {
                         Text(if (reminder.paused) "RESUME" else "PAUSE",
-                            color = MutedGold)
+                            color = MutedText)
                     }
                     TextButton(enabled = !busy, onClick = onDelete) {
                         Text("DELETE", color = RecRed)
@@ -895,7 +887,7 @@ internal fun V2232PersonalEditor(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
-                            color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Text(if (existing == null) "Make it yours" else "Your personal rhythm",
                             color = ProjectorIvory, fontSize = 19.sp,
                             fontWeight = FontWeight.Bold)
@@ -919,7 +911,7 @@ internal fun V2232PersonalEditor(
                     ) {
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     if (existing == null) {
-                        Text("START WITH A ROUTINE", color = MutedGold,
+                        Text("START WITH A ROUTINE", color = MutedText,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Row(
                             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
@@ -952,7 +944,7 @@ internal fun V2232PersonalEditor(
                             error = null
                         },
                     )
-                    Text("YOUR REMINDER", color = MutedGold,
+                    Text("YOUR REMINDER", color = MutedText,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(
                         value = title, onValueChange = { title = it.take(180); error = null },
@@ -972,7 +964,7 @@ internal fun V2232PersonalEditor(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    Text("WHEN SHOULD IT HAPPEN?", color = MutedGold,
+                    Text("WHEN SHOULD IT HAPPEN?", color = MutedText,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedButton(onClick = {
                         v2232PickDateTime(context, selectedTime) { selectedTime = it; error = null }
@@ -1097,7 +1089,7 @@ internal fun V2232PersonalEditor(
                                 }
                             }.getOrDefault(emptyList<Long>())
                         }
-                        Text("NEXT FIVE REMINDERS", color = MutedGold,
+                        Text("NEXT FIVE REMINDERS", color = MutedText,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         if (previews.isEmpty()) Text(
                             "Check hourly interval, days and active window.",
@@ -1117,7 +1109,7 @@ internal fun V2232PersonalEditor(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    Text("HOW SHOULD BACKLOT REACH YOU?", color = MutedGold,
+                    Text("HOW SHOULD BACKLOT REACH YOU?", color = MutedText,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1145,7 +1137,7 @@ internal fun V2232PersonalEditor(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    Text("SNOOZE DURATION", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("SNOOZE DURATION", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         listOf(5, 10, 15, 30).forEach { minutes ->
@@ -1156,7 +1148,7 @@ internal fun V2232PersonalEditor(
                     }
                     if (alert != PersonalAlert.NOTIFICATION.name) {
                         Text("Voice and Alarm play short audio when Android allows; the notification remains your fallback.",
-                            color = MutedGold, fontSize = 11.sp)
+                            color = MutedText, fontSize = 11.sp)
                     }
                     if (alert == PersonalAlert.ALARM.name) {
                         Text(
@@ -1165,7 +1157,7 @@ internal fun V2232PersonalEditor(
                                     "While unlocked, Android usually shows a heads-up notification."
                             else "Full-screen alerts are not permitted. " +
                                     "Your alarm notification and Done/Snooze actions still work.",
-                            color = MutedGold, fontSize = 11.sp,
+                            color = MutedText, fontSize = 11.sp,
                             modifier = Modifier.testTag("v279-personal-fullscreen-explanation"),
                         )
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
@@ -1185,7 +1177,7 @@ internal fun V2232PersonalEditor(
                         }
                     }
                     if (alert == PersonalAlert.VOICE.name) {
-                        Text("VOICE ANNOUNCEMENTS", color = MutedGold,
+                        Text("VOICE ANNOUNCEMENTS", color = MutedText,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1195,7 +1187,7 @@ internal fun V2232PersonalEditor(
                                     label = { Text(if (times == 1) "Once" else "$times times", fontSize = 11.sp) })
                             }
                         }
-                        Text("PAUSE BETWEEN ANNOUNCEMENTS", color = MutedGold,
+                        Text("PAUSE BETWEEN ANNOUNCEMENTS", color = MutedText,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1216,7 +1208,7 @@ internal fun V2232PersonalEditor(
                         )
                     }
                     if (alert == PersonalAlert.ALARM.name) {
-                        Text("STOP ALARM SOUND AFTER", color = MutedGold,
+                        Text("STOP ALARM SOUND AFTER", color = MutedText,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1241,7 +1233,7 @@ internal fun V2232PersonalEditor(
                             Switch(checked = automaticRetry, onCheckedChange = { automaticRetry = it })
                         }
                         if (automaticRetry) {
-                            Text("RE-ALERT AFTER", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("RE-ALERT AFTER", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                 listOf(5, 10, 15, 30).forEach { minutes ->
@@ -1250,7 +1242,7 @@ internal fun V2232PersonalEditor(
                                         label = { Text("${minutes} min", fontSize = 11.sp) })
                                 }
                             }
-                            Text("MAXIMUM EXTRA ALERTS", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("MAXIMUM EXTRA ALERTS", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                 listOf(1, 2, 3).forEach { count ->
@@ -1281,7 +1273,7 @@ internal fun V2232PersonalEditor(
                     ) {
                         Column(Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("REVIEW BEFORE SAVING", color = MutedGold, fontSize = 10.sp,
+                            Text("REVIEW BEFORE SAVING", color = MutedText, fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold)
                             Text(title.trim().ifBlank { "Unnamed reminder" },
                                 color = ProjectorIvory, fontSize = 16.sp,
