@@ -842,6 +842,11 @@ internal fun V2232PersonalEditor(
     var advancedOptionsOpen by rememberSaveable(existing?.id) {
         mutableStateOf(existing != null)
     }
+    // Suggestions are optional inspiration, not a required setup screen.
+    // Persist their disclosure during rotations, never alter reminder data.
+    var suggestionsOpen by rememberSaveable(existing?.id) {
+        mutableStateOf(false)
+    }
     val composerScroll = remember(composerStep) { ScrollState(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedSpaceId by rememberSaveable(existing?.id) { mutableStateOf<String?>(null) }
@@ -910,40 +915,68 @@ internal fun V2232PersonalEditor(
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                    if (existing == null) {
-                        Text("START WITH A ROUTINE", color = MutedText,
-                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Row(
-                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                                .testTag("v288-quick-suggestions"),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                        ) {
-                            V288ReminderSuggestion.entries.forEach { suggestion ->
-                                FilterChip(
-                                    selected = title == suggestion.title,
-                                    onClick = {
-                                        // Suggestions classify, not schedule. Never replace
-                                        // the user's selected time, recurrence or alert type.
-                                        if (title.isBlank()) title = suggestion.title
-                                        purpose = suggestion.purpose
-                                        error = null
-                                    },
-                                    label = { Text(suggestion.label, fontSize = 11.sp) },
-                                    modifier = Modifier.testTag("v288-suggestion-" + suggestion.name),
-                                )
-                            }
-                        }
-                        Text("Set your own title, time and repeat. Nothing is scheduled until Save.",
-                            color = MutedText, fontSize = 12.sp)
+                    TextButton(
+                        onClick = { suggestionsOpen = !suggestionsOpen },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("phase1-personal-toggle-suggestions"),
+                    ) {
+                        Icon(Icons.Outlined.AutoAwesome, null,
+                            tint = RecRed, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (suggestionsOpen) "Hide Suggestions" else "Show Suggestions",
+                            color = RecRed, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        )
                     }
-                    V274PersonalPurposePicker(
-                        selected = purpose,
-                        onSelected = { selected ->
-                            title = PersonalSelfCarePresets.chooseTitle(title, purpose, selected)
-                            purpose = selected
-                            error = null
-                        },
-                    )
+                    if (!suggestionsOpen && purpose != PersonalPurpose.CUSTOM) {
+                        Text(
+                            "Purpose: " + purpose.label,
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = suggestionsOpen,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                        if (existing == null) {
+                            Text("START WITH A ROUTINE", color = MutedText,
+                                fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Row(
+                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                                    .testTag("v288-quick-suggestions"),
+                                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            ) {
+                                V288ReminderSuggestion.entries.forEach { suggestion ->
+                                    FilterChip(
+                                        selected = title == suggestion.title,
+                                        onClick = {
+                                            // Suggestions classify, not schedule. Never replace
+                                            // the user's selected time, recurrence or alert type.
+                                            if (title.isBlank()) title = suggestion.title
+                                            purpose = suggestion.purpose
+                                            error = null
+                                        },
+                                        label = { Text(suggestion.label, fontSize = 11.sp) },
+                                        modifier = Modifier.testTag("v288-suggestion-" + suggestion.name),
+                                    )
+                                }
+                            }
+                            Text("Set your own title, time and repeat. Nothing is scheduled until Save.",
+                                color = MutedText, fontSize = 12.sp)
+                        }
+                            V274PersonalPurposePicker(
+                            selected = purpose,
+                            onSelected = { selected ->
+                                title = PersonalSelfCarePresets.chooseTitle(title, purpose, selected)
+                                purpose = selected
+                                error = null
+                            },
+                        )
+    
+                        }
+                    }
                     Text("YOUR REMINDER", color = MutedText,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     OutlinedTextField(
