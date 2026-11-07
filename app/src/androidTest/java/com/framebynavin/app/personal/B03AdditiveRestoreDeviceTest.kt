@@ -140,6 +140,37 @@ class B03AdditiveRestoreDeviceTest {
             File(File(app.filesDir, "backlot-personal-space-photos"), spaceId), "$photoId.jpg",
         )
         assertArrayEquals(photoBytes, photoFile.readBytes())
+        // Emulate power loss after private JPEG bytes are installed but a
+        // temporary copy remains: ordinary inventory must fail closed, while
+        // owner-authorized forensic inspection still decodes Room metadata.
+        val interruptedCopy = File(photoFile.parentFile, ".${photoId}.restore.pending")
+        check(interruptedCopy.createNewFile())
+        interruptedCopy.writeBytes(byteArrayOf(1, 2, 3, 4))
+        StabilizationPersonalMutationGate.withPendingRecoveryInspection(app) {
+            val forensic = V301LocalRecoveryReader(app).readForInterruptedRecovery()
+            assertFalse(forensic.localIntegrityVerified)
+            assertEquals(listOf(photo), forensic.photos)
+            val photoReview = B04PrivatePhotoForensicPolicy.inspect(
+                File(app.filesDir, "backlot-personal-space-photos"),
+                original = emptyList(),
+                target = listOf(photo),
+                checkpoint = StabilizationRestoreWriteStep.VERIFYING,
+            )
+            assertEquals(1, photoReview.interruptedPendingFiles)
+            assertTrue(photoReview.demandsOwnerReview)
+            assertFalse(photoReview.allTargetBytesPresentAndVerified)
+            var normalReadBlocked = false
+            try {
+                V301LocalRecoveryReader(app).read()
+            } catch (_: Exception) {
+                normalReadBlocked = true
+            }
+            assertTrue("Normal backup must reject a torn private JPEG copy", normalReadBlocked)
+        }
+        assertTrue("Synthetic pending marker remains for owner review", interruptedCopy.exists())
+        // Test-only cleanup on a disposable CI emulator, NEVER a production
+        // automatic repair or owner's data.
+        check(interruptedCopy.delete())
         assertThrows(IllegalStateException::class.java) {
             runBlocking {
                 PersonalReminderStore(app).delete(incoming.id)

@@ -27,6 +27,47 @@ import kotlinx.coroutines.withContext
 internal class V301LocalRecoveryReader(context: Context) {
     private val app = context.applicationContext
 
+    /**
+     * STRICTLY READ-ONLY crash forensics. A partially installed JPEG or an
+     * orphan .restore.pending file must not hide the still-decodable Personal,
+     * Challenge, Group, Space and Room-photo metadata after process death.
+     *
+     * localIntegrityVerified is ALWAYS false: the caller MUST independently
+     * authenticate the encrypted escrow, inspect real private photo bytes and
+     * check the journal before considering any owner-mediated repair. Normal
+     * owner-facing backup / import paths must continue using read().
+     */
+    suspend fun readForInterruptedRecovery(): V301LocalRecoverySnapshot =
+        StabilizationPersonalMutationGate.withStableSnapshot(app) {
+            withContext(Dispatchers.IO) {
+                val personal = PersonalReminderStore(app).exportPersonalJson()
+                val challenge = V297ChallengeStore(app).exportJson()
+                val group = V298ReminderGroupStore(app).exportJson()
+                val history = PersonalCompletionBackupCodec.decode(personal)
+                val (spaces, photos) = readSpacesWithoutOpeningRoom(history)
+                val spaceState = V303SpaceReceiptArchiveCodec.decode(spaces, history)
+                val ids = history.reminders.mapTo(HashSet()) { it.id }
+                require(V298ReminderGroupCodec.decode(group).all { candidate ->
+                    candidate.reminderIds.all { it in ids }
+                }) {
+                    "Interrupted local Reminder Groups reference missing Personal data"
+                }
+                require(spaceState.links.all { it.reminderId in ids }) {
+                    "Interrupted local Space links refer to missing Personal data"
+                }
+                val spaceIds = spaceState.spaces.mapTo(HashSet()) { it.id }
+                require(photos.all { it.spaceId in spaceIds }) {
+                    "Interrupted Room photo rows refer to missing Spaces"
+                }
+                V297ChallengeCodec.decode(challenge)
+                V301LocalRecoverySnapshot(
+                    components = V300PersonalComponents(personal, challenge, group, spaces),
+                    photos = photos,
+                    localIntegrityVerified = false,
+                )
+            }
+        }
+
     suspend fun read(): V301LocalRecoverySnapshot =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
         withContext(Dispatchers.IO) {
