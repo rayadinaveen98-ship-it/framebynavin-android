@@ -14,6 +14,7 @@ for scene in cloud challenge-create challenge-dashboard alarm delete-account; do
   adb shell am force-stop com.framebynavin.app || true
   adb shell am start -W -n com.framebynavin.app/.phase1.Phase1VisualReviewActivity --es phase1_screen "$scene"
   sleep 3
+  python3 tools/qa/backlot_android_ui_guard.py "$scene" "$out"
   adb shell dumpsys activity activities > "$out/$scene.activity.txt"
   if ! grep -q 'Phase1VisualReviewActivity' "$out/$scene.activity.txt"; then
     echo "Review Activity not visible for $scene" >&2
@@ -21,6 +22,8 @@ for scene in cloud challenge-create challenge-dashboard alarm delete-account; do
     exit 1
   fi
   adb exec-out screencap -p > "$out/$scene.png"
+  python3 tools/qa/backlot_android_ui_guard.py "$scene" "$out" --strict
+  rm -f "$out/$scene.system-dialog.xml"
   test -s "$out/$scene.png"
   # PNG signature. An empty/error screenshot cannot pass this check.
   python3 - "$out/$scene.png" <<'PY'
