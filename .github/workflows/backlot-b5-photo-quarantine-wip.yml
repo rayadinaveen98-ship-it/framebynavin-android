@@ -1,0 +1,54 @@
+name: Backlot B5 private JPEG evidence WIP verification
+
+on:
+  push:
+    branches: [stabilization/phase-b-photo-quarantine-wip]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-b5-photo-evidence-wip
+  cancel-in-progress: true
+
+jobs:
+  photo-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile Android and run synthetic photo evidence tests
+        run: |
+          set -euo pipefail
+          timeout 55m gradle :app:compileDebugKotlin :app:testDebugUnitTest \
+            --tests 'com.framebynavin.app.personal.B05PendingPhotoEvidenceQuarantineTest' \
+            --tests 'com.framebynavin.app.personal.B05RetainedPendingEvidencePolicyTest' \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Require both evidence suites pass
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path('app/build/test-results/testDebugUnitTest')
+          for name, minimum in (
+              ('B05PendingPhotoEvidenceQuarantineTest', 12),
+              ('B05RetainedPendingEvidencePolicyTest', 11),
+          ):
+              files=list(root.glob('TEST-*'+name+'.xml'))
+              assert len(files)==1, 'Expected exactly one suite '+name
+              suite=ET.parse(files[0]).getroot()
+              assert int(suite.get('tests','0'))>=minimum, 'Missing tests in '+name
+              assert int(suite.get('failures','0'))==0, 'Failures in '+name
+              assert int(suite.get('errors','0'))==0, 'Exceptions in '+name
+              print('PASS:', name, suite.get('tests'))
+          PY
