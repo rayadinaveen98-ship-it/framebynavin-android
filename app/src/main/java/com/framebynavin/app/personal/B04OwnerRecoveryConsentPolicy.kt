@@ -10,6 +10,7 @@ internal enum class B04OwnerRecoveryChoice {
     INSPECT_ONLY,
     ROLLBACK_TO_AUTHENTICATED_ESCROW,
     RESUME_AUTHENTICATED_TARGET,
+    FINALIZE_VERIFIED_TARGET,
 }
 
 internal data class B04OwnerRecoveryConsent(
@@ -64,6 +65,14 @@ internal object B04OwnerRecoveryConsentPolicy {
         require(assessment.disposition !=
             B04InterruptedRecoveryDisposition.UNVERIFIABLE_REQUIRES_OWNER_REVIEW) {
             "Unverifiable local data requires forensic review, not automatic replay"
+        }
+        if (consent.selectedChoice == B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET) {
+            require(journal.step == StabilizationRestoreWriteStep.VERIFYING &&
+                assessment.disposition ==
+                    B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION &&
+                assessment.observedSnapshotDigest == journal.targetDigest) {
+                "A verified target may be finalized only with fresh matching owner evidence"
+            }
         }
         // Forward replay is not yet proven idempotent at each write boundary.
         // In particular, never replay photo CREATE_NEW after an uncertain crash.
