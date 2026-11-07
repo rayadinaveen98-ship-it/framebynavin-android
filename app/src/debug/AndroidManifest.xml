@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Only compiled into debug builds. Disposable Android-emulator visual QA.
+             Never exported by personalStable/release; never exposed to user data. -->
+        <activity
+            android:name="com.framebynavin.app.phase1.Phase1LiveReminderScreenReviewActivity"
+            android:exported="true"
+            android:theme="@style/Theme.FrameByNavin" />
+    </application>
+</manifest>
