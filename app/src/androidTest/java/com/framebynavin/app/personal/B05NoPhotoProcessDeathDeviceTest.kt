@@ -147,7 +147,10 @@ class B05NoPhotoProcessDeathDeviceTest {
         assertThrows(IllegalStateException::class.java) {
             runBlocking { PersonalReminderStore(app).delete(owner().id) }
         }
-        // The harness now ends instrumentation and issues 'am force-stop'.
+        // Explicit Unit makes the expression-bodied @Test JVM method void.
+        // Without it, assertThrows is returned as Throwable and JUnit4 rejects
+        // this class before either instrumentation phase can execute.
+        Unit
     }
 
     @Test fun inspectAndRollBackFromNewAndroidProcess() = runBlocking {
