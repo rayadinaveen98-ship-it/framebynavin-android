@@ -176,5 +176,23 @@ class B04NoPhotoOwnerRollbackDeviceTest {
         }
         assertTrue(File(app.filesDir,
             "backlot-personal-rollback-escrow-v1/${escrow.id}/archive.zip").isFile)
+        val durableHistory = B04OwnerNoPhotoRollbackReleaseCoordinator(app)
+            .finalizeOwnerConfirmedRollback(
+                escrow.id, password, consent,
+            )
+        assertFalse(forwardRoot.exists())
+        assertEquals(interrupted,
+            StabilizationRestoreWriteAheadJournal(durableHistory).inspectAfterRestart())
+        assertEquals(action,
+            B04NoPhotoRollbackActionJournal(actionFile).inspect())
+        assertEquals(
+            "Owner editable after verified rollback",
+            PersonalReminderStore(app).update(originalReminder.id) {
+                it.copy(title="Owner editable after verified rollback")
+            }.first().title,
+        )
+        assertEquals(1,PersonalReminderStore(app).load().size)
+        assertTrue(File(app.filesDir,
+            "backlot-personal-rollback-escrow-v1/${escrow.id}/archive.zip").isFile)
     }
 }
