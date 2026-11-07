@@ -18,6 +18,7 @@ internal data class B04InterruptedRecoveryAssessment(
     val transactionId: String,
     val escrowId: String,
     val lastDurableStep: StabilizationRestoreWriteStep,
+    val journalUpdatedAtMillis: Long,
     val disposition: B04InterruptedRecoveryDisposition,
     val observedSnapshotDigest: String?,
 ) {
@@ -63,6 +64,7 @@ internal object B04InterruptedRecoveryPolicy {
             transactionId = journal.transactionId,
             escrowId = journal.escrowId,
             lastDurableStep = journal.step,
+            journalUpdatedAtMillis = journal.updatedAtMillis,
             disposition = state,
             observedSnapshotDigest = digest,
         )
