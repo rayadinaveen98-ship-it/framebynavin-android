@@ -52,6 +52,13 @@ class B05PendingPhotoEvidenceQuarantineTest {
         assertFalse(kept.authorizesRestore)
         assertFalse(kept.permitsDeletingEvidence)
         assertFalse(kept.permitsNormalWrites)
+        assertTrue(kept.blockingMarkerPath.isFile)
+        assertTrue(kept.blockingMarkerPath.readText().contains(txId))
+        assertEquals(1,
+            B04PrivatePhotoForensicPolicy.inspect(
+                root,emptyList(),listOf(photo),
+                StabilizationRestoreWriteStep.BEFORE_PHOTOS,
+            ).untrackedEntries)
     }
     @Test fun rejectsMissingOwnerConfirmationWithoutMovingFile() = sandbox { root,history,folder ->
         pending(folder).writeBytes(bytes)
@@ -128,4 +135,31 @@ class B05PendingPhotoEvidenceQuarantineTest {
             sut(root,history).preserve(journal,photo,true,false)
         }
     }
+    @Test fun preservedEvidenceCannotMakeInterruptedRestoreAutoResume() = sandbox {
+        root,history,folder ->
+        pending(folder).writeBytes(bytes)
+        val kept=sut(root,history).preserve(journal,photo,true,false)
+        assertTrue(kept.evidencePath.isFile)
+        assertTrue(kept.blockingMarkerPath.isFile)
+        val forensic=B04PrivatePhotoForensicPolicy.inspect(
+            root,emptyList(),listOf(photo),
+            StabilizationRestoreWriteStep.BEFORE_PHOTOS,
+        )
+        assertTrue(forensic.demandsOwnerReview)
+        assertFalse(forensic.mayAutoResume)
+        assertFalse(forensic.mayDeletePendingFiles)
+    }
+
+    @Test fun existingForensicReviewMarkerCannotBeOverwritten() = sandbox {
+        root,history,folder ->
+        pending(folder).writeBytes(bytes)
+        val marker=File(folder,"." + photoId + ".restore.review")
+        marker.writeText("owner evidence")
+        assertThrows(IllegalStateException::class.java) {
+            sut(root,history).preserve(journal,photo,true,false)
+        }
+        assertEquals("owner evidence",marker.readText())
+        assertArrayEquals(bytes,pending(folder).readBytes())
+    }
+
 }
