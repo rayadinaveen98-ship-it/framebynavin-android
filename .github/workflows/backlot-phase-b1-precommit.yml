@@ -59,7 +59,7 @@ jobs:
               ('B01RestorePrecommitPolicyTest', 20),
               ('StabilizationPersonalMutationGateTest', 20),
               ('B04InterruptedRecoveryPolicyTest', 16),
-              ('StabilizationRestoreWriteAheadJournalTest', 15),
+              ('StabilizationRestoreWriteAheadJournalTest', 17),
               ('StabilizationVerifiedPhotoInstallerTest', 12),
           ):
               items=list(root.glob('TEST-*'+name+'.xml'))
