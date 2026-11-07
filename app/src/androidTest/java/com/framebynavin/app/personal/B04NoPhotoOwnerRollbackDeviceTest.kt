@@ -155,7 +155,7 @@ class B04NoPhotoOwnerRollbackDeviceTest {
             V301LocalRecoveryReader(app).read().components)
         assertEquals(original.photos,
             V301LocalRecoveryReader(app).read().photos)
-        assertEquals(original.reminders, PersonalReminderStore(app).load())
+        assertEquals(listOf(originalReminder), PersonalReminderStore(app).load())
         assertEquals(emptyList<V297Challenge>(),V297ChallengeStore(app).load())
         assertEquals(emptyList<V298ReminderGroup>(),V298ReminderGroupStore(app).load())
         val restoredDb = V289SpacesDatabase.open(app)
