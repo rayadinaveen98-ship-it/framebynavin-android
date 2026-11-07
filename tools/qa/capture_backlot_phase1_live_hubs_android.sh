@@ -16,7 +16,7 @@ root = Path("app/src/main/java/com/framebynavin/app/ui")
 for filename in [
     "V2232PersonalReminderHub.kt", "V157ReminderCenterUi.kt",
     "V295UniversalPersonalRoutines.kt", "V307CompactCreatorActivity.kt",
-    "V2193ReminderHistoryUi.kt",
+    "V2193ReminderHistoryUi.kt", "V274PersonalPurposeUi.kt",
 ]:
     raw = (root / filename).read_text()
     assert "MutedGold" not in raw, f"Legacy gold accent in {filename}"
@@ -25,12 +25,16 @@ for filename, action in [
     ("V157ReminderCenterUi.kt", "onOpenPersonal = onPersonal"),
 ]:
     assert action in (root / filename).read_text(), f"Navigation callback lost: {filename}"
-print("PASS: real Hubs and nested screens use no legacy gold; both navigation callbacks retained")
+editor = (root / "V2232PersonalReminderHub.kt").read_text()
+assert 'testTag("phase1-personal-toggle-suggestions")' in editor
+assert 'visible = suggestionsOpen' in editor
+assert 'Show Suggestions' in editor
+print("PASS: Director's Cut sources, navigation callbacks and progressive suggestion control present")
 PY
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
-echo "Running five shared and real-Hub callback instrumentation tests"
+echo "Running six shared, real-Hub, and editor disclosure instrumentation tests"
 timeout 12m adb shell am instrument -w \
   -e class com.framebynavin.app.ui.BacklotReminderHubChromeTest \
   -e hardeningTestEnvironment ci-emulator \
@@ -40,12 +44,12 @@ timeout 12m adb shell am instrument -w \
   exit 1
 }
 cat "$out/INSTRUMENTED-HUB-TESTS.txt"
-if ! grep -q 'OK (5 tests)' "$out/INSTRUMENTED-HUB-TESTS.txt"; then
+if ! grep -q 'OK (6 tests)' "$out/INSTRUMENTED-HUB-TESTS.txt"; then
   echo "Hub callback test count/result was not confirmed" >&2
   exit 1
 fi
 
-for scene in creator personal creator-light personal-light; do
+for scene in creator personal creator-light personal-light personal-editor personal-editor-light; do
   echo "Rendering LIVE Android 15 Hub $scene"
   # These are disposable CI-emulator packages. Each new scene starts empty:
   # real owner devices, records, notifications, or cloud are never connected.
@@ -81,4 +85,4 @@ done
 printf '%s\n' "$GITHUB_SHA" > "$out/SOURCE-COMMIT.txt"
 printf '%s\n' "Real production Hub Composables in debug-only Activity; synthetic Creator fixtures, empty fresh Personal data; not a release build or owner approval" > "$out/REVIEW-LIMITS.txt"
 (cd "$out" && sha256sum *.png > SHA256SUMS.txt)
-echo "Four LIVE Reminder Hub screenshots captured, guarded and checksum-verified."
+echo "Six live Hub/editor screenshots captured, guarded and checksum-verified."
