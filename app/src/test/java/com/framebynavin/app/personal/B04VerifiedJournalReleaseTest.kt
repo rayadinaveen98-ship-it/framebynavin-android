@@ -180,7 +180,7 @@ class B04VerifiedJournalReleaseTest {
         evidence(evidenceRoot, journal)
         val release = B04VerifiedJournalRelease(active, history, evidenceRoot)
         val archive = release.archiveVerified(journal, escrow, current, true)
-        assertThrows(IllegalStateException::class.java) {
+        assertThrows(IllegalArgumentException::class.java) {
             release.archiveVerified(journal, escrow, current, true)
         }
         assertEquals(journal, StabilizationRestoreWriteAheadJournal(archive).inspectAfterRestart())
