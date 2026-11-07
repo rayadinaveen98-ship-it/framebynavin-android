@@ -17,7 +17,7 @@ class B04OwnerRecoveryConsentPolicyTest {
             B04InterruptedRecoveryDisposition.INTERRUPTED_REQUIRES_AUTHENTICATED_REPAIR,
     ) = B04InterruptedRecoveryAssessment(
         tx, escrow, StabilizationRestoreWriteStep.PERSONAL_WRITTEN,
-        disposition, old,
+        101L, disposition, old,
     )
     private fun consent(
         choice: B04OwnerRecoveryChoice = B04OwnerRecoveryChoice.ROLLBACK_TO_AUTHENTICATED_ESCROW,
@@ -68,6 +68,10 @@ class B04OwnerRecoveryConsentPolicyTest {
         rejected(a = assessment().copy(transactionId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"))
     @Test fun inspectionEscrowMismatchIsRejected() =
         rejected(a = assessment().copy(escrowId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"))
+    @Test fun sameCheckpointButNewTimestampIsRejected() =
+        rejected(j = journal().copy(updatedAtMillis = 102L))
+    @Test fun staleAssessmentTimestampIsRejected() =
+        rejected(a = assessment().copy(journalUpdatedAtMillis = 100L))
     @Test fun staleCheckpointAssessmentIsRejected() =
         rejected(a = assessment().copy(lastDurableStep = StabilizationRestoreWriteStep.BEFORE_PERSONAL))
 }
