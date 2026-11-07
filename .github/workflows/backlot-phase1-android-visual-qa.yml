@@ -39,20 +39,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            mkdir -p output/backlot-phase1-option-A
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            for scene in cloud challenge-create challenge-dashboard alarm delete-account; do
-              adb shell am force-stop com.framebynavin.app || true
-              adb shell am start -W -n 'com.framebynavin.app/.phase1.Phase1VisualReviewActivity' --es phase1_screen "$scene"
-              sleep 3
-              adb shell dumpsys activity activities | grep -q 'Phase1VisualReviewActivity'
-              adb exec-out screencap -p > "output/backlot-phase1-option-A/$scene.png"
-              test -s "output/backlot-phase1-option-A/$scene.png"
-            done
-            echo "$GITHUB_SHA" > output/backlot-phase1-option-A/SOURCE-COMMIT.txt
-            (cd output/backlot-phase1-option-A && sha256sum *.png > SHA256SUMS.txt)
+          script: bash tools/qa/capture_backlot_phase1_android.sh
       - name: Upload real Android screenshot bundle
         uses: actions/upload-artifact@v4
         with:
