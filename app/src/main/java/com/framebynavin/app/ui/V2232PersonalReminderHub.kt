@@ -960,6 +960,17 @@ internal fun V2232PersonalEditor(
                                         },
                                         label = { Text(suggestion.label, fontSize = 11.sp) },
                                         modifier = Modifier.testTag("v288-suggestion-" + suggestion.name),
+                                        shape = RoundedCornerShape(18.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            containerColor = BacklotSurface,
+                                            labelColor = BacklotSecondaryText,
+                                            selectedContainerColor = BacklotSurfaceSelected,
+                                            selectedLabelColor = BacklotPrimaryText,
+                                        ),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (title == suggestion.title) BacklotAccent else BacklotBorder,
+                                        ),
                                     )
                                 }
                             }
@@ -967,14 +978,13 @@ internal fun V2232PersonalEditor(
                                 color = MutedText, fontSize = 12.sp)
                         }
                             V274PersonalPurposePicker(
-                            selected = purpose,
-                            onSelected = { selected ->
-                                title = PersonalSelfCarePresets.chooseTitle(title, purpose, selected)
-                                purpose = selected
-                                error = null
-                            },
-                        )
-    
+                                selected = purpose,
+                                onSelected = { selected ->
+                                    title = PersonalSelfCarePresets.chooseTitle(title, purpose, selected)
+                                    purpose = selected
+                                    error = null
+                                },
+                            )
                         }
                     }
                     Text("YOUR REMINDER", color = MutedText,
