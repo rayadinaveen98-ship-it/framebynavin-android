@@ -74,4 +74,43 @@ class B04OwnerRecoveryConsentPolicyTest {
         rejected(a = assessment().copy(journalUpdatedAtMillis = 100L))
     @Test fun staleCheckpointAssessmentIsRejected() =
         rejected(a = assessment().copy(lastDurableStep = StabilizationRestoreWriteStep.BEFORE_PERSONAL))
+    @Test fun finalizationRequiresMatchingTargetVerifyingJournal() {
+        val j = journal().copy(step = StabilizationRestoreWriteStep.VERIFYING)
+        val a = assessment(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION,
+        ).copy(
+            lastDurableStep = StabilizationRestoreWriteStep.VERIFYING,
+            observedSnapshotDigest = target,
+        )
+        val c = consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET)
+        val decision = B04OwnerRecoveryConsentPolicy.evaluate(j, a, c)
+        assertEquals(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET, decision.selectedChoice)
+        assertFalse(decision.grantsMutationAuthority)
+        assertFalse(decision.recoveryCompleted)
+    }
+
+    @Test fun partialTransactionCannotBeFinalizedWithoutExactTarget() {
+        val j = journal().copy(step = StabilizationRestoreWriteStep.VERIFYING)
+        val a = assessment().copy(lastDurableStep = StabilizationRestoreWriteStep.VERIFYING)
+        rejected(j, a, consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET))
+    }
+
+    @Test fun exactTargetAtEarlierCheckpointCannotSkipVerifyingState() {
+        val a = assessment(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION
+        ).copy(observedSnapshotDigest = target)
+        rejected(journal(), a, consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET))
+    }
+
+    @Test fun staleTargetDigestCannotBeFinalized() {
+        val j = journal().copy(step = StabilizationRestoreWriteStep.VERIFYING)
+        val a = assessment(
+            B04InterruptedRecoveryDisposition.TARGET_PRESENT_AWAITING_OWNER_FINALIZATION
+        ).copy(
+            lastDurableStep = StabilizationRestoreWriteStep.VERIFYING,
+            observedSnapshotDigest = old,
+        )
+        rejected(j, a, consent(B04OwnerRecoveryChoice.FINALIZE_VERIFIED_TARGET))
+    }
+
 }
