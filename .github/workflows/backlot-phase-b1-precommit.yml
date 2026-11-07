@@ -62,7 +62,7 @@ jobs:
               ('B04OwnerRecoveryConsentPolicyTest', 26),
               ('B04VerifiedCompletionEvidenceTest', 16),
               ('B04VerifiedJournalReleaseTest', 12),
-              ('B04RecoveryDomainCheckpointPolicyTest', 17),
+              ('B04RecoveryDomainCheckpointPolicyTest', 25),
               ('B04PrivatePhotoForensicPolicyTest', 15),
               ('B04ForwardReplayPlanPolicyTest', 19),
               ('B04NoPhotoRollbackDeltaPolicyTest', 12),

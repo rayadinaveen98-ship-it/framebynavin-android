@@ -143,4 +143,65 @@ class B04RecoveryDomainCheckpointPolicyTest {
             assertFalse(assessment.mayAutomaticallyResume)
         }
     }
+    private fun reverse(step: B04RollbackWriteStep, c: V300PersonalComponents) =
+        B04RecoveryDomainCheckpointPolicy.inspectRollback(
+            B04RollbackJournalRecord(
+                transactionId = "e751c74e-8d47-4f69-bd46-c95c45d04c01",
+                escrowId = "613c863a-b019-4085-9df3-5f38b84454ea",
+                forwardStepAtApproval = StabilizationRestoreWriteStep.GROUPS_WRITTEN,
+                originalDigest = V304RestorePlanPolicy.fingerprint(baseline, emptyList()),
+                targetDigest = V304RestorePlanPolicy.fingerprint(target, emptyList()),
+                step = step, createdAtMillis = 1000L, updatedAtMillis = 1001L,
+            ),
+            baseline, target, c,
+        )
+
+    @Test fun reversePreparedAllowsMixedOriginalAndTarget() {
+        val c = target.copy(spaces = baseline.spaces)
+        val result = reverse(B04RollbackWriteStep.PREPARED, c)
+        assertEquals(B04RecoveryDomainState.ORIGINAL, result.states[B04RecoveryDomain.SPACES])
+        assertEquals(B04RecoveryDomainState.TARGET, result.states[B04RecoveryDomain.PERSONAL])
+        assertFalse(result.grantsRestoreAuthority)
+    }
+    @Test fun reverseBeforeSpacesAllowsEitherAtomicSnapshot() {
+        assertEquals(B04RecoveryDomainState.TARGET,
+            reverse(B04RollbackWriteStep.BEFORE_SPACES, target)
+                .states[B04RecoveryDomain.SPACES])
+    }
+    @Test fun spacesRevertedMustMatchOwnerBaseline() {
+        assertThrows(IllegalArgumentException::class.java) {
+            reverse(B04RollbackWriteStep.SPACES_REVERTED, target)
+        }
+    }
+    @Test fun spacesRevertedAllowsOtherDomainsStillImported() {
+        val c = target.copy(spaces = baseline.spaces)
+        assertEquals(B04RecoveryDomainState.ORIGINAL,
+            reverse(B04RollbackWriteStep.SPACES_REVERTED, c)
+                .states[B04RecoveryDomain.SPACES])
+    }
+    @Test fun groupsRevertedRejectsImportRemaining() {
+        val c = target.copy(spaces = baseline.spaces)
+        assertThrows(IllegalArgumentException::class.java) {
+            reverse(B04RollbackWriteStep.GROUPS_REVERTED, c)
+        }
+    }
+    @Test fun challengesRevertedRejectsImportedChallenge() {
+        val c = target.copy(spaces = baseline.spaces, groups = baseline.groups)
+        assertThrows(IllegalArgumentException::class.java) {
+            reverse(B04RollbackWriteStep.CHALLENGES_REVERTED, c)
+        }
+    }
+    @Test fun personalRevertedRequiresEveryOriginalStore() {
+        val c = baseline.copy(personal = target.personal)
+        assertThrows(IllegalArgumentException::class.java) {
+            reverse(B04RollbackWriteStep.PERSONAL_REVERTED, c)
+        }
+    }
+    @Test fun verifiedRollbackProvesAllFourOwnerDomainsOriginal() {
+        val result = reverse(B04RollbackWriteStep.VERIFIED, baseline)
+        assertEquals(4, result.states.size)
+        assertTrue(result.states.values.all { it == B04RecoveryDomainState.ORIGINAL })
+        assertFalse(result.mayAutomaticallyResume)
+    }
+
 }

@@ -75,6 +75,72 @@ internal object B04RecoveryDomainCheckpointPolicy {
         return B04RecoveryDomainAssessment(journal.step, statuses)
     }
 
+    /**
+     * After rollback PREPARED, the forward journal is intentionally frozen.
+     * A separate rollback journal establishes the REVERSE checkpoint order:
+     * completed reverse stages must equal the owner baseline; unfinished
+     * atomic stores may be baseline or imported target, but never third data.
+     */
+    fun inspectRollback(
+        rollback: B04RollbackJournalRecord,
+        original: V300PersonalComponents,
+        target: V300PersonalComponents,
+        observed: V300PersonalComponents,
+    ): B04RecoveryDomainAssessment {
+        B04RollbackJournalCodec.validate(rollback)
+        require(V304RestorePlanPolicy.fingerprint(original, emptyList()) ==
+            rollback.originalDigest &&
+            V304RestorePlanPolicy.fingerprint(target, emptyList()) ==
+                rollback.targetDigest) {
+            "Owner rollback snapshots do not match retained encrypted archives"
+        }
+        val result = linkedMapOf<B04RecoveryDomain, B04RecoveryDomainState>()
+        fun <T> reverse(
+            domain: B04RecoveryDomain,
+            revertedAt: B04RollbackWriteStep,
+            baseline: T, imported: T, live: T,
+        ) {
+            val wasOriginal = live == baseline
+            val wasTarget = live == imported
+            require(wasOriginal || wasTarget) {
+                "Unknown $domain data introduced while rollback was interrupted"
+            }
+            if (rollback.step.ordinal >= revertedAt.ordinal) {
+                require(wasOriginal) {
+                    "$domain must match original owner data after its rollback checkpoint"
+                }
+            }
+            result[domain] = when {
+                wasOriginal && wasTarget -> B04RecoveryDomainState.UNCHANGED
+                wasOriginal -> B04RecoveryDomainState.ORIGINAL
+                else -> B04RecoveryDomainState.TARGET
+            }
+        }
+        reverse(
+            B04RecoveryDomain.SPACES, B04RollbackWriteStep.SPACES_REVERTED,
+            spaces(original), spaces(target), spaces(observed),
+        )
+        reverse(
+            B04RecoveryDomain.GROUPS, B04RollbackWriteStep.GROUPS_REVERTED,
+            V298ReminderGroupCodec.decode(original.groups).sortedBy { it.id },
+            V298ReminderGroupCodec.decode(target.groups).sortedBy { it.id },
+            V298ReminderGroupCodec.decode(observed.groups).sortedBy { it.id },
+        )
+        reverse(
+            B04RecoveryDomain.CHALLENGES, B04RollbackWriteStep.CHALLENGES_REVERTED,
+            V297ChallengeCodec.decode(original.challenges).sortedBy { it.id },
+            V297ChallengeCodec.decode(target.challenges).sortedBy { it.id },
+            V297ChallengeCodec.decode(observed.challenges).sortedBy { it.id },
+        )
+        reverse(
+            B04RecoveryDomain.PERSONAL, B04RollbackWriteStep.PERSONAL_REVERTED,
+            personal(original.personal), personal(target.personal), personal(observed.personal),
+        )
+        return B04RecoveryDomainAssessment(
+            rollback.forwardStepAtApproval, result,
+        )
+    }
+
     private fun personal(raw: String): Pair<List<PersonalReminder>, List<PersonalCompletionEvent>> {
         val parsed = PersonalCompletionBackupCodec.decode(raw)
         val sanitized = PersonalBackupPolicy.resetDeviceLeases(parsed.reminders)
