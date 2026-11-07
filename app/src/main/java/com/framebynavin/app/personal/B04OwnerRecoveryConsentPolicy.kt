@@ -74,6 +74,19 @@ internal object B04OwnerRecoveryConsentPolicy {
                 "A verified target may be finalized only with fresh matching owner evidence"
             }
         }
+        // Forward replay is not yet proven idempotent at each write boundary.
+        // In particular, never replay photo CREATE_NEW after an uncertain crash.
+        require(consent.selectedChoice != B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET) {
+            "Forward resume requires separately verified idempotent per-store recovery"
+        }
+        return B04OwnerRecoveryDecision(
+            transactionId = journal.transactionId,
+            selectedChoice = consent.selectedChoice,
+            originalDigest = journal.originalDigest,
+            targetDigest = journal.targetDigest,
+            escrowId = journal.escrowId,
+        )
+    }
     /**
      * Separate, narrow owner consent path for an independently validated
      * forward plan. Unlike general evaluate(), this requires a checkpoint
@@ -122,17 +135,5 @@ internal object B04OwnerRecoveryConsentPolicy {
         )
     }
 
-        // Forward replay is not yet proven idempotent at each write boundary.
-        // In particular, never replay photo CREATE_NEW after an uncertain crash.
-        require(consent.selectedChoice != B04OwnerRecoveryChoice.RESUME_AUTHENTICATED_TARGET) {
-            "Forward resume requires separately verified idempotent per-store recovery"
-        }
-        return B04OwnerRecoveryDecision(
-            transactionId = journal.transactionId,
-            selectedChoice = consent.selectedChoice,
-            originalDigest = journal.originalDigest,
-            targetDigest = journal.targetDigest,
-            escrowId = journal.escrowId,
-        )
-    }
+
 }
