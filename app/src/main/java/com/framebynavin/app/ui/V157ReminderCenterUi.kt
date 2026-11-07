@@ -316,15 +316,28 @@ internal fun V157ReminderCenterUi(
                             .testTag("v219-hub-filters"),
                         horizontalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
+                        // Material3 FilterChip defaults pick a lavender primary
+                        // from the ambient MaterialTheme. Use Backlot's semantic
+                        // Director's Cut/Light tokens instead: no purple accents.
+                        val backlotFilterColors = FilterChipDefaults.filterChipColors(
+                            containerColor = BacklotSurface,
+                            labelColor = BacklotSecondaryText,
+                            selectedContainerColor = BacklotSurfaceSelected,
+                            selectedLabelColor = BacklotPrimaryText,
+                        )
                         V219ReminderHubFilter.entries.forEach { filter ->
+                            val activeFilter = !historyOpen && hubFilter == filter
                             FilterChip(
-                                selected = !historyOpen && hubFilter == filter,
+                                selected = activeFilter,
                                 onClick = { hubFilter = filter; historyOpen = false; selected = emptySet() },
                                 label = {
                                     Text("${filter.title} ${filter.count(matchingGroups)}", fontSize = 11.sp,
                                         maxLines = 1)
                                 },
                                 modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = backlotFilterColors,
+                                border = BorderStroke(1.dp, if (activeFilter) BacklotAccent else BacklotBorder),
                             )
                         }
                         FilterChip(
@@ -336,6 +349,9 @@ internal fun V157ReminderCenterUi(
                             },
                             label = { Text("History", fontSize = 11.sp, maxLines = 1) },
                             modifier = Modifier.testTag("v2193-history-tab"),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = backlotFilterColors,
+                            border = BorderStroke(1.dp, if (historyOpen) BacklotAccent else BacklotBorder),
                         )
                     }
                     } else {

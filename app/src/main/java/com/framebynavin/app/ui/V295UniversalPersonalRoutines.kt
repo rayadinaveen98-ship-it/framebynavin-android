@@ -82,7 +82,7 @@ internal fun V295UniversalPersonalRoutines(
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                             Icon(Icons.Outlined.EditCalendar, null,
-                                tint = MutedGold, modifier = Modifier.size(19.dp))
+                                tint = MutedText, modifier = Modifier.size(19.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(reminder.title, color = ProjectorIvory,
                                     fontSize = 13.sp, maxLines = 1,
@@ -97,7 +97,7 @@ internal fun V295UniversalPersonalRoutines(
                                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                             Icon(Icons.Outlined.ChevronRight, "Edit reminder",
-                                tint = MutedGold, modifier = Modifier.size(18.dp))
+                                tint = MutedText, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -114,7 +114,7 @@ internal fun V295UniversalPersonalRoutines(
             ) { Text("MY REMINDER GROUPS") }
             TextButton(onClick = onOpenSpaces,
                 modifier = Modifier.fillMaxWidth().testTag("v295-routines-open-spaces")) {
-                Text("MY SPACES · NOTES & PHOTOS", color = MutedGold)
+                Text("MY SPACES · NOTES & PHOTOS", color = RecRed)
             }
         }
     }

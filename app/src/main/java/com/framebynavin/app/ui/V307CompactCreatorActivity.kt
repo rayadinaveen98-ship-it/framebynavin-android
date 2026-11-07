@@ -105,7 +105,7 @@ internal fun V307CompactCreatorActivity(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                Icon(Icons.Outlined.NotificationsActive, null, tint = MutedGold)
+                Icon(Icons.Outlined.NotificationsActive, null, tint = MutedText)
                 Column(Modifier.weight(1f)) {
                     Text(
                         if (state.pending.isNotEmpty())
@@ -123,7 +123,7 @@ internal fun V307CompactCreatorActivity(
                     modifier = Modifier.testTag("v307-open-activity"),
                 ) {
                     Icon(Icons.Outlined.ChevronRight, "Open Activity Center",
-                        tint = MutedGold)
+                        tint = RecRed)
                 }
             }
             if (state.pending.isNotEmpty()) {
@@ -133,7 +133,7 @@ internal fun V307CompactCreatorActivity(
                         .testTag("v307-toggle-actions"),
                 ) {
                     Text(if (expanded) "HIDE RESPONSE CONTROLS" else "RESPOND NOW",
-                        color = MutedGold, fontSize = 11.sp)
+                        color = RecRed, fontSize = 11.sp)
                 }
             }
             if (expanded) {
@@ -156,7 +156,7 @@ internal fun V307CompactCreatorActivity(
                     onClick = onOpenActivityCenter,
                     modifier = Modifier.fillMaxWidth().testTag("v307-review-delivery"),
                 ) {
-                    Text("REVIEW DELIVERY PROBLEMS", color = MutedGold, fontSize = 11.sp)
+                    Text("REVIEW DELIVERY PROBLEMS", color = RecRed, fontSize = 11.sp)
                 }
             }
         }
