@@ -54,7 +54,8 @@ internal object B04OwnerRecoveryConsentPolicy {
             consent.targetDigest == journal.targetDigest &&
             assessment.transactionId == journal.transactionId &&
             assessment.escrowId == journal.escrowId &&
-            assessment.lastDurableStep == journal.step) {
+            assessment.lastDurableStep == journal.step &&
+            assessment.journalUpdatedAtMillis == journal.updatedAtMillis) {
             "Recovery consent is stale or bound to different authenticated evidence"
         }
         require(consent.selectedChoice != B04OwnerRecoveryChoice.INSPECT_ONLY) {
