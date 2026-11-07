@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: backlot-phase1-single-habit-policy-junit
+  cancel-in-progress: true
 jobs:
   habit-policy:
     runs-on: ubuntu-latest
@@ -22,7 +25,7 @@ jobs:
       - name: Compile and run Phase 1 habit policy and archive tests
         run: |
           set -euo pipefail
-          timeout 60m gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.Phase1HabitPolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitCodecTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          timeout 60m gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.Phase1HabitPolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitCodecTest' --tests 'com.framebynavin.app.personal.Phase1HabitMergePolicyTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Upload unit test evidence
         uses: actions/upload-artifact@v4
         if: always()
