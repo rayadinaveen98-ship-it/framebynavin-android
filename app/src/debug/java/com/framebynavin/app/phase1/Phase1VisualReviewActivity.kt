@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.framebynavin.app.ui.theme.FrameTheme
 import androidx.compose.ui.text.font.FontWeight
@@ -52,47 +53,61 @@ class Phase1VisualReviewActivity : ComponentActivity() {
             isAppearanceLightNavigationBars = lightHub
         }
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(background = Ink)) {
+            val view = LocalView.current
+            // React to Android 15's actual system-bar view flags AFTER setContent.
+            // Dark Director's Cut needs bright nav icons; Light needs dark ones.
+            SideEffect {
+                window.statusBarColor = reviewBackground.toArgb()
+                window.navigationBarColor = reviewBackground.toArgb()
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    window.isNavigationBarContrastEnforced = false
+                }
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = lightHub
+                    isAppearanceLightNavigationBars = lightHub
+                }
+            }
+            MaterialTheme(colorScheme = darkColorScheme(background = reviewBackground)) {
                 Phase1ApprovedPreview(scene)
             }
         }
     }
 }
 
-private val Ink = Phase1OptionAReviewTokens.Ink
-private val Panel = Phase1OptionAReviewTokens.Panel
-private val Raised = Phase1OptionAReviewTokens.Raised
-private val Border = Phase1OptionAReviewTokens.Border
-private val Ivory = Phase1OptionAReviewTokens.Ivory
-private val Muted = Phase1OptionAReviewTokens.Muted
-private val Gold = Phase1OptionAReviewTokens.Gold
-private val Peach = Phase1OptionAReviewTokens.Peach
-private val Coral = Phase1OptionAReviewTokens.Coral
-private val Warm = Phase1OptionAReviewTokens.WarmAction
-private val WarmPanel = Phase1OptionAReviewTokens.WarmPanel
-private val Rounded = RoundedCornerShape(19.dp)
+// These review screens now share the exact production Director's Cut palette.
+private val Ink = FrameTheme.DIRECTORS_CUT.palette.background
+private val Panel = FrameTheme.DIRECTORS_CUT.palette.surface
+private val Raised = FrameTheme.DIRECTORS_CUT.palette.surfaceRaised
+private val Border = FrameTheme.DIRECTORS_CUT.palette.line
+private val Ivory = FrameTheme.DIRECTORS_CUT.palette.foreground
+private val Muted = FrameTheme.DIRECTORS_CUT.palette.muted
+private val RecRed = FrameTheme.DIRECTORS_CUT.palette.primary
+private val RecRedDeep = FrameTheme.DIRECTORS_CUT.palette.primaryDeep
+private val RedPanel = Brush.horizontalGradient(listOf(Raised, RecRedDeep))
+private val Rounded = RoundedCornerShape(FrameTheme.DIRECTORS_CUT.profile.cardRadius)
 
 @Composable private fun Label(s:String){
-    Text(s, color=Gold, fontSize=10.sp, letterSpacing=2.sp, fontWeight=FontWeight.Bold)
+    Text(s, color=RecRed, fontSize=10.sp, letterSpacing=2.sp, fontWeight=FontWeight.Bold)
 }
 @Composable private fun Title(s:String){
-    Text(s, color=Ivory, fontSize=31.sp, lineHeight=35.sp, letterSpacing=(-.8).sp, fontWeight=FontWeight.Bold)
+    Text(s, color=Ivory, fontSize=30.sp, lineHeight=34.sp, letterSpacing=(-.8).sp, fontWeight=FontWeight.Bold)
 }
 @Composable private fun Note(s:String){
     Text(s,color=Muted,fontSize=13.sp,lineHeight=20.sp)
 }
 @Composable private fun Frame(warm:Boolean=false,content:@Composable ColumnScope.()->Unit){
-    Column(Modifier.fillMaxWidth().background(if(warm) WarmPanel else Brush.linearGradient(listOf(Panel,Panel)),Rounded)
-        .border(1.dp,if(warm)Color(0xFF786851) else Border,Rounded)
+    // 'warm' is a legacy fixture flag: the highlighted surface is now REC red, never amber.
+    Column(Modifier.fillMaxWidth().background(if(warm) RedPanel else Brush.linearGradient(listOf(Panel,Panel)),Rounded)
+        .border(1.dp,if(warm)RecRed.copy(alpha=.45f) else Border,Rounded)
         .padding(17.dp), verticalArrangement=Arrangement.spacedBy(11.dp),content=content)
 }
 @Composable private fun Caps(s:String){
     Text(s,color=Muted,letterSpacing=1.1.sp,fontSize=10.sp,fontWeight=FontWeight.Bold)
 }
 @Composable private fun Primary(s:String){
-    Box(Modifier.fillMaxWidth().height(50.dp).background(Warm,RoundedCornerShape(15.dp)),
+    Box(Modifier.fillMaxWidth().height(50.dp).background(RecRed,RoundedCornerShape(13.dp)),
         contentAlignment=Alignment.Center){
-        Text(s,color=Color(0xFF241B16),fontWeight=FontWeight.Bold,fontSize=16.sp)
+        Text(s,color=Ink,fontWeight=FontWeight.Bold,fontSize=16.sp)
     }
 }
 @Composable private fun Secondary(s:String){
@@ -102,8 +117,8 @@ private val Rounded = RoundedCornerShape(19.dp)
     }
 }
 @Composable private fun Chip(s:String,chosen:Boolean=false) {
-    Box(Modifier.border(1.dp,if(chosen) Gold else Border,RoundedCornerShape(28.dp))
-        .background(if(chosen) Color(0xFF2D231E) else Color.Transparent,RoundedCornerShape(28.dp))
+    Box(Modifier.border(1.dp,if(chosen) RecRed else Border,RoundedCornerShape(28.dp))
+        .background(if(chosen) RecRedDeep else Color.Transparent,RoundedCornerShape(28.dp))
         .padding(horizontal=10.dp,vertical=8.dp)){
         Text(s,color=if(chosen) Ivory else Muted,fontSize=11.sp)
     }
@@ -128,14 +143,33 @@ private val Rounded = RoundedCornerShape(19.dp)
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             if(hubScene) Phase1HubVisualReview(screen)
             else if(screen=="alarm") Alarm()
+            else if(screen=="challenge-create") {
+                // Keep the one primary action visible on compact Android screens.
+                Column(Modifier.fillMaxSize()) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())
+                        .padding(horizontal=18.dp).padding(top=20.dp,bottom=24.dp),
+                        verticalArrangement=Arrangement.spacedBy(14.dp)) {
+                        Header("?")
+                        Spacer(Modifier.height(10.dp))
+                        ChallengeCreate()
+                    }
+                    Column(Modifier.fillMaxWidth().background(Ink)
+                        .padding(horizontal=18.dp).padding(top=10.dp,bottom=10.dp),
+                        verticalArrangement=Arrangement.spacedBy(7.dp)) {
+                        HorizontalDivider(color=Border)
+                        Primary("Start my 21 days     →")
+                        Text("Preview concept · Nothing scheduled yet",color=Muted,fontSize=12.sp,
+                            textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
+                    }
+                }
+            }
             else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal=24.dp).padding(top=20.dp,bottom=28.dp),
+                .padding(horizontal=18.dp).padding(top=20.dp,bottom=28.dp),
                 verticalArrangement=Arrangement.spacedBy(14.dp)){
-                Header(if(screen=="challenge-create"||screen=="delete-account")"?" else "···")
+                Header(if(screen=="delete-account")"?" else "···")
                 Spacer(Modifier.height(10.dp))
                 when(screen){
                     "cloud"->Cloud()
-                    "challenge-create"->ChallengeCreate()
                     "challenge-dashboard"->ChallengeDashboard()
                     "delete-account"->DeleteAccount()
                     else->Text("Review screen unavailable",color=Ivory)
@@ -152,8 +186,8 @@ private val Rounded = RoundedCornerShape(19.dp)
     Frame(warm=true) {
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,
             verticalAlignment=Alignment.CenterVertically){
-            Text("◌ Not backed up yet",color=Gold,fontSize=12.sp,
-                modifier=Modifier.background(Color(0xFF2F231C),RoundedCornerShape(10.dp)).padding(9.dp))
+            Text("◌ Not backed up yet",color=RecRed,fontSize=12.sp,
+                modifier=Modifier.background(RecRedDeep,RoundedCornerShape(10.dp)).padding(9.dp))
             Text("☁",color=Ivory,fontSize=17.sp)
         }
         Text("No verified cloud snapshot",color=Ivory,
@@ -184,7 +218,7 @@ private val Rounded = RoundedCornerShape(19.dp)
             Text("🔒",fontSize=16.sp)
             Text("Backups require authentication",color=Muted,fontSize=12.sp,
                 modifier=Modifier.weight(1f))
-            Text("Read more ›",color=Gold,fontSize=12.sp)
+            Text("Read more ›",color=RecRed,fontSize=12.sp)
         }
     }
 }
@@ -208,11 +242,8 @@ private val Rounded = RoundedCornerShape(19.dp)
     }
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
         Note("Advanced: missed days, pause, notes")
-        Text("Show ›",color=Gold,fontSize=14.sp)
+        Text("Show ›",color=RecRed,fontSize=14.sp)
     }
-    Primary("Start my 21 days     →")
-    Text("Preview concept · Nothing scheduled yet",color=Muted,fontSize=12.sp,
-        textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth())
 }
 @Composable private fun ChallengeDashboard(){
     Label("21-DAY CHALLENGE")
@@ -227,11 +258,11 @@ private val Rounded = RoundedCornerShape(19.dp)
                 Text("Day 7",color=Ivory,fontSize=34.sp,fontWeight=FontWeight.Bold)
                 Text(" / 21",color=Muted,fontSize=18.sp,modifier=Modifier.padding(start=5.dp,bottom=5.dp))
             }
-            Text("◕",color=Gold,fontSize=34.sp)
+            Text("●",color=RecRed,fontSize=24.sp)
         }
         Note("6 days completed · current streak 6")
         LinearProgressIndicator(progress={6f/21f},modifier=Modifier.fillMaxWidth()
-            .height(7.dp),color=Coral,trackColor=Border)
+            .height(7.dp),color=RecRed,trackColor=Border)
     }
     Frame {
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
@@ -245,9 +276,9 @@ private val Rounded = RoundedCornerShape(19.dp)
                         val day=row*7+col
                         val done=day<7
                         Box(Modifier.weight(1f).aspectRatio(1f)
-                            .background(if(done) Gold else Raised,RoundedCornerShape(12.dp))
+                            .background(if(done) RecRed else Raised,RoundedCornerShape(12.dp))
                             .border(if(day==7)2.dp else 1.dp,
-                                if(day==7)Coral else if(done)Gold else Border,RoundedCornerShape(12.dp)),
+                                if(day==7)RecRed else if(done)RecRed else Border,RoundedCornerShape(12.dp)),
                             contentAlignment=Alignment.Center){
                             Text(if(done)"✓" else "$day",
                                 color=if(done)Ink else if(day==7)Ivory else Muted,
@@ -264,12 +295,12 @@ private val Rounded = RoundedCornerShape(19.dp)
                 Text("Today's activity",color=Ivory,fontSize=16.sp,fontWeight=FontWeight.Bold)
                 Note("Read 20 minutes · 7:30 AM reminder")
             }
-            Text("Today",color=Gold,fontSize=12.sp)
+            Text("Today",color=RecRed,fontSize=12.sp)
         }
     }
     Primary("✓   Mark today done")
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
-        Note("Write a note about today");Text("+ Add note",color=Gold,fontSize=14.sp)
+        Note("Write a note about today");Text("+ Add note",color=RecRed,fontSize=14.sp)
     }
     Text("Progress is always confirmed by you",color=Muted,
         fontSize=12.sp,modifier=Modifier.fillMaxWidth(),textAlign=TextAlign.Center)
@@ -282,7 +313,7 @@ private val Rounded = RoundedCornerShape(19.dp)
             val distance=sqrt((rx*rx+ry*ry).toFloat())
             val lit=abs(distance-5f)<1.4f
             drawCircle(
-                color=if(lit)if((x+y)%4==0)Gold else Coral else Color(0xFF985861),
+                color=if(lit)if((x+y)%4==0)RecRed else RecRed else Color(0xFF632322),
                 radius=if(lit)4.4.dp.toPx() else 2.4.dp.toPx(),
                 center=Offset(x*dx,y*dy),
             )
@@ -295,8 +326,8 @@ private val Rounded = RoundedCornerShape(19.dp)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,
             verticalAlignment=Alignment.CenterVertically){
             Label("BACKLOT ALERTS")
-            Text("ALARM",color=Gold,fontSize=12.sp,
-                modifier=Modifier.background(Color(0xFF30231C),RoundedCornerShape(9.dp))
+            Text("ALARM",color=RecRed,fontSize=12.sp,
+                modifier=Modifier.background(RecRedDeep,RoundedCornerShape(9.dp))
                     .padding(9.dp))
         }
         Spacer(Modifier.weight(.45f))
@@ -310,7 +341,7 @@ private val Rounded = RoundedCornerShape(19.dp)
             Text("Scheduled for 7:30 AM",modifier=Modifier.fillMaxWidth(),
                 color=Muted,textAlign=TextAlign.Center,fontSize=13.sp)
             Text("Full-screen where Android permits",modifier=Modifier.fillMaxWidth(),
-                color=Gold,textAlign=TextAlign.Center,fontSize=13.sp)
+                color=RecRed,textAlign=TextAlign.Center,fontSize=13.sp)
         }
         Spacer(Modifier.height(14.dp))
         Primary("✓   Done")
@@ -327,10 +358,10 @@ private val Rounded = RoundedCornerShape(19.dp)
     Title("Delete your\nBacklot account")
     Note("This is different from deleting a cloud backup. Review everything that will be removed.")
     Spacer(Modifier.height(3.dp))
-    Column(Modifier.fillMaxWidth().background(Color(0xFF281B21),Rounded)
-        .border(1.dp,Color(0xFF713947),Rounded).padding(16.dp),
+    Column(Modifier.fillMaxWidth().background(RecRedDeep,Rounded)
+        .border(1.dp,RecRed.copy(alpha=.6f),Rounded).padding(16.dp),
         verticalArrangement=Arrangement.spacedBy(7.dp)){
-        Text("⚠ Permanent action",color=Color(0xFFF0B5C0),
+        Text("⚠ Permanent action",color=Ivory,
             fontWeight=FontWeight.Bold,fontSize=17.sp)
         Text("Account removal requires recent verification. We only show ‘complete’ after the server confirms deletion.",
             color=Color(0xFFF0B5C0),fontSize=13.sp,lineHeight=20.sp)
@@ -341,7 +372,7 @@ private val Rounded = RoundedCornerShape(19.dp)
             "Cloud media and records","Data on this phone").forEachIndexed { idx,name->
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
                 Text(name,color=Muted,fontSize=12.sp,modifier=Modifier.weight(1f))
-                Text(if(idx==3)"Review first" else "Included ✓",color=Gold,fontSize=12.sp)
+                Text(if(idx==3)"Review first" else "Included ✓",color=if(idx==3)RecRed else Muted,fontSize=12.sp)
             }
             if(idx<3)HorizontalDivider(color=Border)
         }
@@ -352,10 +383,10 @@ private val Rounded = RoundedCornerShape(19.dp)
             fontWeight=FontWeight.Bold,fontSize=14.sp)
     }
     Box(Modifier.fillMaxWidth().height(51.dp)
-        .background(Color(0xFF3A2029),RoundedCornerShape(15.dp))
-        .border(1.dp,Color(0xFF99495D),RoundedCornerShape(15.dp)),
+        .background(RecRedDeep,RoundedCornerShape(15.dp))
+        .border(1.dp,RecRed,RoundedCornerShape(15.dp)),
         contentAlignment=Alignment.Center){
-        Text("Request account deletion",color=Color(0xFFF3BFC9),
+        Text("Request account deletion",color=Ivory,
             fontSize=15.sp,fontWeight=FontWeight.Bold)
     }
     Text("No live deletion connected in this prototype",color=Muted,
