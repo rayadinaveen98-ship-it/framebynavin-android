@@ -25,11 +25,11 @@ jobs:
       - name: Unit test routine configuration
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.PersonalRebuildSchedulePackTest' --no-daemon --no-parallel --max-workers=2 --stacktrace
+          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.PersonalRebuildSchedulePackTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8' --stacktrace
       - name: Build owner-upgrade-compatible signed preview
         run: |
           set -euo pipefail
-          gradle :app:assemblePersonalStable --no-daemon --no-parallel --max-workers=2 --stacktrace
+          gradle :app:assemblePersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8' --stacktrace
       - name: Verify build output and record checksum
         run: |
           set -euo pipefail
