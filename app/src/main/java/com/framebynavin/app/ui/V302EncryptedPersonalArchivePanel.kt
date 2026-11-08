@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.V300PersonalArchiveSource
+import com.framebynavin.app.cloud.PersonalArchiveCloudV2Manager
 import com.framebynavin.app.personal.Phase1V2ArchiveDryRun
 import com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport
 import com.framebynavin.app.personal.V301DomainDiff
@@ -44,6 +45,7 @@ internal fun V302EncryptedPersonalArchivePanel() {
     val context = LocalContext.current.applicationContext
     val exporter = remember(context) { V300PersonalArchiveSource(context) }
     val checker = remember(context) { Phase1V2ArchiveDryRun(context) }
+    val cloud = remember(context) { PersonalArchiveCloudV2Manager(context) }
     val scope = rememberCoroutineScope()
     var passphrase by remember { mutableStateOf("") } // Not saveable to a Bundle.
     var exportingSecret by remember { mutableStateOf<CharArray?>(null) }
@@ -227,6 +229,76 @@ internal fun V302EncryptedPersonalArchivePanel() {
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth().testTag("v302-preview-archive"),
             ) { Text("CHECK A FILE — NO RESTORE") }
+            HorizontalDivider(color = CinemaLine)
+            Text("PRIVATE ENCRYPTED CLOUD COPY", color = RecRed,
+                fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Uses the signed-in Backlot cloud account. All nine Personal " +
+                    "data areas are encrypted with the passphrase above, including " +
+                    "private photos and exact 21-day Done history. Only the first " +
+                    "cloud copy can be created here; existing history is never overwritten.",
+                color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+            )
+            OutlinedButton(
+                onClick = {
+                    val password = passphrase.toCharArray()
+                    passphrase = ""
+                    scope.launch {
+                        busy = true
+                        result = null
+                        try {
+                            val revision = cloud.createFirstCloudCopy(password)
+                            failed = false
+                            notice = "Cloud archive revision " + revision +
+                                " uploaded, read back and authenticated. " +
+                                "No local records were changed."
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (_: Exception) {
+                            failed = true
+                            notice = "Private cloud backup was not confirmed. " +
+                                "Sign in via Sync, or review an existing cloud copy. " +
+                                "Nothing local was replaced."
+                        } finally {
+                            password.fill('\u0000')
+                            busy = false
+                        }
+                    }
+                },
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().testTag("v302-upload-encrypted-cloud"),
+            ) { Text("SAVE FIRST ENCRYPTED CLOUD COPY") }
+            OutlinedButton(
+                onClick = {
+                    val password = passphrase.toCharArray()
+                    passphrase = ""
+                    scope.launch {
+                        busy = true
+                        result = null
+                        try {
+                            val checked = cloud.inspectCloudCopy(password)
+                            result = checked.report
+                            detailOpen = false
+                            failed = false
+                            notice = "Private cloud archive revision " +
+                                checked.revision + " downloaded and authenticated. " +
+                                "Nothing was imported."
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (_: Exception) {
+                            failed = true
+                            notice = "No readable Personal cloud archive was verified. " +
+                                "Check your signed-in account and archive passphrase. " +
+                                "Local records were not changed."
+                        } finally {
+                            password.fill('\u0000')
+                            busy = false
+                        }
+                    }
+                },
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().testTag("v302-check-encrypted-cloud"),
+            ) { Text("CHECK ENCRYPTED CLOUD COPY — NO RESTORE") }
             if (busy) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text("Verifying Personal archive…", color = MutedText, fontSize = 12.sp)
