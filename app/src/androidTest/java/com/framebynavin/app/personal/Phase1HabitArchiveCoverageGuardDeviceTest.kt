@@ -3,6 +3,7 @@ package com.framebynavin.app.personal
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.Instant
 import java.time.LocalDate
@@ -15,13 +16,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * An encrypted "complete" V300 archive cannot silently omit the independent
- * one-activity 21-day challenge DataStore. Executed on a cleared Android CI
+ * The versioned encrypted ZIP must include exact new challenge Done receipts,
+ * without changing legacy Personal/V297 data. Executed on cleared Android CI
  * emulator ONLY; never touches user devices, cloud, reminders or account data.
  */
 @RunWith(AndroidJUnit4::class)
 class Phase1HabitArchiveCoverageGuardDeviceTest {
-    @Test fun savedChallengeBlocksIncompleteEncryptedZipBeforeFirstByte() = runBlocking {
+    @Test fun verifiedVersionTwoArchivePreservesExactChallengeDoneReceipt() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
         val journal = StabilizationPersonalMutationGate.journalRootFor(app)
@@ -33,12 +34,10 @@ class Phase1HabitArchiveCoverageGuardDeviceTest {
         check(habits.load().isEmpty() && older.load().isEmpty() && personal.load().isEmpty()) {
             "Requires a clean disposable emulator; refuse to overwrite existing records"
         }
-
-        val start = LocalDate.of(2026, 11, 7)
         val confirmed = Phase1HabitChallenge(
             id = "archive-coverage-fixture",
             activity = "Practice guitar",
-            startDate = start,
+            startDate = LocalDate.of(2026, 11, 7),
             zoneId = "Asia/Kolkata",
             alertTime = LocalTime.of(7, 30),
             alertKind = Phase1HabitAlertKind.ALARM,
@@ -46,15 +45,23 @@ class Phase1HabitArchiveCoverageGuardDeviceTest {
         habits.create(confirmed)
         val before = habits.exportJson()
 
+        val password = "ci-only-passphrase".toCharArray()
         val bytes = ByteArrayOutputStream()
-        val attempt = runCatching {
-            V300PersonalArchiveSource(app).export("ci-only-passphrase".toCharArray(), bytes)
+        V300PersonalArchiveSource(app).export(password, bytes)
+        assertTrue("Complete versioned ZIP exists", bytes.size() > 0)
+        val preview = V300PersonalArchiveSource(app).verify(
+            password, ByteArrayInputStream(bytes.toByteArray()),
+        )
+        assertEquals(1, preview.singleActivityChallenges)
+        assertEquals(1, preview.singleActivityDoneReceipts)
+        V300EncryptedPersonalArchive.stageAndVerify(
+            ByteArrayInputStream(bytes.toByteArray()), password, app.cacheDir,
+        ).use { staged ->
+            assertEquals("Exact snapshot including confirmed instant", before,
+                staged.components.singleActivityChallenges)
+            assertEquals(confirmed, Phase1HabitCodec.decode(
+                requireNotNull(staged.components.singleActivityChallenges)).single())
         }
-        assertTrue("Must fail closed instead of claiming full archive", attempt.isFailure)
-        assertTrue(attempt.exceptionOrNull() is IllegalStateException)
-        assertTrue(attempt.exceptionOrNull()?.message.orEmpty()
-            .contains("Single-activity challenge progress"))
-        assertEquals("No misleading incomplete ZIP header", 0, bytes.size())
         assertEquals("Original immutable Done receipts survive", before, habits.exportJson())
         assertEquals(confirmed, Phase1HabitStore(app).load().single())
         assertFalse("Never wrote a legacy V297 plan", older.load().isNotEmpty())

@@ -12,6 +12,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.zip.ZipEntry
@@ -288,6 +289,66 @@ class V300EncryptedPersonalArchiveTest {
             }
             assertTrue(root.listFiles().orEmpty().isEmpty())
         } finally { root.deleteRecursively() }
+    }
+
+    @Test fun versionTwoSingleActivityDoneReceiptsSurviveEncryptedRoundTrip() {
+        val confirmed = Phase1HabitChallenge(
+            id = "encrypted-habit-21",
+            activity = "Practice guitar",
+            startDate = LocalDate.of(2026, 11, 7),
+            zoneId = "Asia/Kolkata",
+            alertTime = LocalTime.of(7, 30),
+            alertKind = Phase1HabitAlertKind.ALARM,
+        ).confirmToday(Instant.parse("2026-11-07T04:00:00Z"))
+        val habitJson = Phase1HabitCodec.encode(listOf(confirmed))
+        val data = components().copy(singleActivityChallenges = habitJson)
+        val out = ByteArrayOutputStream()
+        V300EncryptedPersonalArchive.write(data, emptyList(), passphrase, out)
+        assertFalse(out.toString(Charsets.ISO_8859_1).contains("Practice guitar"))
+        val root = File(System.getProperty("java.io.tmpdir"),
+            "v300-single-activity-${System.nanoTime()}")
+        check(root.mkdirs())
+        try {
+            V300EncryptedPersonalArchive.stageAndVerify(
+                ByteArrayInputStream(out.toByteArray()), passphrase, root,
+            ).use {
+                assertEquals(data, it.components)
+                assertEquals(confirmed, Phase1HabitCodec.decode(
+                    requireNotNull(it.components.singleActivityChallenges)).single())
+                assertTrue(it.photos.isEmpty())
+            }
+            assertTrue(root.listFiles().orEmpty().isEmpty())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun legacyVersionOneArchivesRemainReadableWithNoInventedChallengeReceipts() {
+        val root = File(System.getProperty("java.io.tmpdir"),
+            "v300-v1-compatible-${System.nanoTime()}")
+        check(root.mkdirs())
+        try {
+            V300EncryptedPersonalArchive.stageAndVerify(
+                ByteArrayInputStream(createArchive(includePhoto = false)), passphrase, root,
+            ).use {
+                assertEquals(null, it.components.singleActivityChallenges)
+                assertEquals(components(), it.components)
+            }
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun corruptSingleActivitySnapshotFailsBeforeAnyZipBytesAreWritten() {
+        val valid = Phase1HabitCodec.encode(listOf(Phase1HabitChallenge(
+            id = "archive-tamper-fixture", activity = "Practice guitar",
+            startDate = LocalDate.of(2026, 11, 7), zoneId = "Asia/Kolkata",
+        )))
+        val tampered = valid.replace("Practice guitar", "Falsified activity")
+        val out = ByteArrayOutputStream()
+        assertThrows(IllegalArgumentException::class.java) {
+            V300EncryptedPersonalArchive.write(
+                components().copy(singleActivityChallenges = tampered),
+                emptyList(), passphrase, out,
+            )
+        }
+        assertEquals(0, out.size())
     }
 
     private fun rewriteZip(
