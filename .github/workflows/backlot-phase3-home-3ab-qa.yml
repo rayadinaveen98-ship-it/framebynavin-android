@@ -38,6 +38,9 @@ jobs:
           ! grep -Fq 'onAdvance(selected.id)' "$home"
           grep -Fq 'nextMoveHasNoDuplicateStartAndContinueOpensSelectedProject' app/src/androidTest/java/com/framebynavin/app/ui/V220HomeConsolidationUiTest.kt
           grep -Fq 'workingProjectHasContinueAndFocusWithoutDuplicateStartButtons' app/src/androidTest/java/com/framebynavin/app/ui/V220HomeConsolidationUiTest.kt
+          grep -Fq 'phase3-project-begin' app/src/main/java/com/framebynavin/app/ui/V071WorkflowInlineContent.kt
+          grep -Fq 'onStart = vm::startTask,' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/Phase3ExplicitBeginProjectUiTest.kt
       - name: Compile app + Android instrumentations and run unit regression
         run: |
           set -euo pipefail
@@ -64,6 +67,11 @@ jobs:
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V220HomeConsolidationUiTest -e hardeningTestEnvironment ci-emulator -e backlotVisualProfile default com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/backlot-phase3-3ab/ANDROID-HOME-TEST.txt
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/backlot-phase3-3ab/ANDROID-HOME-TEST.txt; then exit 1; fi
             grep -Fq 'OK (5 tests)' output/backlot-phase3-3ab/ANDROID-HOME-TEST.txt
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.Phase3ExplicitBeginProjectUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/backlot-phase3-3ab/ANDROID-EXPLICIT-BEGIN-TEST.txt
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/backlot-phase3-3ab/ANDROID-EXPLICIT-BEGIN-TEST.txt; then exit 1; fi
+            grep -Fq 'OK (2 tests)' output/backlot-phase3-3ab/ANDROID-EXPLICIT-BEGIN-TEST.txt
+            adb exec-out run-as com.framebynavin.app cat "files/phase3-project-begin/planned-explicit-begin.png" > "output/backlot-phase3-3ab/phase3-planned-explicit-begin.png"
+            test -s output/backlot-phase3-3ab/phase3-planned-explicit-begin.png
             for scene in phase3-next-move-collapsed phase3-next-move-expanded phase3-working-home-actions; do
               adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-default-${scene}.png" > "output/backlot-phase3-3ab/v220-default-${scene}.png"
               test -s "output/backlot-phase3-3ab/v220-default-${scene}.png"
