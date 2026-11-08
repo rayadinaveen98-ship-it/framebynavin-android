@@ -56,14 +56,26 @@ class Phase1HabitStoreDeviceTest {
         assertNotNull("Previous valid revision retained before pause", previous)
         assertEquals(done, previous!!.single())
 
-        // Read-only import validation never mutates; duplicate identities
-        // cannot replace owner progress even during an approved additive import.
+        // A same-ID conflict is now a HARD ERROR, not a silent skip. The
+        // entire attempted import must leave local receipts and unrelated new
+        // records unchanged; it must not partially append the second ID.
         val maliciousSameId = original.copy(activity = "Replace the real activity")
         val additional = original.copy(id = "emulator-habit-2", activity = "Stretch")
         val importPayload = Phase1HabitCodec.encode(listOf(maliciousSameId, additional))
         assertEquals(listOf(maliciousSameId, additional), store.validateImport(importPayload))
         assertEquals(listOf(paused), store.load())
-        val merged = store.importMissingAfterApproval(importPayload)
+        val rejected = runCatching { store.importMissingAfterApproval(importPayload) }
+        assertTrue("Conflicting import must require owner review", rejected.isFailure)
+        assertTrue(rejected.exceptionOrNull() is IllegalArgumentException)
+        assertTrue(rejected.exceptionOrNull()?.message.orEmpty().contains("Owner review"))
+        assertEquals("No partial append after conflict", listOf(paused), store.load())
+        assertEquals(at, Phase1HabitStore(app).load().single().confirmations[start])
+
+        // An *identical* collision can remain idempotent, and a genuinely
+        // distinct challenge can be added without changing the original Done
+        // receipt or pause state.
+        val safePayload = Phase1HabitCodec.encode(listOf(paused, additional))
+        val merged = store.importMissingAfterApproval(safePayload)
         assertEquals(2, merged.size)
         assertEquals(paused, merged.single { it.id == original.id })
         assertEquals(additional, merged.single { it.id == additional.id })
