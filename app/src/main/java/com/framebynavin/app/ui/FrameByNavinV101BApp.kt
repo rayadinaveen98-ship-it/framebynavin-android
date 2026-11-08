@@ -488,6 +488,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 )
                 PTab.CREATE -> V131StudioScreen(
                     onQuickCreate = { openComposer(quick = true) },
+                    onStart = vm::startTask,
                     tasks = vm.tasks,
                     postPublishCheckpoints = vm.postPublishCheckpoints,
                     onAdd = { openComposer() },
