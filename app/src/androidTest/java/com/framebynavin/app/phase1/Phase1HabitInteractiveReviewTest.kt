@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import org.junit.Rule
@@ -22,6 +23,10 @@ class Phase1HabitInteractiveReviewTest {
         rule.setContent { FrameByNavinTheme { Phase1HabitInteractiveReview("create") } }
         rule.onNodeWithTag("habit-activity").assertExists()
         rule.onNodeWithTag("habit-start").performClick()
+        rule.onNodeWithTag("habit-error").assertExists()
+        rule.onNodeWithTag("habit-activity").performTextInput("Stretch for ten minutes")
+        rule.onNodeWithTag("habit-start").performClick()
+        rule.onNodeWithText("Stretch for ten minutes").assertExists()
         rule.onNodeWithText("Day 1 / 21").assertExists()
         rule.onNodeWithText("0 OF 21 DONE").assertExists()
         rule.onNodeWithTag("habit-done").performClick()
@@ -53,7 +58,9 @@ class Phase1HabitInteractiveReviewTest {
         rule.setContent { FrameByNavinTheme { Phase1HabitInteractiveReview("create-no-alert") } }
         rule.onNodeWithText("No alert. You can still mark each day done.").assertExists()
         rule.onNodeWithTag("habit-time").assertDoesNotExist()
+        rule.onNodeWithTag("habit-activity").performTextInput("Practice guitar")
         rule.onNodeWithTag("habit-start").performClick()
+        rule.onNodeWithText("Practice guitar").assertExists()
         rule.onNodeWithText("Day 1 / 21").assertExists()
         rule.onNodeWithText("0 OF 21 DONE").assertExists()
     }
