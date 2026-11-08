@@ -317,6 +317,7 @@ internal object StabilizationPersonalMutationGate {
     private fun ensureMatchingRecoveryJournal(
         root: File, expected: StabilizationRestoreJournalRecord,
     ) {
+        ensureNoCompetingV2Journal(root)
         val current = checkNotNull(
             StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart()
         ) { "Recovery transaction journal is missing" }
@@ -330,6 +331,7 @@ internal object StabilizationPersonalMutationGate {
     }
 
     private fun ensureMatchingRecoveryJournal(root: File, permit: RecoveryPermit) {
+        ensureNoCompetingV2Journal(root)
         val current = checkNotNull(
             StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart()
         ) { "Recovery transaction journal disappeared" }
@@ -340,7 +342,17 @@ internal object StabilizationPersonalMutationGate {
         }
     }
 
+    private fun ensureNoCompetingV2Journal(legacyRoot: File) {
+        check(!Files.exists(
+            Phase1V2RecoveryRoots.alongsideLegacy(legacyRoot).toPath(),
+            LinkOption.NOFOLLOW_LINKS,
+        )) {
+            "A v2 Personal recovery journal exists. Owner writes remain frozen."
+        }
+    }
+
     private fun ensureNoRecoveryJournal(journalRoot: File) {
+        ensureNoCompetingV2Journal(journalRoot)
         check(!Files.exists(journalRoot.toPath(), LinkOption.NOFOLLOW_LINKS)) {
             "Personal recovery is pending. Changes are paused until the owner " +
                 "reviews the encrypted recovery copy and transaction journal."

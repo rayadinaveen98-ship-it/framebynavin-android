@@ -19,6 +19,38 @@ class StabilizationPersonalMutationGateTest {
         try { block(File(temp, "restore-journal")) }
         finally { temp.deleteRecursively() }
     }
+    @Test fun preparedV2JournalBlocksAllOrdinaryOwnerMutation() = sandbox { journal ->
+        val v2 = Phase1V2RecoveryRoots.alongsideLegacy(journal)
+        check(v2.mkdir()) { "Could not create synthetic v2 journal marker" }
+        var mutated = false
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { mutated = true }
+            }
+        }
+        assertFalse(mutated)
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withStableSnapshot(journal) { "bad" }
+            }
+        }
+        assertTrue(v2.exists())
+    }
+
+    @Test fun nestedOwnerPermitCannotIgnoreNewV2RecoveryMarker() = sandbox { journal ->
+        StabilizationPersonalMutationGate.withOwnerMutation(journal) {
+            val v2 = Phase1V2RecoveryRoots.alongsideLegacy(journal)
+            check(v2.mkdir()) { "Could not create v2 marker" }
+            var mutated = false
+            try {
+                StabilizationPersonalMutationGate.withOwnerMutation(journal) { mutated = true }
+                throw AssertionError("Inherited permit bypassed v2 journal gate")
+            } catch (expected: IllegalStateException) {
+                assertFalse(mutated)
+            }
+        }
+    }
+
     @Test fun ordinaryWriteAllowedWhenNoJournalExists() = sandbox { journal ->
         var count = 0
         StabilizationPersonalMutationGate.withOwnerMutation(journal) { count++ }
