@@ -64,8 +64,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 321
-        versionName = "2.27.1-rc2-phase1-owner-review"
+        versionCode = 322
+        versionName = "2.27.2-owner-rebuild-schedule"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
