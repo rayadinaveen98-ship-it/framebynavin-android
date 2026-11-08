@@ -6,6 +6,12 @@ Planning baseline: V183 / 2.3.3 Stable Personal, reviewed source commit `aa9e1aa
 
 Help a solo creator capture thoughts, continue meaningful work, finish outputs and learn from publication with less administrative effort. Preserve the cinematic identity and the familiar project structure. Improve existing systems before adding parallel ones.
 
+## Execution-order decision — 8 November 2026
+
+**Owner direction:** Keep the historical phase numbers and deferred scope, but move broad **Phase 2 — Readability and interaction / whole-app visual polish** to the *end of feature development*, just before Phase 7 release hardening. Once the frozen reminder-focused Phase 1 is fully accepted, the next implementation is **Phase 3 — Home & Daily Experience**, followed by Phase 4 (Creator Workspace), Phase 5 (Planning/Automation), Phase 6A–6C (Insights), Phase 2 (whole-app visual polish), and Phase 7 (release/recovery). Phase 8 is an optional post-launch pilot/iteration operating phase, not an already approved feature release.
+
+**Source-of-truth distinction:** This master plan's old Phase 0/1A/1B analyses still inform data-safety and analytics work but do *not* imply completion of today's dedicated reminder Phase 1. The frozen Phase 1 source is PR #329 / issue #317; challenge cloud Sync Now coverage remains issue #327. **No Phase 3 code, merge, APK version increment, release promotion, or Home visual redesign is authorized merely by documenting this future phase.** Owner will review Phase 3 real-device references before visual implementation, and Phase 1 safety/acceptance gates cannot be silently skipped.
+
 ## Locked Insights: professional minimal-content standard (19 October 2026)
 
 This requirement was reconfirmed before V187 implementation. It applies to Overview, Content, Revenue, Creator, video detail, analytics drills, creator recommendations and cross-surface analytics presentations.
@@ -176,27 +182,98 @@ Work:
 
 Exit: compact-screen and 1.5×/2× font journeys remain usable; controls have clear labels; no inaccessible essential actions or clipped fields in tested configurations.
 
-## Phase 3 — Home, slideshow and daily execution
+## Phase 3 — Home & Daily Experience (owner-reviewed scope, 8 November 2026)
 
-Purpose: make Home personal and immediately useful.
+**Status: documented / NOT IMPLEMENTED.** Start implementation only after today's frozen reminder Phase 1 release decision and data-safety issues have explicit disposition. No silent changes to installed Build 320/321, no premature production merge. This section supersedes the older Phase 3 summary for future implementation.
 
-Default order:
-1. Greeting with photo-management action.
-2. Custom slideshow only when images exist.
-3. Continue your current project and a direct next-work action.
-4. A short next-up/commitments section.
-5. Relevant reminders or recovery needs.
-6. Collapsible Weekly Focus and performance highlights.
+### Product goal and current Build 321 evidence
 
-Work:
-- Implement the locked slideshow requirements above.
-- Preserve access to existing Home features while improving their priority. Put optional sections behind a small number of sensible controls rather than building a complex dashboard editor.
-- Clarify Continue Work, Focus and Complete Step. Continue opens the relevant workspace; Focus starts/resumes a session; completion stays explicit.
-- Explain why a project is recommended and allow a creator to select a different focus.
-- Make empty Home useful: save an idea or create a project. Avoid showing errors simply because no analytics account is connected.
-- Preserve an active Focus session across navigation/process interruption using durable session timing. Timer completion never completes the project automatically.
+Home must be a **launchpad for real work**, not an oversized command dashboard. One primary "Continue" action must open the project and relevant current working context; Focus is a separate optional and durable work session; project status and stage completion are not disguised as duplicate CTAs. Preserve the cinematic Director's Cut black/ivory/REC-red identity and existing authored data.
 
-Exit: existing slideshow collection survives; new images insert it automatically; no-image Home remains compact; a creator can identify and open next work without searching through results or setup cards.
+Owner's Build 321 screenshot and confirmed source audit:
+- `V18TodayScreen.PNextMoveCard` expanded details show "WHY THIS MOVE", "SIGNALS", internal "PRIORITY 1228", redundant "START THIS MOVE", two alternatives and "HIDE REASONING". The large card pushes the Reminder Hub down and the bottom navigation is near lower content.
+- The large "START THIS MOVE" and separate "WORKING/START" button both dispatch `onStart(selected.id)` to `CreatorViewModel.startTask`; if already WORKING, this often produces **no user-visible navigation or progress**, though existing reminder scheduling/working-quiet behavior may be refreshed. **Remove redundant Home CTAs, not the underlying state/quiet-period behavior.**
+- "FOCUS" sets `focusTaskId` and opens `PFocusScreen`: it immediately runs a 25-minute in-memory Compose timer; leaving destroys the timing state. Its "STEP DONE" calls `advanceWorkflowWithJourney` regardless of elapsed time. Timer completion itself does not confirm creative work.
+- The internal priority score is useful to *rank*, not to show as an unexplained user metric. `CreatorPriorityEngine` already exposes meaningful urgency and reasons; existing `openProject(id)` can route to a specific project while preserving the CreatorTask source of truth.
+
+### Frozen functional decisions / action contract
+
+| Current affordance | Phase 3 disposition | User-visible outcome |
+| --- | --- | --- |
+| "START THIS MOVE" inside expanded Next Move | **Remove duplicate CTA** | One primary Home **Continue** action below the selected project opens its actual work context. |
+| Separate "START/WORKING" Home button | **Remove button** | Show `READY` / `IN PROGRESS` as a non-clickable status only. Starting a planned project, when needed for reminder quiet-period logic, stays an **explicit** project workflow action. |
+| "FOCUS" | **Keep, rework** | Open an optional focus setup/session with explicit Start/Pause/Resume/Finish, durable state and honest time accounting. No automatic project-stage advancement. |
+| "MARK STEP DONE" / "MARK PUBLISHED" below Home card | **Move to project workflow** | Explicit confirmation in the relevant stage. Publishing must retain existing separate publication evidence and must never be inferred from timer completion. |
+| "WHY THIS MOVE" / "SIGNALS" | **Compact** | Default one useful action plus a short human-readable rationale; expand for explanation only if requested. |
+| "PRIORITY 1228" score | **Remove from UI** | Keep internal ranking calculation; display meaningful Overdue / Due Today / Critical / In Progress labels without false precision. |
+| "ALSO NOW" | **De-emphasize** | At most two other relevant projects, behind an optional disclosure, each tapping through to a real project. |
+
+### Implementation 3A — Home action cleanup (first candidate)
+
+- Replace dual Start buttons with a **single Continue** CTA and a passive current project status. Don't create a second project status store.
+- Condense Next Move to current stage/action, honest due state, and one-line reason; explanation/alternatives reveal only on tap. Do not expose numerical ranking scores.
+- Remove redundant Home **Mark Step Done**; preserve explicit completion and `CreatorPublicationEngine` semantics within Projects.
+- Guarantee every CTA either navigates or supplies accurate save/error feedback. A repeated tap must not enqueue duplicate project mutations, stage rewards or reminders.
+- **Gate:** on planned/working/overdue sample projects, no duplicate Start; correct status, due date and task selected; project and reminder data unchanged by merely opening Home.
+
+### Implementation 3B — Continue Work deep navigation
+
+- Reuse existing project route `openProject(id)` / `externalStudioId`; first deliver a verified **direct project opening** and return to Home with the same selected project.
+- Add a **stage-aware destination mapping** only when a real existing section/action exists (research, script, production, publication). Otherwise fall back visibly to the project overview, never to an unrelated editor or empty screen.
+- Navigating into a PLANNED project must **not** silently mark it WORKING. Provide an explicit "Begin project" workflow action when required; preserve `startTask`'s current smart-reminder/working quiet-period semantics and recheck scheduling, failures and idempotence.
+- Preserve current project, editor drafts, workflow stage and Home carousel selection through app navigation, cold start and optional detours.
+- **Gate:** correct project and stage for each content type; planned, working, archived, completed, and missing project states have sensible fallbacks; Back returns correctly and never advances a stage or reports publication.
+
+### Implementation 3C — Focus 2.0 (durable work sessions)
+
+- Focus is **optional** for the selected project/stage. Explicit Start; optional 15/25/45/60-minute preset selection (owner can approve final UI). Pause/Resume/Finish/Discard are distinct and understandable.
+- Maintain a single active session authority with project ID, stage ID, start/last-active timestamps, accumulated active duration, pause state and completion/abandonment outcome. Prefer existing persistence infrastructure; schema migration/rollback must be additive, and every new durable session must have a defined export/restore scope before release.
+- Recover after navigating away, screen rotation, app process death or reboot; calculate elapsed time from durable timestamps (not one-second Compose decrements). Handle clock changes, suspended app and timer expiration without fabricated minutes, duplicate notifications or unintended project edits.
+- Completion shows an **honest session summary** (actual active time), not a project accomplishment. Never call `advanceWorkflow` merely because a timer ends. If a stage really is complete, user can separately confirm inside the project workspace.
+- Do not add background alarm/foreground-service behavior without explicit permission/reliability and battery-policy review. User may finish/discard a session with no stage or project completion.
+- **Gate:** start/pause/resume/finish/discard, rotation, background, process death, reboot, second device backup/restore if synchronized, and simultaneous action tests; no phantom elapsed time or auto Done.
+
+### Implementation 3D — Smart Next Move clarity
+
+- Keep `CreatorPriorityEngine` as read-only ranking authority; do not create conflicting "AI decision" status or arbitrary urgency score.
+- Show the **recommended next real action** and a short, truthful reason grounded in deadline, priority and stage. Overdue/Today labels derive from valid stored timestamps; outdated `dueLabel` alone is not proof of an active deadline.
+- Provide optional "Why this?" and "Other projects" disclosures. Support choosing another existing project without editing a user's priorities. When a recommendation goes stale after edits, recompute from current `CreatorTask` data, not cached screen copy.
+- **Gate:** planned/working/overdue/critical/archived/completed combinations, equal-score ties, missing/stale due dates, no projects, multiple projects, and delayed state reload do not show impossible instructions or numeric internal scores.
+
+### Implementation 3E — Home hierarchy and preserved features
+
+Keep the approved Home order while reducing excessive card height:
+1. Greeting + compact Spark; existing slideshow photo-management control.
+2. Slideshow **only if images exist**, using the *locked Home slideshow requirements* earlier in this document, with no empty banner.
+3. Optional connected Top 3 video results above Up Next as currently established; never show fake zero metrics if disconnected.
+4. One Up Next project + compact Next Move/Continue; optional Focus secondary.
+5. Reminder Hub with real active/needs-attention state, not a duplicate Home alerts list.
+6. Existing creator progress strip, Weekly Focus and performance highlights as secondary/collapsed information.
+
+- Preserve existing images, slide order/playback/reduced-motion, Spark, Top 3, Idea Vault / plus navigation, projects, reminders and home quick capture.
+- Check user screenshot's apparent bottom-nav overlap against **real** Android 15 navigation bars, keyboard and content scroll; fix inset/scroll clearance only when reproduced. Do not blindly increase padding.
+- Retain actual completed/working status and accurate loading/empty/error/offline states.
+- **Gate:** no lost buttons, hidden required controls or unexpected vertical blank areas on compact displays; Reminder Hub remains accessible; current selected project persists through recompositions.
+
+### Implementation 3F — Test, design approval and owner APK
+
+**Design before implementation:** Capture baseline Build 321 native Home screen(s), document before/after interaction map, present 2–3 *actual Android implementation-feasible* Home states for owner review (collapsed, "Why this?" expanded, active Focus). **Do not independently lock new visual decisions** before the owner approves. No separate showpiece-only prototype as the final product.
+
+Each bounded candidate needs its own exact source SHA, screenshots, tests, signed-owner-APK provenance and recoverable update plan. Specific QA:
+- Buttons: Continue, Focus, Why this, Other projects, Home project switch, Reminder Hub, Back, project Begin/Finish all navigate or give verified feedback; no dead or duplicated CTA.
+- Persistence: Focus timing and session history after pause/force stop/rotation/reboot; project stage and publication remain unchanged unless explicitly confirmed; Smart reminder working-quiet logic preserved.
+- Layout: Android 11/15, narrow screen, 1.5x/2x fonts, English/Telugu mixed text, light/dark semantic Director's Cut, gesture/3-button nav, keyboard and TalkBack.
+- Preserved modules: zero/one/multiple Home images, slideshow editor/restore, Spark, Top 3 disconnected/connected, offline Home, Personal/Creator Reminder Hub and Spaces, and Build 321-to-next **in-place signed** upgrade without clearing existing owner data.
+- Security/recovery: verify backup scope for new focus session data; fail closed if incomplete rather than claiming full cloud coverage. Preserve all Phase 1 challenge, Space, photo, and Personal restore protection.
+- Final owner approval on a **physical phone**. Test evidence may justify a review APK but not a production/Play release.
+
+**Controlled release sequence:** 3A+3B (Home action/Continue) -> owner navigation acceptance -> 3C (Focus durability) -> 3D (recommendation logic) -> 3E (hierarchy/slideshow preservation) -> 3F regression/owner APK and sign-off. If 3A/3B reveal a common structural blocker, fix the smallest root cause rather than adding features to unrelated screens.
+
+### Phase 3 exit criteria
+
+A returning creator can select a real active project and **reach the relevant working context in one intentional Continue tap** (with documented overview fallback); no dead Home CTAs or raw internal scores; optional Focus survives interruption and records only actual session activity; Home remains compact, readable and fully usable with existing slideshow/Spark/Insights/reminders; old and new data survive an in-place upgrade. All updated screens have approved real Android screenshot evidence and passing functional/device acceptance.
+
+**Out of scope:** whole-app Phase 2 visual overhaul (explicitly deferred until after Phase 6), new recommendation engines or speculative AI, new Spaces architecture, new Focus gamification, social features, redesigned reminders unrelated to Home, automatic publication, and any Phase 1 sync bypass.
 
 ## Phase 4 — Projects and the creator workspace
 
