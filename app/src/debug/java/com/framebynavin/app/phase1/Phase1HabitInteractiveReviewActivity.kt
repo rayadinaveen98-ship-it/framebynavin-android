@@ -90,7 +90,8 @@ private fun seeded(scene: String): Phase1HabitChallenge? {
 internal fun Phase1HabitInteractiveReview(scene: String = "create") {
     val now = if (scene.startsWith("day7")) seventhNow else firstNow
     var challenge by remember(scene) { mutableStateOf(seeded(scene)) }
-    var title by remember(scene) { mutableStateOf("Read 20 minutes") }
+    // The person defines the activity; never seed a prescribed routine.
+    var title by remember(scene) { mutableStateOf("") }
     var date by remember(scene) { mutableStateOf(LocalDate.of(2026, 11, 7)) }
     var mode by remember(scene) {
         mutableStateOf<Phase1HabitAlertKind?>(
