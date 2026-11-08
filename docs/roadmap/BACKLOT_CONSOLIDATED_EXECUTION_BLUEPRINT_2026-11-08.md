@@ -1,6 +1,6 @@
 # Backlot — consolidated implementation blueprint (8 November 2026)
 
-**Status: owner-review PLANNING document, not a feature release or permission to merge.**
+**Status: OWNER-APPROVED EXECUTION PLAN — SCOPE LOCKED 2026-11-08.** This is the canonical planned sequence and scope. Approval permits beginning implementation work on isolated feature branches, but is NOT acceptance of unfinished Phase 1, not permission to merge incomplete code, and not a production or Play Store release approval.
 **Baseline:** owner-preview Build 321 / Phase 1 source c1e10ae8ff34c63c0e0ab41a5215a075dcf97ff9, integration PR #329. Phase 3 detailed plan is in the updated older master roadmap and draft PR #330 / issue #331.
 **Input:** the owner's 13-item "Point-by-point analysis and product decisions" document, the existing Backlot master roadmap, the owner's Build 321 Home screenshot/functional observations, and the Nov 8 phase-order decision.
 **Ownership:** the user approves visual direction and final Android results; engineering must not invent acceptance, production readiness, or a verified cloud backup without tests.
