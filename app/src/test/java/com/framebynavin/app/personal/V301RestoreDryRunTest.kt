@@ -182,6 +182,39 @@ class V301RestoreDryRunTest {
         }
     }
 
+
+    @Test fun legacyRestorePreviewRejectsNewChallengeArchiveEvenWithExactDoneReceipt() {
+        val challenge = Phase1HabitChallenge(
+            id = "legacy-unsafe-restore", activity = "Practice",
+            startDate = LocalDate.of(2026, 11, 7), zoneId = "Asia/Kolkata",
+        ).confirmToday(java.time.Instant.parse("2026-11-07T04:00:00Z"))
+        val incoming = bundle().copy(
+            singleActivityChallenges = Phase1HabitCodec.encode(listOf(challenge)),
+        )
+        val error = assertThrows(IllegalStateException::class.java) {
+            V301RestoreDryRun.compare(local(), incoming, emptyList())
+        }
+        assertTrue(error.message.orEmpty().contains("version-aware restore"))
+    }
+
+    @Test fun legacyRestorePreviewRejectsNewArchiveEvenWhenNoChallengesWereRecorded() {
+        val incoming = bundle().copy(
+            singleActivityChallenges = Phase1HabitCodec.encode(emptyList()),
+        )
+        assertThrows(IllegalStateException::class.java) {
+            V301RestoreDryRun.compare(local(), incoming, emptyList())
+        }
+    }
+
+    @Test fun legacyRestorePreviewRejectsLocalV2SnapshotToPreventDowngrade() {
+        val alreadyVersioned = bundle().copy(
+            singleActivityChallenges = Phase1HabitCodec.encode(emptyList()),
+        )
+        assertThrows(IllegalStateException::class.java) {
+            V301RestoreDryRun.compare(local(alreadyVersioned), bundle(), emptyList())
+        }
+    }
+
     @Test fun domainCountsRejectInconsistentTotal() {
         assertThrows(IllegalArgumentException::class.java) {
             V301DomainDiff(proposed = 2, newRecords = 1, identical = 0,

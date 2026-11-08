@@ -29,7 +29,7 @@ jobs:
       - name: Run ALL frozen 21-day policy, codec, merge and alarm safety JUnit tests
         run: |
           set -euo pipefail
-          timeout 25m gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.Phase1HabitPolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitCodecTest' --tests 'com.framebynavin.app.personal.Phase1HabitMergePolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitAlarmPlanTest' --tests 'com.framebynavin.app.cloud.PersonalCloudChallengeCoveragePolicyTest' --tests 'com.framebynavin.app.personal.V300EncryptedPersonalArchiveTest' --tests 'com.framebynavin.app.cloud.PersonalCloudPortableSnapshotTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          timeout 25m gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.Phase1HabitPolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitCodecTest' --tests 'com.framebynavin.app.personal.Phase1HabitMergePolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitAlarmPlanTest' --tests 'com.framebynavin.app.cloud.PersonalCloudChallengeCoveragePolicyTest' --tests 'com.framebynavin.app.personal.V300EncryptedPersonalArchiveTest' --tests 'com.framebynavin.app.cloud.PersonalCloudPortableSnapshotTest' --tests 'com.framebynavin.app.personal.V301RestoreDryRunTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Enable Android emulator KVM
         run: |
           set -euo pipefail

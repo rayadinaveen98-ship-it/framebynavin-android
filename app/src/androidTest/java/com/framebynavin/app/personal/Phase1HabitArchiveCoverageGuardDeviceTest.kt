@@ -62,6 +62,12 @@ class Phase1HabitArchiveCoverageGuardDeviceTest {
             assertEquals(confirmed, Phase1HabitCodec.decode(
                 requireNotNull(staged.components.singleActivityChallenges)).single())
         }
+        // The old V301/B03 encrypted restore pipeline does not include this
+        // domain in its journal: it MUST reject the local owner snapshot.
+        val legacyRestore = runCatching { V301LocalRecoveryReader(app).read() }
+        assertTrue("Legacy multi-store restore must fail closed", legacyRestore.isFailure)
+        assertTrue(legacyRestore.exceptionOrNull()?.message.orEmpty().contains(
+            "does not cover single-activity challenge data"))
         assertEquals("Original immutable Done receipts survive", before, habits.exportJson())
         assertEquals(confirmed, Phase1HabitStore(app).load().single())
         assertFalse("Never wrote a legacy V297 plan", older.load().isNotEmpty())

@@ -40,6 +40,13 @@ internal class V301LocalRecoveryReader(context: Context) {
     suspend fun readForInterruptedRecovery(): V301LocalRecoverySnapshot =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
             withContext(Dispatchers.IO) {
+                // This legacy recovery snapshot cannot authenticate the separate
+                // single-activity DataStore; NEVER report complete crash forensics
+                // while any of its confirmed owner receipts exist.
+                check(Phase1HabitStore(app).load().isEmpty()) {
+                    "Legacy Personal recovery excludes single-activity challenge progress. " +
+                        "No restore or recovery was performed."
+                }
                 val personal = PersonalReminderStore(app).exportPersonalJson()
                 val challenge = V297ChallengeStore(app).exportJson()
                 val group = V298ReminderGroupStore(app).exportJson()
@@ -71,6 +78,12 @@ internal class V301LocalRecoveryReader(context: Context) {
     suspend fun read(): V301LocalRecoverySnapshot =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
         withContext(Dispatchers.IO) {
+        // Old restore engine records, journals and verifies only the V297
+        // challenge store. Block before it describes the live phone as complete.
+        check(Phase1HabitStore(app).load().isEmpty()) {
+            "Legacy Personal restore does not cover single-activity challenge data. " +
+                "Existing progress was left unchanged."
+        }
         val verification = when (val inspected = V299PersonalRecoveryPreflight(app).inspect()) {
             is V299RecoveryPreflightResult.Checked -> inspected.counts
             is V299RecoveryPreflightResult.Unavailable ->
