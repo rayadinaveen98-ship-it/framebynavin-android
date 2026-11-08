@@ -72,10 +72,8 @@ jobs:
             grep -Fq 'OK (2 tests)' output/backlot-phase3-3ab/ANDROID-EXPLICIT-BEGIN-TEST.txt
             adb exec-out run-as com.framebynavin.app cat "files/phase3-project-begin/planned-explicit-begin.png" > "output/backlot-phase3-3ab/phase3-planned-explicit-begin.png"
             test -s output/backlot-phase3-3ab/phase3-planned-explicit-begin.png
-            for scene in phase3-next-move-collapsed phase3-next-move-expanded phase3-working-home-actions; do
-              adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-default-${scene}.png" > "output/backlot-phase3-3ab/v220-default-${scene}.png"
-              test -s "output/backlot-phase3-3ab/v220-default-${scene}.png"
-            done
+            # android-emulator-runner executes script lines individually; keep loops on one shell line.
+            for scene in phase3-next-move-collapsed phase3-next-move-expanded phase3-working-home-actions; do adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-default-${scene}.png" > "output/backlot-phase3-3ab/v220-default-${scene}.png" && test -s "output/backlot-phase3-3ab/v220-default-${scene}.png" || exit 1; done
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeFirstFoldVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/backlot-phase3-3ab/ANDROID-HOME-NAV-TEST.txt
             if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/backlot-phase3-3ab/ANDROID-HOME-NAV-TEST.txt; then exit 1; fi
             grep -Fq 'OK (4 tests)' output/backlot-phase3-3ab/ANDROID-HOME-NAV-TEST.txt
