@@ -44,6 +44,101 @@ internal object StabilizationPersonalMutationGate {
     }
 
     /**
+     * Isolated v2 write authority. This cannot be substituted for the old
+     * v1 RecoveryPermit because the durable journal format and target SHA
+     * cover a DIFFERENT set of stores (including exact 21-day Done receipts).
+     */
+    private class V2RecoveryWritePermit(
+        val legacyRoot: String,
+        val transactionId: String,
+        val originalDigest: String,
+        val targetDigest: String,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<V2RecoveryWritePermit>
+    }
+
+    /**
+     * May be entered only after a distinct v2 journal was durably prepared
+     * under the existing owner's EXCLUSIVE normal write mutex. Every domain
+     * writer must inherit the short-lived matching permit.
+     */
+    internal suspend fun <T> withPreparedV2OwnerRecovery(
+        legacyRoot: File,
+        expected: Phase1V2RestoreCheckpoint,
+        action: suspend () -> T,
+    ): T {
+        val path = legacyRoot.absoluteFile.normalize().path
+        val owner = currentCoroutineContext()[Permit]
+        check(owner != null && owner.active && owner.root == path &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null) {
+            "Initial v2 write requires the exclusive owner mutation lock"
+        }
+        require(expected.step == Phase1V2RestoreStep.PREPARED) {
+            "Initial v2 write must begin at PREPARED"
+        }
+        check(Phase1V2RestoreWriteAheadJournal(
+            Phase1V2RecoveryRoots.alongsideLegacy(legacyRoot)
+        ).inspectAfterRestart() == expected) {
+            "Prepared v2 journal is not the authenticated owner request"
+        }
+        val permit = V2RecoveryWritePermit(
+            path, expected.transactionId, expected.originalDigest,
+            expected.targetDigest,
+        )
+        return try { withContext(permit) { action() } }
+        finally { permit.active = false }
+    }
+
+    /**
+     * Cold-restart continuation requires a fresh, exclusively locked journal
+     * inspection AND independent authenticated original/target/byte evidence.
+     * Consent is never inherited from the failed transaction or an alarm.
+     */
+    internal suspend fun <T> withApprovedV2ForwardRecovery(
+        legacyRoot: File,
+        expected: Phase1V2RestoreCheckpoint,
+        verified: Phase1V2InterruptedRecoveryEvidence,
+        ownerApproved: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerApproved) { "Only the owner may resume an interrupted restore" }
+        val path = legacyRoot.absoluteFile.normalize().path
+        val inspection = currentCoroutineContext()[V2InspectionPermit]
+        check(inspection != null && inspection.active && inspection.root == path &&
+            inspection.transactionId == expected.transactionId &&
+            inspection.originalDigest == expected.originalDigest &&
+            inspection.targetDigest == expected.targetDigest &&
+            inspection.step == expected.step &&
+            inspection.updatedAtMillis == expected.updatedAtMillis &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null) {
+            "Stale or nonexclusive v2 owner recovery approval"
+        }
+        require(verified.checkpoint == expected &&
+            verified.domains.checkpoint == expected.step &&
+            verified.photos.checkpoint == expected.step &&
+            !verified.mayAutoResume && !verified.mayReleaseJournal) {
+            "Unauthenticated or mismatched v2 interrupted recovery evidence"
+        }
+        val journal = Phase1V2RestoreWriteAheadJournal(
+            Phase1V2RecoveryRoots.alongsideLegacy(legacyRoot),
+        )
+        check(journal.inspectAfterRestart() == expected) {
+            "Owner v2 checkpoint changed during recovery approval"
+        }
+        val permit = V2RecoveryWritePermit(
+            path, expected.transactionId, expected.originalDigest,
+            expected.targetDigest,
+        )
+        return try { withContext(permit) { action() } }
+        finally { permit.active = false }
+    }
+
+    /**
      * A recovery writer may ONLY be opened by a coroutine already holding
      * the ordinary mutation lock, AFTER it has durably prepared a matching
      * journal. Other coroutines and all regular UI writers remain frozen.
@@ -189,6 +284,14 @@ internal object StabilizationPersonalMutationGate {
     internal suspend fun requireActiveRecovery(context: Context) {
         val root = journalRootFor(context)
         val path = root.absoluteFile.normalize().path
+        val v2 = currentCoroutineContext()[V2RecoveryWritePermit]
+        if (v2 != null) {
+            check(v2.active && v2.legacyRoot == path) {
+                "V2 recovery writer is expired or scoped to another phone"
+            }
+            ensureMatchingV2RecoveryJournal(root, v2)
+            return
+        }
         val permit = currentCoroutineContext()[RecoveryPermit]
         check(permit != null && permit.active && permit.root == path) {
             "Only the exclusive authenticated restore coordinator may write recovery data"
@@ -240,6 +343,7 @@ internal object StabilizationPersonalMutationGate {
     ): T {
         check(currentCoroutineContext()[Permit] == null &&
             currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
             currentCoroutineContext()[InspectionPermit] == null &&
             currentCoroutineContext()[V2InspectionPermit] == null) {
             "V2 recovery inspection cannot inherit a write or inspection permit"
@@ -272,6 +376,7 @@ internal object StabilizationPersonalMutationGate {
     ): T {
         check(currentCoroutineContext()[Permit] == null &&
             currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
             currentCoroutineContext()[InspectionPermit] == null &&
             currentCoroutineContext()[V2InspectionPermit] == null) {
             "Nested recovery inspection or mutation lock is not permitted"
@@ -319,6 +424,14 @@ internal object StabilizationPersonalMutationGate {
         root: File, ordinaryMutation: Boolean, action: suspend () -> T,
     ): T {
         val path = root.absoluteFile.normalize().path
+        val v2Recovery = currentCoroutineContext()[V2RecoveryWritePermit]
+        if (v2Recovery != null) {
+            check(v2Recovery.active && v2Recovery.legacyRoot == path) {
+                "Expired or unrelated v2 owner recovery authority"
+            }
+            ensureMatchingV2RecoveryJournal(root, v2Recovery)
+            return action()
+        }
         val recovery = currentCoroutineContext()[RecoveryPermit]
         if (recovery != null) {
             check(recovery.active && recovery.root == path) {
@@ -418,6 +531,25 @@ internal object StabilizationPersonalMutationGate {
             current.originalDigest == permit.originalDigest &&
             current.targetDigest == permit.targetDigest) {
             "Recovery authority does not match current durable transaction"
+        }
+    }
+
+    private fun ensureMatchingV2RecoveryJournal(
+        legacyRoot: File,
+        permit: V2RecoveryWritePermit,
+    ) {
+        check(!Files.exists(legacyRoot.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            "Legacy recovery started during the separate v2 transaction"
+        }
+        val current = checkNotNull(Phase1V2RestoreWriteAheadJournal(
+            Phase1V2RecoveryRoots.alongsideLegacy(legacyRoot),
+        ).inspectAfterRestart()) {
+            "V2 recovery journal disappeared while owner data was changing"
+        }
+        check(current.transactionId == permit.transactionId &&
+            current.originalDigest == permit.originalDigest &&
+            current.targetDigest == permit.targetDigest) {
+            "V2 recovery authority no longer matches durable journal"
         }
     }
 
