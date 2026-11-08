@@ -61,32 +61,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -euo pipefail
-            BASE=output/build320/Backlot-PhaseB-Personal-Stable-Candidate.apk
-            NEXT=app/build/outputs/apk/personalStable/app-personalStable.apk
-            TEST=app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
-            adb install -r "$BASE"
-            adb install -r "$TEST"
-            adb shell dumpsys package com.framebynavin.app | grep -q 'versionCode=320'
-            adb shell am start -n com.framebynavin.app/.MainActivity
-            sleep 8
-            # Real on-disk synthetic app data is written while version 320 is installed.
-            timeout 8m adb shell am instrument -w               -e class com.framebynavin.app.personal.Phase1Build320InPlaceUpgradeDeviceTest#seedBuild320LocalDataBeforeInstallUpgrade               -e hardeningTestEnvironment ci-emulator               com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner               > output/BUILD320-SENTINEL-WRITTEN.txt 2>&1
-            cat output/BUILD320-SENTINEL-WRITTEN.txt
-            grep -q 'OK (1 test)' output/BUILD320-SENTINEL-WRITTEN.txt
-            adb shell am force-stop com.framebynavin.app
-            # No uninstall or pm clear: the signed APK must replace 320 in-place.
-            adb install -r "$NEXT"
-            adb shell dumpsys package com.framebynavin.app | grep -q 'versionCode=321'
-            # The same saved preference must survive the signed package update.
-            timeout 8m adb shell am instrument -w               -e class com.framebynavin.app.personal.Phase1Build320InPlaceUpgradeDeviceTest#verifySameLocalDataAfterUpgradeTo321               -e hardeningTestEnvironment ci-emulator               com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner               > output/BUILD321-SENTINEL-SURVIVED.txt 2>&1
-            cat output/BUILD321-SENTINEL-SURVIVED.txt
-            grep -q 'OK (1 test)' output/BUILD321-SENTINEL-SURVIVED.txt
-            adb shell am start -n com.framebynavin.app/.MainActivity
-            sleep 8
-            adb shell pidof com.framebynavin.app >/dev/null
-            echo 'PASS: signed in-place Android 15 Build 320 -> 321, local sentinel survived and app launched' > output/IN-PLACE-INSTALL-GATE.txt
+          script: bash tools/qa/backlot_phase1_signed_upgrade_android.sh
       - name: Save signed draft APK and upgrade evidence (not approved release)
         uses: actions/upload-artifact@v4
         if: success()
