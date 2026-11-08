@@ -1,7 +1,7 @@
 package com.framebynavin.app.personal
 
 import android.content.Context
-import android.os.Build
+import com.framebynavin.app.data.HardeningTestEnvironment
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -21,14 +21,10 @@ class Phase1Build320InPlaceUpgradeDeviceTest {
     private val original = "frozen-320-owner-local-data-was-preserved"
 
     private fun target(): Context {
-        require(InstrumentationRegistry.getArguments()
-            .getString("hardeningTestEnvironment") == "ci-emulator") {
-            "Never run upgrade migration probes on a user device"
-        }
-        require(Build.FINGERPRINT.contains("generic") ||
-            Build.FINGERPRINT.contains("sdk_gphone")) {
-            "Upgrade retention test requires a disposable Android emulator"
-        }
+        // Use the same dual CI-marker / emulator-HARDWARE gate as every
+        // other destructive device test; Pixel emulators need not carry a
+        // "generic" or "sdk_gphone" build fingerprint.
+        HardeningTestEnvironment.requireCiEmulator()
         return InstrumentationRegistry.getInstrumentation().targetContext
             .applicationContext
     }
