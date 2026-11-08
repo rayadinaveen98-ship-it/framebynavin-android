@@ -34,6 +34,10 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
     private val completed = File(app.filesDir, "backlot-personal-v2-completed-journals")
     private val photos = File(app.filesDir, "backlot-personal-space-photos")
 
+    /** A pending journal blocks all normal edits until owner-reviewed recovery. */
+    fun hasPendingOwnerRecovery(): Boolean =
+        Files.exists(v2Root.toPath(), LinkOption.NOFOLLOW_LINKS)
+
     internal data class Finished(
         val transactionId: String,
         val importedNewRecords: Int,

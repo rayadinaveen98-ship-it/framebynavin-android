@@ -2,6 +2,7 @@ package com.framebynavin.app.cloud
 
 import android.content.Context
 import com.framebynavin.app.personal.Phase1V2ArchiveDryRun
+import com.framebynavin.app.personal.Phase1V2OwnerRestoreCoordinator
 import com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport
 import com.framebynavin.app.personal.V300PersonalArchiveSource
 import java.io.ByteArrayInputStream
@@ -100,6 +101,129 @@ internal class PersonalArchiveCloudV2Manager(context: Context) {
                 ByteArrayInputStream(zipped), password,
             )
             CloudPreview(cloud.revision, zipped.size, report)
+        }
+    }
+
+
+    /**
+     * Explicit cloud-to-phone restoration after the owner viewed the full
+     * nine-domain conflict preview. No background automatic import, never
+     * overwrite another device's records, and require the same passphrase to
+     * encrypt the independent private rollback escrow on the destination.
+     */
+    suspend fun restoreOwnerApprovedFromCloud(
+        password: CharArray,
+        ownerApprovedAdditions: Boolean,
+    ): Phase1V2OwnerRestoreCoordinator.Finished {
+        require(ownerApprovedAdditions && password.size >= 12) {
+            "Explicit owner review and private archive passphrase required"
+        }
+        return account.withFreshSession { session ->
+            val head = checkNotNull(api.head(session)) {
+                "There is no Personal cloud snapshot to restore"
+            }
+            require(head.objectPath.startsWith(session.userId + "/")) {
+                "Encrypted cloud object does not belong to signed-in account"
+            }
+            val data = api.download(session, head.objectPath)
+            require(data.size in 1..PersonalArchiveCloudV2Rules.MAX_BYTES &&
+                sha(data) == head.sha256) {
+                "Private cloud archive checksum or size is invalid"
+            }
+            source.verify(password, ByteArrayInputStream(data))
+            val reviewed = Phase1V2ArchiveDryRun(app).check(
+                ByteArrayInputStream(data), password,
+            )
+            require(reviewed.conflicts == 0) {
+                "Conflicting Personal cloud records require owner resolution"
+            }
+            val independentEscrowPassword = password.copyOf()
+            try {
+                Phase1V2OwnerRestoreCoordinator(app).restoreOwnerApproved(
+                    ByteArrayInputStream(data),
+                    selectedPassphrase = password,
+                    escrowPassphrase = independentEscrowPassword,
+                    ownerConfirmedAdditions = true,
+                    acknowledgedNonPortableAlarmsAndSongs = true,
+                )
+            } finally {
+                independentEscrowPassword.fill('\u0000')
+            }
+        }
+    }
+
+    /**
+     * Append a new complete encrypted revision without silently discarding
+     * records from another device. Existing cloud ZIP is downloaded and
+     * decrypted FIRST. A server-side revision + checksum CAS prevents writes
+     * racing another phone. Uploaded files are immutable, never upserted.
+     *
+     * Important: a remote-only reminder, Space, private photo, or a changed
+     * exact challenge Done instant rejects publishing until the owner has
+     * restored/resolved that cloud content locally.
+     */
+    suspend fun publishReviewedNewCloudRevision(
+        password: CharArray,
+        ownerApprovedCloudRevision: Boolean,
+    ): Long {
+        require(ownerApprovedCloudRevision && password.size >= 12) {
+            "Explicit owner approval and archive passphrase are required"
+        }
+        return account.withFreshSession { session ->
+            val knownOwner = cursor.ownerUserId()
+            check(knownOwner == null || knownOwner == session.userId) {
+                "Personal cloud cursor belongs to another signed-in account"
+            }
+            val existing = checkNotNull(api.head(session)) {
+                "No existing private cloud backup. Use Save First Copy instead."
+            }
+            val oldBytes = api.download(session, existing.objectPath)
+            check(sha(oldBytes) == existing.sha256) {
+                "Old encrypted Personal cloud backup differs from server head"
+            }
+            source.verify(password, ByteArrayInputStream(oldBytes))
+            val difference = Phase1V2ArchiveDryRun(app).check(
+                ByteArrayInputStream(oldBytes), password,
+            )
+            require(difference.conflicts == 0 && difference.proposedAdditions == 0) {
+                "Other-device Personal records or Done receipts must be restored " +
+                    "and reviewed before updating the cloud snapshot"
+            }
+            val old = difference.eightDomains
+            val localOnly = listOf(
+                old.reminders, old.completedActions, old.challenges, old.groups,
+                old.spaces, old.spaceLinks, old.journalEntries, old.photos,
+            ).sumOf { it.localOnly } + difference.newChallenges.localOnly
+            if (localOnly == 0) return@withFreshSession existing.revision
+
+            val encrypted = withContext(Dispatchers.IO) {
+                val buffer = ByteArrayOutputStream()
+                source.export(password, buffer)
+                val bytes = buffer.toByteArray()
+                require(bytes.size in 1..PersonalArchiveCloudV2Rules.MAX_BYTES) {
+                    "Updated Personal archive exceeds private cloud size limit"
+                }
+                source.verify(password, ByteArrayInputStream(bytes))
+                bytes
+            }
+            val path = session.userId + "/v2-" + UUID.randomUUID() + ".zip"
+            val checksum = sha(encrypted)
+            api.upload(session, path, encrypted)
+            val received = api.download(session, path)
+            check(sha(received) == checksum) {
+                "New encrypted cloud revision did not verify after upload"
+            }
+            source.verify(password, ByteArrayInputStream(received))
+            check(api.compareAndSwap(session, existing, path, checksum)) {
+                "Another device changed cloud backup during upload. " +
+                    "Recheck the latest cloud archive; old revision was not overwritten."
+            }
+            val updated = checkNotNull(api.head(session))
+            check(updated.revision == existing.revision + 1L &&
+                updated.objectPath == path && updated.sha256 == checksum) {
+                "Cloud revision pointer differs from confirmed encrypted upload"
+            }
+            updated.revision
         }
     }
 
