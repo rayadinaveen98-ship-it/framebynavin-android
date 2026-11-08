@@ -132,12 +132,18 @@ class Phase1V2RestoreWriteAheadJournalTest {
         val pending = File(root, "active.pending")
         val adjacent = old.copy(step = Phase1V2RestoreStep.BEFORE_PERSONAL,
             updatedAtMillis = 101L)
+        // The codec must refuse an impossible timestamp BEFORE the torn
+        // journal is even written. Other cases are valid standalone records
+        // that only the paired forensic inspection can identify as forged.
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1V2RestoreJournalCodec.encode(
+                adjacent.copy(updatedAtMillis = 99L))
+        }
         for (different in listOf(
             adjacent.copy(escrowId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
             adjacent.copy(originalDigest = "c".repeat(64)),
             adjacent.copy(targetDigest = "d".repeat(64)),
             adjacent.copy(createdAtMillis = 99L),
-            adjacent.copy(updatedAtMillis = 99L),
             adjacent.copy(step = Phase1V2RestoreStep.PERSONAL_WRITTEN),
         )) {
             pending.writeBytes(Phase1V2RestoreJournalCodec.encode(different))
