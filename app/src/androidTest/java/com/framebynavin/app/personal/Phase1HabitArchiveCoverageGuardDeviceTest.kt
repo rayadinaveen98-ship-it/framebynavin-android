@@ -63,6 +63,19 @@ class Phase1HabitArchiveCoverageGuardDeviceTest {
         assertEquals(1, comparison.importedDoneReceipts)
         assertEquals(0, comparison.conflicts)
         assertFalse(comparison.authorizesRestore)
+        // The complete nine-domain owner preview must independently verify
+        // the ZIP, retain exact Done receipts and NEVER schedule or restore.
+        val wholePreview = Phase1V2ArchiveDryRun(app).check(
+            ByteArrayInputStream(bytes.toByteArray()), password,
+        )
+        assertEquals(0, wholePreview.conflicts)
+        assertEquals(0, wholePreview.proposedAdditions)
+        assertEquals(1, wholePreview.newChallenges.identical)
+        assertFalse("Read-only preview cannot restore", wholePreview.canRestore)
+        assertFalse("Read-only preview cannot schedule alerts",
+            wholePreview.canScheduleAlarms)
+        assertFalse("Exact same archive requires no conflict resolution",
+            wholePreview.needsOwnerReview)
         V300EncryptedPersonalArchive.stageAndVerify(
             ByteArrayInputStream(bytes.toByteArray()), password, app.cacheDir,
         ).use { staged ->
@@ -77,6 +90,16 @@ class Phase1HabitArchiveCoverageGuardDeviceTest {
         assertTrue("Legacy multi-store restore must fail closed", legacyRestore.isFailure)
         assertTrue(legacyRestore.exceptionOrNull()?.message.orEmpty().contains(
             "does not cover single-activity challenge data"))
+        // V2 uses the same verified, stable read-only inventory but explicitly
+        // includes the new DataStore and exact confirmedAt for owner review.
+        val verifiedLocal = V301LocalRecoveryReader(app).readV2()
+        assertTrue("Complete local v2 inventory is integrity checked",
+            verifiedLocal.localIntegrityVerified)
+        assertEquals("V2 owner baseline includes complete challenge receipts",
+            before, verifiedLocal.components.singleActivityChallenges)
+        assertEquals(confirmed, Phase1HabitCodec.decode(
+            requireNotNull(verifiedLocal.components.singleActivityChallenges)).single())
+        assertTrue("No fabricated private photo metadata", verifiedLocal.photos.isEmpty())
         assertEquals("Original immutable Done receipts survive", before, habits.exportJson())
         assertEquals(confirmed, Phase1HabitStore(app).load().single())
         assertFalse("Never wrote a legacy V297 plan", older.load().isNotEmpty())

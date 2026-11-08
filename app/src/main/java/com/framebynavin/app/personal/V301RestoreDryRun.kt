@@ -98,6 +98,15 @@ internal object V301RestoreDryRun {
             "Single-activity challenge archives require a version-aware restore " +
                 "coordinator; the legacy recovery path made no changes."
         }
+        return compareKnownDomains(local, incoming, incomingPhotos)
+    }
+
+    /** Shared eight-domain implementation; V301.compare above remains v1-only. */
+    internal fun compareKnownDomains(
+        local: V301LocalRecoverySnapshot,
+        incoming: V300PersonalComponents,
+        incomingPhotos: List<V290SpacePhotoEntity>,
+    ): V301RestoreDryRunReport {
         val existingPersonal = PersonalCompletionBackupCodec.decode(local.components.personal)
         val importedPersonal = PersonalCompletionBackupCodec.decode(incoming.personal)
         val existingChallenges = V297ChallengeCodec.decode(local.components.challenges)

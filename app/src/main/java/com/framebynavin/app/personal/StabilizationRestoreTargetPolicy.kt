@@ -33,7 +33,26 @@ internal object StabilizationRestoreTargetPolicy {
         require(verifiedLocal.localIntegrityVerified) {
             "Local Personal data has not been verified"
         }
-        val report = V301RestoreDryRun.compare(
+        // Keep the legacy v1-only V301/B03 guard before sharing any merge
+        // implementation with the separately versioned v2 target policy.
+        V301RestoreDryRun.compare(
+            verifiedLocal, authenticatedIncoming, authenticatedIncomingPhotos,
+        )
+        return calculateKnownDomains(
+            verifiedLocal, authenticatedIncoming, authenticatedIncomingPhotos,
+        )
+    }
+
+    /** Eight known domains only; requires a separate v2 ninth-domain check. */
+    internal fun calculateKnownDomains(
+        verifiedLocal: V301LocalRecoverySnapshot,
+        authenticatedIncoming: V300PersonalComponents,
+        authenticatedIncomingPhotos: List<V290SpacePhotoEntity>,
+    ): StabilizationRestoreTarget {
+        require(verifiedLocal.localIntegrityVerified) {
+            "Local Personal data has not been verified"
+        }
+        val report = V301RestoreDryRun.compareKnownDomains(
             verifiedLocal, authenticatedIncoming, authenticatedIncomingPhotos,
         )
         require(!report.requiresConflictReview && report.conflicts == 0) {

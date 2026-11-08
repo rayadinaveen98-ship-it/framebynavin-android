@@ -75,14 +75,40 @@ internal class V301LocalRecoveryReader(context: Context) {
             }
         }
 
+    /**
+     * The legacy V301/B03 restore path must NOT suddenly treat new challenge
+     * DataStore records as covered. Keep this v1 result and failure behavior.
+     */
     suspend fun read(): V301LocalRecoverySnapshot =
+        readVerified(includeSingleActivity = false)
+
+    /**
+     * Read-only, integrity-checked v2 baseline for the FUTURE owner-reviewed
+     * recovery coordinator. The exact Done receipt instant is included under
+     * the same stable snapshot lock as all other Personal stores.
+     *
+     * This is NOT the interrupted-v2-journal recovery path: normal snapshots
+     * deliberately refuse to run while ANY recovery marker is present.
+     */
+    suspend fun readV2(): V301LocalRecoverySnapshot =
+        readVerified(includeSingleActivity = true)
+
+    private suspend fun readVerified(
+        includeSingleActivity: Boolean,
+    ): V301LocalRecoverySnapshot =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
         withContext(Dispatchers.IO) {
-        // Old restore engine records, journals and verifies only the V297
-        // challenge store. Block before it describes the live phone as complete.
-        check(Phase1HabitStore(app).load().isEmpty()) {
-            "Legacy Personal restore does not cover single-activity challenge data. " +
-                "Existing progress was left unchanged."
+        val habitStore = Phase1HabitStore(app)
+        val v2Habits = if (includeSingleActivity) {
+            habitStore.exportJson()
+        } else {
+            // The v1 journal has no v2 stage and its fingerprint excludes
+            // every single-activity Done receipt. Never assert completeness.
+            check(habitStore.load().isEmpty()) {
+                "Legacy Personal restore does not cover single-activity challenge data. " +
+                    "Existing progress was left unchanged."
+            }
+            null
         }
         val verification = when (val inspected = V299PersonalRecoveryPreflight(app).inspect()) {
             is V299RecoveryPreflightResult.Checked -> inspected.counts
@@ -100,6 +126,7 @@ internal class V301LocalRecoveryReader(context: Context) {
         val source = V300PersonalComponents(
             personal = personal, challenges = challenges,
             groups = groups, spaces = spaceMetadata,
+            singleActivityChallenges = v2Habits,
         )
         val reminderData = PersonalCompletionBackupCodec.decode(personal)
         val spaceData = V303SpaceReceiptArchiveCodec.decode(
