@@ -24,6 +24,15 @@ internal class V300PersonalArchiveSource(context: Context) {
     suspend fun export(password: CharArray, output: OutputStream) =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
         withContext(Dispatchers.IO) {
+            // Fail CLOSED until a versioned encrypted archive can carry new
+            // one-activity challenges and their exact Done receipt instants.
+            // V300's current v1 manifest contains only legacy V297 challenges.
+            // Must reject BEFORE writing the first ZIP byte; otherwise the UI
+            // could imply the owner's only progress copy was backed up.
+            check(Phase1HabitStore(app).load().isEmpty()) {
+                "Single-activity challenge progress is not included in this archive yet. " +
+                    "Existing data was not changed. A complete backup is unavailable."
+            }
             val personal = PersonalBackupTransfer(app).exportForCloud()
             val challenges = V297ChallengeStore(app).exportJson()
             val groups = V298ReminderGroupStore(app).exportJson()
