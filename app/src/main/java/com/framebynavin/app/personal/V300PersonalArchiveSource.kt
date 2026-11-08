@@ -24,6 +24,9 @@ internal class V300PersonalArchiveSource(context: Context) {
     suspend fun export(password: CharArray, output: OutputStream) =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
         withContext(Dispatchers.IO) {
+            // Versioned v2 archive includes EXACT single-activity Done instants;
+            // it is still a preview/export codec, not an approved restore path.
+            val singleActivityChallenges = Phase1HabitStore(app).exportJson()
             val personal = PersonalBackupTransfer(app).exportForCloud()
             val challenges = V297ChallengeStore(app).exportJson()
             val groups = V298ReminderGroupStore(app).exportJson()
@@ -31,6 +34,7 @@ internal class V300PersonalArchiveSource(context: Context) {
                 PersonalCompletionBackupCodec.decode(personal))
             val domains = V300PersonalComponents(
                 personal = personal, challenges = challenges, groups = groups, spaces = spaces,
+                singleActivityChallenges = singleActivityChallenges,
             )
             V300EncryptedPersonalArchive.write(domains, photos, password, output)
         }
@@ -43,6 +47,9 @@ internal class V300PersonalArchiveSource(context: Context) {
         V300EncryptedPersonalArchive.stageAndVerify(input, password, app.cacheDir).use { staged ->
             val reminders = PersonalCompletionBackupCodec.decode(staged.components.personal)
             val spaces = V303SpaceReceiptArchiveCodec.decode(staged.components.spaces, reminders)
+            val singleActivity = staged.components.singleActivityChallenges?.let {
+                Phase1HabitCodec.decode(it)
+            }.orEmpty()
             V300PersonalArchivePreview(
                 reminders = reminders.reminders.size,
                 completions = reminders.completions.size,
@@ -52,6 +59,8 @@ internal class V300PersonalArchiveSource(context: Context) {
                 journalEntries = spaces.entries.size,
                 spaceLinks = spaces.links.size,
                 verifiedPhotoFiles = staged.photos.size,
+                singleActivityChallenges = singleActivity.size,
+                singleActivityDoneReceipts = singleActivity.sumOf { it.confirmations.size },
             )
         }
     }
@@ -130,11 +139,14 @@ internal data class V300PersonalArchivePreview(
     val journalEntries: Int,
     val spaceLinks: Int,
     val verifiedPhotoFiles: Int,
+    val singleActivityChallenges: Int = 0,
+    val singleActivityDoneReceipts: Int = 0,
 ) {
     init {
         require(listOf(
             reminders, completions, challenges, groups, spaces,
             journalEntries, spaceLinks, verifiedPhotoFiles,
+            singleActivityChallenges, singleActivityDoneReceipts,
         ).all { it >= 0 })
     }
 
@@ -142,7 +154,9 @@ internal data class V300PersonalArchivePreview(
         "$reminders Personal reminders, $completions Done receipts, " +
             "$challenges challenges, $groups groups, $spaces Spaces, " +
             "$journalEntries journal entries, $spaceLinks links, " +
-            "$verifiedPhotoFiles verified photos."
+            "$verifiedPhotoFiles verified photos, " +
+            "$singleActivityChallenges single-activity challenges, " +
+            "$singleActivityDoneReceipts challenge Done receipts."
 }
 
 /**

@@ -38,8 +38,29 @@ internal class V301LocalRecoveryReader(context: Context) {
      * owner-facing backup / import paths must continue using read().
      */
     suspend fun readForInterruptedRecovery(): V301LocalRecoverySnapshot =
+        readInterrupted(includeSingleActivity = false)
+
+    /** Real v2 crash inventory: includes exact one-activity Done instants. */
+    suspend fun readForInterruptedV2Recovery(): V301LocalRecoverySnapshot =
+        readInterrupted(includeSingleActivity = true)
+
+    private suspend fun readInterrupted(
+        includeSingleActivity: Boolean,
+    ): V301LocalRecoverySnapshot =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
             withContext(Dispatchers.IO) {
+                // This legacy recovery snapshot cannot authenticate the separate
+                // single-activity DataStore; NEVER report complete crash forensics
+                // while any of its confirmed owner receipts exist.
+                val habits = if (includeSingleActivity) {
+                    Phase1HabitStore(app).exportJson()
+                } else {
+                    check(Phase1HabitStore(app).load().isEmpty()) {
+                        "Legacy Personal recovery excludes single-activity challenge progress. " +
+                            "No restore or recovery was performed."
+                    }
+                    null
+                }
                 val personal = PersonalReminderStore(app).exportPersonalJson()
                 val challenge = V297ChallengeStore(app).exportJson()
                 val group = V298ReminderGroupStore(app).exportJson()
@@ -61,16 +82,51 @@ internal class V301LocalRecoveryReader(context: Context) {
                 }
                 V297ChallengeCodec.decode(challenge)
                 V301LocalRecoverySnapshot(
-                    components = V300PersonalComponents(personal, challenge, group, spaces),
+                    components = V300PersonalComponents(
+                        personal = personal, challenges = challenge, groups = group,
+                        spaces = spaces, singleActivityChallenges = habits,
+                    ),
                     photos = photos,
                     localIntegrityVerified = false,
                 )
             }
         }
 
+    /**
+     * The legacy V301/B03 restore path must NOT suddenly treat new challenge
+     * DataStore records as covered. Keep this v1 result and failure behavior.
+     */
     suspend fun read(): V301LocalRecoverySnapshot =
+        readVerified(includeSingleActivity = false)
+
+    /**
+     * Read-only, integrity-checked v2 baseline for the FUTURE owner-reviewed
+     * recovery coordinator. The exact Done receipt instant is included under
+     * the same stable snapshot lock as all other Personal stores.
+     *
+     * This is NOT the interrupted-v2-journal recovery path: normal snapshots
+     * deliberately refuse to run while ANY recovery marker is present.
+     */
+    suspend fun readV2(): V301LocalRecoverySnapshot =
+        readVerified(includeSingleActivity = true)
+
+    private suspend fun readVerified(
+        includeSingleActivity: Boolean,
+    ): V301LocalRecoverySnapshot =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
         withContext(Dispatchers.IO) {
+        val habitStore = Phase1HabitStore(app)
+        val v2Habits = if (includeSingleActivity) {
+            habitStore.exportJson()
+        } else {
+            // The v1 journal has no v2 stage and its fingerprint excludes
+            // every single-activity Done receipt. Never assert completeness.
+            check(habitStore.load().isEmpty()) {
+                "Legacy Personal restore does not cover single-activity challenge data. " +
+                    "Existing progress was left unchanged."
+            }
+            null
+        }
         val verification = when (val inspected = V299PersonalRecoveryPreflight(app).inspect()) {
             is V299RecoveryPreflightResult.Checked -> inspected.counts
             is V299RecoveryPreflightResult.Unavailable ->
@@ -87,6 +143,7 @@ internal class V301LocalRecoveryReader(context: Context) {
         val source = V300PersonalComponents(
             personal = personal, challenges = challenges,
             groups = groups, spaces = spaceMetadata,
+            singleActivityChallenges = v2Habits,
         )
         val reminderData = PersonalCompletionBackupCodec.decode(personal)
         val spaceData = V303SpaceReceiptArchiveCodec.decode(

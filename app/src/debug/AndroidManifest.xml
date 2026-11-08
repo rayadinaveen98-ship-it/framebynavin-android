@@ -7,5 +7,10 @@
             android:name="com.framebynavin.app.phase1.Phase1LiveReminderScreenReviewActivity"
             android:exported="true"
             android:theme="@style/Theme.FrameByNavin" />
+        <!-- Debug-only, CI-emulator-gated challenge prototype; never a release activity. -->
+        <activity
+            android:name="com.framebynavin.app.phase1.Phase1HabitInteractiveReviewActivity"
+            android:exported="true"
+            android:theme="@style/Theme.FrameByNavin" />
     </application>
 </manifest>

@@ -1,0 +1,85 @@
+name: Backlot Phase 1 - FROZEN Integration Acceptance (draft only)
+on:
+  push:
+    branches:
+      - feature/backlot-phase1-final-integration-review
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backlot-phase1-final-integration-qa
+  cancel-in-progress: true
+jobs:
+  source-native-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile both real Reminder Hubs and all 21-day policy / Android QA
+        run: |
+          set -euo pipefail
+          timeout 75m gradle :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Run ALL frozen 21-day policy, codec, merge and alarm safety JUnit tests
+        run: |
+          set -euo pipefail
+          timeout 25m gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.Phase1HabitPolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitCodecTest' --tests 'com.framebynavin.app.personal.Phase1HabitMergePolicyTest' --tests 'com.framebynavin.app.personal.Phase1HabitAlarmPlanTest' --tests 'com.framebynavin.app.cloud.PersonalCloudChallengeCoveragePolicyTest' --tests 'com.framebynavin.app.personal.V300EncryptedPersonalArchiveTest' --tests 'com.framebynavin.app.cloud.PersonalCloudPortableSnapshotTest' --tests 'com.framebynavin.app.personal.V301RestoreDryRunTest' --tests 'com.framebynavin.app.personal.Phase1HabitArchivePreviewPolicyTest' --tests 'com.framebynavin.app.personal.Phase1V2RestoreCheckpointPolicyTest' --tests 'com.framebynavin.app.personal.Phase1V2RestoreWriteAheadJournalTest' --tests 'com.framebynavin.app.personal.StabilizationPersonalMutationGateTest' --tests 'com.framebynavin.app.personal.Phase1V2RestoreDomainForensicsTest' --tests 'com.framebynavin.app.personal.Phase1V2ArchiveDryRunTest' --tests 'com.framebynavin.app.personal.Phase1V2RestoreTargetPolicyTest' --tests 'com.framebynavin.app.personal.Phase1V2PhotoByteForensicsTest' --tests 'com.framebynavin.app.personal.Phase1HabitLiveDeliveryPolicyTest' --tests 'com.framebynavin.app.cloud.PersonalArchiveCloudV2RulesTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Enable Android emulator KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Combined Android 15 UI and safety acceptance on clean CI emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            bash tools/qa/capture_backlot_phase1_live_hubs_android.sh
+            bash tools/qa/capture_backlot_phase1_habit_interactive_android.sh
+            bash tools/qa/backlot_phase1_habit_store_device_qa.sh
+            bash tools/qa/backlot_phase1_habit_archive_guard_android.sh
+            bash tools/qa/backlot_phase1_real_challenge_store_ui_android.sh
+            bash tools/qa/backlot_phase1_live_alarm_android.sh
+            bash tools/qa/backlot_phase1_owner_restore_android.sh
+      - name: Confirm source-bound screenshot and safety artifacts
+        run: |
+          set -euo pipefail
+          for file in \
+            output/backlot-phase1-live-directors-cut/SHA256SUMS.txt \
+            output/backlot-phase1-habit-interactive/SHA256SUMS.txt \
+            output/backlot-phase1-habit-store-device/PROCESS-READ-AFTER-FORCE-STOP.txt \
+            output/backlot-phase1-habit-archive-guard/ANDROID-ARCHIVE-COVERAGE-TEST.txt \
+            output/backlot-phase1-real-challenge-store-ui/SHA256SUMS.txt \
+            output/backlot-phase1-live-alarm/ANDROID-LIVE-ALARM-TEST.txt \
+            output/backlot-phase1-v2-owner-restore/ANDROID-ACTUAL-RESTORE-TEST.txt; do
+              test -s "$file"
+          done
+          echo 'PASS: combined screens, policy and safety test evidence present'
+      - name: Upload ONLY draft review evidence (NOT release APK)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Phase1-FROZEN-Integrated-Android15-QA
+          path: |
+            output/backlot-phase1-live-directors-cut/
+            output/backlot-phase1-habit-interactive/
+            output/backlot-phase1-habit-store-device/
+            output/backlot-phase1-habit-archive-guard/
+            output/backlot-phase1-real-challenge-store-ui/
+            output/backlot-phase1-live-alarm/
+            output/backlot-phase1-v2-owner-restore/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn

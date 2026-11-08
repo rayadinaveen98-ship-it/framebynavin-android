@@ -30,6 +30,11 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                         personal = { com.framebynavin.app.personal.PersonalDeliveryCoordinator(app).reconcile() },
                         ideas = { IdeaReminderScheduler(app).reconcile() },
                     )
+                    runCatching {
+                        com.framebynavin.app.personal.Phase1HabitAlarmScheduler(app).reconcile()
+                    }.onFailure {
+                        android.util.Log.w("BacklotHabit", "Boot challenge recovery failed", it)
+                    }
                     if (!outcome.allSucceeded) {
                         android.util.Log.w(
                             "BacklotReminderHealth",

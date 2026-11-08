@@ -22,14 +22,18 @@ class ReminderHealthWorker(
             personal = { com.framebynavin.app.personal.PersonalDeliveryCoordinator(app).reconcile() },
             ideas = { IdeaReminderScheduler(app).reconcile() },
         )
-        if (!outcome.allSucceeded) {
+        val challengeRecovered = runCatching {
+            com.framebynavin.app.personal.Phase1HabitAlarmScheduler(app).reconcile()
+        }.isSuccess
+        if (!outcome.allSucceeded || !challengeRecovered) {
             android.util.Log.w(
                 "BacklotReminderHealth",
                 "Recovery retry: creator=${outcome.creatorRecovered}, " +
                     "personal=${outcome.personalRecovered}, ideas=${outcome.ideasRecovered}",
             )
         }
-        return if (outcome.allSucceeded) Result.success() else Result.retry()
+        return if (outcome.allSucceeded && challengeRecovered)
+            Result.success() else Result.retry()
     }
 }
 

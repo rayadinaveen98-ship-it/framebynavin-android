@@ -2,6 +2,7 @@ package com.framebynavin.app.cloud
 
 import android.content.Context
 import com.framebynavin.app.personal.PersonalBackupTransfer
+import com.framebynavin.app.personal.Phase1HabitStore
 import com.framebynavin.app.personal.PersonalLinkProtectionException
 import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
@@ -62,6 +63,23 @@ internal class PersonalCloudCursor(context: Context) {
     }
 }
 
+/** Interim release-blocker guard until cloud payload v2 carries the exact Done receipts.
+ * Do not mistake this for successful backup of single-activity 21-day challenges.
+ */
+internal class PersonalCloudIncompleteChallengeCoverage : IllegalStateException(
+    "Single-activity 21-day challenge progress is not included in Personal cloud sync yet. " +
+        "No Personal cloud upload or restore was performed.",
+)
+
+internal object PersonalCloudChallengeCoveragePolicy {
+    fun requireFullCoverage(singleActivityChallengeCount: Int) {
+        require(singleActivityChallengeCount >= 0) { "Invalid challenge count" }
+        if (singleActivityChallengeCount > 0) {
+            throw PersonalCloudIncompleteChallengeCoverage()
+        }
+    }
+}
+
 internal class PersonalCloudSyncManager(context: Context) {
     private val app = context.applicationContext
     private val account = CloudSyncManager(app)
@@ -70,6 +88,7 @@ internal class PersonalCloudSyncManager(context: Context) {
     private val cursor = PersonalCloudCursor(app)
 
     suspend fun syncNow(): PersonalCloudResult = safely {
+        requireChallengeCoverage()
         account.withFreshSession { session ->
             val local = prepareLocal()
             val remote = api.fetchPersonalSyncHead(session)
@@ -115,6 +134,7 @@ internal class PersonalCloudSyncManager(context: Context) {
 
     /** Explicit choice, only after user reviewed a Personal conflict in the UI. */
     suspend fun keepThisPhone(): PersonalCloudResult = safely {
+        requireChallengeCoverage()
         account.withFreshSession { session ->
             val local = prepareLocal()
             val remote = api.fetchPersonalSyncHead(session)
@@ -124,6 +144,7 @@ internal class PersonalCloudSyncManager(context: Context) {
 
     /** Explicit choice; full validation and a recovery copy precede replacement. */
     suspend fun useCloudCopy(): PersonalCloudResult = safely {
+        requireChallengeCoverage()
         account.withFreshSession { session ->
             val remote = api.fetchPersonalSyncHead(session)
                 ?: return@withFreshSession PersonalCloudResult.Failure(
@@ -133,7 +154,14 @@ internal class PersonalCloudSyncManager(context: Context) {
         }
     }
 
+    private suspend fun requireChallengeCoverage() {
+        PersonalCloudChallengeCoveragePolicy.requireFullCoverage(
+            Phase1HabitStore(app).load().size,
+        )
+    }
+
     private suspend fun prepareLocal(): Local {
+        requireChallengeCoverage()
         // Strip device-only alarm leases and non-portable custom music URIs.
         val payload = transfer.exportForCloud()
         val preview = transfer.preview(payload)
@@ -145,12 +173,17 @@ internal class PersonalCloudSyncManager(context: Context) {
             "Personal cloud checksum mismatch; local reminders were not replaced"
         }
         val preview = transfer.preview(cloud.payload)
+        // Final pre-restore gate: an uncovered local challenge must never be
+        // omitted from what appears to be a full Personal cloud restore.
+        requireChallengeCoverage()
         val receipt = transfer.restoreApproved(cloud.payload)
         cursor.record(session.userId, cloud.payloadSha256)
         return PersonalCloudResult.Restored(preview.reminderCount, receipt.recoveryAttentionNeeded)
     }
 
     private suspend fun push(session: CloudSession, local: Local, expectedRevision: Long?): PersonalCloudResult {
+        // This is still an interim read gate, not a multi-store cloud transaction.
+        requireChallengeCoverage()
         return when (val pushed = api.pushPersonalSyncSnapshot(
             session, expectedRevision, local.payload, local.hash,
         )) {
@@ -186,6 +219,8 @@ internal class PersonalCloudSyncManager(context: Context) {
                     "Personal cloud session expired; sign in again."
                 else if (error is CloudHttpException && error.statusCode == 403)
                     "Personal cloud access was denied."
+                else if (error is PersonalCloudIncompleteChallengeCoverage)
+                    error.message ?: "Single-activity challenge progress is not included in cloud sync."
                 else if (error is PersonalLinkProtectionException)
                     error.message ?: "Personal cloud replacement would remove linked reminders."
                 else "Personal Reminders were NOT confirmed synced. Check connection and try again.",

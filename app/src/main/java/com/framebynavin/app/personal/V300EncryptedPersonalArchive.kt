@@ -33,6 +33,8 @@ internal data class V300PersonalComponents(
     val challenges: String,
     val groups: String,
     val spaces: String,
+    /** Null means legacy encrypted ZIP v1; non-null is required for v2. */
+    val singleActivityChallenges: String? = null,
 )
 
 internal data class V300PhotoSource(
@@ -60,6 +62,7 @@ internal class V300StagedPersonalArchive(
 internal object V300EncryptedPersonalArchive {
     private const val FORMAT = "backlot.personal.encrypted-archive"
     private const val VERSION = 1
+    private const val VERSION_WITH_SINGLE_ACTIVITY = 2
     private const val ITERATIONS = 210_000
     private const val MAX_MANIFEST_BYTES = 24 * 1024 * 1024
     private const val MAX_PHOTOS = 500
@@ -79,6 +82,8 @@ internal object V300EncryptedPersonalArchive {
         output: OutputStream,
     ) {
         validateComponents(data)
+        val archiveVersion = if (data.singleActivityChallenges == null) VERSION
+            else VERSION_WITH_SINGLE_ACTIVITY
         val spaceIds = V303SpaceReceiptArchiveCodec.decode(data.spaces,
             PersonalCompletionBackupCodec.decode(data.personal)).spaces.mapTo(HashSet()) { it.id }
         require(sources.size <= MAX_PHOTOS) { "Too many private photos for one archive" }
@@ -93,12 +98,12 @@ internal object V300EncryptedPersonalArchive {
             require(total <= MAX_TOTAL_PHOTO_BYTES) { "Private photo archive exceeds safety limit" }
         }
         val ordered = sources.sortedBy { it.photo.id }
-        val manifest = buildManifest(data, ordered).toByteArray(Charsets.UTF_8)
+        val manifest = buildManifest(data, ordered, archiveVersion).toByteArray(Charsets.UTF_8)
         require(manifest.size <= MAX_MANIFEST_BYTES) { "Portable manifest too large" }
 
         val salt = ByteArray(SALT_BYTES).also(random::nextBytes)
         val header = JSONObject()
-            .put("format", FORMAT).put("version", VERSION)
+            .put("format", FORMAT).put("version", archiveVersion)
             .put("iterations", ITERATIONS)
             .put("salt", Base64.getEncoder().encodeToString(salt))
             .toString()
@@ -118,7 +123,7 @@ internal object V300EncryptedPersonalArchive {
     }
 
     /**
-     * Fully verifies password, all 4 nested domain checksums and EVERY JPEG,
+     * Fully verifies password, all legacy domains, optional v2 challenge receipts and EVERY JPEG,
      * staging images in private cache; calls NO application restore method.
      * Never use files from this result until this method has returned.
      */
@@ -136,8 +141,9 @@ internal object V300EncryptedPersonalArchive {
                 val header = readLimited(zip, 1024).toString(Charsets.UTF_8)
                 zip.closeEntry()
                 val settings = JSONObject(header)
+                val archiveVersion = settings.getInt("version")
                 require(settings.getString("format") == FORMAT &&
-                    settings.getInt("version") == VERSION &&
+                    archiveVersion in VERSION..VERSION_WITH_SINGLE_ACTIVITY &&
                     settings.getInt("iterations") == ITERATIONS) {
                     "Unsupported or altered archive header"
                 }
@@ -149,14 +155,20 @@ internal object V300EncryptedPersonalArchive {
                     MAX_MANIFEST_BYTES, key, header)
                 val manifest = JSONObject(manifestBytes.toString(Charsets.UTF_8))
                 require(manifest.getString("format") == FORMAT &&
-                    manifest.getInt("version") == VERSION) {
+                    manifest.getInt("version") == archiveVersion) {
                     "Invalid encrypted Personal manifest"
+                }
+                require(manifest.has("singleActivityChallenges") ==
+                    (archiveVersion == VERSION_WITH_SINGLE_ACTIVITY)) {
+                    "Single-activity challenge coverage does not match archive version"
                 }
                 val data = V300PersonalComponents(
                     personal = manifest.getString("personal"),
                     challenges = manifest.getString("challenges"),
                     groups = manifest.getString("groups"),
                     spaces = manifest.getString("spaces"),
+                    singleActivityChallenges = if (archiveVersion == VERSION_WITH_SINGLE_ACTIVITY)
+                        manifest.getString("singleActivityChallenges") else null,
                 )
                 validateComponents(data)
                 val availableSpaces = V303SpaceReceiptArchiveCodec.decode(data.spaces,
@@ -219,9 +231,10 @@ internal object V300EncryptedPersonalArchive {
     private fun buildManifest(
         data: V300PersonalComponents,
         photos: List<V300PhotoSource>,
+        version: Int,
     ): String = JSONObject()
         .put("format", FORMAT)
-        .put("version", VERSION)
+        .put("version", version)
         .put("personal", data.personal)
         .put("challenges", data.challenges)
         .put("groups", data.groups)
@@ -241,11 +254,16 @@ internal object V300EncryptedPersonalArchive {
                     .put("note", p.note)
                     .put("sizeBytes", source.sizeBytes))
             }
-        }).toString()
+        }).apply {
+            if (version == VERSION_WITH_SINGLE_ACTIVITY) {
+                put("singleActivityChallenges", requireNotNull(data.singleActivityChallenges))
+            }
+        }.toString()
 
     private fun validateComponents(data: V300PersonalComponents) {
         val reminders = PersonalCompletionBackupCodec.decode(data.personal)
         V297ChallengeCodec.decode(data.challenges)
+        data.singleActivityChallenges?.let { Phase1HabitCodec.decode(it) }
         val groups = V298ReminderGroupCodec.decode(data.groups)
         val spaces = V303SpaceReceiptArchiveCodec.decode(data.spaces, reminders)
         val ids = reminders.reminders.mapTo(HashSet()) { it.id }
