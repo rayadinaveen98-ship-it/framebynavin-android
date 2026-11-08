@@ -111,7 +111,12 @@ internal class Phase1HabitAlarmScheduler(context: Context) {
             Phase1HabitStore(app).load().forEach { challenge ->
                 pending(challenge.id, 0L,
                     PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
-                    ?.let { alarms.cancel(it) }
+                    ?.let { previous ->
+                        alarms.cancel(previous)
+                        // Revoke the OS token too, not just its scheduled slot:
+                        // a paused or changed activity must leave no stale intent.
+                        previous.cancel()
+                    }
                 val at = challenge.nextAlertAfter(now)?.toInstant()?.toEpochMilli()
                     ?: return@forEach
                 val intent = checkNotNull(pending(challenge.id, at,
