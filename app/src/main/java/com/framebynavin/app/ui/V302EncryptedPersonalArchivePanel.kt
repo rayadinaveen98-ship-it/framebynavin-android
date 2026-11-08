@@ -244,10 +244,10 @@ internal fun V302EncryptedPersonalArchivePanel() {
             Text("PRIVATE ENCRYPTED CLOUD COPY", color = RecRed,
                 fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Text(
-                "Uses the signed-in Backlot cloud account. All nine Personal " +
-                    "data areas are encrypted with the passphrase above, including " +
-                    "private photos and exact 21-day Done history. Only the first " +
-                    "cloud copy can be created here; existing history is never overwritten.",
+                "Encrypted cloud backup for all nine Personal data areas, " +
+                    "including photos and exact 21-day Done history. Maximum " +
+                    "archive size: 25 MB. New revisions require all existing " +
+                    "cloud records to be present on this phone; no silent overwrite.",
                 color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
             )
             OutlinedButton(

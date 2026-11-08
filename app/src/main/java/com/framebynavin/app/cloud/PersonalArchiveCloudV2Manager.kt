@@ -185,10 +185,11 @@ internal class PersonalArchiveCloudV2Manager(context: Context) {
             val difference = Phase1V2ArchiveDryRun(app).check(
                 ByteArrayInputStream(oldBytes), password,
             )
-            require(difference.conflicts == 0 && difference.proposedAdditions == 0) {
-                "Other-device Personal records or Done receipts must be restored " +
-                    "and reviewed before updating the cloud snapshot"
-            }
+            PersonalArchiveCloudV2Rules.requireVerifiedPhoneSuperset(
+                cloudOnly = difference.proposedAdditions,
+                conflicts = difference.conflicts,
+                localIntegrityVerified = difference.eightDomains.localIntegrityVerified,
+            )
             val old = difference.eightDomains
             val localOnly = listOf(
                 old.reminders, old.completedActions, old.challenges, old.groups,

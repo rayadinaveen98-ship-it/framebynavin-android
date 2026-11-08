@@ -37,6 +37,21 @@ internal object PersonalArchiveCloudV2Rules {
     fun validateSha(value: String) {
         require(sha.matches(value)) { "Invalid archive SHA-256" }
     }
+
+    /** A cloud head may advance ONLY if no remote-only record is dropped. */
+    fun requireVerifiedPhoneSuperset(
+        cloudOnly: Int,
+        conflicts: Int,
+        localIntegrityVerified: Boolean,
+    ) {
+        require(cloudOnly >= 0 && conflicts >= 0) {
+            "Invalid Personal archive domain comparison"
+        }
+        check(localIntegrityVerified && cloudOnly == 0 && conflicts == 0) {
+            "Cloud records, photos or challenge Done receipts are absent or " +
+                "conflicting on this phone. Review and restore before uploading."
+        }
+    }
 }
 
 /**

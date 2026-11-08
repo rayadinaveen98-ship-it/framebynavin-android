@@ -29,6 +29,43 @@ class PersonalArchiveCloudV2RulesTest {
         }
     }
 
+    @Test fun authenticatedPhoneSupersetCanAdvanceCloudWithoutLosingRemoteRecords() {
+        PersonalArchiveCloudV2Rules.requireVerifiedPhoneSuperset(
+            cloudOnly = 0, conflicts = 0, localIntegrityVerified = true,
+        )
+    }
+
+    @Test fun cloudOnlySpacesPhotosOrDoneReceiptsBlockRevisionAdvance() {
+        for (missing in listOf(1, 2, 14)) {
+            assertThrows(IllegalStateException::class.java) {
+                PersonalArchiveCloudV2Rules.requireVerifiedPhoneSuperset(
+                    cloudOnly = missing, conflicts = 0, localIntegrityVerified = true,
+                )
+            }
+        }
+    }
+
+    @Test fun sameIdDifferentExactDoneReceiptBlocksCloudRevisionAdvance() {
+        assertThrows(IllegalStateException::class.java) {
+            PersonalArchiveCloudV2Rules.requireVerifiedPhoneSuperset(
+                cloudOnly = 0, conflicts = 1, localIntegrityVerified = true,
+            )
+        }
+    }
+
+    @Test fun incompleteLocalPhotoVerificationNeverAuthorizesCloudUpdate() {
+        assertThrows(IllegalStateException::class.java) {
+            PersonalArchiveCloudV2Rules.requireVerifiedPhoneSuperset(
+                cloudOnly = 0, conflicts = 0, localIntegrityVerified = false,
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PersonalArchiveCloudV2Rules.requireVerifiedPhoneSuperset(
+                cloudOnly = -1, conflicts = 0, localIntegrityVerified = true,
+            )
+        }
+    }
+
     @Test fun invalidAccountAndHashCannotEnterCloudCas() {
         assertThrows(IllegalArgumentException::class.java) {
             PersonalArchiveCloudV2Rules.validateAccount("../other")
