@@ -196,6 +196,22 @@ internal object StabilizationPersonalMutationGate {
         ensureMatchingRecoveryJournal(root, permit)
     }
 
+    /**
+     * V2 cold-restart inspection is intentionally READ-ONLY. It never reuses
+     * the v1 persisted journal enum or grants a writer permission.
+     */
+    private class V2InspectionPermit(
+        val root: String,
+        val transactionId: String,
+        val originalDigest: String,
+        val targetDigest: String,
+        val step: Phase1V2RestoreStep,
+        val updatedAtMillis: Long,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<V2InspectionPermit>
+    }
+
     private class InspectionPermit(
         val root: String,
         val transactionId: String,
@@ -213,13 +229,51 @@ internal object StabilizationPersonalMutationGate {
      * journal, but ordinary mutation calls are unconditionally rejected.
      * Only a fully decoded journal may enter. No rollback/resume authority.
      */
+    /**
+     * A real v2 interrupted restore can be inspected without mistaking an
+     * incomplete new challenge DataStore for empty. The caller is obligated
+     * to authenticate the escrow and target before any later repair decision.
+     */
+    internal suspend fun <T> withPendingV2RecoveryInspection(
+        legacyJournalRoot: File,
+        action: suspend (Phase1V2RestoreCheckpoint) -> T,
+    ): T {
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null) {
+            "V2 recovery inspection cannot inherit a write or inspection permit"
+        }
+        return processMutex.withLock {
+            check(!Files.exists(legacyJournalRoot.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                "V1 and v2 recovery journals must never coexist"
+            }
+            val root = Phase1V2RecoveryRoots.alongsideLegacy(legacyJournalRoot)
+            val current = checkNotNull(
+                Phase1V2RestoreWriteAheadJournal(root).inspectAfterRestart()
+            ) { "No pending v2 owner recovery transaction" }
+            val permit = V2InspectionPermit(
+                legacyJournalRoot.absoluteFile.normalize().path,
+                current.transactionId, current.originalDigest,
+                current.targetDigest, current.step, current.updatedAtMillis,
+            )
+            try { withContext(permit) { action(current) } }
+            finally { permit.active = false }
+        }
+    }
+
+    internal suspend fun <T> withPendingV2RecoveryInspection(
+        context: Context, action: suspend (Phase1V2RestoreCheckpoint) -> T,
+    ): T = withPendingV2RecoveryInspection(journalRootFor(context), action)
+
     internal suspend fun <T> withPendingRecoveryInspection(
         journalRoot: File,
         action: suspend (StabilizationRestoreJournalRecord) -> T,
     ): T {
         check(currentCoroutineContext()[Permit] == null &&
             currentCoroutineContext()[RecoveryPermit] == null &&
-            currentCoroutineContext()[InspectionPermit] == null) {
+            currentCoroutineContext()[InspectionPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null) {
             "Nested recovery inspection or mutation lock is not permitted"
         }
         return processMutex.withLock {
@@ -271,6 +325,29 @@ internal object StabilizationPersonalMutationGate {
                 "Expired or unrelated restore authority"
             }
             ensureMatchingRecoveryJournal(root, recovery)
+            return action()
+        }
+        val v2Inspection = currentCoroutineContext()[V2InspectionPermit]
+        if (v2Inspection != null) {
+            check(!ordinaryMutation && v2Inspection.active &&
+                v2Inspection.root == path) {
+                "Interrupted v2 inspection cannot mutate owner Personal data"
+            }
+            check(!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                "V1 recovery journal appeared during v2 inspection"
+            }
+            val staged = checkNotNull(
+                Phase1V2RestoreWriteAheadJournal(
+                    Phase1V2RecoveryRoots.alongsideLegacy(root)
+                ).inspectAfterRestart()
+            ) { "V2 recovery evidence disappeared during owner inspection" }
+            check(staged.transactionId == v2Inspection.transactionId &&
+                staged.originalDigest == v2Inspection.originalDigest &&
+                staged.targetDigest == v2Inspection.targetDigest &&
+                staged.step == v2Inspection.step &&
+                staged.updatedAtMillis == v2Inspection.updatedAtMillis) {
+                "V2 recovery journal changed during immutable inspection"
+            }
             return action()
         }
         val inspection = currentCoroutineContext()[InspectionPermit]

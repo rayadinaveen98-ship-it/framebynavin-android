@@ -38,14 +38,28 @@ internal class V301LocalRecoveryReader(context: Context) {
      * owner-facing backup / import paths must continue using read().
      */
     suspend fun readForInterruptedRecovery(): V301LocalRecoverySnapshot =
+        readInterrupted(includeSingleActivity = false)
+
+    /** Real v2 crash inventory: includes exact one-activity Done instants. */
+    suspend fun readForInterruptedV2Recovery(): V301LocalRecoverySnapshot =
+        readInterrupted(includeSingleActivity = true)
+
+    private suspend fun readInterrupted(
+        includeSingleActivity: Boolean,
+    ): V301LocalRecoverySnapshot =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
             withContext(Dispatchers.IO) {
                 // This legacy recovery snapshot cannot authenticate the separate
                 // single-activity DataStore; NEVER report complete crash forensics
                 // while any of its confirmed owner receipts exist.
-                check(Phase1HabitStore(app).load().isEmpty()) {
-                    "Legacy Personal recovery excludes single-activity challenge progress. " +
-                        "No restore or recovery was performed."
+                val habits = if (includeSingleActivity) {
+                    Phase1HabitStore(app).exportJson()
+                } else {
+                    check(Phase1HabitStore(app).load().isEmpty()) {
+                        "Legacy Personal recovery excludes single-activity challenge progress. " +
+                            "No restore or recovery was performed."
+                    }
+                    null
                 }
                 val personal = PersonalReminderStore(app).exportPersonalJson()
                 val challenge = V297ChallengeStore(app).exportJson()
@@ -68,7 +82,10 @@ internal class V301LocalRecoveryReader(context: Context) {
                 }
                 V297ChallengeCodec.decode(challenge)
                 V301LocalRecoverySnapshot(
-                    components = V300PersonalComponents(personal, challenge, group, spaces),
+                    components = V300PersonalComponents(
+                        personal = personal, challenges = challenge, groups = group,
+                        spaces = spaces, singleActivityChallenges = habits,
+                    ),
                     photos = photos,
                     localIntegrityVerified = false,
                 )

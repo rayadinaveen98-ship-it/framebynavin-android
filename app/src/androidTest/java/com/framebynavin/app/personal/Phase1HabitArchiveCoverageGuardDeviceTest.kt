@@ -104,5 +104,38 @@ class Phase1HabitArchiveCoverageGuardDeviceTest {
         assertEquals(confirmed, Phase1HabitStore(app).load().single())
         assertFalse("Never wrote a legacy V297 plan", older.load().isNotEmpty())
         assertTrue("Never wrote Personal reminders", personal.load().isEmpty())
+
+        // A real interrupted v2 journal must still let the OWNER inspect all
+        // exact Done receipts under the read-only recovery mutex after restart.
+        val baseline = V301LocalRecoveryReader(app).readV2()
+        val fingerprint = Phase1V2RestoreFingerprint.calculate(
+            baseline.components, baseline.photos)
+        val v2 = Phase1V2RecoveryRoots.alongsideLegacy(journal)
+        val syntheticCheckpoint = Phase1V2RestoreCheckpoint(
+            transactionId = "e751c74e-8d47-4f69-bd46-c95c45d04c01",
+            preparedId = "e751c74e-8d47-4f69-bd46-c95c45d04c01",
+            escrowId = "613c863a-b019-4a10-9824-54f655f174aa",
+            originalDigest = fingerprint, targetDigest = fingerprint,
+            step = Phase1V2RestoreStep.PREPARED,
+            createdAtMillis = 100L, updatedAtMillis = 100L,
+        )
+        try {
+            Phase1V2RestoreWriteAheadJournal(v2).prepare(
+                syntheticCheckpoint, ownerRequested = true)
+            StabilizationPersonalMutationGate.withPendingV2RecoveryInspection(app) { pending ->
+                assertEquals(syntheticCheckpoint, pending)
+                val inventory = V301LocalRecoveryReader(app)
+                    .readForInterruptedV2Recovery()
+                assertFalse("Interrupted inventory cannot grant restore authority",
+                    inventory.localIntegrityVerified)
+                assertEquals("V2 crash inspection must retain exact Done instants",
+                    before, inventory.components.singleActivityChallenges)
+                assertEquals(confirmed, Phase1HabitCodec.decode(
+                    requireNotNull(inventory.components.singleActivityChallenges)).single())
+            }
+        } finally {
+            v2.deleteRecursively() // Only CI-only synthetic marker, never owner data.
+        }
+        assertEquals(before, habits.exportJson())
     }
 }

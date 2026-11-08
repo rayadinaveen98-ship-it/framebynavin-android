@@ -69,6 +69,44 @@ class StabilizationPersonalMutationGateTest {
         assertTrue(v2.exists())
     }
 
+    @Test fun v2JournalPermitsOnlyExactReadOnlyRecoveryInspection() = sandbox { journal ->
+        val v2Root = Phase1V2RecoveryRoots.alongsideLegacy(journal)
+        val checkpoint = Phase1V2RestoreCheckpoint(
+            transactionId = "e751c74e-8d47-4f69-bd46-c95c45d04c01",
+            preparedId = "e751c74e-8d47-4f69-bd46-c95c45d04c01",
+            escrowId = "613c863a-b019-4a10-9824-54f655f174aa",
+            originalDigest = "a".repeat(64),
+            targetDigest = "b".repeat(64),
+            step = Phase1V2RestoreStep.PREPARED,
+            createdAtMillis = 100L, updatedAtMillis = 100L,
+        )
+        Phase1V2RestoreWriteAheadJournal(v2Root).prepare(checkpoint, true)
+        runBlocking {
+            StabilizationPersonalMutationGate.withPendingV2RecoveryInspection(journal) { current ->
+                assertEquals(checkpoint, current)
+                assertTrue(StabilizationPersonalMutationGate.withStableSnapshot(journal) { true })
+                val refused = runCatching {
+                    StabilizationPersonalMutationGate.withOwnerMutation(journal) { "illegal" }
+                }
+                assertTrue("V2 inspection must never grant a write permit",
+                    refused.exceptionOrNull() is IllegalStateException)
+                val nested = runCatching {
+                    StabilizationPersonalMutationGate.withPendingV2RecoveryInspection(journal) {
+                        "must never enter"
+                    }
+                }
+                assertTrue("Cannot nest v2 owner inspection", nested.isFailure)
+            }
+            val ordinary = runCatching {
+                StabilizationPersonalMutationGate.withStableSnapshot(journal) { "not allowed" }
+            }
+            assertTrue("Ordinary reads stay frozen after inspection returns", ordinary.isFailure)
+        }
+        assertTrue(v2Root.exists())
+        assertEquals(checkpoint,
+            Phase1V2RestoreWriteAheadJournal(v2Root).inspectAfterRestart())
+    }
+
     @Test fun ordinaryWriteAllowedWhenNoJournalExists() = sandbox { journal ->
         var count = 0
         StabilizationPersonalMutationGate.withOwnerMutation(journal) { count++ }
