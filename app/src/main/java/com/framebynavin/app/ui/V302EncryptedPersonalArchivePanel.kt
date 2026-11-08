@@ -489,7 +489,7 @@ internal fun V302EncryptedPersonalArchivePanel() {
                             try {
                                 val receipt = when {
                                     resuming -> restorer.resumeOwnerApproved(
-                                        escrowPassphrase, password,
+                                        escrowPassword, password,
                                         ownerConfirmedResume = true,
                                     )
                                     cloudSource -> cloud.restoreOwnerApprovedFromCloud(
