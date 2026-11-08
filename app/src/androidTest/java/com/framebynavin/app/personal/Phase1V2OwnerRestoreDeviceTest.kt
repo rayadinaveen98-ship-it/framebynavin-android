@@ -32,6 +32,13 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class Phase1V2OwnerRestoreDeviceTest {
+    // A normal post-create/recovery reconciliation may renew device-only alarm
+    // leases; portable owner data, Done receipts and all other fields must match.
+    private fun PersonalReminder.withoutDeviceAlarmLease(): PersonalReminder = copy(
+        pendingOccurrenceMillis = 0L,
+        pendingFireAtMillis = 0L,
+        pendingToken = "",
+    )
     @Test fun ownerApprovedEncryptedArchiveRestoresAllPortableDomainsWithoutLosingOwnerHistory() =
         runBlocking {
             HardeningTestEnvironment.requireCiEmulator()
@@ -139,7 +146,8 @@ class Phase1V2OwnerRestoreDeviceTest {
             assertTrue("No unauthenticated owner write", blocked.isFailure)
             assertFalse(marker.exists())
             assertEquals(originalHabit, habitStore.load().single())
-            assertEquals(originalReminder, personal.load().single())
+            assertEquals(originalReminder.withoutDeviceAlarmLease(),
+                personal.load().single().withoutDeviceAlarmLease())
 
             val completed = coordinator.restoreOwnerApproved(
                 ByteArrayInputStream(encrypted),
@@ -155,8 +163,9 @@ class Phase1V2OwnerRestoreDeviceTest {
             assertEquals(oldDone, oldHabit.confirmations.values.single())
             assertEquals(originalHabit, oldHabit)
             assertTrue(Phase1HabitStore(app).load().any { it.id == importedHabit.id })
-            assertEquals(listOf(originalReminder, importedReminder),
-                PersonalReminderStore(app).load())
+            assertEquals(listOf(originalReminder, importedReminder)
+                .map { it.withoutDeviceAlarmLease() },
+                PersonalReminderStore(app).load().map { it.withoutDeviceAlarmLease() })
             val verified = V301LocalRecoveryReader(app).readV2()
             assertTrue(verified.localIntegrityVerified)
             assertEquals(completed.installedDigest,
