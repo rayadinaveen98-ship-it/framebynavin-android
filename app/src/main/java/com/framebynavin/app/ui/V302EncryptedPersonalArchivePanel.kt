@@ -18,9 +18,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.V300PersonalArchiveSource
-import com.framebynavin.app.personal.V301ArchiveConflictPreview
+import com.framebynavin.app.personal.Phase1V2ArchiveDryRun
+import com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport
 import com.framebynavin.app.personal.V301DomainDiff
-import com.framebynavin.app.personal.V301RestoreDryRunReport
 import com.framebynavin.app.ui.theme.*
 import java.security.DigestOutputStream
 import java.security.MessageDigest
@@ -43,13 +43,13 @@ import kotlinx.coroutines.withContext
 internal fun V302EncryptedPersonalArchivePanel() {
     val context = LocalContext.current.applicationContext
     val exporter = remember(context) { V300PersonalArchiveSource(context) }
-    val checker = remember(context) { V301ArchiveConflictPreview(context) }
+    val checker = remember(context) { Phase1V2ArchiveDryRun(context) }
     val scope = rememberCoroutineScope()
     var passphrase by remember { mutableStateOf("") } // Not saveable to a Bundle.
     var exportingSecret by remember { mutableStateOf<CharArray?>(null) }
     var checkingSecret by remember { mutableStateOf<CharArray?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var result by remember { mutableStateOf<V301RestoreDryRunReport?>(null) }
+    var result by remember { mutableStateOf<Phase1V2ArchiveDryRunReport?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }
     var detailOpen by remember { mutableStateOf(false) }
@@ -161,7 +161,7 @@ internal fun V302EncryptedPersonalArchivePanel() {
             verticalArrangement = Arrangement.spacedBy(11.dp),
         ) {
             Text("ENCRYPTED PERSONAL ARCHIVE",
-                color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Text("Save a private copy", color = ProjectorIvory,
                 fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Text(
@@ -241,23 +241,38 @@ internal fun V302EncryptedPersonalArchivePanel() {
                 )
             }
             result?.let { report ->
-                Text(report.neutralSummary, color = ProjectorIvory,
+                Text(
+                    "${report.proposedAdditions} new records · ${report.conflicts} conflicts",
+                    color = ProjectorIvory,
                     fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.testTag("v302-conflict-summary"))
-                Text(report.warning, color = MutedGold,
+                Text(
+                    if (report.needsOwnerReview)
+                        "Some records need your review. Nothing was changed."
+                    else "All nine data categories checked. No restore performed.",
+                    color = if (report.needsOwnerReview) RecRed else ProjectorIvory,
                     fontSize = 12.sp, lineHeight = 18.sp)
                 TextButton(onClick = { detailOpen = !detailOpen }) {
                     Text(if (detailOpen) "HIDE COUNTS" else "VIEW CATEGORY COUNTS")
                 }
                 if (detailOpen) {
-                    V302DiffRow("Reminders", report.reminders)
-                    V302DiffRow("Done receipts", report.completedActions)
-                    V302DiffRow("Challenges", report.challenges)
-                    V302DiffRow("Reminder Groups", report.groups)
-                    V302DiffRow("Spaces", report.spaces)
-                    V302DiffRow("Reminder links", report.spaceLinks)
-                    V302DiffRow("Journal entries", report.journalEntries)
-                    V302DiffRow("Private photos", report.photos)
+                    val older = report.eightDomains
+                    V302DiffRow("Reminders", older.reminders)
+                    V302DiffRow("Done receipts", older.completedActions)
+                    V302DiffRow("Challenges", older.challenges)
+                    V302DiffRow("Reminder Groups", older.groups)
+                    V302DiffRow("Spaces", older.spaces)
+                    V302DiffRow("Reminder links", older.spaceLinks)
+                    V302DiffRow("Journal entries", older.journalEntries)
+                    V302DiffRow("Private photos", older.photos)
+                    Text(
+                        "Single-activity 21-day challenges · " +
+                            "${report.newChallenges.additions} new · " +
+                            "${report.newChallenges.identical} identical · " +
+                            "${report.newChallenges.conflicts} conflicts · " +
+                            "${report.newChallenges.localOnly} phone-only",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
                 }
             }
             Text(
