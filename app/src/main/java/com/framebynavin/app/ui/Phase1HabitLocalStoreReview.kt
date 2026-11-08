@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.framebynavin.app.personal.Phase1HabitAlertKind
 import com.framebynavin.app.personal.Phase1HabitChallenge
 import com.framebynavin.app.personal.Phase1HabitStore
+import com.framebynavin.app.personal.Phase1HabitAlarmScheduler
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -127,14 +128,14 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                             when {
                                 saving -> Unit
                                 clean.isBlank() -> validationError = true
-                                alertKind != null ->
-                                    message = "Alerts are not enabled in this review. Choose Off to save your progress."
                                 else -> {
                                     val new = Phase1HabitChallenge(
                                         id = UUID.randomUUID().toString(),
                                         activity = clean,
                                         startDate = startDate,
                                         zoneId = zone.id,
+                                        alertTime = if (alertKind == null) null else alertTime,
+                                        alertKind = alertKind,
                                     ).checked()
                                     saving = true
                                     coroutineScope.launch {
@@ -143,7 +144,11 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                                             chosenId = new.id
                                             creating = false
                                             title = ""
-                                            message = null
+                                            message = runCatching {
+                                                Phase1HabitAlarmScheduler(context).reconcile()
+                                            }.exceptionOrNull()?.let {
+                                                "Challenge saved; check Android alert permissions."
+                                            }
                                         } catch (_: Exception) {
                                             message = "Could not save the challenge. Existing progress was not changed."
                                         } finally {
@@ -170,7 +175,11 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                                 coroutineScope.launch {
                                     try {
                                         records = store.confirmToday(selected.id, Instant.now())
-                                        message = null
+                                        message = runCatching {
+                                            Phase1HabitAlarmScheduler(context).reconcile()
+                                        }.exceptionOrNull()?.let {
+                                            "Progress saved; Android alert scheduling needs attention."
+                                        }
                                     } catch (_: Exception) {
                                         message = "Could not confirm today. No Done receipt was added."
                                     } finally {
@@ -186,7 +195,11 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                                     try {
                                         val day = LocalDate.ofInstant(Instant.now(), ZoneId.of(selected.zoneId))
                                         records = store.undoDay(selected.id, day)
-                                        message = null
+                                        message = runCatching {
+                                            Phase1HabitAlarmScheduler(context).reconcile()
+                                        }.exceptionOrNull()?.let {
+                                            "Progress saved; Android alert scheduling needs attention."
+                                        }
                                     } catch (_: Exception) {
                                         message = "Could not undo today. Existing progress was kept."
                                     } finally {
@@ -201,7 +214,11 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                                 coroutineScope.launch {
                                     try {
                                         records = store.setPaused(selected.id, !selected.paused)
-                                        message = null
+                                        message = runCatching {
+                                            Phase1HabitAlarmScheduler(context).reconcile()
+                                        }.exceptionOrNull()?.let {
+                                            "Progress saved; Android alert scheduling needs attention."
+                                        }
                                     } catch (_: Exception) {
                                         message = "Could not update pause state. No records were changed."
                                     } finally {

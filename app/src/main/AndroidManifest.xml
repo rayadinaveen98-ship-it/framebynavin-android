@@ -49,6 +49,9 @@
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <!-- V223.1 Personal domain: separate non-exported PendingIntent targets. -->
         <receiver android:name=".personal.PersonalReminderReceiver" android:exported="false" />
+        <receiver android:name=".personal.Phase1HabitAlarmReceiver" android:exported="false" />
+        <service android:name=".personal.Phase1HabitVoiceService"
+            android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <receiver android:name=".personal.PersonalReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.EscalationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />

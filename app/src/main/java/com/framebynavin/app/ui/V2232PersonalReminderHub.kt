@@ -563,7 +563,7 @@ internal fun V2232PersonalReminderHub(
     }
 
     if (challengesOpen) {
-        V297ChallengeScreen(onClose = { challengesOpen = false })
+        Phase1HabitLocalStoreReview(onClose = { challengesOpen = false })
     }
 
     if (spacesOpen) {

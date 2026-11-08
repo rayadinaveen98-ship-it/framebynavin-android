@@ -261,7 +261,7 @@ internal fun DashboardHabitReview(
             Text(if (habit.paused) "Resume challenge" else "Pause challenge")
         }
         Text(if (previewOnly) "Review only · No data or alerts saved"
-            else "Progress saved on this device · Live alerts not yet active",
+            else "Progress saved on this device · Android alert permissions apply",
             color = BacklotSecondaryText, fontSize = 11.sp,
             modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
     }

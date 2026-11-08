@@ -97,6 +97,12 @@ class MainActivity : ComponentActivity() {
                 CreatorCloudSyncWorker.ensurePeriodic(applicationContext)
                 ReminderRecoveryEngine.reconcile(applicationContext)
                 IdeaReminderScheduler(applicationContext).reconcile()
+                runCatching {
+                    com.framebynavin.app.personal.Phase1HabitAlarmScheduler(applicationContext)
+                        .reconcile()
+                }.onFailure {
+                    android.util.Log.w("BacklotHabit", "Startup 21-day scheduler failed", it)
+                }
                 // Personal recovery is independent and cannot prevent the
                 // creator workspace from opening if Personal data is damaged.
                 runCatching {
@@ -131,6 +137,12 @@ class MainActivity : ComponentActivity() {
         if (startupReady) lifecycleScope.launch(Dispatchers.IO) {
             ReminderRecoveryEngine.reconcile(applicationContext)
             IdeaReminderScheduler(applicationContext).reconcile()
+            runCatching {
+                com.framebynavin.app.personal.Phase1HabitAlarmScheduler(applicationContext)
+                    .reconcile()
+            }.onFailure {
+                android.util.Log.w("BacklotHabit", "Resume 21-day scheduler failed", it)
+            }
             runCatching {
                 com.framebynavin.app.personal.PersonalDeliveryCoordinator(applicationContext).reconcile()
             }.onFailure {
