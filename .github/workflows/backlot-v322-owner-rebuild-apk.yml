@@ -1,0 +1,48 @@
+name: Backlot Rebuild Schedule - Owner APK Preview
+on:
+  push:
+    branches:
+      - feature/backlot-personal-rebuild-20261108
+  pull_request:
+    branches:
+      - feature/backlot-phase1-final-integration-review
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Unit test routine configuration
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.personal.PersonalRebuildSchedulePackTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Build owner-upgrade-compatible signed preview
+        run: |
+          set -euo pipefail
+          gradle :app:assemblePersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Verify build output and record checksum
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$APK"
+          mkdir -p output/rebuild-owner
+          cp "$APK" output/rebuild-owner/Backlot-v322-Rebuild-Schedule.apk
+          sha256sum output/rebuild-owner/Backlot-v322-Rebuild-Schedule.apk > output/rebuild-owner/SHA256SUMS.txt
+          echo "Preview APK built and checksum recorded"
+      - name: Upload owner APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-v322-Rebuild-Schedule-Owner-Preview
+          path: output/rebuild-owner/
+          retention-days: 30
+          if-no-files-found: error
