@@ -168,9 +168,17 @@ class Phase1V2OwnerRestoreDeviceTest {
                 PersonalReminderStore(app).load().map { it.withoutDeviceAlarmLease() })
             val verified = V301LocalRecoveryReader(app).readV2()
             assertTrue(verified.localIntegrityVerified)
-            assertEquals(completed.installedDigest,
-                Phase1V2RestoreFingerprint.calculate(
-                    verified.components, verified.photos))
+            // After transaction commit, normal Android alarm reconciliation may
+            // renew non-portable reminder tokens. The archived verified journal
+            // proves the exact install-time digest; the field/photo assertions
+            // below prove portable owner data remains intact afterward.
+            val completedDir = File(app.filesDir,
+                "backlot-personal-v2-completed-journals/" + completed.transactionId)
+            val archived = requireNotNull(
+                Phase1V2RestoreWriteAheadJournal(completedDir).inspectAfterRestart())
+            assertEquals(Phase1V2RestoreStep.VERIFYING, archived.step)
+            assertEquals(completed.installedDigest, archived.targetDigest)
+            assertEquals(completed.originalDigest, archived.originalDigest)
             assertEquals(listOf(group),
                 V298ReminderGroupCodec.decode(verified.components.groups))
             val spaces = V303SpaceReceiptArchiveCodec.decode(
