@@ -17,12 +17,33 @@ class Phase1HabitMergePolicyTest {
         val original = habit("original").confirmToday(Instant.parse("2026-11-07T04:00:00Z"))
         val conflicting = habit("original").copy(activity = "Other imported activity")
         val imported = habit("incoming")
-        val merged = Phase1HabitMergePolicy.addMissing(
-            listOf(original), listOf(conflicting, imported),
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            Phase1HabitMergePolicy.addMissing(
+                listOf(original), listOf(conflicting, imported),
+            )
+        }
+        assertTrue(error.message.orEmpty().contains("Owner review required"))
+        assertEquals(1, original.confirmations.size)
+        assertEquals("Read 20 minutes", original.activity)
+    }
+
+    @Test fun identicalCollisionRetainsExistingReceiptAndAddsOnlyNewIds() {
+        val original = habit("original").confirmToday(Instant.parse("2026-11-07T04:00:00Z"))
+        val added = habit("new")
+        assertEquals(
+            listOf(original, added),
+            Phase1HabitMergePolicy.addMissing(listOf(original), listOf(original, added)),
         )
-        assertEquals(listOf(original, imported), merged)
-        assertEquals(1, merged[0].confirmations.size)
-        assertEquals("Read 20 minutes", merged[0].activity)
+    }
+
+    @Test fun sameIdDifferentDoneInstantIsRejectedNotIgnored() {
+        val original = habit("original").confirmToday(Instant.parse("2026-11-07T04:00:00Z"))
+        val later = habit("original").confirmToday(Instant.parse("2026-11-07T07:00:00Z"))
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1HabitMergePolicy.addMissing(listOf(original), listOf(later))
+        }
+        assertEquals(Instant.parse("2026-11-07T04:00:00Z"),
+            original.confirmations.values.single())
     }
 
     @Test fun duplicateImportedIdentitiesRejectBeforeAnyMutation() {

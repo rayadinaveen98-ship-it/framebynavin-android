@@ -54,6 +54,15 @@ class Phase1HabitArchiveCoverageGuardDeviceTest {
         )
         assertEquals(1, preview.singleActivityChallenges)
         assertEquals(1, preview.singleActivityDoneReceipts)
+        // This version-aware comparison is authenticated and read-only.
+        val comparison = Phase1HabitArchiveConflictPreview(app).check(
+            ByteArrayInputStream(bytes.toByteArray()), password,
+        )
+        assertTrue(comparison.archiveHasChallengeCoverage)
+        assertEquals(1, comparison.identical)
+        assertEquals(1, comparison.importedDoneReceipts)
+        assertEquals(0, comparison.conflicts)
+        assertFalse(comparison.authorizesRestore)
         V300EncryptedPersonalArchive.stageAndVerify(
             ByteArrayInputStream(bytes.toByteArray()), password, app.cacheDir,
         ).use { staged ->

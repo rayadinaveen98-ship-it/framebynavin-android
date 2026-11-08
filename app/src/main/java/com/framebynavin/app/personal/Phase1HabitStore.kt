@@ -166,7 +166,15 @@ internal object Phase1HabitMergePolicy {
         require(incoming.map { it.id }.distinct().size == incoming.size) {
             "Import challenge identity conflict"
         }
-        val ids = existing.mapTo(HashSet()) { it.id }
-        return existing + incoming.filterNot { it.id in ids }
+        // A matching ID with different activity, date/zone, alert, pause or
+        // EXACT Done receipt instant is a conflict, not a silent no-op.
+        // The future restore UI must request an explicit owner decision.
+        val byId = existing.associateBy { it.id }
+        require(incoming.none { record ->
+            byId[record.id]?.let { it != record } == true
+        }) {
+            "Conflicting 21-day challenge already exists. Owner review required."
+        }
+        return existing + incoming.filterNot { it.id in byId }
     }
 }
