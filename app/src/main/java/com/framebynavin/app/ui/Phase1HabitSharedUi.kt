@@ -83,6 +83,7 @@ internal fun CreateHabitReview(
     time: LocalTime, onTime: (LocalTime) -> Unit,
     error: Boolean, onStart: () -> Unit,
     previewOnly: Boolean = false,
+    liveErrorMessage: String? = null,
 ) {
     val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
@@ -145,7 +146,8 @@ internal fun CreateHabitReview(
                     fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Hint("One activity for 21 dates. Only your explicit Done action counts.")
             }
-            if (error) Text("Enter one activity to continue.",
+            if (error || liveErrorMessage != null) Text(
+                if (error) "Enter one activity to continue." else liveErrorMessage.orEmpty(),
                 color = BacklotError, modifier = Modifier.testTag("habit-error"))
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
