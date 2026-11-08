@@ -30,6 +30,7 @@ import com.framebynavin.app.personal.Phase1HabitDayStatus
 import com.framebynavin.app.ui.theme.*
 import com.framebynavin.app.ui.CreateHabitReview
 import com.framebynavin.app.ui.DashboardHabitReview
+import com.framebynavin.app.ui.Phase1HabitLocalStoreReview
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -55,7 +56,12 @@ class Phase1HabitInteractiveReviewActivity : ComponentActivity() {
         VisualExperiencePrefs.setTheme(FrameTheme.DIRECTORS_CUT)
         setContent {
             FrameByNavinTheme {
-                Phase1HabitInteractiveReview(scene)
+                if (scene == "local-store") {
+                    // Real DataStore-backed Compose review, CI-emulator only.
+                    Phase1HabitLocalStoreReview(onClose = { finish() })
+                } else {
+                    Phase1HabitInteractiveReview(scene)
+                }
             }
         }
     }
