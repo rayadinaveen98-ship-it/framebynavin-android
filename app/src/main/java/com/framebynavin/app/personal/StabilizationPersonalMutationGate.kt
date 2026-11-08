@@ -223,6 +223,7 @@ internal object StabilizationPersonalMutationGate {
             "Nested recovery inspection or mutation lock is not permitted"
         }
         return processMutex.withLock {
+            ensureNoCompetingV2Journal(journalRoot)
             val record = checkNotNull(
                 StabilizationRestoreWriteAheadJournal(journalRoot).inspectAfterRestart()
             ) { "No pending recovery transaction" }
@@ -277,6 +278,7 @@ internal object StabilizationPersonalMutationGate {
             check(!ordinaryMutation && inspection.active && inspection.root == path) {
                 "Recovery inspection is read-only and cannot mutate owner data"
             }
+            ensureNoCompetingV2Journal(root)
             val current = checkNotNull(
                 StabilizationRestoreWriteAheadJournal(root).inspectAfterRestart()
             ) { "Pending recovery journal was removed during inspection" }

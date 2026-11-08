@@ -40,6 +40,17 @@ class Phase1V2RestoreWriteAheadJournalTest {
         assertFalse(root.exists())
     }
 
+    @Test fun olderV1JournalBlocksV2PreparationWithoutOverwritingEither() =
+        fixture { root, journal ->
+            val older = File(root.parentFile, "backlot-personal-active-restore-transaction")
+            check(older.mkdir()) { "Could not create synthetic v1 journal" }
+            assertThrows(IllegalStateException::class.java) {
+                journal.prepare(prepared(), true)
+            }
+            assertFalse(root.exists())
+            assertTrue(older.exists())
+        }
+
     @Test fun cannotReuseLegacyV1Directory() = fixture { root, _ ->
         val wrong = Phase1V2RestoreWriteAheadJournal(File(root.parentFile, "old-v1"))
         assertThrows(IllegalArgumentException::class.java) {

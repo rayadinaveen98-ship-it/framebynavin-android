@@ -41,6 +41,12 @@ internal class Phase1V2RestoreWriteAheadJournal(private val root: File) {
             "V2 recovery must start at PREPARED"
         }
         check(root.parentFile?.isDirectory == true) { "Missing private v2 journal parent" }
+        // The legacy writer cannot safely coexist with a v2 owner transaction.
+        // The v1 journal format and directory stay unchanged.
+        val oldJournal = File(root.parentFile, "backlot-personal-active-restore-transaction")
+        check(!Files.exists(oldJournal.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            "Unfinished legacy Personal recovery must be resolved first"
+        }
         check(!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS)) {
             "Existing v2 recovery evidence requires owner review"
         }

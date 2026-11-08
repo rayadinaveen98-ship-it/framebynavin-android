@@ -51,6 +51,24 @@ class StabilizationPersonalMutationGateTest {
         }
     }
 
+    @Test fun v2RecoveryEvidenceBlocksLegacyV1OwnerRecoveryInspection() = sandbox { journal ->
+        val original = prepared(journal)
+        val v2 = Phase1V2RecoveryRoots.alongsideLegacy(journal)
+        check(v2.mkdir()) { "Could not create v2 recovery marker" }
+        var inspected = false
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                StabilizationPersonalMutationGate.withPendingRecoveryInspection(journal) {
+                    inspected = true
+                }
+            }
+        }
+        assertFalse(inspected)
+        assertEquals(original,
+            StabilizationRestoreWriteAheadJournal(journal).inspectAfterRestart())
+        assertTrue(v2.exists())
+    }
+
     @Test fun ordinaryWriteAllowedWhenNoJournalExists() = sandbox { journal ->
         var count = 0
         StabilizationPersonalMutationGate.withOwnerMutation(journal) { count++ }
