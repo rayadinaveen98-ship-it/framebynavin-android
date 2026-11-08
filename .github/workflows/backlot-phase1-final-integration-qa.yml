@@ -50,6 +50,7 @@ jobs:
             bash tools/qa/capture_backlot_phase1_habit_interactive_android.sh
             bash tools/qa/backlot_phase1_habit_store_device_qa.sh
             bash tools/qa/backlot_phase1_habit_archive_guard_android.sh
+            bash tools/qa/backlot_phase1_real_challenge_store_ui_android.sh
       - name: Confirm source-bound screenshot and safety artifacts
         run: |
           set -euo pipefail
@@ -57,7 +58,8 @@ jobs:
             output/backlot-phase1-live-directors-cut/SHA256SUMS.txt \
             output/backlot-phase1-habit-interactive/SHA256SUMS.txt \
             output/backlot-phase1-habit-store-device/PROCESS-READ-AFTER-FORCE-STOP.txt \
-            output/backlot-phase1-habit-archive-guard/ANDROID-ARCHIVE-COVERAGE-TEST.txt; do
+            output/backlot-phase1-habit-archive-guard/ANDROID-ARCHIVE-COVERAGE-TEST.txt \
+            output/backlot-phase1-real-challenge-store-ui/SHA256SUMS.txt; do
               test -s "$file"
           done
           echo 'PASS: combined screens, policy and safety test evidence present'
@@ -71,6 +73,7 @@ jobs:
             output/backlot-phase1-habit-interactive/
             output/backlot-phase1-habit-store-device/
             output/backlot-phase1-habit-archive-guard/
+            output/backlot-phase1-real-challenge-store-ui/
             app/build/test-results/testDebugUnitTest/
           retention-days: 30
           if-no-files-found: warn
