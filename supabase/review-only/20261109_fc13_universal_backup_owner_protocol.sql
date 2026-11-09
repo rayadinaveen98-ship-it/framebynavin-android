@@ -110,8 +110,8 @@ as $f$
 declare
   owner_id uuid := (select auth.uid());
   phase_now text;
-declare prior public.trust_backup_heads_v1%rowtype;
-declare next_revision bigint;
+  prior public.trust_backup_heads_v1%rowtype;
+  next_revision bigint;
 begin
   if owner_id is null then
     raise exception 'Authenticated owner required' using errcode='28000';
