@@ -237,7 +237,7 @@ internal fun V157ReminderCenterUi(
                     selected = BacklotReminderWorkspace.CREATOR,
                     onOpenPersonal = onPersonal,
                     onOpenCreator = {},
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp)
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
                         .testTag("v2232-reminders-space-switcher"),
                 )
 
@@ -316,42 +316,24 @@ internal fun V157ReminderCenterUi(
                             .testTag("v219-hub-filters"),
                         horizontalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
-                        // Material3 FilterChip defaults pick a lavender primary
-                        // from the ambient MaterialTheme. Use Backlot's semantic
-                        // Director's Cut/Light tokens instead: no purple accents.
-                        val backlotFilterColors = FilterChipDefaults.filterChipColors(
-                            containerColor = BacklotSurface,
-                            labelColor = BacklotSecondaryText,
-                            selectedContainerColor = BacklotSurfaceSelected,
-                            selectedLabelColor = BacklotPrimaryText,
-                        )
+                        // FC13: shared semantic chips; search/selection ownership unchanged.
                         V219ReminderHubFilter.entries.forEach { filter ->
-                            val activeFilter = !historyOpen && hubFilter == filter
-                            FilterChip(
-                                selected = activeFilter,
+                            BacklotReminderHubFilterChip(
+                                label = "${filter.title} ${filter.count(matchingGroups)}",
+                                selected = !historyOpen && hubFilter == filter,
                                 onClick = { hubFilter = filter; historyOpen = false; selected = emptySet() },
-                                label = {
-                                    Text("${filter.title} ${filter.count(matchingGroups)}", fontSize = 11.sp,
-                                        maxLines = 1)
-                                },
                                 modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
-                                shape = RoundedCornerShape(18.dp),
-                                colors = backlotFilterColors,
-                                border = BorderStroke(1.dp, if (activeFilter) BacklotAccent else BacklotBorder),
                             )
                         }
-                        FilterChip(
+                        BacklotReminderHubFilterChip(
+                            label = "History",
                             selected = historyOpen,
                             onClick = {
                                 historyOpen = !historyOpen
                                 hubFilter = V219ReminderHubFilter.ALL
                                 selected = emptySet()
                             },
-                            label = { Text("History", fontSize = 11.sp, maxLines = 1) },
                             modifier = Modifier.testTag("v2193-history-tab"),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = backlotFilterColors,
-                            border = BorderStroke(1.dp, if (historyOpen) BacklotAccent else BacklotBorder),
                         )
                     }
                     } else {
@@ -538,10 +520,11 @@ private fun V157ReminderGroup(
     val context = LocalContext.current
     val smartConfig = remember(context) { SmartEscalationConfigStore(context.applicationContext) }
     Spacer(Modifier.height(22.dp))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
-        Text("${tasks.size}", color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
+    BacklotReminderHubSectionHeading(
+        label = label,
+        count = tasks.size,
+        urgent = accent == RecRed,
+    )
     Spacer(Modifier.height(3.dp))
     Text(subtitle, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
     Spacer(Modifier.height(9.dp))
