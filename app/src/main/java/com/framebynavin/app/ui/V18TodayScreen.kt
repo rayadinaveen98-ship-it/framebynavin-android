@@ -50,6 +50,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -218,23 +221,37 @@ internal fun PTodayScreen(
                 Spacer(Modifier.height(12.dp))
                 // Phase 3A/B: Home action is navigation, never a hidden status edit.
                 // Starting WORKING or completing a stage remains an explicit Project action.
+                // Phase 3F: at 2x system text scaling the old fixed 50dp CTA
+                // silently clipped "WORK". Preserve a complete visible label
+                // and a descriptive screen-reader action without changing routing.
+                val largeActionText = LocalDensity.current.fontScale >= 1.6f
+                val actionHeight = if (largeActionText) 76.dp else 50.dp
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = { onContinueWork(selected.id) },
-                        modifier = Modifier.weight(1.35f).height(50.dp).testTag("phase3-home-continue"),
+                        modifier = Modifier.weight(1.35f).height(actionHeight)
+                            .testTag("phase3-home-continue")
+                            .semantics { contentDescription = "Continue work on ${selected.title}" },
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
                     ) {
                         Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(5.dp))
-                        Text("CONTINUE WORK", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                        Text(
+                            if (largeActionText) "CONTINUE\nWORK" else "CONTINUE WORK",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                        )
                     }
                     OutlinedButton(
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onFocus(selected.id)
                         },
-                        modifier = Modifier.weight(1f).height(50.dp).testTag("phase3-home-focus"),
+                        modifier = Modifier.weight(1f).height(actionHeight).testTag("phase3-home-focus"),
                         border = BorderStroke(1.dp, CinemaLine),
                         shape = RoundedCornerShape(15.dp),
                     ) {

@@ -132,6 +132,10 @@ class Phase3HomeCompositionReviewTest {
         render(listOf(project()), fontScale = 2f)
         rule.onNodeWithTag("v215-project-entry").performScrollTo().assertExists()
         rule.onNodeWithTag("phase3-home-continue").performScrollTo().assertExists()
+        rule.onNodeWithText("CONTINUE\nWORK", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithContentDescription(
+            "Continue work on ఆలోచనలు · Why This Scene Works — Long English and Telugu cinema analysis",
+        ).assertExists()
         rule.onNodeWithTag("phase3-home-focus").performScrollTo().assertExists()
         rule.onNodeWithText("START THIS MOVE", useUnmergedTree = true).assertDoesNotExist()
         rule.onNodeWithText("NO DEADLINE", useUnmergedTree = true).assertExists()

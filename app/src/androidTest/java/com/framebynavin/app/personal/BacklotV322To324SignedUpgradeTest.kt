@@ -20,15 +20,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Runs one named method on the actual installed V322 signed APK BEFORE install -r V323,
+ * Runs one named method on the actual installed V322 signed APK BEFORE install -r V324,
  * then verifies the exact owner schedule + 21-day Day-1 receipt + project AFTER upgrade.
- * The test APK is the V323 signed personalStable AndroidTest variant; it uses only
+ * The test APK is the V324 signed personalStable AndroidTest variant; it uses only
  * APIs that already existed in V322 for the pre-upgrade phase.
  *
  * Disposable Android 15 CI emulator only. No uninstall / pm clear between phases.
  */
 @RunWith(AndroidJUnit4::class)
-class BacklotV322To323SignedUpgradeTest {
+class BacklotV322To324SignedUpgradeTest {
     private val app: Context get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
     private val evidence: File get() = File(app.filesDir, "qa-v322-v323-owner-data-fixture.json")
     private val creatorId = "qa-v322-v323-creator-project"
@@ -65,10 +65,10 @@ class BacklotV322To323SignedUpgradeTest {
         habits.create(walking)
         habits.confirmToday(walking.id, receipt)
         creator.mutate { old -> old + CreatorTask(
-            id = creatorId, title = "Frame breakdown survives V323",
+            id = creatorId, title = "Frame breakdown survives V324",
             platform = "YouTube", contentType = "Long-form", dueLabel = "Tomorrow",
             status = TaskStatus.WORKING, notes = note,
-            workspace = CreatorContentWorkspace(script = "Scene analysis — saved before V323"),
+            workspace = CreatorContentWorkspace(script = "Scene analysis — saved before V324"),
         ) }
 
         val baseline = JSONObject()
@@ -88,15 +88,15 @@ class BacklotV322To323SignedUpgradeTest {
         assertTrue(evidence.isFile && evidence.length() > 100L)
     }
 
-    @Test fun phase2VerifyV323InPlaceInstallPreservedEveryScheduleRecordAndDay1Receipt(): Unit = runBlocking {
+    @Test fun phase2VerifyV324InPlaceInstallPreservedEveryScheduleRecordAndDay1Receipt(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
-        assertEquals("Must be signed V323 update, not still old V322", 323L, installedVersion())
+        assertEquals("Must be signed V324 update, not still old V322", 324L, installedVersion())
         verifyUnmodifiedOwnerRecords()
     }
 
-    @Test fun phase3VerifyAfterV323NormalActivityLaunch(): Unit = runBlocking {
+    @Test fun phase3VerifyAfterV324NormalActivityLaunch(): Unit = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
-        assertEquals(323L, installedVersion())
+        assertEquals(324L, installedVersion())
         verifyUnmodifiedOwnerRecords()
     }
 
@@ -105,7 +105,7 @@ class BacklotV322To323SignedUpgradeTest {
         val expected = JSONObject(AtomicFile(evidence).openRead().bufferedReader().use { it.readText() })
         assertEquals(322L, expected.getLong("versionCode"))
         val personal = PersonalReminderStore(app)
-        val original = PersonalReminderCodec.decode(expected.getString("personal"))
+        val original = PersonalCompletionBackupCodec.decode(expected.getString("personal")).reminders
             .filter { it.id.startsWith(PersonalRebuildSchedulePack.PREFIX) }
         val actual = personal.load().filter { it.id.startsWith(PersonalRebuildSchedulePack.PREFIX) }
         assertEquals(16, original.size)
@@ -122,6 +122,6 @@ class BacklotV322To323SignedUpgradeTest {
         val creator = TaskStore(app).load().single { it.id == expected.getString("creatorId") }
         assertEquals(TaskStatus.WORKING, creator.status)
         assertEquals(note, creator.notes)
-        assertEquals("Scene analysis — saved before V323", creator.workspace.script)
+        assertEquals("Scene analysis — saved before V324", creator.workspace.script)
     }
 }
