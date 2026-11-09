@@ -113,8 +113,8 @@ internal class TrustCreatorRestoreBridge(context: Context) {
      * authenticated* owner Trust partitions rather than live Creator data.
      *
      * Only an explicit owner-approved restore preparation may call this;
-     * unlike preview, CreatorBackupManager construction may initialize the
-     * legacy onboarding preference. This method still NEVER imports data.
+     * Both native backup validators run in read-only mode, so preparing the
+     * candidate neither seeds guided-tour state nor imports owner data.
      * Caller must delete the returned plaintext private temporary ZIP after
      * the existing Creator restore coordinator consumes or rejects it.
      */
@@ -166,7 +166,9 @@ internal class TrustCreatorRestoreBridge(context: Context) {
             )
         }
         val preparedFrames = PortableBestFrameMedia.prepareFromVerifiedSourceFiles(frames)
-        val signed = CreatorBackupManager(app).assembleTrustedSourceEnvelope(
+        val signed = CreatorBackupManager(
+            app, readOnlySourceValidation = true,
+        ).assembleTrustedSourceEnvelope(
             raw = expectedParts.associateWith(::text),
             nativeSettings = settings.creatorSettingsJson,
             nativeEscalation = settings.smartEscalationJson,
@@ -202,7 +204,9 @@ internal class TrustCreatorRestoreBridge(context: Context) {
             }
             require(output.length() in 1L..(1024L * 1024 * 1024))
             output.inputStream().buffered().use {
-                PortableCreatorBackupManager(app).validate(it)
+                PortableCreatorBackupManager(
+                    app, readOnlyValidation = true,
+                ).validate(it)
             }
             output
         } catch (failure: Throwable) {
