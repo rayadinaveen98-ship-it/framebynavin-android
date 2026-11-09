@@ -93,8 +93,11 @@ class TrustT1C4CloudRevisionContractTest {
             encryptedSha256 = candidate.encryptedSha256,
             encryptedBytes = candidate.encryptedBytes,
         )
+        val proof = TrustCloudVerifiedReadback.verify(
+            ByteArrayInputStream(original), candidate,
+        )
         val accepted = TrustT1C4CloudRevisionPolicy.acknowledgeNewHead(
-            null, first, candidate,
+            null, first, candidate, proof,
         )
         assertEquals(TrustCloudPublishStage.HEAD_READBACK_CONFIRMED, accepted.stage)
         assertEquals(1L, accepted.remoteRevision)
@@ -107,8 +110,16 @@ class TrustT1C4CloudRevisionContractTest {
                 owner, UUID.fromString("00000000-0000-4000-8000-000000000013")))
         val next = first.copy(revision = 3)
         assertEquals(3L,
-            TrustT1C4CloudRevisionPolicy.acknowledgeNewHead(previous, next, candidate)
+            TrustT1C4CloudRevisionPolicy.acknowledgeNewHead(previous, next, candidate, proof)
                 .remoteRevision)
+        val otherFile = "different ciphertext".toByteArray()
+        val wrongProof = TrustCloudVerifiedReadback.verify(
+            ByteArrayInputStream(otherFile), descriptor(otherFile),
+        )
+        assertThrows(IllegalStateException::class.java) {
+            TrustT1C4CloudRevisionPolicy.acknowledgeNewHead(
+                previous, next, candidate, wrongProof)
+        }
         for (wrong in listOf(
             next.copy(revision = 4),
             next.copy(objectPath = previous.objectPath),
@@ -117,7 +128,7 @@ class TrustT1C4CloudRevisionContractTest {
         )) {
             assertThrows(IllegalStateException::class.java) {
                 TrustT1C4CloudRevisionPolicy.acknowledgeNewHead(
-                    previous, wrong, candidate)
+                    previous, wrong, candidate, proof)
             }
         }
     }
