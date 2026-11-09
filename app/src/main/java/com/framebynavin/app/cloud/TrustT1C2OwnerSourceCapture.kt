@@ -99,6 +99,11 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                         val publishJson = publishing.exportJson()
                         freezer.addJson("creator/history/post-publish", publishJson,
                             publishing.validateJson(publishJson))
+                        val creatorExtras = TrustCreatorAdditionalSources.capture(app)
+                        creatorExtras.forEach { entry ->
+                            TrustCreatorAdditionalSources.validate(entry)
+                            freezer.addJson(entry.id, entry.raw, entry.count)
+                        }
                         val weekly = WeeklyScheduleStore(app).inspectSavedForInventory()
                         freezer.addJson(
                             "creator/config/weekly-slots",
@@ -247,6 +252,7 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                             timeline.exportJson() == timelineJson &&
                             pulses.exportJson() == pulseJson &&
                             publishing.exportJson() == publishJson &&
+                            TrustCreatorAdditionalSources.capture(app) == creatorExtras &&
                             WeeklyScheduleStore(app).inspectSavedForInventory() == weekly &&
                             CreatorHeroArchive.orderedSourceNames(app) == heroOrder
                         ) {
