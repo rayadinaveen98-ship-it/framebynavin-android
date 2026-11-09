@@ -97,7 +97,7 @@ object ReminderNotifications {
         runCatching { ReminderAcknowledgementStore(context).begin(task, token, "NOTIFICATION") }
         val manager = context.getSystemService(NotificationManager::class.java)
         val builder = NotificationCompat.Builder(context, if (quiet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID)
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle(task.title)
             .setContentText(notificationText(task))
             .setStyle(
@@ -114,6 +114,15 @@ object ReminderNotifications {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context, task.id))
+        FC13SparkNotificationIdentity.decoratePrivate(
+            builder,
+            context,
+            when {
+                quiet || isFollowUp -> FC13SparkNotificationMood.CALM
+                stageCheckIn -> FC13SparkNotificationMood.ALERT
+                else -> FC13SparkNotificationMood.SPEAK
+            },
+        )
 
         if (stageCheckIn) {
             builder
