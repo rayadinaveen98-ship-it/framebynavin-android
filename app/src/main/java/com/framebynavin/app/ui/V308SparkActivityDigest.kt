@@ -115,6 +115,16 @@ internal fun V308SparkActivityDigest(
                     Row(Modifier.padding(11.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FC13SparkPose(
+                            mood = when {
+                                item.bucket == V306ActivityBucket.HISTORY ->
+                                    FC13SparkNotificationMood.SUCCESS
+                                item.deliveryProblem -> FC13SparkNotificationMood.ALERT
+                                else -> FC13SparkNotificationMood.THINK
+                            },
+                            size = FC13SparkPoseSize.COMPACT,
+                            modifier = Modifier.testTag("fc13-spark-digest-row-pose"),
+                        )
                         Column(Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(V308SparkActivityPolicy.displayedTitle(item),
