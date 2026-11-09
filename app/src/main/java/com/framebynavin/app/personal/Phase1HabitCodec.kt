@@ -34,6 +34,8 @@ internal object Phase1HabitCodec {
                 put("alertTime", valid.alertTime?.toString() ?: JSONObject.NULL)
                 put("alertKind", valid.alertKind?.name ?: JSONObject.NULL)
                 put("paused", valid.paused)
+                put("snoozedDay", valid.snoozedDay?.toString() ?: JSONObject.NULL)
+                put("snoozedUntil", valid.snoozedUntil?.toString() ?: JSONObject.NULL)
                 put("completionMode", valid.completionMode.name)
                 put("linkedSpaceId", valid.linkedSpaceId ?: JSONObject.NULL)
                 put("linkedGroupId", valid.linkedGroupId ?: JSONObject.NULL)
@@ -107,6 +109,11 @@ internal object Phase1HabitCodec {
                     alertKind = if (item.isNull("alertKind")) null
                         else Phase1HabitAlertKind.valueOf(item.getString("alertKind")),
                     paused = item.getBoolean("paused"),
+                    // Backward compatible: older owner archives have no snooze keys.
+                    snoozedDay = if (!item.has("snoozedDay") || item.isNull("snoozedDay"))
+                        null else LocalDate.parse(item.getString("snoozedDay")),
+                    snoozedUntil = if (!item.has("snoozedUntil") || item.isNull("snoozedUntil"))
+                        null else Instant.parse(item.getString("snoozedUntil")),
                     confirmations = receipts,
                     completionMode = Phase1HabitCompletionMode.valueOf(
                         item.optString("completionMode", Phase1HabitCompletionMode.STRICT.name),
