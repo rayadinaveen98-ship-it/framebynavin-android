@@ -26,6 +26,7 @@ import com.framebynavin.app.cloud.TrustOwnerCloudReview
 import com.framebynavin.app.cloud.TrustOwnerEncryptedLocalCopy
 import com.framebynavin.app.cloud.TrustRestorableSourceReview
 import com.framebynavin.app.cloud.TrustUnifiedRestoreJournal
+import com.framebynavin.app.cloud.TrustUnifiedRestoreCoordinator
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -59,6 +60,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     val cloudDeletion = remember(context) {
         TrustCloudBackupDeletionCoordinator(account)
     }
+    val recovery = remember(context) {
+        TrustUnifiedRestoreCoordinator(context.applicationContext)
+    }
     val owner = account.localState().session?.userId
 
     var passphrase by remember { mutableStateOf("") }
@@ -73,6 +77,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     var downloadedReview by remember { mutableStateOf<TrustOwnerCloudReview.SourceCoverageReview?>(null) }
     var unifiedReview by remember { mutableStateOf<TrustOwnerCloudReview.UnifiedRestoreReview?>(null) }
     var preparationConfirmation by remember { mutableStateOf("") }
+    var restoreConfirmation by remember { mutableStateOf("") }
+    var resumeConfirmation by remember { mutableStateOf("") }
+    var acknowledgeDeviceLimits by remember { mutableStateOf(false) }
     var preparedRestore by remember {
         mutableStateOf<TrustOwnerCloudReview.PreparedUnifiedSource?>(null)
     }
@@ -93,6 +100,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
         unifiedReview = null
         preparedRestore = null
         preparationConfirmation = ""
+        restoreConfirmation = ""
+        resumeConfirmation = ""
+        acknowledgeDeviceLimits = false
         deletionReview = null
         passphrase = ""
         publishConfirmation = ""
@@ -130,6 +140,15 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                 // Never keep a typed destructive phrase after a failed request.
                 publishConfirmation = ""
                 deletionConfirmation = ""
+                // A native writer can leave a durable recovery state on error;
+                // refresh its status before another Restore control is shown.
+                runCatching {
+                    TrustUnifiedRestoreJournal.inspect(context.applicationContext)
+                }.onSuccess { pendingRestoreJournal = it }
+                    .onFailure {
+                        message = "Owner recovery journal needs manual review. " +
+                            "Do not begin another restore."
+                    }
             }
         }
     }
