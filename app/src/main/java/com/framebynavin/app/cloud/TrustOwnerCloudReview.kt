@@ -323,6 +323,97 @@ internal class TrustOwnerCloudReview(
     }
 
     /**
+     * Reconstruct a previously reviewed source after process death. The
+     * journal's immutable revision, owner and SHA are the sole admissible
+     * source identity. Reuses the original private ciphertext when present;
+     * if missing, re-downloads the EXACT same revision into a new private
+     * file without replacing any other owner review.
+     */
+    suspend fun reopenInterruptedRestoreSource(
+        pending: TrustUnifiedRestoreJournal.Checkpoint,
+        passphrase: CharArray,
+    ): SourceCoverageReview {
+        require(passphrase.size in 12..512 &&
+            uuid.matches(pending.reviewedSourceId) &&
+            TrustUnifiedRestoreJournal.inspect(app) == pending) {
+            "Interrupted restore journal changed; owner must inspect recovery"
+        }
+        return accounts.withFreshSession { session ->
+            check(session.userId == pending.ownerId &&
+                transport.phase(session) == "active") {
+                "Same signed-in owner and active cloud revision required"
+            }
+            val head = checkNotNull(transport.head(session)) {
+                "The interrupted backup no longer has a cloud head"
+            }
+            check(head.revision == pending.remoteRevision &&
+                head.encryptedSha256 == pending.encryptedSourceSha256)
+            val descriptor = TrustCloudCiphertextDescriptor(
+                session.userId, head.objectPath,
+                head.encryptedSha256, head.encryptedBytes,
+            )
+            val rootDir = ensurePrivateRoot()
+            val reviewedFile = File(
+                rootDir, "review-" + pending.reviewedSourceId + ".enc",
+            )
+            if (!reviewedFile.exists()) {
+                val temporary = File(
+                    rootDir, "pending-" + pending.reviewedSourceId + ".enc",
+                )
+                try {
+                    transport.downloadVerifiedToPrivateFile(
+                        session, descriptor, temporary,
+                    )
+                    check(!reviewedFile.exists())
+                    Files.move(
+                        temporary.toPath(), reviewedFile.toPath(),
+                        StandardCopyOption.ATOMIC_MOVE,
+                    )
+                } catch (failure: Throwable) {
+                    if (temporary.exists() && !temporary.delete()) {
+                        failure.addSuppressed(IllegalStateException(
+                            "A failed owner re-download could not be discarded",
+                        ))
+                    }
+                    throw failure
+                }
+            }
+            require(reviewedFile.isFile &&
+                !Files.isSymbolicLink(reviewedFile.toPath()))
+            val coverage = withContext(Dispatchers.IO) {
+                TrustCloudVerifiedReadback.verify(
+                    reviewedFile.inputStream().buffered(), descriptor,
+                )
+                reviewedFile.inputStream().buffered().use { encrypted ->
+                    TrustEncryptedStagingCodec.stageAndVerify(
+                        session.userId, passphrase, encrypted, app.cacheDir,
+                    ).use { staged ->
+                        TrustRestorableSourceReview.inspect(app, staged)
+                    }
+                }
+            }
+            check(coverage.missingRequiredSources.isEmpty() &&
+                coverage.uncoveredPreferenceKeys.isEmpty()) {
+                "Interrupted backup source lacks authenticated restore coverage"
+            }
+            check(transport.phase(session) == "active")
+            TrustT1C4CloudRevisionPolicy.requireUnchanged(
+                head, transport.head(session), session.userId,
+            )
+            SourceCoverageReview(
+                ownerId = session.userId,
+                remoteRevision = head.revision,
+                encryptedLocalReviewId = pending.reviewedSourceId,
+                encryptedBytes = head.encryptedBytes,
+                verifiedParts = coverage.sourcePartsValidated,
+                counts = coverage.counts,
+                missingRequiredParts = coverage.missingRequiredSources,
+                knownUncoveredDomains = emptySet(),
+            )
+        }
+    }
+
+    /**
      * Owner re-authentication of the exact ciphertext used by an INTERRUPTED
      * unified recovery. Creator data may already have been imported, so an
      * ordinary new-restore conflict preview would be inappropriate here.
