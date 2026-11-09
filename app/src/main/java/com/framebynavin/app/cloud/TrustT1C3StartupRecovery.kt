@@ -41,8 +41,10 @@ internal object TrustT1C3StartupRecovery {
         val app = context.applicationContext
         val root = File(app.noBackupFilesDir, "trust-t1c3-local-review-v1")
         val pending = File(root, "pending")
+        if (root.exists()) check(!Files.isSymbolicLink(root.toPath())) {
+            "Private review root cannot be a symlink"
+        }
         val marker = TrustT1C3RecoveryJournal.inspect(root)
-        if (root.exists()) check(!Files.isSymbolicLink(root.toPath()))
         if (pending.exists()) {
             require(pending.isDirectory && !Files.isSymbolicLink(pending.toPath())) {
                 "Unrecognized private pending backup directory"
