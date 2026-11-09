@@ -37,8 +37,8 @@ internal data class CreatorNewProjectFormDraft(
     val autoRetryMinutes: Int,
     val autoRetryMaxAttempts: Int,
 ) {
-    fun hasContent(): Boolean =
-        title.isNotBlank() || notes.isNotBlank()
+    /** Stored only after an actual form edit, not on first opening. */
+    fun hasContent(): Boolean = true
 }
 
 internal class CreatorNewProjectDraftStore(context: Context) {
@@ -78,14 +78,14 @@ internal class CreatorNewProjectDraftStore(context: Context) {
             .put("autoRetryEnabled", draft.autoRetryEnabled)
             .put("autoRetryMinutes", draft.autoRetryMinutes)
             .put("autoRetryMaxAttempts", draft.autoRetryMaxAttempts)
-        check(prefs.edit().putString("draft", payload.toString()).commit()) {
+        check(prefs.edit().putString(keyFor(generation), payload.toString()).commit()) {
             "Could not preserve new project draft"
         }
     }
 
     /** Null = absent, unsupported, corrupt, or from a different restore epoch. */
     fun load(generation: Long): CreatorNewProjectFormDraft? {
-        val raw = prefs.getString("draft", null) ?: return null
+        val raw = prefs.getString(keyFor(generation), null) ?: return null
         return runCatching {
             require(raw.length <= 75_000)
             val j = JSONObject(raw)
@@ -125,15 +125,17 @@ internal class CreatorNewProjectDraftStore(context: Context) {
         }.getOrNull()
     }
 
-    fun clear() {
-        check(prefs.edit().remove("draft").commit()) {
+    fun clear(generation: Long) {
+        check(prefs.edit().remove(keyFor(generation)).commit()) {
             "Could not clear completed new-project draft"
         }
     }
 
     fun hasUnreviewedDifferentGeneration(generation: Long): Boolean =
-        prefs.getString("draft", null)?.let { raw ->
-            runCatching { JSONObject(raw).getLong("generation") != generation }
-                .getOrDefault(true)
-        } ?: false
+        prefs.all.keys.any { it.startsWith("draft:") && it != keyFor(generation) }
+
+    private fun keyFor(generation: Long): String {
+        require(generation >= 0)
+        return "draft:$generation"
+    }
 }
