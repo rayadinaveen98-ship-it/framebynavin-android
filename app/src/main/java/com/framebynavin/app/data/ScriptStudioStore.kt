@@ -32,6 +32,29 @@ class ScriptStudioStore(private val context: Context) {
             all[projectId] ?: CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
         }
 
+    /**
+     * Trust T1C2: legacy Script Studio sidecar read without calling
+     * TaskStore.load(), which opportunistically seeds workflow history.
+     * This method never writes/migrates Creator data or drops old scripts.
+     */
+    internal suspend fun loadForTrustReadOnly(
+        projectId: String,
+        legacyHook: String = "",
+        legacyScript: String = "",
+    ): CreatorScriptStudio = scriptStudioMutex.withLock {
+        val project = TaskStore(context).tasksFlow.first().firstOrNull { it.id == projectId }
+        if (project == null || project.archivedAtMillis < 0L) {
+            return@withLock CreatorScriptStudio(projectId = projectId)
+        }
+        val prefs = context.scriptStudioDataStore.data.first()
+        val raw = prefs[primaryKey]
+        if (raw.isNullOrBlank()) {
+            return@withLock CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
+        }
+        decodeAll(raw)[projectId] ?:
+            CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
+    }
+
     suspend fun save(
         projectId: String,
         expectedRevision: Long,
