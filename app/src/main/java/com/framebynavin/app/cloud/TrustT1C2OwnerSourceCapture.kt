@@ -68,6 +68,16 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                         freezer.addJson("creator/focus", focusJson,
                             focus.history.size + if (focus.active == null) 0 else 1)
 
+                        // Genuine persisted Creator, Spark and appearance
+                        // choices, with original types and absence preserved.
+                        // No OAuth/session material or device alarm lease enters
+                        // this encrypted portable source.
+                        val portablePreferences = TrustPortablePreferenceCapture.capture(app)
+                        freezer.addJson(
+                            "creator/config/persisted", portablePreferences.json,
+                            portablePreferences.includedKeys,
+                        )
+
                         val personal = V301LocalRecoveryReader(app).readV2()
                         check(personal.localIntegrityVerified) {
                             "Personal owner source integrity is not confirmed"
@@ -167,7 +177,9 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                         // before all original files have been frozen.
                         check(tasks.exportJsonForTrustReadOnly() == projectsJson &&
                             ideaStore.exportJson() == ideasJson &&
-                            PersonalBackupTransfer(app).exportForCloud() == portableReminders
+                            PersonalBackupTransfer(app).exportForCloud() == portableReminders &&
+                            TrustPortablePreferenceCapture.capture(app).json ==
+                                portablePreferences.json
                         ) {
                             "Owner records changed during the immutable source capture"
                         }
