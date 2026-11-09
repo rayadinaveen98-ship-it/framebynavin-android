@@ -50,7 +50,11 @@ internal class TrustOwnerCloudPublisher(
 
     suspend fun inspectForOwnerReview(
         selected: TrustOwnerEncryptedLocalCopy.Receipt,
-    ): Review = accounts.withFreshSession { session ->
+    ): Review {
+        // CloudAccountGate uses a process-wide non-reentrant Mutex.
+        // Finish the copy-catalog read BEFORE acquiring it for cloud head.
+        val available = copies.availableCopiesForSignedInOwner().receipts
+        return accounts.withFreshSession { session ->
         check(session.userId == selected.ownerId) {
             "This encrypted copy belongs to another signed-in Backlot user"
         }
@@ -59,7 +63,6 @@ internal class TrustOwnerCloudPublisher(
         }
         // A catalog record is not an integrity proof. The publish action
         // checks local and decrypted bytes again under the owner operation lock.
-        val available = copies.availableCopiesForSignedInOwner().receipts
         check(selected in available) { "Selected encrypted copy is unavailable" }
         val newest = available.maxOfOrNull { it.createdAtMillis } ?: selected.createdAtMillis
         val before = transport.head(session)
@@ -70,6 +73,7 @@ internal class TrustOwnerCloudPublisher(
             remoteBefore = before,
             localCopyIsOld = selected.createdAtMillis < newest,
         )
+        }
     }
 
     /**
