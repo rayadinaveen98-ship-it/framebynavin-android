@@ -57,8 +57,12 @@ internal class TrustVerifiedStagedBundle(
     val canClaimCompleteBackup: Boolean get() = false
     val canUploadAsUniversalBackup: Boolean get() = false
     override fun close() {
-        check(temporaryDirectory.deleteRecursively() || !temporaryDirectory.exists()) {
-            "Temporary decrypted owner staging files require manual cleanup"
+        try {
+            check(temporaryDirectory.deleteRecursively() || !temporaryDirectory.exists()) {
+                "Temporary decrypted owner staging files require manual cleanup"
+            }
+        } finally {
+            TrustTemporaryStageRegistry.deactivate(temporaryDirectory)
         }
     }
 }
@@ -181,6 +185,7 @@ internal object TrustEncryptedStagingCodec {
         val temp = Files.createTempDirectory(
             stagingParent.canonicalFile.toPath(), "backlot-trust-check-",
         ).toFile()
+        TrustTemporaryStageRegistry.activate(temp)
         try {
             ZipInputStream(encrypted).use { zip ->
                 requireNext(zip, "header.bin")
@@ -250,6 +255,7 @@ internal object TrustEncryptedStagingCodec {
                     "Failed to clean private decrypted staging after verification error",
                 ))
             }
+            TrustTemporaryStageRegistry.deactivate(temp)
             throw failure
         }
     }

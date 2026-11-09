@@ -37,8 +37,12 @@ internal class TrustFrozenSourceFiles internal constructor(
     fun sources(): List<TrustStagingSource> = parts.map { it.source() }
 
     override fun close() {
-        check(tempDirectory.deleteRecursively() || !tempDirectory.exists()) {
-            "Temporary plaintext owner snapshot could not be removed"
+        try {
+            check(tempDirectory.deleteRecursively() || !tempDirectory.exists()) {
+                "Temporary plaintext owner snapshot could not be removed"
+            }
+        } finally {
+            TrustTemporaryStageRegistry.deactivate(tempDirectory)
         }
     }
 }
@@ -67,6 +71,7 @@ internal class TrustSourceFreezer(
         require(sourceRoot.canonicalFile.isDirectory && tempRoot.canonicalFile.isDirectory) {
             "Trusted owner source and temporary directories must exist"
         }
+        TrustTemporaryStageRegistry.activate(dir)
     }
 
     fun addJson(id: String, raw: String, records: Int) =
@@ -176,10 +181,14 @@ internal class TrustSourceFreezer(
 
     override fun close() {
         if (!finished) {
-            check(dir.deleteRecursively() || !dir.exists()) {
-                "Failed to remove incomplete private owner source freeze"
+            try {
+                check(dir.deleteRecursively() || !dir.exists()) {
+                    "Failed to remove incomplete private owner source freeze"
+                }
+                finished = true
+            } finally {
+                TrustTemporaryStageRegistry.deactivate(dir)
             }
-            finished = true
         }
     }
 
