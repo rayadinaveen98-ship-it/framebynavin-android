@@ -294,6 +294,103 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
         }
     }
     val currentChallenge = records.firstOrNull { it.id == chosenId } ?: records.lastOrNull()
+    if (linkDialog && currentChallenge != null) {
+        val target = currentChallenge
+        AlertDialog(
+            onDismissRequest = { if (!saving) linkDialog = false },
+            title = { Text("Link 21-day challenge") },
+            text = {
+                Column(Modifier.heightIn(max = 410.dp)
+                    .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Optional links to your existing Spaces and Reminder Groups. " +
+                        "Nothing is created, scheduled, or marked Done.",
+                        color = BacklotSecondaryText)
+                    if (!linkCatalogReady) {
+                        CircularProgressIndicator(color = BacklotAccent)
+                    } else if (linkCatalogError != null) {
+                        Text(linkCatalogError.orEmpty(), color = BacklotError)
+                    } else {
+                        Text("SPACE", fontWeight = FontWeight.Bold, color = BacklotPrimaryText)
+                        FilterChip(
+                            selected = linkSpaceId == null,
+                            onClick = { linkSpaceId = null },
+                            label = { Text("None") },
+                        )
+                        availableSpaces.forEach { space ->
+                            FilterChip(
+                                selected = linkSpaceId == space.id,
+                                onClick = { linkSpaceId = space.id },
+                                label = { Text(space.title) },
+                            )
+                        }
+                        if (availableSpaces.isEmpty())
+                            Text("No active Spaces saved yet.", color = BacklotSecondaryText)
+                        Text("REMINDER GROUP", fontWeight = FontWeight.Bold,
+                            color = BacklotPrimaryText)
+                        FilterChip(
+                            selected = linkGroupId == null,
+                            onClick = { linkGroupId = null },
+                            label = { Text("None") },
+                        )
+                        availableGroups.forEach { group ->
+                            FilterChip(
+                                selected = linkGroupId == group.id,
+                                onClick = { linkGroupId = group.id },
+                                label = { Text(group.name) },
+                            )
+                        }
+                        if (availableGroups.isEmpty())
+                            Text("No Reminder Groups saved yet.", color = BacklotSecondaryText)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !saving && linkCatalogReady && linkCatalogError == null,
+                    onClick = {
+                        val chosenSpace = linkSpaceId
+                        val chosenGroup = linkGroupId
+                        saving = true
+                        coroutineScope.launch {
+                            try {
+                                // A stale picker must never silently store an
+                                // ID that was deleted after the dialog opened.
+                                val freshGroups = groupStore.load().map { it.id }.toSet()
+                                val dbFile = context.getDatabasePath(
+                                    V289SpacesDatabase.FILE_NAME)
+                                val freshSpaces = if (!dbFile.exists()) emptySet()
+                                else {
+                                    require(dbFile.isFile)
+                                    val db = V289SpacesDatabase.open(context)
+                                    try {
+                                        db.spaces().loadSpaces()
+                                            .filter { it.archivedAtMillis == null }
+                                            .map { it.id }.toSet()
+                                    } finally { db.close() }
+                                }
+                                records = store.updateLinks(
+                                    target.id, chosenSpace, chosenGroup,
+                                    freshSpaces, freshGroups,
+                                )
+                                linkDialog = false
+                                message = null
+                            } catch (_: Exception) {
+                                message = "Links were not saved. Please reopen the picker."
+                            } finally { saving = false }
+                        }
+                    },
+                    modifier = Modifier.testTag("fc13-save-challenge-links"),
+                ) { Text("SAVE LINKS") }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !saving,
+                    onClick = { linkDialog = false },
+                ) { Text("CANCEL") }
+            },
+        )
+    }
     detailDay?.let { day ->
         if (currentChallenge != null) {
             val selectedChallenge = currentChallenge
