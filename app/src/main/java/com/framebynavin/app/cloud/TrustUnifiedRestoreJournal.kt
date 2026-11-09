@@ -25,6 +25,8 @@ internal object TrustUnifiedRestoreJournal {
         CREATOR_COMMITTED,
         PERSONAL_STARTED,
         PERSONAL_COMMITTED,
+        PREFERENCES_STARTED,
+        PREFERENCES_COMMITTED,
     }
 
     internal data class Checkpoint(
@@ -38,7 +40,7 @@ internal object TrustUnifiedRestoreJournal {
         val committedCreatorGeneration: Long? = null,
         val createdAtMillis: Long,
     ) {
-        val needsOwnerRecovery: Boolean get() = stage != Stage.PERSONAL_COMMITTED
+        val needsOwnerRecovery: Boolean get() = stage != Stage.PREFERENCES_COMMITTED
     }
 
     private val sha = Regex("[0-9a-f]{64}")
@@ -145,7 +147,7 @@ internal object TrustUnifiedRestoreJournal {
         personalVerified: Boolean,
         ownerApproved: Boolean,
     ) {
-        check(expected.stage == Stage.PERSONAL_COMMITTED &&
+        check(expected.stage == Stage.PREFERENCES_COMMITTED &&
             creatorVerified && personalVerified && ownerApproved &&
             inspect(context) == expected) {
             "Do not discard an incomplete or unverified universal restore journal"
