@@ -7,6 +7,8 @@ import java.time.ZoneId
 enum class CreatorCalendarSource {
     PROJECT,
     WEEKLY_PLAN,
+    /** Recorded actual publication; NEVER a projected posting time. */
+    PUBLICATION,
 }
 
 data class CreatorCalendarItem(
@@ -27,11 +29,16 @@ object CreatorContentCalendarEngine {
         weeklySlots: List<WeeklyScheduleSlot>,
         nowMillis: Long = System.currentTimeMillis(),
         daysAhead: Long = 14,
+        recentPublicationDays: Long = 7,
     ): List<CreatorCalendarItem> {
         val zone = ZoneId.systemDefault()
         val start = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
         val end = start.plusDays(daysAhead.coerceAtLeast(1) - 1)
-        val representedWeeklyKeys = tasks.mapNotNull { it.scheduleOccurrenceKey.takeIf(String::isNotBlank) }.toSet()
+        val representedWeeklyKeys = tasks.mapNotNull {
+            it.scheduleOccurrenceKey.takeIf(String::isNotBlank)
+        }.toSet()
+        val publicationStart = start.minusDays(recentPublicationDays.coerceIn(0L, 30L))
+            .atStartOfDay(zone).toInstant().toEpochMilli()
 
         val projectItems = tasks.asSequence()
             .filter { it.status != TaskStatus.SKIPPED && it.archivedAtMillis <= 0L && it.dueAtMillis > 0L }
@@ -55,6 +62,46 @@ object CreatorContentCalendarEngine {
             }
             .toList()
 
+        // Only real owner-confirmed publication timestamps qualify. Publishing
+        // readiness, due dates and template previews are NEVER publication.
+        val publications = tasks.asSequence()
+            .filter { it.archivedAtMillis <= 0L }
+            .flatMap { task ->
+                val known = task.workspace.deliverables.asSequence()
+                    .filter {
+                        it.status == CreatorDeliverableStatus.PUBLISHED &&
+                            it.publishedAtMillis in publicationStart..nowMillis
+                    }
+                    .map { output ->
+                        CreatorCalendarItem(
+                            id = "published:${task.id}:${output.id}",
+                            title = output.title.ifBlank { task.title },
+                            platform = output.platform,
+                            contentType = output.format,
+                            atMillis = output.publishedAtMillis,
+                            source = CreatorCalendarSource.PUBLICATION,
+                            taskId = task.id,
+                            stageLabel = "Publication recorded",
+                        )
+                    }.toList()
+                // Legacy project receipts are a fallback only when no
+                // explicit output receipt exists for this project.
+                if (known.isNotEmpty()) known.asSequence()
+                else if (task.publishedAtMillis in publicationStart..nowMillis) {
+                    sequenceOf(
+                        CreatorCalendarItem(
+                            id = "published:${task.id}:project",
+                            title = task.title, platform = task.platform,
+                            contentType = task.contentType,
+                            atMillis = task.publishedAtMillis,
+                            source = CreatorCalendarSource.PUBLICATION,
+                            taskId = task.id,
+                            stageLabel = "Project publication recorded",
+                        ),
+                    )
+                } else emptySequence()
+            }.toList()
+
         val weeklyItems = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, nowMillis, daysAhead)
             .filter { it.publishAtMillis >= nowMillis && !Instant.ofEpochMilli(it.publishAtMillis).atZone(zone).toLocalDate().isAfter(end) }
             .filterNot { it.key in representedWeeklyKeys }
@@ -70,7 +117,7 @@ object CreatorContentCalendarEngine {
                 )
             }
 
-        return (projectItems + weeklyItems)
+        return (projectItems + weeklyItems + publications)
             .distinctBy { it.id }
             .sortedBy { it.atMillis }
     }
