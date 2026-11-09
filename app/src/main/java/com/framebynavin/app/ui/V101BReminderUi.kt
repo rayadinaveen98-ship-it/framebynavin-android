@@ -213,6 +213,11 @@ internal fun PProjectComposer(
     var suppressNewDraftWrite by rememberSaveable(task?.id) {
         mutableStateOf(false)
     }
+    // Immediate atomic suppression: the Compose state update might not
+    // recompose before the wizard is disposed after Discard.
+    val rejectLateAutosaves = remember(task?.id) {
+        java.util.concurrent.atomic.AtomicBoolean(false)
+    }
     var newDraftWriteError by remember(task?.id) { mutableStateOf(false) }
     var persistedNewFormSignature by remember(task?.id) { mutableStateOf<String?>(null) }
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
@@ -388,8 +393,12 @@ internal fun PProjectComposer(
         onDispose {
             // Closing the Activity or detouring to Settings preserves the
             // latest keystroke, even if debounce has not yet elapsed.
-            if (canWriteOnExit) runCatching {
-                newDraftStore.save(draftGeneration, currentFormForExit)
+            if (canWriteOnExit && !rejectLateAutosaves.get()) runCatching {
+                synchronized(newDraftStore) {
+                    if (!rejectLateAutosaves.get()) {
+                        newDraftStore.save(draftGeneration, currentFormForExit)
+                    }
+                }
             }.onFailure {
                 android.util.Log.w("BacklotComposer",
                     "Could not preserve local draft during exit", it)
@@ -400,7 +409,13 @@ internal fun PProjectComposer(
         if (task == null && changedNewForm && resolvedNewDraft && !suppressNewDraftWrite) {
             kotlinx.coroutines.delay(180)
             val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
+                runCatching {
+                    synchronized(newDraftStore) {
+                        if (!rejectLateAutosaves.get()) {
+                            newDraftStore.save(draftGeneration, newFormSnapshot)
+                        }
+                    }
+                }
             }
             newDraftWriteError = result.isFailure
             if (result.isSuccess) persistedNewFormSignature = draftSignature
@@ -505,8 +520,13 @@ internal fun PProjectComposer(
                 // Snapshot every field before the parent queues a project write.
                 // The parent removes this exact journal only after durable
                 // receipt confirms the project is saved.
-                runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
-                    .onSuccess { persistedNewFormSignature = draftSignature }
+                runCatching {
+                    synchronized(newDraftStore) {
+                        if (!rejectLateAutosaves.get()) {
+                            newDraftStore.save(draftGeneration, newFormSnapshot)
+                        }
+                    }
+                }.onSuccess { persistedNewFormSignature = draftSignature }
                     .onFailure {
                         android.util.Log.w("BacklotComposer",
                             "Local draft save failed before project creation", it)
@@ -609,22 +629,30 @@ internal fun PProjectComposer(
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
-                            .onSuccess {
-                                suppressNewDraftWrite = true
-                                onDismiss()
+                        runCatching {
+                            synchronized(newDraftStore) {
+                                newDraftStore.save(draftGeneration, newFormSnapshot)
+                                rejectLateAutosaves.set(true)
                             }
+                        }.onSuccess {
+                            suppressNewDraftWrite = true
+                            onDismiss()
+                        }
                             .onFailure { newDraftWriteError = true }
                     }) { Text("SAVE DRAFT & EXIT") }
                 },
                 dismissButton = {
                     TextButton(onClick = { confirmDiscard = false }) { Text("KEEP EDITING") }
                     TextButton(onClick = {
-                        runCatching { newDraftStore.clear(draftGeneration) }
-                            .onSuccess {
-                                suppressNewDraftWrite = true
-                                onDismiss()
+                        runCatching {
+                            synchronized(newDraftStore) {
+                                rejectLateAutosaves.set(true)
+                                newDraftStore.clear(draftGeneration)
                             }
+                        }.onSuccess {
+                            suppressNewDraftWrite = true
+                            onDismiss()
+                        }
                             .onFailure { newDraftWriteError = true }
                     }) { Text("DISCARD") }
                 },
