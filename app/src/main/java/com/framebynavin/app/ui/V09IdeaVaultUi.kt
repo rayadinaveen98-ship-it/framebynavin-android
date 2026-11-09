@@ -407,6 +407,22 @@ private fun V09IdeaCard(
     }
 }
 
+/** Guidance only. Changing the prompt never mutates or classifies a saved idea. */
+private enum class FC13IdeaWritingPrompt(
+    val label: String, val helper: String, val placeholder: String,
+) {
+    IDEA("Idea", "Start with what you're imagining",
+        "The idea I don't want to forget…"),
+    HOOK("Hook", "Capture one memorable opening",
+        "Open with a question, image or moment…"),
+    SCENE("Scene", "Describe the action, space or emotion",
+        "I see a scene where…"),
+    TITLE("Title", "Save a working title worth exploring",
+        "A title that could make someone curious…"),
+    QUESTION("Question", "Write the question that starts the research",
+        "What if…"),
+}
+
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun V09NewIdeaCleanEditor(
@@ -420,6 +436,9 @@ internal fun V09NewIdeaCleanEditor(
     val defaultPlatform = remember(creatorProfile) { CreatorPlatformRegistry.primaryPlatform(creatorProfile) }
 
     var title by rememberSaveable { mutableStateOf("") }
+    var writingPrompt by rememberSaveable {
+        mutableStateOf(FC13IdeaWritingPrompt.IDEA)
+    }
     var topic by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf(visibleCategories.firstOrNull() ?: IdeaCategory.CINEMATIC_ANALYSIS) }
     var status by rememberSaveable { mutableStateOf(IdeaStatus.INBOX) }
@@ -467,9 +486,13 @@ internal fun V09NewIdeaCleanEditor(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("NEW IDEA", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
-                        Text("Save your idea", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                        Text("Write or record an idea. Add details if you like.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+                        Text("THE IDEA VAULT", color = RecRed, fontSize = 11.sp,
+                            fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
+                        Text("Catch the spark.", color = ProjectorIvory,
+                            fontSize = 29.sp, lineHeight = 34.sp,
+                            fontWeight = FontWeight.Black)
+                        Text("One thought now. Make it something bigger later.",
+                            color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                     IconButton(onClick = ::dismiss) {
                         Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
@@ -482,6 +505,31 @@ internal fun V09NewIdeaCleanEditor(
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp),
                 ) {
+                    Text(
+                        "START WITH",
+                        color = MutedText, fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 3.dp, bottom = 7.dp),
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        verticalArrangement = Arrangement.spacedBy(7.dp),
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-idea-prompt-choices"),
+                    ) {
+                        FC13IdeaWritingPrompt.entries.forEach { option ->
+                            FilterChip(
+                                selected = writingPrompt == option,
+                                onClick = { writingPrompt = option },
+                                label = { Text(option.label, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = RecRed.copy(alpha = .20f),
+                                    selectedLabelColor = ProjectorIvory,
+                                ),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Surface(
                         Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(22.dp),
@@ -489,15 +537,20 @@ internal fun V09NewIdeaCleanEditor(
                         border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
                     ) {
                         Column(Modifier.padding(14.dp)) {
-                            Text("YOUR IDEA", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.0.sp)
-                            Spacer(Modifier.height(7.dp))
+                            Text(writingPrompt.helper.uppercase(),
+                                color = RecRed, fontSize = 10.sp,
+                                fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Spacer(Modifier.height(9.dp))
                             OutlinedTextField(
                                 title,
                                 { title = it },
                                 modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-title"),
-                                placeholder = { Text("What's your idea?") },
-                                minLines = 3,
-                                maxLines = 6,
+                                placeholder = {
+                                    Text(writingPrompt.placeholder, fontSize = 14.sp,
+                                        lineHeight = 20.sp)
+                                },
+                                minLines = 4,
+                                maxLines = 7,
                                 shape = RoundedCornerShape(16.dp),
                             )
                             IdeaVaultGuidance.similarTitles(title, existingIdeas).firstOrNull()?.let { duplicate ->
@@ -506,8 +559,15 @@ internal fun V09NewIdeaCleanEditor(
                         }
                     }
 
-                    Spacer(Modifier.height(10.dp))
-
+                    Text(
+                        "These prompts are writing guides. Your exact words are saved.",
+                        color = MutedText, fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 3.dp, top = 8.dp),
+                    )
+                    Spacer(Modifier.height(13.dp))
+                    Text("OR CAPTURE YOUR VOICE", color = MutedText,
+                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 3.dp, bottom = 6.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Surface(
                             onClick = { showRecorder = !showRecorder; if (showRecorder) showDictation = false },

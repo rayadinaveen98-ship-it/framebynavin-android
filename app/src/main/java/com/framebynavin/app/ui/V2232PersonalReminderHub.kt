@@ -100,6 +100,7 @@ internal fun V2232PersonalReminderHub(
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
+    var targetChallengeSpaceId by remember { mutableStateOf<String?>(null) }
     var challengesOpen by rememberSaveable { mutableStateOf(false) }
     var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
@@ -599,12 +600,23 @@ internal fun V2232PersonalReminderHub(
     }
 
     if (challengesOpen) {
-        Phase1HabitLocalStoreReview(onClose = { challengesOpen = false })
+        Phase1HabitLocalStoreReview(
+            onClose = { challengesOpen = false },
+            onOpenLinkedSpace = { spaceId ->
+                targetChallengeSpaceId = spaceId
+                challengesOpen = false
+                spacesOpen = true
+            },
+        )
     }
 
     if (spacesOpen) {
         V289PersonalSpacesScreen(
-            onClose = { spacesOpen = false },
+            onClose = {
+                spacesOpen = false
+                targetChallengeSpaceId = null
+            },
+            initialSpaceId = targetChallengeSpaceId,
             onEditReminder = { id ->
                 reminders.firstOrNull { it.id == id }?.let { reminder ->
                     editing = reminder
@@ -921,6 +933,10 @@ internal fun V2232PersonalEditor(
     var suggestionsOpen by rememberSaveable(existing?.id) {
         mutableStateOf(false)
     }
+    // Notes are optional; keep the first step compact. Never clear typed notes on collapse.
+    var notesOpen by rememberSaveable(existing?.id) {
+        mutableStateOf(existing != null)
+    }
     val composerScroll = remember(composerStep) { ScrollState(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedSpaceId by rememberSaveable(existing?.id) { mutableStateOf<String?>(null) }
@@ -1068,11 +1084,31 @@ internal fun V2232PersonalEditor(
                         label = { Text("What to remember?") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-title"),
                     )
-                    OutlinedTextField(
-                        value = notes, onValueChange = { notes = it.take(2000) },
-                        label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    TextButton(
+                        onClick = { notesOpen = !notesOpen },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-personal-toggle-notes"),
+                    ) {
+                        Icon(Icons.Outlined.Notes, null, tint = RecRed, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (notesOpen) "Hide notes" else if (notes.isNotBlank()) "Edit notes"
+                            else "Add notes (optional)",
+                            color = RecRed, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = notesOpen,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        OutlinedTextField(
+                            value = notes, onValueChange = { notes = it.take(2000) },
+                            label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-notes-field"),
+                        )
+                    }
                     }
                     }
                     AnimatedVisibility(

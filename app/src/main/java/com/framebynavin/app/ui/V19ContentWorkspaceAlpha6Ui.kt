@@ -27,6 +27,16 @@ import com.framebynavin.app.ui.theme.*
  * V196.2 Content Workspace: one truthful project step, four equal tools, optional stage detail.
  * The editor callbacks and source-of-truth engines remain unchanged.
  */
+/** FC13 navigation reuses the same Plan/Script/Publish saved data. */
+private enum class FC13WorkspaceZone(val label: String) {
+    OVERVIEW("Overview"),
+    PLAN("Plan"),
+    CONTENT("Content"),
+    PRODUCTION("Production"),
+    ACTIVITY("Activity"),
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun V19ContentWorkspaceAlpha6Hub(
     task: CreatorTask,
@@ -58,6 +68,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val scriptBeats = workspace.scriptStudio?.beats?.size ?: 0
     val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
     var showStages by rememberSaveable(task.id) { mutableStateOf(false) }
+    var selectedZone by rememberSaveable(task.id) {
+        mutableStateOf(FC13WorkspaceZone.OVERVIEW)
+    }
     // Read-only prompts derived from canonical saved project content.
     val focusHints = V2285WorkspaceFocusPolicy.hints(task)
 
@@ -105,6 +118,33 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 )
                 Spacer(Modifier.height(12.dp))
 
+                ScrollableTabRow(
+                    selectedTabIndex = FC13WorkspaceZone.entries.indexOf(selectedZone),
+                    containerColor = CinemaSurface,
+                    contentColor = ProjectorIvory,
+                    edgePadding = 0.dp,
+                    divider = { HorizontalDivider(color = CinemaLine) },
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-five-zone-navigation"),
+                ) {
+                    FC13WorkspaceZone.entries.forEach { zone ->
+                        Tab(
+                            selected = selectedZone == zone,
+                            onClick = { selectedZone = zone },
+                            text = {
+                                Text(zone.label, color = if (zone == selectedZone)
+                                    ProjectorIvory else MutedText,
+                                    fontSize = 12.sp, fontWeight = if (zone == selectedZone)
+                                        FontWeight.Bold else FontWeight.Medium)
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                                .testTag("fc13-zone-${zone.name.lowercase()}"),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+
+                if (selectedZone == FC13WorkspaceZone.OVERVIEW) {
                 Surface(
                     modifier = Modifier.fillMaxWidth()
                         .testTag("phase4-workspace-saved-status"),
@@ -334,7 +374,167 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         }
                     }
                 }
+                Spacer(Modifier.height(18.dp))
+                } // Overview keeps the previous saved workflow and Next Move controls.
+
+                if (selectedZone != FC13WorkspaceZone.OVERVIEW) {
+                    FC13WorkspaceZonePanel(
+                        zone = selectedZone,
+                        task = task,
+                        summary = p4Summary,
+                        onOpenBlueprint = onOpenBlueprint,
+                        onOpenPlan = onOpenProject,
+                        onOpenScript = onOpenScript,
+                        onOpenPublish = onOpenPublish,
+                    )
+                }
                 Spacer(Modifier.height(28.dp))
+        }
+    }
+}
+
+@Composable
+private fun FC13WorkspaceZonePanel(
+    zone: FC13WorkspaceZone,
+    task: CreatorTask,
+    summary: Phase4CreatorWorkspaceSummary,
+    onOpenBlueprint: () -> Unit,
+    onOpenPlan: () -> Unit,
+    onOpenScript: () -> Unit,
+    onOpenPublish: () -> Unit,
+) {
+    val work = task.workspace
+    val events = work.deliverables.flatMap { output ->
+        output.publicationHistory.map { event -> output.title to event }
+    }.sortedByDescending { it.second.atMillis }
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .testTag("fc13-zone-panel-${zone.name.lowercase()}"),
+        shape = RoundedCornerShape(20.dp),
+        color = CinemaSurfaceRaised,
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            Text(zone.label.uppercase(), color = RecRed, fontSize = 12.sp,
+                fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+            when (zone) {
+                FC13WorkspaceZone.OVERVIEW -> Unit
+                FC13WorkspaceZone.PLAN -> {
+                    Text("Start with intent, references and a practical checklist.",
+                        color = ProjectorIvory, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text(
+                        work.promise.takeIf(String::isNotBlank)
+                            ?: "No creative promise recorded yet",
+                        color = MutedText, fontSize = 13.sp, lineHeight = 18.sp,
+                    )
+                    Text("${work.references.size} references · ${work.assets.size} assets",
+                        color = ProjectorIvory, fontSize = 13.sp)
+                    Text(summary.productionLabel, color = MutedText, fontSize = 12.sp)
+                    Button(
+                        onClick = onOpenPlan,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    ) { Text("OPEN PLAN & RESEARCH") }
+                    TextButton(onClick = onOpenBlueprint) {
+                        Text("CREATIVE BLUEPRINT", color = ProjectorIvory)
+                    }
+                }
+                FC13WorkspaceZone.CONTENT -> {
+                    Text("One script authority for your draft, beats and revisions.",
+                        color = ProjectorIvory, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text(
+                        work.hook.takeIf(String::isNotBlank)
+                            ?: "No saved hook yet",
+                        color = MutedText, fontSize = 13.sp, lineHeight = 19.sp,
+                        maxLines = 5, overflow = TextOverflow.Ellipsis,
+                    )
+                    Text("${work.scriptStudio?.beats?.size ?: 0} script beats · " +
+                        if (work.script.isNotBlank()) "draft text saved" else "no script text yet",
+                        color = MutedText, fontSize = 12.sp)
+                    summary.pendingDraftLabel?.let {
+                        Text(it, color = ProjectorIvory, fontSize = 12.sp)
+                    }
+                    Button(
+                        onClick = onOpenScript,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    ) { Text("OPEN SCRIPT STUDIO") }
+                }
+                FC13WorkspaceZone.PRODUCTION -> {
+                    Text("Keep assets, output readiness and publishing separate.",
+                        color = ProjectorIvory, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text("${work.assets.size} saved production assets",
+                        color = MutedText, fontSize = 13.sp)
+                    if (work.deliverables.isEmpty()) {
+                        Text("No outputs planned. Start in Plan to add deliverables.",
+                            color = MutedText, fontSize = 12.sp)
+                    } else {
+                        work.deliverables.take(12).forEach { output ->
+                            Text(
+                                "${output.title.ifBlank { output.format }} · " +
+                                    output.status.name.lowercase().replaceFirstChar { it.uppercase() },
+                                color = if (output.status == CreatorDeliverableStatus.PUBLISHED)
+                                    ProjectorIvory else MutedText,
+                                fontSize = 12.sp, lineHeight = 17.sp,
+                            )
+                        }
+                    }
+                    Text("READY never means posted online.", color = MutedText,
+                        fontSize = 11.sp)
+                    Button(
+                        onClick = onOpenPublish,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    ) { Text("OPEN PRODUCTION & PUBLISH") }
+                }
+                FC13WorkspaceZone.ACTIVITY -> {
+                    Text("Only genuine saved publication events appear here.",
+                        color = ProjectorIvory, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold)
+                    Text(summary.revisionLabel, color = MutedText, fontSize = 12.sp)
+                    if (events.isEmpty()) {
+                        Text(
+                            "No individual publication events recorded yet. " +
+                                "Opening an editor doesn't create an activity receipt.",
+                            color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                        )
+                    } else {
+                        events.take(15).forEach { (outputTitle, event) ->
+                            Text(
+                                "${event.kind.name.lowercase().replaceFirstChar { it.uppercase() }}" +
+                                    " · ${outputTitle.ifBlank { "Output" }}",
+                                color = ProjectorIvory, fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            if (event.atMillis > 0L) {
+                                Text(
+                                    java.text.DateFormat.getDateTimeInstance(
+                                        java.text.DateFormat.MEDIUM,
+                                        java.text.DateFormat.SHORT,
+                                    ).format(java.util.Date(event.atMillis)),
+                                    color = MutedText, fontSize = 11.sp,
+                                )
+                            }
+                        }
+                    }
+                    if (work.learnings.isNotBlank()) {
+                        Text("SAVED LEARNINGS", color = RecRed, fontSize = 11.sp)
+                        Text(work.learnings.take(800), color = MutedText,
+                            fontSize = 12.sp, lineHeight = 18.sp)
+                    }
+                    Text("This is a source-record view, not an assumed full device activity log.",
+                        color = MutedText, fontSize = 11.sp)
+                    TextButton(onClick = onOpenPublish) {
+                        Text("OPEN PUBLICATION HISTORY", color = RecRed)
+                    }
+                }
+            }
         }
     }
 }
