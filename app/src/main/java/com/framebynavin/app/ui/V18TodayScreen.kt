@@ -191,45 +191,35 @@ internal fun PTodayScreen(
                 PNextMoveCard(
                     task = selected,
                     alternatives = NextMovePresentation.alternatives(queue, selected.id),
-                    onStart = { onStart(selected.id) },
                     onOpenProject = onOpenProject,
                 )
                 Spacer(Modifier.height(12.dp))
+                // Phase 3A/B: Home action is navigation, never a hidden status edit.
+                // Starting WORKING or completing a stage remains an explicit Project action.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { onStart(selected.id) },
-                        modifier = Modifier.weight(1f).height(50.dp),
-                        border = BorderStroke(1.dp, CinemaLine),
-                        shape = RoundedCornerShape(15.dp),
-                    ) { Text(if (selected.status == TaskStatus.WORKING) "WORKING" else "START", color = ProjectorIvory, fontSize = 10.sp) }
                     Button(
+                        onClick = { onOpenProject(selected.id) },
+                        modifier = Modifier.weight(1.35f).height(50.dp).testTag("phase3-home-continue"),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        shape = RoundedCornerShape(15.dp),
+                    ) {
+                        Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("CONTINUE WORK", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                    }
+                    OutlinedButton(
                         onClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onFocus(selected.id)
                         },
-                        modifier = Modifier.weight(1.35f).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                        modifier = Modifier.weight(1f).height(50.dp).testTag("phase3-home-focus"),
+                        border = BorderStroke(1.dp, CinemaLine),
                         shape = RoundedCornerShape(15.dp),
                     ) {
-                        Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("FOCUS", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                        Icon(Icons.Outlined.Timer, null, modifier = Modifier.size(17.dp), tint = ProjectorIvory)
+                        Spacer(Modifier.width(4.dp))
+                        Text("FOCUS", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 10.sp)
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                TextButton(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onAdvance(selected.id)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        if (CreatorWorkflowEngine.stageIndex(selected) == CreatorWorkflowEngine.templateFor(selected).stages.lastIndex) "MARK PUBLISHED" else "MARK STEP DONE",
-                        color = MutedGold,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
                 }
             }
 
@@ -460,7 +450,6 @@ private fun PTodayProjectCard(task: CreatorTask, onClick: () -> Unit) {
 private fun PNextMoveCard(
     task: CreatorTask,
     alternatives: List<CreatorTask>,
-    onStart: () -> Unit,
     onOpenProject: (String) -> Unit,
 ) {
     val recommendation = CreatorPriorityEngine.recommendation(task)
@@ -539,9 +528,6 @@ private fun PNextMoveCard(
                         Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
                             Text(task.priority.name, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                         }
-                        Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                            Text("PRIORITY ${recommendation.score}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
-                        }
                         next?.let {
                             Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
                                 Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
@@ -549,18 +535,6 @@ private fun PNextMoveCard(
                         }
                     }
         
-                    Spacer(Modifier.height(13.dp))
-                    Button(
-                        onClick = onStart,
-                        modifier = Modifier.fillMaxWidth().height(45.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        shape = RoundedCornerShape(13.dp),
-                    ) {
-                        Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(17.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("START THIS MOVE", fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                    }
-
                     if (alternatives.isNotEmpty()) {
                         Spacer(Modifier.height(14.dp))
                         Text("ALSO NOW", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
