@@ -50,6 +50,7 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
                 app.filesDir, ideas.load(),
             )
             val savedSparkPrefs = TrustSparkPreferenceInventory.inspect(app)
+            val savedEscalation = TrustCreatorEscalationInventory.inspect(app)
             val focusJson = focus.exportPortableJson()
             val focusLedger = CreatorFocusSessionCodec.decode(focusJson)
             val weeklyStore = WeeklyScheduleStore(app)
@@ -125,6 +126,7 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
                 slideshowPlayback,
                 voiceOriginals,
                 savedSparkPrefs,
+                savedEscalation,
             )
         }
 
