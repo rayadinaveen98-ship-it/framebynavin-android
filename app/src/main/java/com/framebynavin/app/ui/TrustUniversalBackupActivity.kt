@@ -181,6 +181,80 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                         color = RecRed, fontSize = 12.sp,
                         modifier = Modifier.testTag("fc13-trust-pending-unified-restore"),
                     )
+                    if (owner == pending.ownerId &&
+                        pending.stage.ordinal >=
+                            TrustUnifiedRestoreJournal.Stage.CREATOR_COMMITTED.ordinal) {
+                        Text(
+                            "Reenter the SAME encryption password used for this " +
+                                "recovery. Native Creator import will not be repeated.",
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                        OutlinedTextField(
+                            value = resumeConfirmation,
+                            onValueChange = { resumeConfirmation = it.take(64) },
+                            label = { Text("Type RESUME VERIFIED RESTORE") },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !busy,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = acknowledgeDeviceLimits,
+                                onCheckedChange = { acknowledgeDeviceLimits = it },
+                                enabled = !busy,
+                            )
+                            Text(
+                                "I understand that device permissions, custom " +
+                                    "music and external project assets must be " +
+                                    "reconnected on this device.",
+                                color = MutedText, fontSize = 11.sp,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                val reviewedPending = pending
+                                runAction {
+                                    val password = passphrase.toCharArray()
+                                    val originalEscrowPassword = passphrase.toCharArray()
+                                    try {
+                                        val verified =
+                                            cloudReview.reopenInterruptedRestoreSource(
+                                                reviewedPending, password,
+                                            )
+                                        val done = recovery.resumeOwnerApproved(
+                                            verified, password, originalEscrowPassword,
+                                            resumeConfirmation,
+                                            acknowledgeDeviceLimits,
+                                        )
+                                        "Owner recovery completed: ${done.projectCount} " +
+                                            "Creator projects and ${done.personalAdditions} " +
+                                            "Personal additions this continuation. " +
+                                            "Original encrypted escrow retained."
+                                    } finally {
+                                        password.fill('\u0000')
+                                        originalEscrowPassword.fill('\u0000')
+                                        passphrase = ""
+                                        resumeConfirmation = ""
+                                    }
+                                }
+                            },
+                            enabled = !busy && passphrase.length >= 12 &&
+                                acknowledgeDeviceLimits &&
+                                resumeConfirmation == "RESUME VERIFIED RESTORE",
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-trust-resume-interrupted-restore"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = RecRed,
+                            ),
+                        ) { Text("RESUME VERIFIED RESTORE") }
+                    } else {
+                        Text(
+                            "The Creator stage is not confirmed or this account is " +
+                                "not its owner. Inspect the native Creator recovery " +
+                                "journal before any further restore.",
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                    }
                 }
             }
             if (owner == null) {
