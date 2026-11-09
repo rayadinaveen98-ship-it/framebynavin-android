@@ -41,6 +41,7 @@
         <activity android:name=".ui.PersonalBackupActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".ui.FreshStartActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".ui.V269DataPrivacyActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
+        <activity android:name=".ui.TrustUniversalBackupActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".ui.RecoveryCopiesActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".ui.ContentWorkspaceActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".cloud.CloudSyncActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
