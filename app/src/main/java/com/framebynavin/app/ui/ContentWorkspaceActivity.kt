@@ -54,6 +54,8 @@ private data class V211HistoricalPublishDescriptionRequest(
 class ContentWorkspaceActivity : ComponentActivity() {
     companion object {
         const val EXTRA_PROJECT_ID = "project_id"
+        /** One-shot Home navigation hint. Validated again against loaded task/stage. */
+        const val EXTRA_HOME_CONTINUE_STAGE_ID = "home_continue_stage_id"
         private const val STATE_EDITOR_MODE = "content_project_editor_mode"
     }
 
@@ -399,12 +401,30 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     task = loaded
                     val restore = restoreModeAfterLoad
                     restoreModeAfterLoad = null
-                    when (restore) {
+                    // Restore the exact editor after configuration/process recreation.
+                    // Otherwise honor Home's initial hint only if loaded workflow state
+                    // still matches; older intents without a hint always open HUB.
+                    val destination = if (restore != null) {
+                        restore
+                    } else if (intent.hasExtra(EXTRA_HOME_CONTINUE_STAGE_ID)) {
+                        when (HomeContinueRoutingPolicy.validatedWorkspaceDestination(
+                            loaded, intent.getStringExtra(EXTRA_HOME_CONTINUE_STAGE_ID)
+                        )) {
+                            HomeContinueDestination.PROJECT_PLAN -> Alpha6WorkspaceMode.PROJECT
+                            HomeContinueDestination.SCRIPT_STUDIO -> Alpha6WorkspaceMode.SCRIPT
+                            HomeContinueDestination.PUBLISH_STUDIO -> Alpha6WorkspaceMode.PUBLISH
+                            HomeContinueDestination.PROJECT_OVERVIEW,
+                            HomeContinueDestination.WORKSPACE_HUB -> Alpha6WorkspaceMode.HUB
+                        }
+                    } else {
+                        Alpha6WorkspaceMode.HUB
+                    }
+                    when (destination) {
                         Alpha6WorkspaceMode.BLUEPRINT -> mode = Alpha6WorkspaceMode.BLUEPRINT
                         Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
                         Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
                         Alpha6WorkspaceMode.SCRIPT -> openScriptStudio(loaded)
-                        else -> mode = Alpha6WorkspaceMode.HUB
+                        Alpha6WorkspaceMode.HUB -> mode = Alpha6WorkspaceMode.HUB
                     }
                 }.onFailure { error = it.message ?: "Could not open the latest project workspace." }
             }
