@@ -235,6 +235,7 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
         )
         for (file in app.cacheDir.listFiles().orEmpty()) {
             if (!known.any { it.matches(file.name) }) continue
+            if (TrustTemporaryStageRegistry.isActive(file)) continue
             require(file.isDirectory && !Files.isSymbolicLink(file.toPath())) {
                 "Unrecognized owner staging directory requires manual review"
             }
