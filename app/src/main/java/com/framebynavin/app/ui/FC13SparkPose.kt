@@ -2,7 +2,6 @@ package com.framebynavin.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.size
@@ -41,7 +40,8 @@ internal fun FC13SparkPose(
         guide = V144GuideIdentity.FUNNY,
         state = mood.guideState(),
         pointRight = pointRight,
-        modifier = modifier.size(size.width, size.height)
-            .testTag("fc13-spark-${size.name.lowercase()}-${mood.name.lowercase()}"),
+        // Preserve the caller's existing semantic/test identity. A second
+        // testTag on the same node would override the established alert tag.
+        modifier = modifier.size(size.width, size.height),
     )
 }
