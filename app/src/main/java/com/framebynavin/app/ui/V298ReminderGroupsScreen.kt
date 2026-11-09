@@ -28,6 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.PersonalReminder
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.PersonalCompletionEvent
+import com.framebynavin.app.personal.FC13GroupTodayProgress
+import com.framebynavin.app.personal.FC13ReminderGroupProgress
+import com.framebynavin.app.personal.FC13ReminderGroupCommands
 import com.framebynavin.app.personal.V298ReminderGroup
 import com.framebynavin.app.personal.V298ReminderGroupOptions
 import com.framebynavin.app.personal.V298ReminderGroupCodec
@@ -69,11 +73,14 @@ internal fun V298ReminderGroupsScreen(
     val context = LocalContext.current.applicationContext
     val groupsStore = remember(context) { V298ReminderGroupStore(context) }
     val reminderStore = remember(context) { PersonalReminderStore(context) }
+    val groupCommands = remember(context) { FC13ReminderGroupCommands(context) }
     val scope = rememberCoroutineScope()
     var groups by remember { mutableStateOf<List<V298ReminderGroup>>(emptyList()) }
     var reminders by remember { mutableStateOf<List<PersonalReminder>>(emptyList()) }
+    var completed by remember { mutableStateOf<List<PersonalCompletionEvent>>(emptyList()) }
     var groupsLoaded by remember { mutableStateOf(false) }
     var remindersLoaded by remember { mutableStateOf(false) }
+    var completionsLoaded by remember { mutableStateOf(false) }
     var readError by remember { mutableStateOf<String?>(null) }
     var actionError by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -86,9 +93,13 @@ internal fun V298ReminderGroupsScreen(
     var linkVisible by remember { mutableStateOf(false) }
     var linkSearch by rememberSaveable(selectedId) { mutableStateOf("") }
     var deleteVisible by remember { mutableStateOf(false) }
+    var pendingBulkAction by remember { mutableStateOf<Pair<V298ReminderGroup, Boolean>?>(null) }
     var pendingImport by remember { mutableStateOf<List<V298ReminderGroup>?>(null) }
     val selected = groups.firstOrNull { it.id == selectedId }
     val indexedReminders = reminders.associateBy { it.id }
+    val selectedProgress = selected?.let {
+        FC13ReminderGroupProgress.today(it, reminders, completed)
+    }
 
     LaunchedEffect(groupsStore) {
         try {
@@ -110,6 +121,17 @@ internal fun V298ReminderGroupsScreen(
         } catch (_: Exception) {
             remindersLoaded = true
             readError = "Personal reminders could not be read; no links were changed."
+        }
+    }
+    LaunchedEffect(reminderStore) {
+        try {
+            reminderStore.completionHistoryFlow.collect {
+                completed = it
+                completionsLoaded = true
+            }
+        } catch (_: Exception) {
+            completionsLoaded = true
+            readError = "Personal completion history could not be read; progress and group actions are unavailable."
         }
     }
     fun write(action: suspend () -> Unit) {
@@ -177,6 +199,7 @@ internal fun V298ReminderGroupsScreen(
     val goBack: () -> Unit = {
         when {
             pendingImport != null -> pendingImport = null
+            pendingBulkAction != null -> pendingBulkAction = null
             deleteVisible -> deleteVisible = false
             linkVisible -> linkVisible = false
             editVisible -> editVisible = false
@@ -205,7 +228,7 @@ internal fun V298ReminderGroupsScreen(
                 Text(it, color = RecRed, fontSize = 12.sp,
                     modifier = Modifier.testTag("v298-group-error"))
             }
-            if (!groupsLoaded || !remindersLoaded) {
+            if (!groupsLoaded || !remindersLoaded || !completionsLoaded) {
                 CircularProgressIndicator()
             } else if (selected == null) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -241,6 +264,15 @@ internal fun V298ReminderGroupsScreen(
                                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                     Text("${group.reminderIds.size} linked reminders",
                                         color = MutedText, fontSize = 12.sp)
+                                    val progress = FC13ReminderGroupProgress.today(
+                                        group, reminders, completed,
+                                    )
+                                    Text(progress.label, color = MutedText,
+                                        fontSize = 11.sp)
+                                    if (progress.missingLinks > 0) {
+                                        Text("${progress.missingLinks} links need review",
+                                            color = RecRed, fontSize = 11.sp)
+                                    }
                                 }
                                 Icon(Icons.Outlined.ChevronRight, "Open group",
                                     tint = MutedGold)
@@ -278,6 +310,17 @@ internal fun V298ReminderGroupsScreen(
                                 color = MutedText, fontSize = 11.sp)
                         }
                     }
+                    selectedProgress?.let { progress ->
+                        Text(progress.label, color = ProjectorIvory,
+                            fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.testTag("fc13-group-today-progress"))
+                        Text("${progress.remainingToday} remaining today · ${progress.paused} paused" +
+                            if (progress.missingLinks > 0)
+                                " · ${progress.missingLinks} missing links" else "",
+                            color = MutedText, fontSize = 12.sp)
+                        Text("Only confirmed Personal Done receipts count toward today's progress.",
+                            color = MutedText, fontSize = 11.sp)
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         OutlinedButton(
                             onClick = { openEditor(selected) }, enabled = !busy && readError == null,
@@ -288,6 +331,24 @@ internal fun V298ReminderGroupsScreen(
                             enabled = !busy && readError == null,
                             modifier = Modifier.weight(1f).testTag("v298-delete-open"),
                         ) { Text("DELETE GROUP") }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        OutlinedButton(
+                            onClick = { pendingBulkAction = selected to true },
+                            enabled = !busy && readError == null &&
+                                selected.reminderIds.isNotEmpty() &&
+                                selectedProgress?.missingLinks == 0 &&
+                                selected.reminderIds.any { indexedReminders[it]?.paused == false },
+                            modifier = Modifier.weight(1f).testTag("fc13-pause-group"),
+                        ) { Text("PAUSE ALL") }
+                        OutlinedButton(
+                            onClick = { pendingBulkAction = selected to false },
+                            enabled = !busy && readError == null &&
+                                selected.reminderIds.isNotEmpty() &&
+                                selectedProgress?.missingLinks == 0 &&
+                                selected.reminderIds.any { indexedReminders[it]?.paused == true },
+                            modifier = Modifier.weight(1f).testTag("fc13-resume-group"),
+                        ) { Text("RESUME ALL") }
                     }
                     Button(
                         onClick = { linkSearch = ""; linkVisible = true },
@@ -336,11 +397,50 @@ internal fun V298ReminderGroupsScreen(
                             }
                         }
                     }
-                    Text("Group changes never alter reminder schedules.",
+                    Text("Linking, unlinking or editing a group never changes a reminder. " +
+                        "Pause All and Resume All are explicit changes to the linked Personal reminders, " +
+                        "including reminders shared with other groups.",
                         color = MutedText, fontSize = 12.sp)
                 }
             }
         }
+    }
+
+    pendingBulkAction?.let { (group, pause) ->
+        AlertDialog(
+            onDismissRequest = { if (!busy) pendingBulkAction = null },
+            title = { Text(if (pause) "Pause linked reminders?" else "Resume linked reminders?") },
+            text = {
+                Text(
+                    "This will ${if (pause) "pause" else "resume"} ${group.reminderIds.size} " +
+                        "linked Personal reminders where necessary. These are the original " +
+                        "reminders, so shared groups also reflect the change. " +
+                        "Existing Done history and reminder records stay intact. " +
+                        "Android alarms will be reconciled after the saved changes.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && readError == null,
+                    onClick = {
+                        val id = group.id
+                        val ids = group.reminderIds.toList()
+                        write {
+                            val changed = groupCommands.setAllPaused(id, ids, pause)
+                            actionError = "$changed linked reminders updated."
+                            pendingBulkAction = null
+                        }
+                    },
+                    modifier = Modifier.testTag("fc13-confirm-bulk-group"),
+                ) { Text(if (pause) "PAUSE REMINDERS" else "RESUME REMINDERS") }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = { pendingBulkAction = null },
+                ) { Text("CANCEL") }
+            },
+        )
     }
 
     if (editVisible) AlertDialog(
