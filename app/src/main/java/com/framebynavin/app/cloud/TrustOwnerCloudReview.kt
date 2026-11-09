@@ -68,10 +68,11 @@ internal class TrustOwnerCloudReview(
 
     suspend fun inspectCurrentRemote(): OwnerHeadReview =
         accounts.withFreshSession { session ->
-            require(transport.phase(session) == "active") {
-                "Cloud backup deletion is pending; do not open a stale remote revision"
-            }
+            val phase = transport.phase(session)
             val head = transport.head(session)
+            require(phase == "active" || (phase == null && head == null)) {
+                "Cloud backup deletion or owner state needs attention"
+            }
             OwnerHeadReview(
                 ownerId = session.userId,
                 head = head,
