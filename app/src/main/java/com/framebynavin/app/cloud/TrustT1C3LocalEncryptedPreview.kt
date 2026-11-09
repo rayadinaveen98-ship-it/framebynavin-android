@@ -81,16 +81,17 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                 TrustT1C2OwnerSourceCapture(app).freezePartialReadOnly().use { frozen ->
                     var output: FileOutputStream? = null
                     try {
-                        output = atomic.startWrite()
+                        val fd = atomic.startWrite()
+                        output = fd
                         // T1C1 ZipOutputStream closes its wrapped stream.
                         // Keep AtomicFile's FD open until finishWrite performs
                         // its fsync + atomic rename; closing the FD early can
                         // quietly defeat Android's durability guarantee.
                         TrustEncryptedStagingCodec.write(
                             assertedOwnerId, passphrase, frozen.sources(),
-                            FlushOnlyOutputStream(output),
+                            FlushOnlyOutputStream(fd),
                         )
-                        atomic.finishWrite(output)
+                        atomic.finishWrite(fd)
                         output = null
                     } catch (failure: Throwable) {
                         output?.let { runCatching { atomic.failWrite(it) } }
