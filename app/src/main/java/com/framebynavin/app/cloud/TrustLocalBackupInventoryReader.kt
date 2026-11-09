@@ -56,6 +56,7 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
             val weeklyStore = WeeklyScheduleStore(app)
             val savedSettings = TrustSavedSettingsInventory.inspect(app)
             val routinePreferences = TrustRoutinePreferencesInventory.inspect(app)
+            val appearancePreferences = TrustAppearancePreferencesInventory.inspect(app)
             val slideshowPlayback = TrustSavedSettingsInventory.homePlayback(app)
             // Null is an unseeded plan, not a verified empty backup.
             // This bypasses loadOrSeed so inventory never edits the schedule.
@@ -125,6 +126,7 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
                 },
                 savedSettings,
                 routinePreferences,
+                appearancePreferences,
                 slideshowPlayback,
                 voiceOriginals,
                 savedSparkPrefs,
