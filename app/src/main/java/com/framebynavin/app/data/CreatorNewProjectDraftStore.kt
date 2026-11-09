@@ -125,6 +125,31 @@ internal class CreatorNewProjectDraftStore(context: Context) {
         }.getOrNull()
     }
 
+    /**
+     * Opaque fingerprint excludes the save timestamp: closing the composer
+     * may re-commit identical fields while its queued project write finishes.
+     * A DIFFERENT subsequent draft must never be cleared by that older save.
+     */
+    fun contentFingerprint(generation: Long): String? =
+        prefs.getString(keyFor(generation), null)?.let { raw ->
+            runCatching {
+                val payload = JSONObject(raw)
+                require(payload.getInt("schema") == 1 &&
+                    payload.getLong("generation") == generation)
+                payload.remove("savedAt")
+                val bytes = payload.toString().toByteArray(Charsets.UTF_8)
+                java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+                    .joinToString("") { "%02x".format(it) }
+            }.getOrNull()
+        }
+
+    fun clearIfUnchanged(generation: Long, expectedFingerprint: String): Boolean {
+        if (!expectedFingerprint.matches(Regex("[0-9a-f]{64}"))) return false
+        if (contentFingerprint(generation) != expectedFingerprint) return false
+        clear(generation)
+        return true
+    }
+
     fun clear(generation: Long) {
         check(prefs.edit().remove(keyFor(generation)).commit()) {
             "Could not clear completed new-project draft"
