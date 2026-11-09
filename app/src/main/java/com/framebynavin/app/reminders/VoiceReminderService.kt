@@ -323,7 +323,7 @@ class VoiceReminderService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, ReminderConstants.VOICE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle(task.title)
             .setContentText("Voice reminder · ${task.dueLabel}")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -333,6 +333,9 @@ class VoiceReminderService : Service() {
             .setAutoCancel(false)
             .setContentIntent(fullScreen)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        FC13SparkNotificationIdentity.decoratePrivate(
+            builder, this, FC13SparkNotificationMood.SPEAK,
+        )
         return V268FullScreenReminderAccess.configure(
             builder,
             fullScreen,
