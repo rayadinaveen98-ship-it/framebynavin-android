@@ -28,6 +28,9 @@ internal data class Phase1HabitChallenge(
     /** References only. Challenge creation does not create or mutate a Space/Group. */
     val linkedSpaceId: String? = null,
     val linkedGroupId: String? = null,
+    /** Explicit owner snooze for one local 21-day challenge occurrence. */
+    val snoozedDay: LocalDate? = null,
+    val snoozedUntil: Instant? = null,
 ) {
     fun checked(): Phase1HabitChallenge {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,100}"))) { "Invalid challenge identity" }
@@ -63,6 +66,16 @@ internal data class Phase1HabitChallenge(
         require(linkedGroupId == null || linkedGroupId.matches(
             Regex("[A-Za-z0-9_:.-]{1,128}")
         )) { "Invalid linked Group identity" }
+        require((snoozedDay == null) == (snoozedUntil == null)) {
+            "Snooze requires both an occurrence day and scheduled instant"
+        }
+        if (snoozedDay != null && snoozedUntil != null) {
+            require(alertKind != null && alertTime != null &&
+                !snoozedDay.isBefore(startDate) && !snoozedDay.isAfter(endDate) &&
+                snoozedDay !in confirmations &&
+                LocalDate.ofInstant(snoozedUntil, zone) == snoozedDay
+            ) { "Snooze must remain on an active, unfinished challenge date" }
+        }
         return this
     }
 
@@ -95,7 +108,11 @@ internal data class Phase1HabitChallenge(
             "Only an active challenge date can be confirmed"
         }
         if (confirmations.containsKey(today)) return this
-        return copy(confirmations = confirmations + (today to now)).checked()
+        return copy(
+            confirmations = confirmations + (today to now),
+            snoozedDay = if (snoozedDay == today) null else snoozedDay,
+            snoozedUntil = if (snoozedDay == today) null else snoozedUntil,
+        ).checked()
     }
 
     /**
@@ -112,7 +129,11 @@ internal data class Phase1HabitChallenge(
             "Strict challenges only allow today; use Flexible for missed-day confirmation"
         }
         if (confirmations.containsKey(day)) return this
-        return copy(confirmations = confirmations + (day to at)).checked()
+        return copy(
+            confirmations = confirmations + (day to at),
+            snoozedDay = if (snoozedDay == day) null else snoozedDay,
+            snoozedUntil = if (snoozedDay == day) null else snoozedUntil,
+        ).checked()
     }
 
     fun noteForDay(day: LocalDate, note: String): Phase1HabitChallenge {
@@ -130,7 +151,35 @@ internal data class Phase1HabitChallenge(
         return copy(confirmations = confirmations - day).checked()
     }
 
-    fun setPaused(value: Boolean): Phase1HabitChallenge = copy(paused = value).checked()
+    fun setPaused(value: Boolean): Phase1HabitChallenge =
+        copy(
+            paused = value,
+            snoozedDay = if (value) null else snoozedDay,
+            snoozedUntil = if (value) null else snoozedUntil,
+        ).checked()
+
+    /** Owner-requested delay only after today's scheduled alert time. */
+    fun canSnooze(at: Instant): Boolean {
+        if (paused || alertTime == null || alertKind == null) return false
+        val zone = ZoneId.of(zoneId)
+        val day = LocalDate.ofInstant(at, zone)
+        if (day.isBefore(startDate) || day.isAfter(endDate) || day in confirmations) return false
+        return !at.isBefore(day.atTime(alertTime).atZone(zone).toInstant())
+    }
+
+    fun snoozeToday(at: Instant, minutes: Int): Phase1HabitChallenge {
+        checked()
+        require(minutes in setOf(5, 10, 15, 30)) { "Choose an available snooze interval" }
+        require(canSnooze(at)) {
+            "This challenge is not awaiting today's alert; snooze was not saved"
+        }
+        val day = LocalDate.ofInstant(at, ZoneId.of(zoneId))
+        val next = at.plusSeconds(minutes.toLong() * 60L)
+        require(LocalDate.ofInstant(next, ZoneId.of(zoneId)) == day) {
+            "Snooze cannot cross into another challenge day"
+        }
+        return copy(snoozedDay = day, snoozedUntil = next).checked()
+    }
 
     /** Confirmed consecutive dates, including today if marked; never assumes Done. */
     fun currentStreak(now: Instant): Int {
@@ -157,11 +206,15 @@ internal data class Phase1HabitChallenge(
         val time = alertTime ?: return null
         if (paused) return null
         val zone = ZoneId.of(zoneId)
-        return (0L..20L).asSequence()
+        val regular = (0L..20L).asSequence()
             .map { startDate.plusDays(it) }
             .filterNot { it in confirmations }
             .map { it.atTime(time).atZone(zone) }
             .firstOrNull { it.toInstant().isAfter(now) }
+        val snoozed = snoozedUntil?.takeIf {
+            it.isAfter(now) && snoozedDay != null && snoozedDay !in confirmations
+        }?.atZone(zone)
+        return listOfNotNull(regular, snoozed).minByOrNull { it.toInstant() }
     }
 }
 
