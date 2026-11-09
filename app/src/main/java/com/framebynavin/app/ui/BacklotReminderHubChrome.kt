@@ -4,17 +4,23 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -215,4 +221,113 @@ internal fun BacklotReminderHubSectionHeading(
             fontWeight = FontWeight.Bold,
         )
     }
+}
+
+
+/**
+ * Shared Director's Cut summary tiles. Each hub supplies its own truthful
+ * domain counts; this component never reads Creator or Personal data.
+ */
+internal data class BacklotReminderHubMetric(
+    val label: String,
+    val count: Int,
+    val urgent: Boolean = false,
+)
+
+@Composable
+internal fun BacklotReminderHubMetrics(
+    metrics: List<BacklotReminderHubMetric>,
+    modifier: Modifier = Modifier,
+) {
+    require(metrics.size in 1..3 && metrics.all { it.count >= 0 }) {
+        "Hub metrics require 1-3 real, nonnegative source counts"
+    }
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        metrics.forEach { metric ->
+            Surface(
+                modifier = Modifier.weight(1f),
+                color = BacklotSurface,
+                shape = RoundedCornerShape(13.dp),
+                border = BorderStroke(
+                    1.dp, if (metric.urgent && metric.count > 0)
+                        BacklotAccent.copy(alpha = .50f) else BacklotBorder,
+                ),
+            ) {
+                Column(
+                    Modifier.padding(horizontal = 10.dp, vertical = 11.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        metric.count.toString(),
+                        color = if (metric.urgent && metric.count > 0)
+                            BacklotAccent else BacklotPrimaryText,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                    Text(
+                        metric.label,
+                        color = BacklotSecondaryText,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Shared list-card treatment; existing screen retains every click/action. */
+@Composable
+internal fun BacklotReminderHubItemCard(
+    urgent: Boolean,
+    selected: Boolean = false,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = if (selected) BacklotSurfaceSelected else BacklotSurface,
+        shape = RoundedCornerShape(17.dp),
+        border = BorderStroke(
+            1.dp,
+            when {
+                selected -> BacklotAccent
+                urgent -> BacklotAccent.copy(alpha = .55f)
+                else -> BacklotBorder
+            },
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+            content = content,
+        )
+    }
+}
+
+/** Shared primary-in-row outlined button; callbacks remain in host screens. */
+@Composable
+internal fun BacklotReminderHubRowAction(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 45.dp),
+        enabled = enabled,
+        border = BorderStroke(1.dp, BacklotBorder),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = BacklotPrimaryText,
+            disabledContentColor = BacklotSecondaryText,
+        ),
+        contentPadding = PaddingValues(horizontal = 8.dp),
+        content = content,
+    )
 }
