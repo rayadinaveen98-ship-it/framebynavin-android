@@ -531,6 +531,15 @@ class CreatorBackupManager(
         }
     }
 
+    /**
+     * Read-only native Creator recovery check used by FC13's outer journal.
+     * Do not call recoverPendingRestore() during an owner-authenticated
+     * cross-domain resume: it can mutate existing Creator records.
+     */
+    fun hasPendingRestore(): Boolean = pendingFile().let { path ->
+        path.exists() || java.nio.file.Files.isSymbolicLink(path.toPath())
+    }
+
     /** Called before normal app startup and by maintenance workers. Never silently discard a journal. */
     suspend fun recoverPendingRestore(): Boolean = CreatorDataGate.transaction {
         recoverPendingRestoreUnlocked()
