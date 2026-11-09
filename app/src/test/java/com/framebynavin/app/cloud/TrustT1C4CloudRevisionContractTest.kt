@@ -135,9 +135,16 @@ class TrustT1C4CloudRevisionContractTest {
 
     @Test fun noNetworkAcknowledgementCanClaimDurabilityOrUniversalBackup() {
         for (stage in TrustCloudPublishStage.entries) {
-            val result = TrustCloudRevisionProgress(
-                stage, null, null,
-            )
+            val result = if (stage == TrustCloudPublishStage.HEAD_READBACK_CONFIRMED) {
+                val candidate = descriptor()
+                val proof = TrustCloudVerifiedReadback.verify(
+                    ByteArrayInputStream(original), candidate)
+                TrustCloudRevisionProgress.fromConfirmedHead(
+                    TrustCloudRevisionHead(1L, candidate.objectPath,
+                        candidate.encryptedSha256, candidate.encryptedBytes),
+                    proof,
+                )
+            } else TrustCloudRevisionProgress.pending(stage)
             assertFalse(result.canClaimCompleteBacklotBackup)
             assertFalse(result.canOfferRestore)
             if (stage != TrustCloudPublishStage.HEAD_READBACK_CONFIRMED) {
