@@ -44,6 +44,184 @@ internal class TrustUnifiedRestoreCoordinator(
         val nativeJournalsFinalized: Boolean,
     )
 
+    /**
+     * Owner-controlled continuation after process death or a failed second
+     * domain. Never repeat a Creator import or override edits made since the
+     * first successful Creator commit.
+     *
+     * Native Personal v2 remains the authority for an interrupted Personal
+     * journal. We do not guess completion if its native checkpoint vanished:
+     * stop for explicit recovery inspection instead.
+     */
+    suspend fun resumeOwnerApproved(
+        selected: TrustOwnerCloudReview.SourceCoverageReview,
+        trustPassword: CharArray,
+        escrowPassword: CharArray,
+        exactConfirmation: String,
+        acknowledgedNonPortableAlarmsAndMedia: Boolean,
+    ): Finished {
+        require(exactConfirmation == "RESUME VERIFIED RESTORE" &&
+            acknowledgedNonPortableAlarmsAndMedia &&
+            trustPassword.size in 12..512 &&
+            escrowPassword.size in 12..512) {
+            "Fresh owner consent and both encrypted source passwords required"
+        }
+        val pending = checkNotNull(TrustUnifiedRestoreJournal.inspect(app)) {
+            "There is no interrupted Creator/Personal restore"
+        }
+        check(selected.ownerId == pending.ownerId &&
+            selected.remoteRevision == pending.remoteRevision &&
+            selected.encryptedLocalReviewId == pending.reviewedSourceId &&
+            pending.stage.ordinal >=
+                TrustUnifiedRestoreJournal.Stage.CREATOR_COMMITTED.ordinal) {
+            "An unconfirmed Creator import needs manual native recovery first"
+        }
+        val savedEscrow = TrustOwnerCopyCatalog.inspect(
+            File(app.noBackupFilesDir, "trust-fc13-owner-encrypted-v1"),
+            pending.ownerId,
+        ).receipts.singleOrNull {
+            it.copyId == pending.encryptedEscrowCopyId
+        } ?: error("Original encrypted phone escrow is missing")
+        val original = File(
+            app.noBackupFilesDir,
+            "trust-fc13-owner-encrypted-v1/verified/copy-${savedEscrow.copyId}.enc",
+        )
+        check(original.isFile &&
+            original.length() == savedEscrow.encryptedBytes) {
+            "The original encrypted phone snapshot must be retained"
+        }
+        // Explicitly reauthenticate the ORIGINAL before resuming any write.
+        original.inputStream().buffered().use { input ->
+            TrustEncryptedStagingCodec.stageAndVerify(
+                pending.ownerId, escrowPassword, input, app.cacheDir,
+            ).use { originalSource ->
+                val verified = TrustRestorableSourceReview.inspect(app, originalSource)
+                check(verified.missingRequiredSources.isEmpty())
+            }
+        }
+
+        val installed = reviewedCloud.withPendingReviewedRestoreSource(
+            selected, pending, trustPassword,
+        ) { verified, head ->
+            val personal = Phase1V2OwnerRestoreCoordinator(app)
+            check(!CreatorDataGate.hasPendingOwnerRecovery(app)) {
+                "Creator's native rollback journal needs recovery before a unified resume"
+            }
+            check(CreatorDataGate.generation(app) ==
+                pending.committedCreatorGeneration) {
+                "Creator work changed after the interrupted restore. No replay is allowed"
+            }
+            var current = pending
+            var newlyImported = 0
+            if (current.stage == TrustUnifiedRestoreJournal.Stage.CREATOR_COMMITTED) {
+                check(!personal.hasPendingOwnerRecovery()) {
+                    "The native Personal journal must be resumed first"
+                }
+                val incomingDiff = TrustPersonalRestoreBridge(app).previewAdditions(verified)
+                check(incomingDiff.conflicts == 0) {
+                    "Personal records changed since the interrupted restore"
+                }
+                val candidate = TrustPersonalRestoreBridge(app)
+                    .prepareEncryptedV2Candidate(verified, escrowPassword)
+                try {
+                    current = TrustUnifiedRestoreJournal.advance(
+                        app, current,
+                        TrustUnifiedRestoreJournal.Stage.PERSONAL_STARTED,
+                    )
+                    val finished = candidate.inputStream().buffered().use { input ->
+                        personal.restoreOwnerApproved(
+                            selectedArchive = input,
+                            selectedPassphrase = escrowPassword,
+                            escrowPassphrase = escrowPassword,
+                            ownerConfirmedAdditions = true,
+                            acknowledgedNonPortableAlarmsAndSongs =
+                                acknowledgedNonPortableAlarmsAndMedia,
+                        )
+                    }
+                    check(finished.completedAndJournalArchived &&
+                        finished.importedNewRecords == incomingDiff.proposedAdditions)
+                    newlyImported = finished.importedNewRecords
+                    current = TrustUnifiedRestoreJournal.advance(
+                        app, current,
+                        TrustUnifiedRestoreJournal.Stage.PERSONAL_COMMITTED,
+                    )
+                } finally {
+                    check(candidate.delete() || !candidate.exists()) {
+                        "Private Personal resume candidate cleanup needs attention"
+                    }
+                }
+            } else if (current.stage ==
+                TrustUnifiedRestoreJournal.Stage.PERSONAL_STARTED) {
+                check(personal.hasPendingOwnerRecovery()) {
+                    "Personal import may have already completed. Do not replay " +
+                        "without native journal forensics and owner review"
+                }
+                val resumed = personal.resumeOwnerApproved(
+                    escrowPassphrase = escrowPassword,
+                    selectedPassphrase = escrowPassword,
+                    ownerConfirmedResume = true,
+                )
+                check(resumed.completedAndJournalArchived)
+                newlyImported = resumed.importedNewRecords
+                current = TrustUnifiedRestoreJournal.advance(
+                    app, current,
+                    TrustUnifiedRestoreJournal.Stage.PERSONAL_COMMITTED,
+                )
+            }
+            check(!personal.hasPendingOwnerRecovery()) {
+                "Personal's native recovery journal is still unresolved"
+            }
+            if (current.stage ==
+                TrustUnifiedRestoreJournal.Stage.PERSONAL_COMMITTED) {
+                current = TrustUnifiedRestoreJournal.advance(
+                    app, current,
+                    TrustUnifiedRestoreJournal.Stage.PREFERENCES_STARTED,
+                )
+            }
+            var preferences = 0
+            if (current.stage ==
+                TrustUnifiedRestoreJournal.Stage.PREFERENCES_STARTED) {
+                val source = verified.parts.single {
+                    it.id == "creator/config/persisted"
+                }
+                preferences = TrustPortablePreferenceRestore.restoreOwnerApproved(
+                    app, source.file.readText(Charsets.UTF_8),
+                    ownerApproved = true,
+                ).writtenFields
+                current = TrustUnifiedRestoreJournal.advance(
+                    app, current,
+                    TrustUnifiedRestoreJournal.Stage.PREFERENCES_COMMITTED,
+                )
+            }
+            check(current.stage ==
+                TrustUnifiedRestoreJournal.Stage.PREFERENCES_COMMITTED &&
+                CreatorDataGate.generation(app) == current.committedCreatorGeneration)
+            val projects = TaskStore(app).tasksFlow.first()
+            val ideas = IdeaVaultStore(app).ideasFlow.first()
+            current to Finished(
+                ownerId = pending.ownerId,
+                cloudRevision = head.revision,
+                projectCount = projects.size,
+                ideaCount = ideas.size,
+                personalAdditions = newlyImported,
+                preferenceFields = preferences,
+                escrowCopyId = pending.encryptedEscrowCopyId,
+                nativeJournalsFinalized = true,
+            )
+        }
+        check(CloudSyncManager(app).localState().session?.userId == pending.ownerId &&
+            CreatorDataGate.generation(app) ==
+                installed.first.committedCreatorGeneration) {
+            "Owner or Creator generation changed during recovery"
+        }
+        TrustUnifiedRestoreJournal.finish(
+            app, installed.first,
+            creatorVerified = true, personalVerified = true,
+            ownerApproved = true,
+        )
+        return installed.second
+    }
+
     suspend fun restoreOwnerApprovedOnFreshDevice(
         selected: TrustOwnerCloudReview.SourceCoverageReview,
         reviewed: TrustOwnerCloudReview.UnifiedRestoreReview,
