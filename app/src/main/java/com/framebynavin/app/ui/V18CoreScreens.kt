@@ -221,6 +221,7 @@ internal fun PStudioProject(
     onAdvance: () -> Unit,
     onBack: () -> Unit,
     onFocus: () -> Unit,
+    onStart: (() -> Unit)? = null,
     onEdit: () -> Unit = {},
     postPublishCheckpoints: List<PostPublishCheckpoint> = emptyList(),
     onEditPublication: () -> Unit = {},
@@ -324,6 +325,7 @@ internal fun PStudioProject(
                     onAdvance = onAdvance,
                     onBack = onBack,
                     onFocus = onFocus,
+                    onStart = onStart,
                 )
                 if (postPublishCheckpoints.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
