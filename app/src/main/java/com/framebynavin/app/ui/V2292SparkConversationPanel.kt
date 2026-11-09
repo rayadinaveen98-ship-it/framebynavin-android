@@ -1,6 +1,9 @@
 package com.framebynavin.app.ui
 
 import android.Manifest
+import android.animation.ValueAnimator
+import android.app.ActivityManager
+import android.os.PowerManager
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorIdea
 import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.reminders.ReminderCheckInKind
+import com.framebynavin.app.reminders.V199ReminderSpark
 import com.framebynavin.app.ui.theme.*
 
 private data class V2292ChatTurn(
@@ -47,6 +52,11 @@ internal fun V2292SparkConversationPanel(
 ) {
     var draft by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val audioVisualMotionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
+    val audioVisualLowPower = remember(context) {
+        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true ||
+            context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
+    }
     val voice = rememberV2293SparkVoiceSession { captured ->
         draft = V2293SparkVoicePolicy.transcript(captured)
     }
@@ -96,6 +106,74 @@ internal fun V2292SparkConversationPanel(
                     fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Text("Offline, limited answers · this chat is not saved",
                     color = MutedText, fontSize = 10.sp)
+            }
+        }
+        // One local audio surface. SpeechRecognizer RMS moves the original
+        // Dictate dots; real offline TTS onStart/onDone lights Spark speaking.
+        // Pending speech initialization must NOT pretend speech is playing.
+        // Neither mode stores a microphone waveform or fabricated loudness.
+        if (voice.listening || voice.playbackActive) {
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("fc13-spark-live-audio"),
+                shape = RoundedCornerShape(15.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (voice.listening) {
+                        FC13ReactiveDotField(
+                            active = voice.microphoneSpeechActive,
+                            rmsDb = voice.microphoneRmsDb,
+                            onTap = ::requestMic,
+                            modifier = Modifier.size(104.dp)
+                                .testTag("fc13-spark-real-microphone-dots"),
+                        )
+                    } else {
+                        V199ReminderSpark(
+                            kind = ReminderCheckInKind.VOICE,
+                            motionEnabled = audioVisualMotionEnabled,
+                            lowPower = audioVisualLowPower,
+                            // Actual TTS onStart only: never simulate sound
+                            // while checking local voice availability.
+                            playbackActive = voice.speaking,
+                            modifier = Modifier.size(104.dp)
+                                .testTag("fc13-spark-offline-voice-waves"),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            when {
+                                voice.listening -> "LIVE MICROPHONE"
+                                voice.speaking -> "SPARK SPEAKING"
+                                else -> "PREPARING OFFLINE VOICE"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = RecRed,
+                        )
+                        Text(
+                            when {
+                                voice.listening ->
+                                    "Dots respond to your real, on-device speech level."
+                                voice.speaking ->
+                                    "Spark reacts while Android's speech engine is talking."
+                                else ->
+                                    "No speaking animation until the local voice starts."
+                            },
+                            fontSize = 10.sp,
+                            color = MutedText,
+                            lineHeight = 14.sp,
+                        )
+                    }
+                }
             }
         }
         Row(
