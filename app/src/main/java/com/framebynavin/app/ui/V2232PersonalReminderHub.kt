@@ -91,6 +91,7 @@ internal fun V2232PersonalReminderHub(
     var editorGroupsError by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<PersonalReminder?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
+    var fullScreenSettingsMessage by remember { mutableStateOf<String?>(null) }
     var rebuildInstallConfirm by remember { mutableStateOf(false) }
     var rebuildInstallStatus by remember { mutableStateOf<String?>(null) }
     // Recompute local calendar labels while this screen is visible; the next
@@ -458,6 +459,7 @@ internal fun V2232PersonalReminderHub(
                             color = MutedText, fontSize = 12.sp,
                         )
                         TextButton(onClick = {
+                            fullScreenSettingsMessage = null
                             runCatching {
                                 context.startActivity(
                                     Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
@@ -465,10 +467,15 @@ internal fun V2232PersonalReminderHub(
                                     }
                                 )
                             }.onFailure {
-                                infoMessage = "Full-screen settings unavailable. Open Android app settings for Backlot."
+                                fullScreenSettingsMessage =
+                                    "Full-screen settings unavailable. Open Android app settings for Backlot."
                             }
                         }, modifier = Modifier.testTag("fc13-open-fullscreen-settings")) {
                             Text("REVIEW ANDROID ACCESS", color = RecRed)
+                        }
+                        fullScreenSettingsMessage?.let { message ->
+                            Text(message, color = RecRed, fontSize = 11.sp,
+                                modifier = Modifier.testTag("fc13-fullscreen-settings-error"))
                         }
                     }
                 }
