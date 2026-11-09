@@ -92,6 +92,8 @@ internal fun V2232PersonalReminderHub(
     var deleteTarget by remember { mutableStateOf<PersonalReminder?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
     var fullScreenSettingsMessage by remember { mutableStateOf<String?>(null) }
+    var exactAlarmSettingsMessage by remember { mutableStateOf<String?>(null) }
+    var channelSettingsMessage by remember { mutableStateOf<String?>(null) }
     var rebuildInstallConfirm by remember { mutableStateOf(false) }
     var rebuildInstallStatus by remember { mutableStateOf<String?>(null) }
     // Recompute local calendar labels while this screen is visible; the next
@@ -219,6 +221,9 @@ internal fun V2232PersonalReminderHub(
     ) { permissionRevision++ }
     val notificationsReady = remember(permissionRevision, context) {
         PersonalReminderNotifications.canPost(context)
+    }
+    val highImportanceChannelReady = remember(permissionRevision, context) {
+        PersonalReminderNotifications.hasHighImportanceChannel(context)
     }
     val preciseReady = remember(permissionRevision, context) {
         val am = context.getSystemService(AlarmManager::class.java)
@@ -438,9 +443,103 @@ internal fun V2232PersonalReminderHub(
                         }
                     }
                 }
+            }
+            if (hasActivePersonalAlarm && !preciseReady) {
+                Surface(
+                    color = CinemaSurface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, CinemaLine),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-personal-exact-alarm-access"),
+                ) {
+                    Column(
+                        Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Text("Exact alarm timing is restricted",
+                            color = ProjectorIvory, fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold)
+                        Text(
+                            "Android may deliver a Personal alarm late when exact-alarm " +
+                                "access is off. Your saved reminder and notification " +
+                                "actions remain available.",
+                            color = MutedText, fontSize = 12.sp,
+                        )
+                        TextButton(
+                            onClick = {
+                                exactAlarmSettingsMessage = null
+                                val opened = runCatching {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                                .setData(android.net.Uri.parse(
+                                                    "package:${context.packageName}",
+                                                )),
+                                        )
+                                    } else {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                                .setData(android.net.Uri.parse(
+                                                    "package:${context.packageName}",
+                                                )),
+                                        )
+                                    }
+                                }
+                                if (opened.isFailure) {
+                                    exactAlarmSettingsMessage =
+                                        "Exact-alarm settings unavailable. Check Android " +
+                                            "Settings > Apps > Backlot > Alarms & reminders."
+                                }
+                            },
+                            modifier = Modifier.testTag("fc13-open-exact-alarm-settings"),
+                        ) { Text("REVIEW ALARM TIMING", color = RecRed) }
+                        exactAlarmSettingsMessage?.let { message ->
+                            Text(message, color = RecRed, fontSize = 11.sp)
+                        }
+                    }
+                }
             } else if (!preciseReady) {
                 Text("Exact timing is unavailable; Android may deliver personal alerts later.",
                     color = MutedText, fontSize = 11.sp)
+            }
+            if (hasActivePersonalAlarm && notificationsReady &&
+                !highImportanceChannelReady) {
+                Surface(
+                    color = CinemaSurface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, RecRed.copy(alpha = .42f)),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-personal-low-importance-channel"),
+                ) {
+                    Column(
+                        Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Text("Personal alert priority is reduced",
+                            color = ProjectorIvory, fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold)
+                        Text(
+                            "Android's Personal reminder channel is not set to High. " +
+                                "A heads-up or full-screen alert cannot be guaranteed; " +
+                                "your saved reminders are unchanged.",
+                            color = MutedText, fontSize = 12.sp,
+                        )
+                        TextButton(
+                            onClick = {
+                                channelSettingsMessage = null
+                                if (!PersonalReminderNotifications.openAlertChannelSettings(context)) {
+                                    channelSettingsMessage =
+                                        "Personal channel settings unavailable. Open " +
+                                            "Android Settings > Apps > Backlot > Notifications."
+                                }
+                            },
+                            modifier = Modifier.testTag("fc13-open-personal-alert-channel"),
+                        ) { Text("REVIEW NOTIFICATION PRIORITY", color = RecRed) }
+                        channelSettingsMessage?.let { message ->
+                            Text(message, color = RecRed, fontSize = 11.sp)
+                        }
+                    }
+                }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
                 hasActivePersonalAlarm && !fullScreenReady) {
@@ -531,6 +630,46 @@ internal fun V2232PersonalReminderHub(
                                     modifier = Modifier.size(19.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text("Notifications blocked · Open Personal settings",
+                                    color = ProjectorIvory, fontSize = 12.sp)
+                            }
+                        }
+                    } else if (hasActivePersonalAlarm && !preciseReady) {
+                        Surface(
+                            onClick = { personalPageName = "SETTINGS" },
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, RecRed.copy(alpha = .42f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-exact-timing-fallback"),
+                        ) {
+                            Row(
+                                Modifier.padding(11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Outlined.Schedule, null,
+                                    tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Exact alarm timing is restricted · Review settings",
+                                    color = ProjectorIvory, fontSize = 12.sp)
+                            }
+                        }
+                    } else if (hasActivePersonalAlarm && !highImportanceChannelReady) {
+                        Surface(
+                            onClick = { personalPageName = "SETTINGS" },
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, RecRed.copy(alpha = .42f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-low-priority-fallback"),
+                        ) {
+                            Row(
+                                Modifier.padding(11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Outlined.NotificationsActive, null,
+                                    tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Personal alert priority reduced · Review settings",
                                     color = ProjectorIvory, fontSize = 12.sp)
                             }
                         }
