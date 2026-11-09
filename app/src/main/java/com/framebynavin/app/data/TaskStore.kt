@@ -135,6 +135,10 @@ class TaskStore(private val context: Context) {
 
     fun validateJson(raw: String): Int = decode(raw).size
 
+    /** Pure decoder for owner-reviewed cross-device Trust restore preflight.
+     * Does not seed a project, emit workflow events, or mutate a DataStore. */
+    internal fun inspectJsonForTrustReadOnly(raw: String): List<CreatorTask> = decode(raw)
+
     suspend fun updateTask(id: String, expectedGeneration: Long? = null, transform: (CreatorTask) -> CreatorTask): CreatorTask? = CreatorDataGate.transaction {
         creatorTaskMutationMutex.withLock {
             expectedGeneration?.let { CreatorDataGate.checkGeneration(context, it) }
