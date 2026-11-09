@@ -262,6 +262,9 @@ internal class TrustOwnerCloudReview(
         personalZipPassphrase: CharArray,
         exactConfirmation: String,
     ): PreparedUnifiedSource {
+        check(TrustUnifiedRestoreJournal.inspect(app) == null) {
+            "A previous Creator/Personal restore requires owner recovery first"
+        }
         require(exactConfirmation == "PREPARE VERIFIED RESTORE") {
             "The owner must explicitly approve private restore preparation"
         }
