@@ -76,12 +76,7 @@ timeout 9m adb shell am instrument -w -r \
   > output/v324-owner/POST-UI-OWNER-DATA-SURVIVED.txt 2>&1 || { cat output/v324-owner/POST-UI-OWNER-DATA-SURVIVED.txt >&2; exit 1; }
 grep -Fq "OK (1 test)" output/v324-owner/POST-UI-OWNER-DATA-SURVIVED.txt
 
-for scene in overdue-reason no-date-reason manual-choice-continues; do
-  adb exec-out run-as com.framebynavin.app cat "files/phase3d-smart-next-move/${scene}.png" > "output/v324-owner/3D-${scene}.png"
-  test -s "output/v324-owner/3D-${scene}.png"
-done
-for scene in empty-150 bilingual-200; do
-  adb exec-out run-as com.framebynavin.app cat "files/phase3e-composition/${scene}.png" > "output/v324-owner/3E-${scene}.png"
-  test -s "output/v324-owner/3E-${scene}.png"
-done
+# Signed owner APK is non-debuggable: adb run-as is intentionally prohibited.
+# Native UI tests verify screenshot creation in-app; the debug Android11 QA
+# runner exports review PNGs separately. Do not weaken owner APK signing.
 echo "PASS: V324 integrated native 3A-3E, Focus2, and V322 data-retention checks passed" > output/v324-owner/PHASE3F-ANDROID-ACCEPTANCE.txt
