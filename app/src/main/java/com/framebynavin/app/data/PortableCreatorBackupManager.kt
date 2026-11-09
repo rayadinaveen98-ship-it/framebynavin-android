@@ -16,9 +16,14 @@ import java.util.UUID
  * This layer only packages/restores app-owned Voice Idea recordings and rewrites their device-local
  * paths after the media has been verified on the destination device.
  */
-class PortableCreatorBackupManager(context: Context) {
+class PortableCreatorBackupManager(
+    context: Context,
+    private val readOnlyValidation: Boolean = false,
+) {
     private val appContext = context.applicationContext
-    private val creatorBackup = CreatorBackupManager(appContext)
+    private val creatorBackup = CreatorBackupManager(
+        appContext, readOnlySourceValidation = readOnlyValidation,
+    )
 
     suspend fun writeBackup(output: OutputStream) {
         // The core snapshot remains schema v9; the PORTABLE representation
