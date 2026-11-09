@@ -44,10 +44,16 @@ class V279PersonalFullScreenNotificationTest {
         assertNotNull(enabled.publicVersion)
         assertEquals("Personal reminder",
             enabled.publicVersion.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        // FC13: Spark's original medium artwork is private-only. The public
+        // lockscreen version remains generic, with no character or private text.
+        assertNotNull(enabled.smallIcon)
+        assertNotNull(enabled.getLargeIcon())
+        assertNull(enabled.publicVersion.getLargeIcon())
 
         val denied = PersonalReminderNotifications.buildForOccurrence(app, alarm, false, false)
         assertNull(denied.fullScreenIntent)
         assertNotNull(denied.contentIntent)
+        assertNotNull(denied.getLargeIcon())
 
         val followUp = PersonalReminderNotifications.buildForOccurrence(app, alarm, true, true)
         assertNull(followUp.fullScreenIntent)
