@@ -1,6 +1,8 @@
 package com.framebynavin.app.cloud
 
 import android.content.Context
+import com.framebynavin.app.data.CreatorAutomationPreferencesStore
+import com.framebynavin.app.data.CreatorRewardStore
 import com.framebynavin.app.data.CreatorFocusSessionCodec
 import com.framebynavin.app.data.CreatorPostPublishStore
 import com.framebynavin.app.data.CreatorWorkflowTimelineStore
@@ -31,6 +33,9 @@ internal object TrustRestorableSourceReview {
         "creator/config/weekly-presence",
         "creator/history/workflow", "creator/history/pulse",
         "creator/history/post-publish",
+        "creator/history/rewards", "creator/config/automation",
+        "creator/history/youtube-links", "creator/history/youtube-milestones",
+        "creator/history/youtube-checkpoints",
         "creator/best-frame-order", "creator/voice-index",
         "personal/reminders-history", "personal/legacy-challenges",
         "personal/reminder-groups", "personal/spaces-journal-links",
@@ -94,6 +99,29 @@ internal object TrustRestorableSourceReview {
         val publishing = CreatorPostPublishStore(app)
         check(publishing.validateJson(json("creator/history/post-publish")) ==
             counts["creator/history/post-publish"]) { "Publishing history doesn't match" }
+        val rewards = CreatorRewardStore(app)
+        check(rewards.validateJson(json("creator/history/rewards")) ==
+            counts["creator/history/rewards"]) {
+            "Creator reward transactions are incomplete"
+        }
+        val automation = CreatorAutomationPreferencesStore(app)
+        automation.validateJson(json("creator/config/automation"))
+        require(counts["creator/config/automation"] == 3) {
+            "Three saved Creator routine choices must be preserved"
+        }
+        for (domain in listOf(
+            "creator/history/youtube-links",
+            "creator/history/youtube-milestones",
+        )) {
+            val payload = JSONObject(json(domain))
+            require(payload.length() == counts[domain]) {
+                "Saved YouTube owner history has inconsistent counts"
+            }
+        }
+        val checkpoints = JSONArray(json("creator/history/youtube-checkpoints"))
+        require(checkpoints.length() == counts["creator/history/youtube-checkpoints"]) {
+            "Saved YouTube publishing checkpoints are incomplete"
+        }
 
         val config = TrustPortablePreferenceCapture.validateRaw(
             json("creator/config/persisted"),
