@@ -21,6 +21,13 @@ internal data class Phase1HabitChallenge(
     val alertKind: Phase1HabitAlertKind? = null,
     val confirmations: Map<LocalDate, Instant> = emptyMap(),
     val paused: Boolean = false,
+    /** STRICT permits today's receipt; FLEXIBLE also permits explicit past-day backfill. */
+    val completionMode: Phase1HabitCompletionMode = Phase1HabitCompletionMode.STRICT,
+    /** Notes are separate from Done receipts: writing a note never completes a day. */
+    val dayNotes: Map<LocalDate, String> = emptyMap(),
+    /** References only. Challenge creation does not create or mutate a Space/Group. */
+    val linkedSpaceId: String? = null,
+    val linkedGroupId: String? = null,
 ) {
     fun checked(): Phase1HabitChallenge {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,100}"))) { "Invalid challenge identity" }
@@ -38,10 +45,24 @@ internal data class Phase1HabitChallenge(
             require(!day.isBefore(startDate) && !day.isAfter(endDate)) {
                 "Confirmation is outside the 21-day challenge"
             }
-            require(LocalDate.ofInstant(at, zone) == day) {
-                "Confirmation must belong to its original challenge-local date"
+            val confirmedOn = LocalDate.ofInstant(at, zone)
+            require(confirmedOn == day || (
+                completionMode == Phase1HabitCompletionMode.FLEXIBLE &&
+                    confirmedOn.isAfter(day)
+            )) {
+                "Receipt time cannot be backdated; past-day confirmation needs Flexible mode"
             }
         }
+        require(dayNotes.size <= 21 && dayNotes.all { (day, note) ->
+            !day.isBefore(startDate) && !day.isAfter(endDate) &&
+                note.length <= 1500
+        }) { "Daily challenge notes must stay within 21 days and 1500 characters" }
+        require(linkedSpaceId == null || linkedSpaceId.matches(
+            Regex("[A-Za-z0-9_:.-]{1,128}")
+        )) { "Invalid linked Space identity" }
+        require(linkedGroupId == null || linkedGroupId.matches(
+            Regex("[A-Za-z0-9_:.-]{1,128}")
+        )) { "Invalid linked Group identity" }
         return this
     }
 
@@ -75,6 +96,31 @@ internal data class Phase1HabitChallenge(
         }
         if (confirmations.containsKey(today)) return this
         return copy(confirmations = confirmations + (today to now)).checked()
+    }
+
+    /**
+     * Explicit catch-up records WHEN the owner confirmed an earlier day;
+     * it never forges a receipt timestamp on the past date.
+     */
+    fun confirmDay(day: LocalDate, at: Instant): Phase1HabitChallenge {
+        checked()
+        require(!paused) { "Resume the challenge before confirming a day" }
+        val today = LocalDate.ofInstant(at, ZoneId.of(zoneId))
+        require(!day.isBefore(startDate) && !day.isAfter(endDate) &&
+            !day.isAfter(today)) { "Choose a current or past challenge day" }
+        require(day == today || completionMode == Phase1HabitCompletionMode.FLEXIBLE) {
+            "Strict challenges only allow today; use Flexible for missed-day confirmation"
+        }
+        if (confirmations.containsKey(day)) return this
+        return copy(confirmations = confirmations + (day to at)).checked()
+    }
+
+    fun noteForDay(day: LocalDate, note: String): Phase1HabitChallenge {
+        checked()
+        require(!day.isBefore(startDate) && !day.isAfter(endDate))
+        require(note.length <= 1500) { "Day note is too long" }
+        return copy(dayNotes = if (note.isBlank()) dayNotes - day
+            else dayNotes + (day to note)).checked()
     }
 
     /** Removing Done requires a deliberate owner action; it never runs automatically. */
@@ -119,5 +165,6 @@ internal data class Phase1HabitChallenge(
     }
 }
 
+internal enum class Phase1HabitCompletionMode { STRICT, FLEXIBLE }
 internal enum class Phase1HabitAlertKind { ALARM, VOICE, QUIET }
 internal enum class Phase1HabitDayStatus { DONE, MISSED, TODAY, UPCOMING }
