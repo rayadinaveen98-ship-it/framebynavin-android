@@ -32,6 +32,25 @@ class ScriptStudioStore(private val context: Context) {
             all[projectId] ?: CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
         }
 
+    /** Do not acquire scriptStudioMutex under CreatorDataGate; avoid load() seeding. */
+    internal suspend fun loadForTrustReadOnly(
+        projectId: String,
+        legacyHook: String = "",
+        legacyScript: String = "",
+    ): CreatorScriptStudio {
+        val project = TaskStore(context).tasksFlow.first().firstOrNull { it.id == projectId }
+        if (project == null || project.archivedAtMillis < 0L) {
+            return CreatorScriptStudio(projectId = projectId)
+        }
+        val prefs = context.scriptStudioDataStore.data.first()
+        val raw = prefs[primaryKey]
+        if (raw.isNullOrBlank()) {
+            return CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
+        }
+        return decodeAll(raw)[projectId] ?:
+            CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
+    }
+
     suspend fun save(
         projectId: String,
         expectedRevision: Long,
