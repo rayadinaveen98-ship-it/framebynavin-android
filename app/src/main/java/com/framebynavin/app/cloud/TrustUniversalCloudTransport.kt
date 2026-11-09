@@ -115,6 +115,88 @@ internal class TrustUniversalCloudTransport {
         }
     }
 
+    /**
+     * Download an immutable encrypted revision into a NEW private file.
+     * This never decrypts bytes, writes to a user-facing directory, or
+     * replaces an existing preview. Only the exact expected owner ciphertext
+     * is retained, after independent local SHA-256 readback.
+     */
+    suspend fun downloadVerifiedToPrivateFile(
+        session: CloudSession,
+        descriptor: TrustCloudCiphertextDescriptor,
+        destination: File,
+    ): TrustCloudVerifiedReadback = withContext(Dispatchers.IO) {
+        val id = owner(session)
+        contract.validate(descriptor, id)
+        require(descriptor.encryptedBytes in 1..MAX_SINGLE_OBJECT) {
+            "Owner cloud revision exceeds verified free-tier object size"
+        }
+        require(destination.parentFile?.isDirectory == true &&
+            !destination.exists() &&
+            !java.nio.file.Files.isSymbolicLink(destination.parentFile!!.toPath())) {
+            "Cloud review requires an unused, private destination"
+        }
+        check(destination.createNewFile()) { "Encrypted owner review target already exists" }
+        val conn = connection(
+            session, "GET",
+            "/storage/v1/object/authenticated/$bucket/" + descriptor.objectPath,
+            contentType = null,
+        )
+        try {
+            expectSuccess(conn)
+            check(conn.contentLengthLong <= 0 ||
+                conn.contentLengthLong == descriptor.encryptedBytes) {
+                "Remote object length changed before downloading"
+            }
+            val digest = MessageDigest.getInstance("SHA-256")
+            var copied = 0L
+            conn.inputStream.buffered().use { source ->
+                destination.outputStream().buffered().use { sink ->
+                    val buffer = ByteArray(32 * 1024)
+                    var zeroReads = 0
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) {
+                            require(++zeroReads <= 16) {
+                                "Cloud revision download made no progress"
+                            }
+                            continue
+                        }
+                        zeroReads = 0
+                        check(copied <= descriptor.encryptedBytes - count) {
+                            "Cloud revision has extra ciphertext bytes"
+                        }
+                        sink.write(buffer, 0, count)
+                        digest.update(buffer, 0, count)
+                        copied += count
+                    }
+                }
+            }
+            check(copied == descriptor.encryptedBytes &&
+                destination.length() == copied &&
+                digest.digest().joinToString("") { "%02x".format(it) } ==
+                    descriptor.encryptedSha256) {
+                "Owner ciphertext did not match its authenticated revision"
+            }
+            // A second independent read proves bytes committed to the local file,
+            // not only network bytes observed by the first digest.
+            val verified = TrustCloudVerifiedReadback.verify(
+                destination.inputStream().buffered(), descriptor,
+            )
+            verified
+        } catch (failure: Throwable) {
+            if (!destination.delete() && destination.exists()) {
+                failure.addSuppressed(IllegalStateException(
+                    "Failed to clean an unverified private cloud download",
+                ))
+            }
+            throw failure
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     /** Atomically claim after verified download, then require HEAD re-fetch. */
     suspend fun claimRevision(
         session: CloudSession,
