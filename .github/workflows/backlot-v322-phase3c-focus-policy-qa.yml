@@ -47,3 +47,54 @@ jobs:
           path: app/build/test-results/testDebugUnitTest/
           retention-days: 21
           if-no-files-found: warn
+
+  focus-backup-android15:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile Android app and instrumented Creator backup tests
+        run: |
+          set -euo pipefail
+          timeout 65m gradle :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Enable Android KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 Focus archive, v10 integrity and legacy backup regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            mkdir -p output/focus-backup
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.CreatorFocusBackupV10Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/focus-backup/FOCUS-V10-ANDROID.txt
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/focus-backup/FOCUS-V10-ANDROID.txt; then exit 1; fi
+            grep -Fq 'OK (2 tests)' output/focus-backup/FOCUS-V10-ANDROID.txt
+            adb shell am instrument -w -r -e class com.framebynavin.app.data.CreatorBackupV183Test -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/focus-backup/CREATOR-LEGACY-ANDROID.txt
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/focus-backup/CREATOR-LEGACY-ANDROID.txt; then exit 1; fi
+            grep -Fq 'OK (3 tests)' output/focus-backup/CREATOR-LEGACY-ANDROID.txt
+            git rev-parse HEAD > output/focus-backup/SOURCE-COMMIT.txt
+      - name: Archive native device evidence — no owner signed APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V322-Phase3C-CreatorBackupV10-Android15-NOT-RELEASE
+          path: output/focus-backup/
+          if-no-files-found: warn
+          retention-days: 21
