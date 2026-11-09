@@ -238,7 +238,7 @@ internal fun PTodayScreen(
                         Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(5.dp))
                         Text(
-                            if (largeActionText) "CONTINUE\\nWORK" else "CONTINUE WORK",
+                            if (largeActionText) "CONTINUE\nWORK" else "CONTINUE WORK",
                             fontWeight = FontWeight.Black,
                             fontSize = 10.sp,
                             lineHeight = 12.sp,
