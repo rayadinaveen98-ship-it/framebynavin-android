@@ -19,6 +19,7 @@ import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.ProjectPulseEngine
 import com.framebynavin.app.data.TaskPriority
+import com.framebynavin.app.data.ReminderMode
 import java.util.Locale
 
 object ReminderNotifications {
@@ -119,8 +120,11 @@ object ReminderNotifications {
             context,
             when {
                 quiet || isFollowUp -> FC13SparkNotificationMood.CALM
-                stageCheckIn -> FC13SparkNotificationMood.ALERT
-                else -> FC13SparkNotificationMood.SPEAK
+                stageCheckIn -> FC13SparkNotificationMood.THINK
+                task.reminderMode == ReminderMode.VOICE -> FC13SparkNotificationMood.SPEAK
+                task.reminderMode == ReminderMode.ALARM -> FC13SparkNotificationMood.ALERT
+                task.reminderMode == ReminderMode.SMART -> FC13SparkNotificationMood.THINK
+                else -> FC13SparkNotificationMood.CALM
             },
         )
 
