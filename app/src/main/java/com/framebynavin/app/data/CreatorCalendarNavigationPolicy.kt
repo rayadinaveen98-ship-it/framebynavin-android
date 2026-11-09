@@ -33,11 +33,15 @@ object CreatorCalendarNavigationPolicy {
     }
 
     fun isProjectLink(item: CreatorCalendarItem): Boolean =
-        item.source == CreatorCalendarSource.PROJECT && item.taskId.isNotBlank()
+        item.source != CreatorCalendarSource.WEEKLY_PLAN &&
+            item.taskId.isNotBlank()
 
     fun kindLabel(item: CreatorCalendarItem): String = when {
-        item.source == CreatorCalendarSource.WEEKLY_PLAN -> "Weekly plan · not a project yet"
-        item.completed -> "Completed project"
-        else -> "Project deadline"
+        item.source == CreatorCalendarSource.WEEKLY_PLAN ->
+            "Weekly slot preview · not a project or posted content"
+        item.source == CreatorCalendarSource.PUBLICATION ->
+            "Publication recorded · not an automatic post"
+        item.completed -> "Completed project · deadline"
+        else -> "Project deadline · not proof of publication"
     }
 }
