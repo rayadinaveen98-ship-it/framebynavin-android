@@ -11,7 +11,6 @@ import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -185,7 +184,7 @@ internal object TrustEncryptedStagingCodec {
         try {
             ZipInputStream(encrypted).use { zip ->
                 requireNext(zip, "header.bin")
-                val header = zip.readNBytes(MAX_HEADER_BYTES + 1)
+                val header = readBoundedEntry(zip, MAX_HEADER_BYTES)
                 require(header.isNotEmpty() && header.size <= MAX_HEADER_BYTES)
                 zip.closeEntry()
                 val h = DataInputStream(ByteArrayInputStream(header))
@@ -245,6 +244,20 @@ internal object TrustEncryptedStagingCodec {
         } catch (failure: Throwable) {
             temp.deleteRecursively()
             throw failure
+        }
+    }
+
+    private fun readBoundedEntry(input: InputStream, maxBytes: Int): ByteArray {
+        val result = ByteArrayOutputStream()
+        val buffer = ByteArray(512)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) return result.toByteArray()
+            if (count == 0) continue
+            require(result.size() <= maxBytes - count) {
+                "Encrypted staging header exceeds the allowed size"
+            }
+            result.write(buffer, 0, count)
         }
     }
 
