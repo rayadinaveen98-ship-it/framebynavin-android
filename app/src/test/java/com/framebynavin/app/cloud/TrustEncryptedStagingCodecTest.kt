@@ -53,7 +53,7 @@ class TrustEncryptedStagingCodecTest {
         val plaintext = bytes.toString(Charsets.ISO_8859_1)
         assertFalse(plaintext.contains(ownerId))
         assertFalse(plaintext.contains("creator/ideas"))
-        assertFalse(plaintext.contains("తెలుగు కథ"))
+        assertFalse(bytes.containsSequence(notes)) // exact original UTF-8 never appears verbatim
 
         val staging = verify(bytes)
         val saved = staging.parts.associateBy { it.id }
@@ -174,6 +174,13 @@ class TrustEncryptedStagingCodecTest {
             assertEquals(0L, it.parts.single().sizeBytes)
             assertEquals(sha(byteArrayOf()), it.parts.single().sha256)
             assertFalse(it.canUploadAsUniversalBackup)
+        }
+    }
+
+    private fun ByteArray.containsSequence(needle: ByteArray): Boolean {
+        if (needle.isEmpty() || needle.size > size) return false
+        return (0..size - needle.size).any { start ->
+            needle.indices.all { offset -> this[start + offset] == needle[offset] }
         }
     }
 
