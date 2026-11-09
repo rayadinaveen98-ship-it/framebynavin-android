@@ -59,6 +59,67 @@ class CreatorFocusBackupV10Test {
         }
     }
 
+    @Test fun oldV9CloudBackupRemainsReadableButCannotSilentlyOmitExistingFocusHistory(): Unit = runBlocking {
+        HardeningTestEnvironment.requireCiEmulator()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = CreatorFocusSessionStore(context)
+        val before = store.exportJson()
+        try {
+            store.importAfterApprovedRestore(CreatorFocusSessionCodec.encode(CreatorFocusLedger()))
+            val manager = CreatorBackupManager(context)
+            val current = JSONObject(manager.createBackup())
+            current.put("schemaVersion", 9)
+            current.remove("creatorFocusSessions")
+            current.put("personalFrames",
+                """{"format":"BacklotCloudOriginalFramesOmitted","version":1}""")
+            val manifest = current.getJSONObject("manifest")
+            val included = manifest.getJSONArray("included")
+            val olderKeys = org.json.JSONArray()
+            for (i in 0 until included.length()) {
+                val key = included.getString(i)
+                if (key != "creatorFocusSessions") olderKeys.put(key)
+            }
+            manifest.put("included", olderKeys)
+            current.put("payloadSha256", v9Checksum(current))
+            val legacy = current.toString()
+            assertEquals(9, manager.validateCloud(legacy).schemaVersion)
+            assertThrows(IllegalArgumentException::class.java) { manager.validate(legacy) }
+
+            // Existing V322 cloud backups must remain readable without new Focus data.
+            manager.restoreCloud(legacy)
+            assertTrue(store.load().history.isEmpty())
+
+            val old = CreatorFocusSessionPolicy.create(
+                "focus-legacy-loss-guard", "research", 15,
+                1_700_000_000_000L, id = "legacy-guard")
+            val completed = CreatorFocusSessionPolicy.finish(old, 0L, 0, 1_700_000_010_000L)
+            store.importAfterApprovedRestore(CreatorFocusSessionCodec.encode(
+                CreatorFocusLedger(history = listOf(completed))))
+            try {
+                manager.restoreCloud(legacy)
+                org.junit.Assert.fail("Older cloud backup silently omitted existing Focus history")
+            } catch (_: IllegalStateException) { }
+            assertEquals("legacy-guard", store.load().history.single().id)
+        } finally {
+            store.importAfterApprovedRestore(before)
+        }
+    }
+
+    private fun v9Checksum(root: JSONObject): String {
+        val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas",
+            "weeklySchedule", "settings", "smartEscalationConfig", "postPublish", "rewards",
+            "personalFrames", "youtubeProjectLinks", "youtubeMilestones",
+            "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline",
+            "automationPreferences", "manifest")
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        keys.forEach { key ->
+            val value = root.optString(key, "")
+            digest.update("${key.length}:$key${value.length}:".toByteArray(Charsets.UTF_8))
+            digest.update(value.toByteArray(Charsets.UTF_8))
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
     @Test fun portableFocusArchiveNeverCarriesActiveDeviceClockAcrossBackup(): Unit {
         HardeningTestEnvironment.requireCiEmulator()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
