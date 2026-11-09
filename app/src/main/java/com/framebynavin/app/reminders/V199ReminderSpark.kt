@@ -40,6 +40,7 @@ internal fun V199ReminderSpark(
     motionEnabled: Boolean,
     lowPower: Boolean,
     modifier: Modifier = Modifier,
+    playbackActive: Boolean = false,
 ) {
     val expression = V199SparkMotionPolicy.expression(kind)
     val animate = motionEnabled && !lowPower
@@ -76,7 +77,7 @@ internal fun V199ReminderSpark(
                 center = middle,
                 radius = radius,
             )
-            if (expression == V199SparkExpression.ALERT) {
+            if (expression == V199SparkExpression.ALERT && playbackActive) {
                 // Partial arcs sit outside Spark's face. They never obscure the eyes.
                 val arcRadius = radius * (.90f + .055f * glow)
                 val box = Size(arcRadius * 2f, arcRadius * 2f)
@@ -98,8 +99,9 @@ internal fun V199ReminderSpark(
                     radius = 2.2.dp.toPx(),
                     center = Offset(size.width * .84f, size.height * .23f),
                 )
-            } else {
-                // Visual speech energy, intentionally not tied to TTS amplitude.
+            } else if (expression == V199SparkExpression.SPEAK && playbackActive) {
+                // Actual TTS speaking event activates stylized bars. Their
+                // rhythm is decorative, NOT a measured output loudness signal.
                 val barWidth = 2.6.dp.toPx()
                 val baseX = size.width * .835f
                 val baseY = size.height * .52f
