@@ -42,12 +42,37 @@ internal object PersonalReminderNotifications {
             .getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
     }
 
+    /**
+     * On Android 8+, user-selected channel importance overrides app priority.
+     * IMPORTANCE_DEFAULT/LOW can post a card but cannot promise heads-up/FSI.
+     */
+    fun hasHighImportanceChannel(context: Context): Boolean {
+        if (!canPost(context)) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+        return context.getSystemService(NotificationManager::class.java)
+            .getNotificationChannel(CHANNEL)?.importance?.let {
+                it >= NotificationManager.IMPORTANCE_HIGH
+            } == true
+    }
+
+    /** Open only our existing Personal channel; do not reset owner preferences. */
+    fun openAlertChannelSettings(context: Context): Boolean = runCatching {
+        context.startActivity(
+            Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, CHANNEL)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        true
+    }.getOrDefault(false)
+
     fun show(context: Context, reminder: PersonalReminder, followUp: Boolean = false): Boolean {
         if (!canPost(context) || reminder.pendingToken.isBlank()) return false
         val tag = PersonalDeliveryContract.notificationTag(reminder.id)
         val notification = buildForOccurrence(
             context, reminder, followUp,
-            V268FullScreenReminderAccess.allowed(context),
+            V268FullScreenReminderAccess.allowed(context) &&
+                hasHighImportanceChannel(context),
         )
         return runCatching {
             context.getSystemService(NotificationManager::class.java)
@@ -65,6 +90,7 @@ internal object PersonalReminderNotifications {
     ): Notification {
         val fullScreenEligible = PersonalFullScreenPolicy.eligible(
             reminder.alert, followUp, fullScreenPermissionAllowed,
+            automaticRetry = reminder.autoRetryCount > 0,
         )
         val generic = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
@@ -83,11 +109,30 @@ internal object PersonalReminderNotifications {
                 data = PersonalDeliveryContract.actionUri(reminder.id, "open", reminder.pendingToken)
                 putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, reminder.id)
                 putExtra(PersonalDeliveryContract.EXTRA_TOKEN, reminder.pendingToken)
-                putExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, fullScreenEligible)
+                // A deliberate notification TAP never inherits full-screen
+                // over-keyguard privileges from the interrupting intent.
+                putExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        // A distinct immutable FSI target ensures Android cannot overwrite a
+        // user's normal open intent with the interrupting-alarm extra.
+        val alarmFullScreen = if (fullScreenEligible) PendingIntent.getActivity(
+            context,
+            reminder.id.hashCode() xor 0x7F51,
+            Intent(context, PersonalAlertActivity::class.java).apply {
+                action = PersonalFullScreenPolicy.FSI_OPEN_ACTION
+                data = PersonalDeliveryContract.actionUri(
+                    reminder.id, "alarm-fullscreen", reminder.pendingToken,
+                )
+                putExtra(PersonalDeliveryContract.EXTRA_PERSONAL_ID, reminder.id)
+                putExtra(PersonalDeliveryContract.EXTRA_TOKEN, reminder.pendingToken)
+                putExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, true)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        ) else null
         val detail = if (followUp) "Still needs your response · Done or Snooze"
             else when (reminder.alert) {
             PersonalAlert.NOTIFICATION -> "Personal reminder"
@@ -104,7 +149,8 @@ internal object PersonalReminderNotifications {
             .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle(reminder.title)
             .setContentText(if (planDetails) reminder.notes else detail)
-            .setCategory(if (reminder.alert == PersonalAlert.ALARM)
+            .setCategory(if (fullScreenEligible ||
+                (reminder.alert == PersonalAlert.ALARM && !followUp))
                 NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
@@ -130,11 +176,11 @@ internal object PersonalReminderNotifications {
             builder.setStyle(NotificationCompat.BigTextStyle().bigText(reminder.notes))
         }
         // Follow-ups and denied FSI remain ordinary tappable notifications.
-        return V268FullScreenReminderAccess.configure(
-            builder,
-            opening,
-            fullScreenEligible,
-        ).build()
+        return if (alarmFullScreen != null) {
+            V268FullScreenReminderAccess.configure(
+                builder, alarmFullScreen, fullScreenAllowed = true,
+            ).build()
+        } else builder.build()
     }
 
     fun cancel(context: Context, id: String) {
