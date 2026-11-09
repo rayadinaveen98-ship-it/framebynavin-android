@@ -5,6 +5,8 @@ import android.util.AtomicFile
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.FilterOutputStream
+import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
@@ -81,12 +83,13 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                     var output: FileOutputStream? = null
                     try {
                         output = atomic.startWrite()
-                        // The writer owns and closes its ZIP stream, including
-                        // the passed FileOutputStream. AtomicFile.finishWrite
-                        // must tolerate the already-closed stream; Android's
-                        // AtomicFile uses sync/close and is best-effort on it.
+                        // T1C1 ZipOutputStream closes its wrapped stream.
+                        // Keep AtomicFile's FD open until finishWrite performs
+                        // its fsync + atomic rename; closing the FD early can
+                        // quietly defeat Android's durability guarantee.
                         TrustEncryptedStagingCodec.write(
-                            assertedOwnerId, passphrase, frozen.sources(), output,
+                            assertedOwnerId, passphrase, frozen.sources(),
+                            FlushOnlyOutputStream(output),
                         )
                         atomic.finishWrite(output)
                         output = null
@@ -231,6 +234,12 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                 "Abandoned plaintext owner snapshot could not be removed"
             }
         }
+    }
+
+    /** ZIP writer may close its wrapper; AtomicFile alone must close the FD. */
+    private class FlushOnlyOutputStream(output: OutputStream) :
+        FilterOutputStream(output) {
+        override fun close() { flush() }
     }
 
     private fun sha256(file: File): String {
