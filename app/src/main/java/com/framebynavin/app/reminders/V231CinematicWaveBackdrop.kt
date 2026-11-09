@@ -109,7 +109,7 @@ internal fun V231CinematicWaveBackdrop(
         val accent = if (soundInProgress) 1.22f else 1f
         if (soundInProgress) {
             // Live playback STAGE only; smooth decorative bloom, not audio RMS.
-            val breathe = (.5f + .5f * sin(t * 4.1)).toFloat()
+            val breathe = (.5 + .5 * sin(t * 4.1)).toFloat()
             val audioCenter = Offset(size.width * .50f, size.height * .38f)
             val bloomRadius = extent * (.43f + .045f * breathe)
             drawCircle(
