@@ -41,12 +41,19 @@ internal object TrustT1C3RecoveryJournal {
             !File(root, "$NAME.bak").exists()) return null
         val input = AtomicFile(file).openRead()
         val bytes = input.use { stream ->
-            val data = ByteArray(1025)
-            val count = stream.read(data)
-            require(count in 1..1024 && stream.read() == -1) {
-                "Recovery marker exceeds size limits"
+            val result = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(256)
+            while (true) {
+                val read = stream.read(buffer)
+                if (read < 0) break
+                if (read == 0) continue
+                require(result.size() <= 1024 - read) {
+                    "Recovery marker exceeds size limits"
+                }
+                result.write(buffer, 0, read)
             }
-            data.copyOf(count)
+            require(result.size() in 1..1024) { "Recovery marker is empty" }
+            result.toByteArray()
         }
         val json = JSONObject(String(bytes, Charsets.UTF_8))
         require(json.keys().asSequence().toSet() ==
