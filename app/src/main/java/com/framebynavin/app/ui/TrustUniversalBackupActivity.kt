@@ -71,6 +71,10 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     var remoteReview by remember { mutableStateOf<TrustOwnerCloudReview.OwnerHeadReview?>(null) }
     var downloadedReview by remember { mutableStateOf<TrustOwnerCloudReview.SourceCoverageReview?>(null) }
     var unifiedReview by remember { mutableStateOf<TrustOwnerCloudReview.UnifiedRestoreReview?>(null) }
+    var preparationConfirmation by remember { mutableStateOf("") }
+    var preparedRestore by remember {
+        mutableStateOf<TrustOwnerCloudReview.PreparedUnifiedSource?>(null)
+    }
     var deletionReview by remember { mutableStateOf<TrustCloudBackupDeletionCoordinator.Review?>(null) }
     var deletionConfirmation by remember { mutableStateOf("") }
     var orphaned by remember { mutableIntStateOf(0) }
@@ -83,6 +87,8 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
         remoteReview = null
         downloadedReview = null
         unifiedReview = null
+        preparedRestore = null
+        preparationConfirmation = ""
         deletionReview = null
         passphrase = ""
         publishConfirmation = ""
@@ -334,6 +340,8 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                                 remoteReview = cloudReview.inspectCurrentRemote()
                                 downloadedReview = null
                                 unifiedReview = null
+                                preparedRestore = null
+                                preparationConfirmation = ""
                                 if (remoteReview?.hasEncryptedBackup == true)
                                     "Verified remote revision ${remoteReview?.head?.revision}. " +
                                         "Inspect its encrypted source before any recovery."
@@ -354,6 +362,8 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                                         downloadedReview =
                                             cloudReview.inspectEncryptedSource(before, password)
                                         unifiedReview = null
+                                        preparedRestore = null
+                                        preparationConfirmation = ""
                                         "Downloaded and authenticated encrypted backup. " +
                                             "No phone records were replaced."
                                     } finally {
@@ -400,6 +410,74 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                                 "${review.personal.conflicts} conflicts.",
                             color = ProjectorIvory, fontSize = 12.sp,
                         )
+                        val canPrepare = !review.creator.hasExistingOwnerWork &&
+                            review.creator.projectIdConflicts == 0 &&
+                            review.creator.ideaIdConflicts == 0 &&
+                            review.personal.conflicts == 0 &&
+                            review.uncoveredPreferenceKeys.isEmpty()
+                        if (canPrepare && downloadedReview != null) {
+                            Text(
+                                "Prepare both native Creator and Personal import files " +
+                                    "without replacing any live records. Temporary " +
+                                    "files are erased after verification.",
+                                color = MutedText, fontSize = 11.sp,
+                            )
+                            OutlinedTextField(
+                                value = preparationConfirmation,
+                                onValueChange = {
+                                    preparationConfirmation = it.take(64)
+                                },
+                                label = { Text("Type PREPARE VERIFIED RESTORE") },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    val selectedCloud = checkNotNull(downloadedReview)
+                                    val approvedDiff = review
+                                    runAction {
+                                        val trustPassword = passphrase.toCharArray()
+                                        val personalPassword = passphrase.toCharArray()
+                                        try {
+                                            preparedRestore = cloudReview
+                                                .prepareUnifiedRestoreSource(
+                                                    selectedCloud,
+                                                    approvedDiff,
+                                                    trustPassword,
+                                                    personalPassword,
+                                                    preparationConfirmation,
+                                                )
+                                            "Creator and Personal native recovery sources " +
+                                                "verified. No restore was executed."
+                                        } finally {
+                                            trustPassword.fill('\u0000')
+                                            personalPassword.fill('\u0000')
+                                            passphrase = ""
+                                            preparationConfirmation = ""
+                                        }
+                                    }
+                                },
+                                enabled = !busy && passphrase.length >= 12 &&
+                                    preparationConfirmation == "PREPARE VERIFIED RESTORE",
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("fc13-trust-prepare-native-restores"),
+                            ) { Text("PREPARE VERIFIED RESTORE SOURCES") }
+                            preparedRestore?.let { prepared ->
+                                Text(
+                                    "Native Creator: ${prepared.creatorPortableBytes / 1024} KiB; " +
+                                        "Personal: ${prepared.personalEncryptedBytes / 1024} KiB " +
+                                        "verified and temporary files erased.",
+                                    color = ProjectorIvory, fontSize = 11.sp,
+                                )
+                            }
+                        } else {
+                            Text(
+                                "An occupied Creator workspace, conflicting Personal IDs " +
+                                    "or incomplete preference coverage blocks restore " +
+                                    "preparation. Existing phone data stays intact.",
+                                color = RecRed, fontSize = 11.sp,
+                            )
+                        }
                     }
                     Text(
                         "RESTORE BACKUP remains disabled until a single " +
