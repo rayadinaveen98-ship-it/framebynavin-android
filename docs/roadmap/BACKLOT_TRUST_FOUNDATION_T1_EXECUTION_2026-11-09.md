@@ -198,6 +198,37 @@ integration gate. No owner APK or new cloud controls.
 - Run the full phase-end JVM/Android regression suite, a signed upgrade proof
   and real owner acceptance before any release.
 
+## T1C1 — streamed encrypted owner-staging format (CODE ONLY)
+
+**Source-only implementation:** \`TrustEncryptedStagingCodec\` is an isolated
+streamed AES-256-GCM encrypted ZIP format with anonymous entries,
+PBKDF2-HMAC-SHA256 passphrase derivation, encrypted part manifest and asserted
+owner ID, per-part actual SHA/size checks and authenticated final frames.
+\`stageAndVerify\` validates and temporarily stages *provided* immutable
+source bytes; it does not read or mutate live Creator/Personal data, upload to
+cloud, verify a signed CloudSession or restore records.
+
+- Declared incomplete by construction: both
+  \`canClaimCompleteBackup\` and \`canUploadAsUniversalBackup\` remain false
+  even after every encrypted file byte checks out. A cryptographically valid
+  **partial snapshot** is still a partial snapshot.
+- Original app archive formats and existing Creator/Personal Sync Now paths
+  remain unchanged; no separate user-visible Back Up action or APK.
+- Eight pure JVM crypto/media/data-integrity cases and one fake-owner Android
+  device test were authored and attached to the deferred T1 phase-end suite.
+  **They are not yet executed**, and this source is NOT a production-ready
+  encryption/security audit.
+- [Full T1C staging threat model and release contract](
+  ./BACKLOT_TRUST_T1C_ENCRYPTED_STAGING_CONTRACT_2026-11-09.md).
+- T1C2 must freeze actual complete owner source bytes under a consistent
+  cross-store revision and decide whether existing Creator and encrypted
+  Personal archive codecs are nested or consolidated. T1C3 must add an
+  encrypted local durable preflight + authenticated account binding. T1C4
+  adds versioned private cloud objects, CAS, old-good retention and readback
+  confirmation; do not overwrite older legacy cloud heads.
+- T1 final QA and owner test, T2 reviewed restore and T3/T4 deletion remain
+  strictly pending.
+
 ## Remaining owner acceptance and release gates
 
 - Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
