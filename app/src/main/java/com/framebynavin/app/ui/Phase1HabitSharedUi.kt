@@ -185,6 +185,7 @@ internal fun CreateHabitReview(
 internal fun DashboardHabitReview(
     habit: Phase1HabitChallenge, now: Instant,
     onDone: () -> Unit, onUndo: () -> Unit, onPause: () -> Unit,
+    onSnooze: (() -> Unit)? = null,
     previewOnly: Boolean = false,
     onDaySelected: (LocalDate) -> Unit = {},
     onManageLinks: () -> Unit = {},
@@ -283,6 +284,19 @@ internal fun DashboardHabitReview(
                     Text(if (habit.paused) "Resume to mark today" else "Mark today done")
                 }
             }
+        }
+        if (onSnooze != null && habit.canSnooze(now)) {
+            OutlinedButton(
+                onClick = onSnooze,
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("fc13-challenge-snooze"),
+            ) { Text("SNOOZE TODAY'S ALERT 10 MIN") }
+        }
+        if (habit.snoozedUntil != null && habit.snoozedUntil.isAfter(now) &&
+            habit.snoozedDay == today && !doneToday) {
+            Hint("Snoozed until " + habit.snoozedUntil.atZone(
+                ZoneId.of(habit.zoneId)).toLocalTime().format(timeFormat) +
+                " · Android exact-alarm access affects delivery timing")
         }
         OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()
             .testTag("habit-pause")) {
