@@ -61,13 +61,13 @@ class VoiceReminderService : Service() {
 
         val previous = currentTask
         val previousToken = currentToken
-        FC13CreatorPlaybackVisualState.clear(previous?.id.orEmpty(), previousToken)
         val sameOccurrence = previous?.id == task.id && previousToken == token
         val forceRestart = intent.getBooleanExtra(EXTRA_FORCE_RESTART, false)
 
         // Duplicate delivery of the same occurrence must never restart a sentence that is already
         // speaking. Explicit Replay is the only same-occurrence path allowed to restart speech.
         if (sameOccurrence && !forceRestart && tts != null) return START_NOT_STICKY
+        FC13CreatorPlaybackVisualState.clear(previous?.id.orEmpty(), previousToken)
 
         if (previous != null && !sameOccurrence &&
             ReminderOccurrenceStore(applicationContext).matches(previous, previousToken)) {
