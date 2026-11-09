@@ -37,8 +37,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
-import com.framebynavin.app.ui.CinePulseGuide
-import com.framebynavin.app.ui.CinePulseState
+import com.framebynavin.app.ui.FC13SparkPose
+import com.framebynavin.app.ui.FC13SparkPoseSize
+import com.framebynavin.app.reminders.FC13SparkNotificationMood
 import com.framebynavin.app.reminders.V268FullScreenReminderAccess
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.ui.theme.CinemaBlack
@@ -220,10 +221,10 @@ internal fun V2233PersonalAlertScreen(
             if (locked) {
                 // Android's public notification version already redacts titles.
                 // Preserve the same privacy in the actual over-keyguard activity.
-                CinePulseGuide(
-                    state = CinePulseState.POINT,
-                    modifier = Modifier.size(74.dp)
-                        .testTag("fc13-spark-locked-alarm"),
+                FC13SparkPose(
+                    mood = FC13SparkNotificationMood.ALERT,
+                    size = FC13SparkPoseSize.MEDIUM,
+                    modifier = Modifier.testTag("fc13-spark-locked-alarm"),
                 )
                 V2233PersonalParticleWave(PersonalAlert.ALARM)
                 Text("PERSONAL ALARM", color = blue,
@@ -250,14 +251,14 @@ internal fun V2233PersonalAlertScreen(
             }
             // The art is a particle wave itself, with the symbol emerging from
             // the same luminous palette. No reused creator task icon/sticker.
-            CinePulseGuide(
-                state = when (reminder.alert) {
-                    PersonalAlert.ALARM -> CinePulseState.POINT
-                    PersonalAlert.VOICE -> CinePulseState.PRESENT
-                    PersonalAlert.NOTIFICATION -> CinePulseState.LOOK
+            FC13SparkPose(
+                mood = when (reminder.alert) {
+                    PersonalAlert.ALARM -> FC13SparkNotificationMood.ALERT
+                    PersonalAlert.VOICE -> FC13SparkNotificationMood.SPEAK
+                    PersonalAlert.NOTIFICATION -> FC13SparkNotificationMood.CALM
                 },
-                modifier = Modifier.size(width = 96.dp, height = 104.dp)
-                    .testTag("fc13-spark-full-reminder"),
+                size = FC13SparkPoseSize.FULL,
+                modifier = Modifier.testTag("fc13-spark-full-reminder"),
             )
             V2233PersonalParticleWave(
                 reminder.alert, playbackActive = playbackStage != FC13PlaybackStage.SILENT,
