@@ -259,11 +259,14 @@ internal fun V157ReminderCenterUi(
                     val attentionCount = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size
                     val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
                     val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
-                        V157InboxCount("TODAY", todayCount, MutedText, Modifier.weight(1f))
-                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
-                    }
+                    BacklotReminderHubMetrics(
+                        metrics = listOf(
+                            BacklotReminderHubMetric("NEEDS", attentionCount, urgent = true),
+                            BacklotReminderHubMetric("TODAY", todayCount),
+                            BacklotReminderHubMetric("DELAYED", postponedCount),
+                        ),
+                        modifier = Modifier.testTag("fc13-creator-hub-metrics"),
+                    )
                     }
 
                     // Empty state keeps History reachable but does not show
@@ -484,21 +487,6 @@ internal fun V157ReminderCenterUi(
 }
 
 @Composable
-private fun V157InboxCount(label: String, count: Int, accent: Color, modifier: Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(13.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
-    ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 11.dp)) {
-            Text(count.toString(), color = accent, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text(label, color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
 private fun V157ReminderGroup(
     label: String,
     subtitle: String,
@@ -541,16 +529,14 @@ private fun V157ReminderGroup(
         val canPause = onPause != null && ReminderCenterPolicy.canPause(task, now)
         var optionsOpen by remember(task.id) { mutableStateOf(false) }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).combinedClickable(
+        BacklotReminderHubItemCard(
+            urgent = accent == RecRed,
+            selected = chosen,
+            modifier = Modifier.padding(bottom = 10.dp).combinedClickable(
                 onClick = { if (selectionMode) onSelect(task.id) else onEdit(task.id) },
                 onLongClick = { onHold(task.id) },
             ),
-            shape = RoundedCornerShape(17.dp),
-            color = if (chosen) RecRed.copy(alpha = .11f) else CinemaSurface,
-            border = BorderStroke(1.dp, if (chosen) RecRed else CinemaLine),
         ) {
-            Column(Modifier.padding(14.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     if (selectionMode) {
                         Icon(
