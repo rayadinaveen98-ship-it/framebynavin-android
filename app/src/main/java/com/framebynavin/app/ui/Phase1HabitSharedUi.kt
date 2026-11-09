@@ -187,6 +187,9 @@ internal fun DashboardHabitReview(
     onDone: () -> Unit, onUndo: () -> Unit, onPause: () -> Unit,
     previewOnly: Boolean = false,
     onDaySelected: (LocalDate) -> Unit = {},
+    onManageLinks: () -> Unit = {},
+    linkedSpaceLabel: String? = null,
+    linkedGroupLabel: String? = null,
 ) {
     val today = LocalDate.ofInstant(now, ZoneId.of(habit.zoneId))
     val dayNumber = habit.dayNumber(now)
@@ -283,6 +286,16 @@ internal fun DashboardHabitReview(
         OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()
             .testTag("habit-pause")) {
             Text(if (habit.paused) "Resume challenge" else "Pause challenge")
+        }
+        ReviewPanel {
+            AccentLabel("LINKED PROGRESS")
+            Hint("Space: ${linkedSpaceLabel ?: "None"}")
+            Hint("Reminder Group: ${linkedGroupLabel ?: "None"}")
+            OutlinedButton(
+                onClick = onManageLinks,
+                modifier = Modifier.fillMaxWidth().testTag("fc13-challenge-links-open"),
+            ) { Text("MANAGE LINKS") }
+            Hint("Links are optional. They never create reminders or mark any day Done.")
         }
         Text(if (previewOnly) "Review only · No data or alerts saved"
             else "Progress saved on this device · Android alert permissions apply",
