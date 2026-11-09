@@ -1,0 +1,146 @@
+name: Backlot V324 Phase 3F - Integrated Signed Upgrade Android 15 and 11
+on:
+  push:
+    branches:
+      - qa/backlot-v324-phase3f-integrated-owner-review-20261109
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: backlot-v324-phase3f-owner-integration
+  cancel-in-progress: true
+
+jobs:
+  verified-v322-to-v324-integrated-owner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 135
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Protect owner schedule, app ID and signed owner-preview version
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'versionCode = 324' app/build.gradle.kts
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'testBuildType = "personalStable"' app/build.gradle.kts
+          test "$(git rev-parse HEAD:app/src/main/java/com/framebynavin/app/personal/PersonalRebuildSchedulePack.kt)" = "98a8533a0ff32d5b6664e0e608fe97f5cdeb268e"
+          test -f app/src/main/java/com/framebynavin/app/personal/Phase1HabitStore.kt
+          test -f app/src/main/java/com/framebynavin/app/ui/CreatorFocusSessionScreen.kt
+          test -f app/src/main/java/com/framebynavin/app/data/HomeNextMovePolicy.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/Phase3HomeCompositionReviewTest.kt
+          grep -Fq 'versionName = "2.27.4-owner-home-review"' app/build.gradle.kts
+          test -f app/src/androidTest/java/com/framebynavin/app/personal/BacklotV322To324SignedUpgradeTest.kt
+          ! grep -Fq 'private fun PFocusScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+      - name: Build signed V324 sideload preview + same-build Android test APK
+        run: |
+          set -euo pipefail
+          timeout 90m gradle :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+            -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          test -s app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
+          mkdir -p output/v324-owner
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v324-owner/Backlot-V324-Phase3-Owner-Review.apk
+          (cd output/v324-owner && sha256sum Backlot-V324-Focus-Owner-Review.apk > SHA256SUMS.txt)
+      - name: Download original successful signed V322 schedule-owner build
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-v322-Rebuild-Schedule-Owner-Preview
+          run-id: 42513118737
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/v322
+      - name: Verify V322 artifact hash, both APK certificate identities and monotonic versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          old=output/v322/Backlot-v322-Rebuild-Schedule.apk
+          next=output/v324-owner/Backlot-V324-Focus-Owner-Review.apk
+          test -s "$old" && test -s "$next"
+          expected="$(awk 'NR == 1 { print $1 }' output/v322/SHA256SUMS.txt)"
+          test "${#expected}" -eq 64
+          echo "$expected  $old" | sha256sum -c -
+          (cd output/v324-owner && sha256sum -c SHA256SUMS.txt)
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          signer="$(find "$sdk/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$sdk/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -1)"
+          test -x "$signer" && test -x "$aapt"
+          "$signer" verify --verbose --print-certs "$old" > output/v324-owner/OLD-V322-SIGNATURE.txt
+          "$signer" verify --verbose --print-certs "$next" > output/v324-owner/NEW-V324-SIGNATURE.txt
+          "$aapt" dump badging "$old" > output/v324-owner/OLD-V322-IDENTITY.txt
+          "$aapt" dump badging "$next" > output/v324-owner/NEW-V324-IDENTITY.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('output/v324-owner')
+          certs=[]
+          for ver,prefix in [(322,'OLD-V322'),(324,'NEW-V324')]:
+              identity=(root/f'{prefix}-IDENTITY.txt').read_text()
+              assert f"package: name='com.framebynavin.app' versionCode='{ver}'" in identity,identity[:350]
+              sig=(root/f'{prefix}-SIGNATURE.txt').read_text()
+              assert 'Verified using v2 scheme (APK Signature Scheme v2): true' in sig
+              match=re.search(r'certificate SHA-256 digest: ([0-9a-f]{64})',sig)
+              assert match, sig[:450]
+              certs.append(match.group(1))
+          assert certs[0]==certs[1],f'signer differs: {certs}'
+          assert certs[0]=='f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0',certs
+          (root/'SIGNING-UPGRADE-GATE.txt').write_text(
+              f'PASS: V322 -> V324 same applicationId, v2 signer and upgrade path; SHA256={certs[0]}\\n'
+          )
+          print('PASS: genuine signed V322 and V324 packages share same prototype owner certificate')
+          PY
+      - name: Enable emulator hardware acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Signed Android 15 V322 -> V324 install -r, retain 16 schedules and 21-day receipt
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_v322_to_v324_signed_upgrade_android.sh
+      - name: Android 11 integrated Focus and Home accessibility regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_phase3f_android11_ui.sh
+      - name: Upload verified signed V324 owner-review APK and install evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V324-Phase3F-Signed-Owner-Review-Android11-15-PASSED
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            output/v324-owner/
+            output/v324-android11/
+      - name: Upload QA logs on failure but NEVER an unverified APK
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V324-Phase3F-Failure-Logs-NOT-RELEASE
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            output/v324-owner/*.txt
+            output/v324-owner/*.log
+            output/v324-android11/*.txt
