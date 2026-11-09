@@ -55,6 +55,17 @@ internal class TrustOwnerCloudReview(
         val mayUploadAsCompleteBackup: Boolean get() = false
     }
 
+    internal data class UnifiedRestoreReview(
+        val ownerId: String,
+        val remoteRevision: Long,
+        val creator: TrustCreatorRestoreBridge.Review,
+        val personal: com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport,
+        val uncoveredPreferenceKeys: List<String>,
+    ) {
+        // A combined preview is not a durable cross-store restore transaction.
+        val mayCommitRestore: Boolean get() = false
+    }
+
     suspend fun inspectCurrentRemote(): OwnerHeadReview =
         accounts.withFreshSession { session ->
             require(transport.phase(session) == "active") {
@@ -154,15 +165,13 @@ internal class TrustOwnerCloudReview(
     }
 
     /**
-     * Read-only, account-rechecked Personal conflict preview from a previously
-     * verified encrypted owner revision. No import/restore code is called.
-     * This is the same nine-domain dry-run used by the existing Personal v2
-     * journaled owner restore, not a new merge algorithm.
+     * One owner-authenticated preview of BOTH Creator and Personal domains
+     * from a single verified encrypted cloud revision. No live import occurs.
      */
-    suspend fun previewPersonalRestore(
+    suspend fun previewUnifiedRestore(
         selected: SourceCoverageReview,
         passphrase: CharArray,
-    ): com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport {
+    ): UnifiedRestoreReview {
         require(uuid.matches(selected.encryptedLocalReviewId)) {
             "Invalid owner encrypted review identifier"
         }
@@ -201,9 +210,17 @@ internal class TrustOwnerCloudReview(
                     ).use { verified ->
                         val review = TrustRestorableSourceReview.inspect(app, verified)
                         check(review.missingRequiredSources.isEmpty()) {
-                            "This encrypted owner archive lacks required Personal source parts"
+                            "This encrypted owner archive lacks required Backlot source parts"
                         }
-                        TrustPersonalRestoreBridge(app).previewAdditions(verified)
+                        val creator = TrustCreatorRestoreBridge(app).preview(verified)
+                        val personal = TrustPersonalRestoreBridge(app).previewAdditions(verified)
+                        UnifiedRestoreReview(
+                            ownerId = session.userId,
+                            remoteRevision = head.revision,
+                            creator = creator,
+                            personal = personal,
+                            uncoveredPreferenceKeys = review.uncoveredPreferenceKeys,
+                        )
                     }
                 }
             }.also {
@@ -216,6 +233,13 @@ internal class TrustOwnerCloudReview(
             }
         }
     }
+
+    /** Existing callers asking only for Personal receive the same shared review. */
+    suspend fun previewPersonalRestore(
+        selected: SourceCoverageReview,
+        passphrase: CharArray,
+    ): com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport =
+        previewUnifiedRestore(selected, passphrase).personal
 
     private fun ensurePrivateRoot(): File {
         check(root.isDirectory || root.mkdirs()) {
