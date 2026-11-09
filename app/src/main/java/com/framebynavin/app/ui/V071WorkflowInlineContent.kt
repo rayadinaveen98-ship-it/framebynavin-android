@@ -29,6 +29,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,11 +80,16 @@ internal fun V071WorkflowInlineContent(
         it.status == CreatorDeliverableStatus.PUBLISHED && it.publishedAtMillis > 0L
     }
 
-    fun openContentWorkspace() {
-        context.startActivity(
-            Intent(context, ContentWorkspaceActivity::class.java)
-                .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, task.id)
-        )
+    fun openContentWorkspace(stageAware: Boolean = false) {
+        val destination = Intent(context, ContentWorkspaceActivity::class.java)
+            .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, task.id)
+        // Work On is a real work action, not a hidden timer. Ask the Activity to
+        // reopen the current editor only for an already-WORKING project. The Activity
+        // revalidates the project and stage after loading the authoritative store.
+        if (stageAware && task.status == TaskStatus.WORKING && task.archivedAtMillis <= 0L) {
+            destination.putExtra(ContentWorkspaceActivity.EXTRA_HOME_CONTINUE_STAGE_ID, currentStep.id)
+        }
+        context.startActivity(destination)
     }
 
     Surface(
@@ -260,11 +266,9 @@ internal fun V071WorkflowInlineContent(
 
                 Spacer(Modifier.height(11.dp))
                 Button(
-                    onClick = {
-                        if (deliverablePublication && publicationStage && !liveOutputExists) openContentWorkspace()
-                        else onFocus()
-                    },
-                    modifier = Modifier.fillMaxWidth().height(49.dp),
+                    onClick = { openContentWorkspace(stageAware = true) },
+                    modifier = Modifier.fillMaxWidth().height(49.dp)
+                        .testTag("phase3-project-work-on"),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                     shape = RoundedCornerShape(14.dp),
                 ) {
@@ -278,6 +282,14 @@ internal fun V071WorkflowInlineContent(
                     )
                 }
 
+                // Focus is optional and clearly named. It no longer hijacks "Work On".
+                TextButton(
+                    onClick = onFocus,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("phase3-project-focus"),
+                ) {
+                    Text("FOCUS TIMER", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(

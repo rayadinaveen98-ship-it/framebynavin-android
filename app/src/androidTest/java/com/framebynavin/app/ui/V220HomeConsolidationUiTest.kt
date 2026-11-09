@@ -119,6 +119,7 @@ class V220HomeConsolidationUiTest {
         var startCount = 0
         var advanceCount = 0
         var openedProject: String? = null
+        var accidentalOverviewNavigation = 0
         val item = CreatorTask(
             id = "next-move", title = "A cinematic project · తెలుగు",
             platform = "YouTube", contentType = "Film", dueLabel = "Tomorrow",
@@ -132,7 +133,8 @@ class V220HomeConsolidationUiTest {
                     onAdd = {}, onStart = { startCount++ },
                     onAdvance = { advanceCount++ },
                     onViewAllReminders = {}, onFocus = {},
-                    onOpenProject = { openedProject = it },
+                    onOpenProject = { accidentalOverviewNavigation++ },
+                    onContinueWork = { openedProject = it },
                 )
             }
         }
@@ -151,6 +153,7 @@ class V220HomeConsolidationUiTest {
         rule.onNodeWithTag("phase3-home-continue").performScrollTo().assertExists().performClick()
         rule.runOnIdle {
             assertEquals("next-move", openedProject)
+            assertEquals("Continue has its own callback, not an implicit overview tap", 0, accidentalOverviewNavigation)
             assertEquals("Continue must not silently start a planned project", 0, startCount)
             assertEquals("Continue must not silently complete a stage", 0, advanceCount)
         }
@@ -176,7 +179,8 @@ class V220HomeConsolidationUiTest {
                     tasks = listOf(item),
                     onAdd = {}, onStart = { startCount++ }, onAdvance = {},
                     onViewAllReminders = {}, onFocus = { focus++ },
-                    onOpenProject = { id -> if (id == item.id) opened++ },
+                    onOpenProject = {},
+                    onContinueWork = { id -> if (id == item.id) opened++ },
                 )
             }
         }

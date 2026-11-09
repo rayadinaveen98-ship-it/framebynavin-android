@@ -308,6 +308,30 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         externalStudioId = id
         externalStudioNonce += 1L
     }
+
+    // Phase 3B: only the selected WORKING project's real stage gets an editor.
+    // Planned/archived/completed projects still open the existing overview,
+    // where Begin Project remains an explicit action. Never call startTask here.
+    fun continueProject(id: String) {
+        val current = vm.tasks.firstOrNull { it.id == id }
+        if (current == null) {
+            openProject(id)
+            return
+        }
+        val route = HomeContinueRoutingPolicy.destination(current)
+        if (route == HomeContinueDestination.PROJECT_OVERVIEW) {
+            openProject(id)
+            return
+        }
+        val stageId = CreatorWorkflowEngine.currentStage(current).id
+        runCatching {
+            context.startActivity(
+                Intent(context, ContentWorkspaceActivity::class.java)
+                    .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, id)
+                    .putExtra(ContentWorkspaceActivity.EXTRA_HOME_CONTINUE_STAGE_ID, stageId)
+            )
+        }.onFailure { openProject(id) }
+    }
     fun routeJourney(destination: V18JourneyDestination?) {
         when (destination) {
             V18JourneyDestination.IDEAS -> tab = PTab.IDEAS
@@ -436,6 +460,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onOpenInsights = { tab = PTab.INSIGHTS },
                     onOpenProgressJourney = { overlay = POverlay.PROGRESS_JOURNEY },
                     onOpenProject = ::openProject,
+                    onContinueWork = ::continueProject,
                     bottomNavigationClearance = bottomNavClearanceDp.dp,
                     homeSlideshowRequestNonce = homeSlideshowRequestNonce,
                     onHomeSlideshowRequestHandled = { homeSlideshowRequestNonce = 0L },
