@@ -218,8 +218,9 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
             ),
             originalPhotoProof,
         )
-        // Deliberately leaves original JPEG/photo/media bytes, alarm/app
-        // preferences and missing Creator source families unproved.
+        // Proves ACTIVE Best Frames and every inventoried private Space JPEG,
+        // but NOT voice recordings, retired frames, all notification/Spark
+        // settings, or a single atomic cross-store backup revision.
         TrustBackupInventoryPolicy.assemble(evidence)
     }
 }
