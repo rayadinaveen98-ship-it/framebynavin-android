@@ -190,7 +190,7 @@ class AlarmRingingService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, ReminderConstants.ALARM_CHANNEL_ID)
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle(task.title)
             .setContentText("Backlot alarm · ${task.dueLabel}")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -200,6 +200,9 @@ class AlarmRingingService : Service() {
             .setAutoCancel(false)
             .setContentIntent(fullScreen)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        FC13SparkNotificationIdentity.decoratePrivate(
+            builder, this, FC13SparkNotificationMood.ALERT,
+        )
         return V268FullScreenReminderAccess.configure(
             builder,
             fullScreen,
