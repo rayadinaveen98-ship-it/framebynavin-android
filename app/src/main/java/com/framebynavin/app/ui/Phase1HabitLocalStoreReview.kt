@@ -216,121 +216,30 @@ internal fun Phase1HabitLocalStoreReview(
                         Text(message.orEmpty(), color = BacklotError,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
                     }
-                    DashboardHabitReview(
-                        habit = selected,
+                    FC13ChallengeDashboardPanel(
+                        challenge = selected,
                         now = now,
-                        onDaySelected = { day ->
-                            detailDay = day
-                            detailNote = selected.dayNotes[day].orEmpty()
-                        },
                         linkedSpaceLabel = selected.linkedSpaceId?.let { id ->
                             availableSpaces.firstOrNull { it.id == id }?.title ?: "Linked Space"
                         },
                         linkedGroupLabel = selected.linkedGroupId?.let { id ->
                             availableGroups.firstOrNull { it.id == id }?.name ?: "Linked Group"
                         },
+                        busy = saving,
+                        store = store,
+                        onBusy = { saving = it },
+                        onRecords = { records = it },
+                        onMessage = { message = it },
+                        onDaySelected = { day ->
+                            detailDay = day
+                            detailNote = selected.dayNotes[day].orEmpty()
+                        },
                         onManageLinks = {
                             linkSpaceId = selected.linkedSpaceId
                             linkGroupId = selected.linkedGroupId
                             linkDialog = true
                         },
-                        onOpenLinkedSpace = selected.linkedSpaceId?.let { id ->
-                            { onOpenLinkedSpace(id) }
-                        },
-                        onDone = {
-                            if (!saving) {
-                                saving = true
-                                coroutineScope.launch {
-                                    try {
-                                        records = store.confirmToday(selected.id, Instant.now())
-                                        message = runCatching {
-                                            Phase1HabitAlarmScheduler(context).reconcile()
-                                        }.exceptionOrNull()?.let {
-                                            "Progress saved; Android alert scheduling needs attention."
-                                        }
-                                    } catch (_: Exception) {
-                                        message = "Could not confirm today. No Done receipt was added."
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            }
-                        },
-                        onUndo = {
-                            if (!saving) {
-                                saving = true
-                                coroutineScope.launch {
-                                    try {
-                                        val day = LocalDate.ofInstant(Instant.now(), ZoneId.of(selected.zoneId))
-                                        records = store.undoDay(selected.id, day)
-                                        message = runCatching {
-                                            Phase1HabitAlarmScheduler(context).reconcile()
-                                        }.exceptionOrNull()?.let {
-                                            "Progress saved; Android alert scheduling needs attention."
-                                        }
-                                    } catch (_: Exception) {
-                                        message = "Could not undo today. Existing progress was kept."
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            }
-                        },
-                        onSnooze = {
-                            if (!saving && selected.canSnooze(Instant.now())) {
-                                saving = true
-                                coroutineScope.launch {
-                                    try {
-                                        val requestedAt = Instant.now()
-                                        val localDay = LocalDate.ofInstant(
-                                            requestedAt, ZoneId.of(selected.zoneId))
-                                        val previousDue = selected.snoozedUntil
-                                            ?.takeIf { !it.isAfter(requestedAt) }
-                                            ?: localDay.atTime(
-                                                requireNotNull(selected.alertTime),
-                                            ).atZone(ZoneId.of(selected.zoneId)).toInstant()
-                                        records = store.snoozeToday(
-                                            selected.id, requestedAt, 10,
-                                        )
-                                        Phase1HabitVoiceService.stopMatching(
-                                            selected.id, previousDue.toEpochMilli())
-                                        val trouble = runCatching {
-                                            Phase1HabitAlarmScheduler(context).reconcile()
-                                        }.exceptionOrNull()
-                                        if (trouble == null) {
-                                            Phase1HabitNotification.cancelPosted(
-                                                context, selected, previousDue.toEpochMilli(),
-                                            )
-                                            message = null
-                                        } else {
-                                            message = "10-minute snooze saved. Android delivery needs attention."
-                                        }
-                                    } catch (_: Exception) {
-                                        message = "Snooze could not be confirmed. Existing Done receipts were retained."
-                                    } finally { saving = false }
-                                }
-                            }
-                        },
-                        onPause = {
-                            if (!saving) {
-                                saving = true
-                                coroutineScope.launch {
-                                    try {
-                                        records = store.setPaused(selected.id, !selected.paused)
-                                        message = runCatching {
-                                            Phase1HabitAlarmScheduler(context).reconcile()
-                                        }.exceptionOrNull()?.let {
-                                            "Progress saved; Android alert scheduling needs attention."
-                                        }
-                                    } catch (_: Exception) {
-                                        message = "Could not update pause state. No records were changed."
-                                    } finally {
-                                        saving = false
-                                    }
-                                }
-                            }
-                        },
-                        previewOnly = false,
+                        onOpenLinkedSpace = onOpenLinkedSpace,
                     )
                 }
             }

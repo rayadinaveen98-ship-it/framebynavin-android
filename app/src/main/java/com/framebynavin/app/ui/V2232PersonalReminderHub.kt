@@ -1218,29 +1218,10 @@ internal fun V2232PersonalEditor(
                     if (repeat == PersonalRepeat.EVERY_N_HOURS.name) {
                         val previews = remember(selectedTime, daySelection, everyNHours,
                             everyNDays, hourlyUntil) {
-                            runCatching {
-                                val chosen = Instant.ofEpochMilli(selectedTime).atZone(zone)
-                                val example = PersonalReminder(
-                                    title = title.trim().ifBlank { "Personal reminder" },
-                                    startDate = chosen.toLocalDate(),
-                                    time = chosen.toLocalTime().withSecond(0).withNano(0),
-                                    zoneId = zone,
-                                    repeat = PersonalRepeat.EVERY_N_HOURS,
-                                    weeklyDays = weekDays,
-                                    everyNDays = everyNDays.toInt(),
-                                    everyNHours = everyNHours.toInt(),
-                                    hourlyUntil = LocalTime.parse(hourlyUntil),
-                                ).checked()
-                                buildList {
-                                    var after = System.currentTimeMillis()
-                                    repeat(5) {
-                                        val next = PersonalRecurrence.nextAfter(example, after)
-                                            ?: return@repeat
-                                        add(next)
-                                        after = next
-                                    }
-                                }
-                            }.getOrDefault(emptyList<Long>())
+                            v2232PreviewUpcomingHourly(
+                                selectedTime, zone, title, weekDays,
+                                everyNDays, everyNHours, hourlyUntil,
+                            )
                         }
                         Text("NEXT FIVE REMINDERS", color = MutedText,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -1562,4 +1543,45 @@ private fun v2232PickDateTime(context: Context, currentMillis: Long, onPicked: (
             onPicked(chosen)
         }, initial.get(Calendar.HOUR_OF_DAY), initial.get(Calendar.MINUTE), false).show()
     }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH)).show()
+}
+
+/**
+ * Extracted from the Personal reminder Compose editor.
+ * Keep preview-only recurrence inference out of the editor's already large
+ * data-flow graph; this function neither saves nor schedules anything.
+ */
+private fun v2232PreviewUpcomingHourly(
+    selectedTime: Long,
+    zone: ZoneId,
+    title: String,
+    weekDays: Set<DayOfWeek>,
+    everyNDays: String,
+    everyNHours: String,
+    hourlyUntil: String,
+): List<Long> {
+    return try {
+        val chosen = Instant.ofEpochMilli(selectedTime).atZone(zone)
+        val example = PersonalReminder(
+            title = title.trim().ifBlank { "Personal reminder" },
+            startDate = chosen.toLocalDate(),
+            time = chosen.toLocalTime().withSecond(0).withNano(0),
+            zoneId = zone,
+            repeat = PersonalRepeat.EVERY_N_HOURS,
+            weeklyDays = weekDays,
+            everyNDays = everyNDays.toInt(),
+            everyNHours = everyNHours.toInt(),
+            hourlyUntil = LocalTime.parse(hourlyUntil),
+        ).checked()
+        val items = mutableListOf<Long>()
+        var after = System.currentTimeMillis()
+        repeat(5) {
+            val next = PersonalRecurrence.nextAfter(example, after)
+                ?: return@repeat
+            items.add(next)
+            after = next
+        }
+        items
+    } catch (_: Exception) {
+        emptyList()
+    }
 }
