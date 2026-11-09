@@ -73,9 +73,10 @@ internal object CreatorFocusSessionPolicy {
         if (bootCount != session.segmentBootCount ||
             elapsedMillis < session.segmentStartedElapsedMillis
         ) return session.accruedActiveMillis
-        val runningSegment = (elapsedMillis - session.segmentStartedElapsedMillis)
-            .coerceAtLeast(0L)
-        return (session.accruedActiveMillis + runningSegment).coerceAtMost(session.targetMillis)
+        val runningSegment = elapsedMillis - session.segmentStartedElapsedMillis
+        // Cap BEFORE addition: target is bounded and arbitrary elapsed values cannot overflow.
+        val remaining = session.targetMillis - session.accruedActiveMillis
+        return session.accruedActiveMillis + runningSegment.coerceIn(0L, remaining)
     }
 
     /**
