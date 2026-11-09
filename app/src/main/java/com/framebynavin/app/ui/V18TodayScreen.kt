@@ -50,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -104,7 +105,26 @@ internal fun PTodayScreen(
     // it invalidates on insert/remove/update, and the memoized summaries receive
     // a new structural key. This never mutates project or reminder data.
     val visibleTasks = tasks.toList()
-    val queue = remember(visibleTasks) { pActiveQueue(visibleTasks).take(10) }
+    // Phase 3D: recompute calendar-aware recommendations when Home resumes
+    // and at minute boundaries. Do not trust an old human-readable dueLabel.
+    // No project, reminder or selected carousel state is modified by this clock.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var homeClockMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) homeClockMillis = System.currentTimeMillis()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            homeClockMillis = System.currentTimeMillis()
+        }
+    }
+    val clockMinute = homeClockMillis / 60_000L
+    val queue = remember(visibleTasks, clockMinute) { pActiveQueue(visibleTasks).take(10) }
     val queueIds = remember(queue) { queue.map { it.id } }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(queueIds) { if (queue.none { it.id == selectedId }) selectedId = queue.firstOrNull()?.id }
@@ -181,7 +201,7 @@ internal fun PTodayScreen(
                 }) {
                     AnimatedContent(targetState = selected.id, label = "todayProject") { targetId ->
                         queue.firstOrNull { it.id == targetId }?.let { targetTask ->
-                            PTodayProjectCard(targetTask, onClick = { onOpenProject(targetTask.id) })
+                            PTodayProjectCard(targetTask, nowMillis = homeClockMillis, onClick = { onOpenProject(targetTask.id) })
                         }
                     }
                 }
@@ -192,6 +212,7 @@ internal fun PTodayScreen(
                 PNextMoveCard(
                     task = selected,
                     alternatives = NextMovePresentation.alternatives(queue, selected.id),
+                    nowMillis = homeClockMillis,
                     onOpenProject = onOpenProject,
                 )
                 Spacer(Modifier.height(12.dp))
@@ -409,10 +430,11 @@ private fun V20WeeklyFocusDialog(
 }
 
 @Composable
-private fun PTodayProjectCard(task: CreatorTask, onClick: () -> Unit) {
+private fun PTodayProjectCard(task: CreatorTask, nowMillis: Long, onClick: () -> Unit) {
     val stage = CreatorWorkflowEngine.currentStage(task)
     val progress = CreatorWorkflowEngine.progress(task)
-    val overdue = task.dueAtMillis in 1 until System.currentTimeMillis()
+    val due = HomeNextMovePolicy.summary(task, nowMillis)
+    val overdue = task.dueAtMillis > 0L && task.dueAtMillis < nowMillis
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -424,7 +446,7 @@ private fun PTodayProjectCard(task: CreatorTask, onClick: () -> Unit) {
         Column(Modifier.padding(19.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = RoundedCornerShape(100.dp), color = if (overdue) RecRed.copy(alpha = .14f) else CinemaSurfaceRaised) {
-                    Text(if (overdue) "OVERDUE" else task.dueLabel.uppercase(Locale.getDefault()), color = if (overdue) RecRed else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
+                    Text(due.dueLabel, color = if (overdue) RecRed else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
                 }
                 Spacer(Modifier.weight(1f))
                 Text(stage.label.uppercase(), color = ProjectorIvory, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
@@ -451,9 +473,10 @@ private fun PTodayProjectCard(task: CreatorTask, onClick: () -> Unit) {
 private fun PNextMoveCard(
     task: CreatorTask,
     alternatives: List<CreatorTask>,
+    nowMillis: Long,
     onOpenProject: (String) -> Unit,
 ) {
-    val recommendation = CreatorPriorityEngine.recommendation(task)
+    val recommendation = HomeNextMovePolicy.summary(task, nowMillis)
     val next = CreatorWorkflowEngine.nextStage(task)
     var expanded by rememberSaveable(task.id) { mutableStateOf(false) }
 
@@ -514,7 +537,7 @@ private fun PNextMoveCard(
                         listOf(
                             "Priority ${task.priority.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }}",
                             if (task.status == TaskStatus.WORKING) "Already in progress" else "Ready to start",
-                            task.dueLabel.takeIf { it.isNotBlank() }?.let { "Due $it" },
+                            recommendation.dueLabel.takeIf { it != "NO DEADLINE" },
                             next?.let { "After this: ${it.label}" },
                         ).filterNotNull().joinToString(" · "),
                         color = MutedText,
@@ -541,7 +564,7 @@ private fun PNextMoveCard(
                         Text("ALSO NOW", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                         Spacer(Modifier.height(6.dp))
                         alternatives.forEach { alternative ->
-                            val alternativeRecommendation = CreatorPriorityEngine.recommendation(alternative)
+                            val alternativeRecommendation = HomeNextMovePolicy.summary(alternative, nowMillis)
                             Surface(
                                 onClick = { onOpenProject(alternative.id) },
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),

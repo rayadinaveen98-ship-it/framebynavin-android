@@ -1,0 +1,86 @@
+name: Backlot V323 Phase 3D - Smart Next Move Android QA
+
+on:
+  push:
+    branches:
+      - feature/backlot-v323-phase3d-smart-next-move-20261109
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v323-phase3d-review
+  cancel-in-progress: true
+
+jobs:
+  smart-next-move-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Keep V322 schedule and signed preview boundary untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object app/src/main/java/com/framebynavin/app/personal/PersonalRebuildSchedulePack.kt)" = "98a8533a0ff32d5b6664e0e608fe97f5cdeb268e"
+          grep -Fq 'versionCode = 323' app/build.gradle.kts
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'HomeNextMovePolicy.summary(task, nowMillis)' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'NextMovePresentation.alternatives(queue, selected.id)' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'onClick = { onContinueWork(selected.id) }' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          ! grep -Fq 'Text("START THIS MOVE"' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          test -f app/src/test/java/com/framebynavin/app/data/HomeNextMovePolicyTest.kt
+
+      - name: Compile app and Android tests; run all unit regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 85m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+
+      - name: Enable Android KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Android 15 truthful Home copy, manual choice and legacy action regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            mkdir -p output/phase3d
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.Phase3SmartNextMoveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/phase3d/PHASE3D-ANDROID.txt
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/phase3d/PHASE3D-ANDROID.txt; then exit 1; fi
+            grep -Fq 'OK (3 tests)' output/phase3d/PHASE3D-ANDROID.txt
+            for scene in overdue-reason no-date-reason manual-choice-continues; do adb exec-out run-as com.framebynavin.app cat "files/phase3d-smart-next-move/${scene}.png" > "output/phase3d/${scene}.png" && test -s "output/phase3d/${scene}.png" || exit 1; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.V220HomeConsolidationUiTest -e hardeningTestEnvironment ci-emulator -e backlotVisualProfile default com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/phase3d/PHASE3AB-REGRESSION.txt
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/phase3d/PHASE3AB-REGRESSION.txt; then exit 1; fi
+            grep -Fq 'OK (5 tests)' output/phase3d/PHASE3AB-REGRESSION.txt
+
+      - name: Upload native screenshot and QA evidence (not an APK)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V323-Phase3D-Android15-Review-Evidence-NOT-RELEASE
+          path: |
+            output/phase3d/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 21
+          if-no-files-found: warn
