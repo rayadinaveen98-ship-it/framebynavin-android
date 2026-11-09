@@ -1,0 +1,85 @@
+name: Backlot V323 Phase 3E - Home Composition Android QA
+
+on:
+  push:
+    branches:
+      - feature/backlot-v323-phase3e-home-composition-review-20261109
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v323-phase3e-composition
+  cancel-in-progress: true
+
+jobs:
+  native-home-composition:
+    runs-on: ubuntu-latest
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Preserve exact owner schedule and app identity; no release mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object app/src/main/java/com/framebynavin/app/personal/PersonalRebuildSchedulePack.kt)" = "98a8533a0ff32d5b6664e0e608fe97f5cdeb268e"
+          grep -Fq 'versionCode = 323' app/build.gradle.kts
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'Lifecycle.Event.ON_RESUME' app/src/main/java/com/framebynavin/app/ui/V148InsightsRouteBridge.kt
+          grep -Fq 'V148HomeTopPerformersSection(onOpenInsights = onOpenInsights)' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          grep -Fq 'V219ReminderHomeEntry(tasks = tasks' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+          ! grep -Fq 'Text("START THIS MOVE"' app/src/main/java/com/framebynavin/app/ui/V18TodayScreen.kt
+
+      - name: Compile Android test and run all unit regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 85m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+
+      - name: Enable Android KVM
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Actual Android 15 Home composition under 1.5x/2x font and existing Home regressions
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            mkdir -p output/phase3e
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.Phase3HomeCompositionReviewTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/phase3e/PHASE3E-COMPOSITION.txt
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/phase3e/PHASE3E-COMPOSITION.txt; then exit 1; fi
+            grep -Fq 'OK (2 tests)' output/phase3e/PHASE3E-COMPOSITION.txt
+            for scene in empty-150 bilingual-200; do adb exec-out run-as com.framebynavin.app cat "files/phase3e-composition/${scene}.png" > "output/phase3e/${scene}.png" && test -s "output/phase3e/${scene}.png" || exit 1; done
+            adb shell am instrument -w -r -e class com.framebynavin.app.ui.Phase3SmartNextMoveUiTest -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/phase3e/PHASE3D-REGRESSION.txt
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/phase3e/PHASE3D-REGRESSION.txt; then exit 1; fi
+            grep -Fq 'OK (3 tests)' output/phase3e/PHASE3D-REGRESSION.txt
+
+      - name: Upload genuine Android evidence only (not an APK)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V323-Phase3E-Home-Review-NOT-RELEASE
+          path: |
+            output/phase3e/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 21
+          if-no-files-found: warn
