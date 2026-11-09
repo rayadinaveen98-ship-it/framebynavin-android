@@ -105,7 +105,9 @@ class Phase3ExplicitBeginProjectUiTest {
                 }
             }
         }
-        rule.onNodeWithTag("phase3-project-work-on").performScrollTo().performClick()
+        rule.onNodeWithTag("phase3-project-work-on").performScrollTo().assertExists()
+        capture("working-work-on-and-focus")
+        rule.onNodeWithTag("phase3-project-work-on").performClick()
         rule.runOnIdle {
             assertEquals(0, focusCount)
             assertEquals(workingScript.id,
