@@ -234,6 +234,94 @@ internal class TrustOwnerCloudReview(
         }
     }
 
+    /**
+     * Reopen the EXACT owner-reviewed ciphertext for the native restore
+     * coordinator, keeping both the cloud-account generation guard and the
+     * temporary authenticated source alive for the entire owner operation.
+     *
+     * Caller must create and verify a cross-domain pre-restore escrow BEFORE
+     * entering this callback; no account lock may be nested inside it.
+     */
+    internal suspend fun <T> withSameReviewedRestoreSource(
+        selected: SourceCoverageReview,
+        agreedDiff: UnifiedRestoreReview,
+        passphrase: CharArray,
+        action: suspend (
+            verified: TrustVerifiedStagedBundle,
+            actualHead: TrustCloudRevisionHead,
+            diff: UnifiedRestoreReview,
+        ) -> T,
+    ): T {
+        check(TrustUnifiedRestoreJournal.inspect(app) == null) {
+            "A previous unified restore has an unresolved owner journal"
+        }
+        require(uuid.matches(selected.encryptedLocalReviewId) &&
+            passphrase.size in 12..512 &&
+            selected.ownerId == agreedDiff.ownerId &&
+            selected.remoteRevision == agreedDiff.remoteRevision) {
+            "The selected encrypted owner archive does not match the reviewed plan"
+        }
+        return accounts.withFreshSession { session ->
+            check(session.userId == selected.ownerId &&
+                transport.phase(session) == "active") {
+                "Signed-in owner or cloud deletion state changed"
+            }
+            val currentHead = checkNotNull(transport.head(session)) {
+                "Selected universal cloud revision is missing"
+            }
+            check(currentHead.revision == selected.remoteRevision &&
+                currentHead.encryptedBytes == selected.encryptedBytes)
+            val ownerFile = File(
+                ensurePrivateRoot(),
+                "review-" + selected.encryptedLocalReviewId + ".enc",
+            )
+            check(ownerFile.isFile &&
+                !Files.isSymbolicLink(ownerFile.toPath())) {
+                "Private reviewed ciphertext was removed or replaced"
+            }
+            val sourceDescriptor = TrustCloudCiphertextDescriptor(
+                session.userId, currentHead.objectPath,
+                currentHead.encryptedSha256, currentHead.encryptedBytes,
+            )
+            withContext(Dispatchers.IO) {
+                TrustCloudVerifiedReadback.verify(
+                    ownerFile.inputStream().buffered(), sourceDescriptor,
+                )
+                ownerFile.inputStream().buffered().use { stream ->
+                    TrustEncryptedStagingCodec.stageAndVerify(
+                        session.userId, passphrase, stream, app.cacheDir,
+                    ).use { stage ->
+                        val coverage = TrustRestorableSourceReview.inspect(app, stage)
+                        check(coverage.missingRequiredSources.isEmpty() &&
+                            coverage.uncoveredPreferenceKeys.isEmpty()) {
+                            "Backup source is incomplete or cannot be restored losslessly"
+                        }
+                        val creatorDiff = TrustCreatorRestoreBridge(app).preview(stage)
+                        val personalDiff = TrustPersonalRestoreBridge(app).previewAdditions(stage)
+                        check(agreedDiff.creator == creatorDiff &&
+                            agreedDiff.personal == personalDiff) {
+                            "The phone changed since the Creator + Personal review"
+                        }
+                        check(!creatorDiff.hasExistingOwnerWork &&
+                            creatorDiff.projectIdConflicts == 0 &&
+                            creatorDiff.ideaIdConflicts == 0 &&
+                            personalDiff.conflicts == 0) {
+                            "Occupied or conflicting phone data cannot be replaced automatically"
+                        }
+                        val result = action(stage, currentHead, agreedDiff)
+                        check(transport.phase(session) == "active") {
+                            "Owner cloud backup deletion began during recovery"
+                        }
+                        TrustT1C4CloudRevisionPolicy.requireUnchanged(
+                            currentHead, transport.head(session), session.userId,
+                        )
+                        result
+                    }
+                }
+            }
+        }
+    }
+
     internal data class PreparedUnifiedSource(
         val ownerId: String,
         val remoteRevision: Long,
