@@ -45,16 +45,20 @@ internal fun V199ReminderSpark(
 ) {
     val expression = V199SparkMotionPolicy.expression(kind)
     val animate = motionEnabled && !lowPower
-    val transition = rememberInfiniteTransition(label = "v199-spark-scene")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = V199SparkMotionPolicy.FULL_TURN,
-        animationSpec = infiniteRepeatable(
-            tween(V199SparkMotionPolicy.CYCLE_MILLIS, easing = LinearEasing),
-        ),
-        label = "v199-spark-pose-cycle",
-    )
-    val t = if (animate) phase else 0f
+    // Don't keep an infinite animation ticking when the owner disabled motion
+    // or the phone is saving power. Spark's approved pose still remains visible.
+    val t = if (animate) {
+        val transition = rememberInfiniteTransition(label = "v199-spark-scene")
+        val phase by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = V199SparkMotionPolicy.FULL_TURN,
+            animationSpec = infiniteRepeatable(
+                tween(V199SparkMotionPolicy.CYCLE_MILLIS, easing = LinearEasing),
+            ),
+            label = "v199-spark-pose-cycle",
+        )
+        phase
+    } else 0f
     val glow = if (animate) V199SparkMotionPolicy.glow(t) else .83f
     // Director's Cut REC-red; no new orange/gold/purple identity.
     val accent = RecRed
