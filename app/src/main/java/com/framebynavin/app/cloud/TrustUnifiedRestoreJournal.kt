@@ -51,7 +51,15 @@ internal object TrustUnifiedRestoreJournal {
 
     fun inspect(context: Context): Checkpoint? {
         val path = journal(context)
-        if (!path.exists()) return null
+        if (!path.exists()) {
+            // AtomicFile may leave .new or .bak on abrupt process death.
+            // A partially persisted recovery marker is NOT an empty journal.
+            check(!File(path.path + ".new").exists() &&
+                !File(path.path + ".bak").exists()) {
+                "Interrupted cross-domain journal write needs owner inspection"
+            }
+            return null
+        }
         require(path.isFile && !Files.isSymbolicLink(path.toPath())) {
             "Unknown cross-domain recovery journal, stop all restore operations"
         }
