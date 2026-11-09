@@ -87,4 +87,37 @@ class TrustT1B3VoiceSparkDeviceTest {
         assertEquals(oldIdentity, identity.all.toMap())
         assertEquals(oldTips, tips.all.toMap())
     }
+
+    @Test fun smartReminderEscalationEvidenceNeverRunsLegacyMigration() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+        val prefs = app.getSharedPreferences(
+            "smart_escalation_config_v102", Context.MODE_PRIVATE,
+        )
+        val before = prefs.all.toMap()
+        val key = "task|ci-escalation-verify"
+        try {
+            check(prefs.edit().clear().putString(key,
+                """{"notificationToVoiceMinutes":10,"voiceToAlarmMinutes":15,"alarmToCriticalMinutes":30}"""
+            ).commit())
+            val first = requireNotNull(TrustCreatorEscalationInventory.inspect(app))
+            assertEquals(TrustBackupDomain.CREATOR_ESCALATION_TIMINGS, first.domain)
+            assertEquals(1, first.records)
+            assertEquals(first.sha256,
+                requireNotNull(TrustCreatorEscalationInventory.inspect(app)).sha256)
+            assertEquals(1, prefs.all.size)
+            assertTrue(prefs.contains(key))
+            check(prefs.edit().putString(key,
+                """{"notificationToVoiceMinutes":"bad","voiceToAlarmMinutes":15,"alarmToCriticalMinutes":30}"""
+            ).commit())
+            assertThrows(IllegalArgumentException::class.java) {
+                TrustCreatorEscalationInventory.inspect(app)
+            }
+            assertTrue("Rejected inventory must not rewrite the rule",
+                prefs.getString(key, "")!!.contains("bad"))
+        } finally {
+            restore(prefs, before)
+        }
+        assertEquals(before, prefs.all.toMap())
+    }
 }
