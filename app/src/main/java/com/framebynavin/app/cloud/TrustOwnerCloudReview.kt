@@ -27,16 +27,6 @@ internal class TrustOwnerCloudReview(
 ) {
     private val app = context.applicationContext
     private val root = File(app.noBackupFilesDir, "trust-owner-cloud-ciphertext-review-v1")
-    private val requiredPersonal = setOf(
-        "personal/reminders-history",
-        "personal/legacy-challenges",
-        "personal/reminder-groups",
-        "personal/spaces-journal-links",
-        "personal/single-activity-receipts",
-    )
-    private val requiredCreator = setOf(
-        "creator/projects", "creator/ideas", "creator/focus",
-    )
     private val uuid = Regex(
         "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
     )
@@ -110,26 +100,12 @@ internal class TrustOwnerCloudReview(
                     selectedHead.encryptedBytes,
                 )
                 transport.downloadVerifiedToPrivateFile(session, descriptor, pending)
-                val countAndCoverage = withContext(Dispatchers.IO) {
+                val verifiedSource = withContext(Dispatchers.IO) {
                     pending.inputStream().buffered().use { input ->
                         TrustEncryptedStagingCodec.stageAndVerify(
                             session.userId, passphrase, input, app.cacheDir,
                         ).use { staged ->
-                            val counts = staged.parts.associate { it.id to it.records }
-                            check(counts.size == staged.parts.size) {
-                                "Owner archive contains repeated source identities"
-                            }
-                            val missing = requiredPersonal + requiredCreator - counts.keys
-                            val unknown = counts.keys.filterNot { key ->
-                                key in requiredCreator || key in requiredPersonal ||
-                                    key.matches(Regex(
-                                        "(personal/photo|creator/voice|creator/best-frame)-[0-9]{4}",
-                                    )) || key.startsWith("creator/config/")
-                            }
-                            require(unknown.isEmpty()) {
-                                "Encrypted review contains unsupported source partitions"
-                            }
-                            counts to missing
+                            TrustRestorableSourceReview.inspect(app, staged)
                         }
                     }
                 }
@@ -149,14 +125,17 @@ internal class TrustOwnerCloudReview(
                     remoteRevision = selectedHead.revision,
                     encryptedLocalReviewId = reviewId,
                     encryptedBytes = selectedHead.encryptedBytes,
-                    verifiedParts = countAndCoverage.first.size,
-                    counts = countAndCoverage.first,
-                    missingRequiredParts = countAndCoverage.second,
-                    knownUncoveredDomains = setOf(
-                        "Independent Creator and Personal settings not yet captured as restorable source",
-                        "Creator weekly slots, post-publish history and workflow receipts",
-                        "Cross-store restore rollback, schedule reconciliation and device permissions",
-                    ),
+                    verifiedParts = verifiedSource.sourcePartsValidated,
+                    counts = verifiedSource.counts,
+                    missingRequiredParts = verifiedSource.missingRequiredSources,
+                    knownUncoveredDomains = (
+                        verifiedSource.uncoveredPreferenceKeys.map {
+                            "Uncaptured saved preference: " + it
+                        } + listOf(
+                            "Some independent local settings/Creator assets still lack restore adapters",
+                            "Cross-store restore rollback, delivery rearming and device permissions",
+                        )
+                    ).toSet(),
                 )
             }
         } catch (failure: Throwable) {
