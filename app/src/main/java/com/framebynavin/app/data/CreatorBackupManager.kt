@@ -655,6 +655,7 @@ class CreatorBackupManager(private val context: Context) {
 
     private fun decodeSnapshot(raw: String): Snapshot {
         val root = JSONObject(raw)
+        val schema = root.getInt("schemaVersion")
         return Snapshot(
             tasksJson = root.getString("tasks"),
             ideasJson = root.getString("ideas"),
@@ -670,7 +671,9 @@ class CreatorBackupManager(private val context: Context) {
             projectPulseHistoryJson = optionalSection(root, "projectPulseHistory"),
             workflowTimelineJson = optionalSection(root, "workflowStageTimeline"),
             automationPrefsJson = optionalSection(root, "automationPreferences"),
-            focusSessionsJson = optionalSection(root, "creatorFocusSessions"),
+            // Pre-v10 payload checksums never covered Focus. Ignore any such
+            // untrusted extra key rather than importing unauthenticated session data.
+            focusSessionsJson = if (schema >= 10) optionalSection(root, "creatorFocusSessions") else null,
         )
     }
 
