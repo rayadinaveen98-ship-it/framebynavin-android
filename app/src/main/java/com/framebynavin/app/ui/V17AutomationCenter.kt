@@ -81,8 +81,9 @@ internal fun V17AutomationCenterScreen(
     val enabledSlots = weeklySlots.count { it.enabled }
     val preview = CreatorWeeklyPlanPreviewEngine.build(weeklySlots, tasks)
     val postPublish = postPublishCheckpoints.count { it.status == PostPublishCheckpointStatus.PENDING }
-    val lastPlannerAt = remember(statusRevision) { stateStore.lastPlannerAtMillis() }
-    val lastCreated = remember(statusRevision) { stateStore.lastPlannerCreatedCount() }
+    val runEvidence = remember(statusRevision) { stateStore.plannerSnapshot() }
+    val lastPlannerAt = runEvidence.lastConfirmedAtMillis
+    val lastCreated = runEvidence.lastCreatedCount
     val plannerRequestCompleted = runRequested && lastPlannerAt > requestedAfterMillis
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
@@ -104,7 +105,9 @@ internal fun V17AutomationCenterScreen(
 
             Spacer(Modifier.height(18.dp))
             Text("Plan ahead, automatically", color = ProjectorIvory, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("Backlot can plan and remind you. It won't post or delete your work.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
+            Text("Weekly Plan defines recurring slots. Auto Plan creates eligible missing projects. Calendar shows their dates alongside ungenerated previews and recorded publications.", color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+            Spacer(Modifier.height(5.dp))
+            Text("Background jobs may run later than requested. Backlot never posts or deletes your work.", color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
 
             Spacer(Modifier.height(20.dp))
             Text("AUTO PLAN", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -137,17 +140,33 @@ internal fun V17AutomationCenterScreen(
                     if (weeklyAutoPlanEnabled) {
                         Spacer(Modifier.height(12.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                when {
-                                    plannerRequestCompleted -> "Recorded run · ${v17Time(lastPlannerAt)} · $lastCreated created"
-                                    runRequested -> "Requested; Android may delay it. No completion verified yet."
-                                    lastPlannerAt > 0L -> "Last recorded run · ${v17Time(lastPlannerAt)} · $lastCreated created"
-                                    else -> "No completed background run recorded yet"
-                                },
-                                color = MutedText,
-                                fontSize = 8.5.sp,
-                                modifier = Modifier.weight(1f),
-                            )
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (lastPlannerAt > 0L)
+                                        "Last confirmed · ${v17Time(lastPlannerAt)} · $lastCreated projects created"
+                                    else "No completed planner run confirmed yet",
+                                    color = ProjectorIvory, fontSize = 11.sp,
+                                    modifier = Modifier.testTag("phase5-auto-confirmed"),
+                                )
+                                Text(
+                                    when {
+                                        runEvidence.state == "RETRY_PENDING" ->
+                                            "Last attempt failed · retry pending (attempt ${runEvidence.retryAttempt}) · ${v17Time(runEvidence.retryAtMillis)}"
+                                        runEvidence.state == "RUNNING" ->
+                                            "Worker started · completion not yet verified"
+                                        runRequested && !plannerRequestCompleted ->
+                                            "Run requested · Android may delay execution"
+                                        runEvidence.state == "SKIPPED_DISABLED" ->
+                                            "Last attempt skipped while Auto Plan was off"
+                                        plannerRequestCompleted ->
+                                            "Requested update confirmed by saved project result"
+                                        else -> "No pending planner retry recorded"
+                                    },
+                                    color = if (runEvidence.state == "RETRY_PENDING") RecRed else MutedText,
+                                    fontSize = 10.5.sp, lineHeight = 15.sp,
+                                    modifier = Modifier.testTag("phase5-auto-retry-status"),
+                                )
+                            }
                             TextButton(onClick = {
                                 if (runRequested && !plannerRequestCompleted) statusRevision++
                                 else { runRequested = false; confirmRefresh = true }
@@ -162,7 +181,11 @@ internal fun V17AutomationCenterScreen(
 
             Spacer(Modifier.height(18.dp))
             Text("EXTRA REMINDERS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text("Get reminders when a project needs attention.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+            Text(
+                "Each project can override the default reminder delivery. Quiet hours only soften ordinary and gentle Smart notifications; they do not mute explicitly chosen Voice/Alarm or ringing Smart stages. A project or reminder is never completed just because a timer finishes.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                modifier = Modifier.testTag("phase5-reminder-explanation"),
+            )
             Spacer(Modifier.height(9.dp))
             V17StatusRow(
                 icon = Icons.Outlined.Share,

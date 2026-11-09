@@ -101,6 +101,9 @@ class WeeklyScheduleStore(private val context: Context) {
                     .put("cadence", slot.cadence.name)
                     .put("reminderMode", slot.reminderMode.name)
                     .put("priority", slot.priority.name)
+                    .put("estimatedMinutes", slot.estimatedMinutes.also {
+                        require(it in 0..720) { "Weekly workload estimate must be 0–720 minutes" }
+                    })
             )
         }
         return array.toString()
@@ -127,6 +130,9 @@ class WeeklyScheduleStore(private val context: Context) {
                         cadence = runCatching { ScheduleCadence.valueOf(item.optString("cadence", ScheduleCadence.EVERY_WEEK.name)) }.getOrDefault(ScheduleCadence.EVERY_WEEK),
                         reminderMode = runCatching { ReminderMode.valueOf(item.optString("reminderMode", ReminderMode.SMART.name)) }.getOrDefault(ReminderMode.SMART),
                         priority = runCatching { TaskPriority.valueOf(item.optString("priority", TaskPriority.IMPORTANT.name)) }.getOrDefault(TaskPriority.IMPORTANT),
+                        estimatedMinutes = item.optInt("estimatedMinutes", 0).also {
+                            require(it in 0..720) { "Invalid workload estimate for weekly slot $i" }
+                        },
                     )
                 )
             }

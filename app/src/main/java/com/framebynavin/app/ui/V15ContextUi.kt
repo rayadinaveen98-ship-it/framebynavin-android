@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -163,7 +164,18 @@ internal fun V15ContentCalendarScreen(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = bottomNavigationClearance)
         ) {
-            V15BackHeader("CALENDAR", "Next 14 days", onClose)
+            V15BackHeader("CALENDAR", "Your projects & posts", onClose)
+            Spacer(Modifier.height(7.dp))
+            Text(
+                "Project deadlines · Weekly slot previews · Recorded publications",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+            )
+            Text(
+                "Past 7 days of confirmed publications and the next 14 days of plans. " +
+                    "Weekly slots are previews until Auto Plan creates a project.",
+                color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp,
+                modifier = Modifier.testTag("phase5-calendar-legend"),
+            )
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -229,8 +241,9 @@ private fun V15CalendarRow(
     onOpenWeeklyPlan: () -> Unit = {},
 ) {
     val accent = when {
-        item.completed -> SuccessGreen
+        item.source == CreatorCalendarSource.PUBLICATION -> SuccessGreen
         item.source == CreatorCalendarSource.WEEKLY_PLAN -> MutedGold
+        item.completed -> SuccessGreen
         else -> RecRed
     }
     Surface(
@@ -251,7 +264,11 @@ private fun V15CalendarRow(
             Spacer(Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(item.atMillis)), color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                Text(if (item.source == CreatorCalendarSource.PROJECT) "PROJECT" else "PLAN", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(when (item.source) {
+                    CreatorCalendarSource.PROJECT -> "PROJECT"
+                    CreatorCalendarSource.WEEKLY_PLAN -> "PREVIEW"
+                    CreatorCalendarSource.PUBLICATION -> "RECORDED"
+                }, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

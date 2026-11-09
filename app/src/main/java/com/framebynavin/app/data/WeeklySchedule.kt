@@ -25,6 +25,8 @@ data class WeeklyScheduleSlot(
     val cadence: ScheduleCadence = ScheduleCadence.EVERY_WEEK,
     val reminderMode: ReminderMode = ReminderMode.SMART,
     val priority: TaskPriority = TaskPriority.IMPORTANT,
+    /** Creator-entered weekly planning estimate, not an actual work log. 0 = unknown. */
+    val estimatedMinutes: Int = 0,
 )
 
 data class ScheduleOccurrence(

@@ -54,6 +54,16 @@ internal fun V08WeeklyScheduleScreen(
     var confirmReset by remember { mutableStateOf(false) }
     var confirmGenerate by remember { mutableStateOf(false) }
     var pendingDeleteSlot by remember { mutableStateOf<WeeklyScheduleSlot?>(null) }
+    var pendingToggle by remember { mutableStateOf<Pair<WeeklyScheduleSlot, Boolean>?>(null) }
+    var pendingSave by remember { mutableStateOf<Pair<WeeklyScheduleSlot, WeeklyScheduleSlot>?>(null) }
+    val availabilityStore = remember(context) {
+        CreatorWorkloadAvailabilityStore(context.applicationContext)
+    }
+    var availableMinutes by remember { mutableIntStateOf(availabilityStore.availableMinutes()) }
+    var editAvailability by remember { mutableStateOf(false) }
+    var availableInput by remember { mutableStateOf(availableMinutes.takeIf { it > 0 }?.toString().orEmpty()) }
+    var workloadError by remember { mutableStateOf<String?>(null) }
+    val workload = CreatorWorkloadPlanning.nextSevenDays(slots, availableMinutes)
     val activeCount = slots.count { it.enabled }
     val generated = tasks.count { it.scheduleSlotId.isNotBlank() && it.status != TaskStatus.SKIPPED }
     val next = remember(slots.toList()) { WeeklyScheduleEngine.nextOccurrence(slots) }
@@ -121,6 +131,84 @@ internal fun V08WeeklyScheduleScreen(
                 }
 
                 Spacer(Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth().testTag("phase5-workload"),
+                    shape = RoundedCornerShape(18.dp),
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("OPTIONAL WORKLOAD", color = ProjectorIvory,
+                                    fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("Next 7 days · estimates you entered for recurring slots",
+                                    color = MutedText, fontSize = 11.sp)
+                            }
+                            TextButton(onClick = { editAvailability = !editAvailability }) {
+                                Text(if (editAvailability) "CLOSE" else "EDIT TIME",
+                                    color = RecRed, fontSize = 11.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(workload.summary(), color = ProjectorIvory, fontSize = 13.sp)
+                        if (!workload.availabilityIsSet) {
+                            Text("Set your available minutes/week to check capacity.",
+                                color = MutedText, fontSize = 11.sp)
+                        }
+                        if (workload.hasIncompleteEstimates) {
+                            Text("This is a partial estimate; unestimated slots are excluded.",
+                                color = MutedText, fontSize = 11.sp)
+                        }
+                        if (workload.isOverloaded) {
+                            Text("More planned effort than the time you set. Review your slots; deadlines were not changed.",
+                                color = RecRed, fontSize = 12.sp,
+                                modifier = Modifier.testTag("phase5-overload-warning"))
+                        }
+                        if (editAvailability) {
+                            Spacer(Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = availableInput,
+                                onValueChange = { next ->
+                                    if (next.length <= 5 && next.all(Char::isDigit)) {
+                                        availableInput = next
+                                        workloadError = null
+                                    }
+                                },
+                                label = { Text("Minutes available per week") },
+                                supportingText = { Text("30 to 10080 minutes · clear to leave unset") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            workloadError?.let {
+                                Text(it, color = RecRed, fontSize = 11.sp)
+                            }
+                            Button(
+                                onClick = {
+                                    val next = if (availableInput.isBlank()) 0
+                                        else availableInput.toIntOrNull() ?: -1
+                                    if (next != 0 && next !in 30..10080) {
+                                        workloadError = "Enter at least 30 minutes or leave it blank."
+                                    } else {
+                                        runCatching { availabilityStore.saveAvailableMinutes(next) }
+                                            .onSuccess {
+                                                availableMinutes = next
+                                                editAvailability = false
+                                                workloadError = null
+                                            }
+                                            .onFailure {
+                                                workloadError = "Availability could not be saved. Try again."
+                                            }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                            ) { Text("SAVE AVAILABILITY") }
+                            Text("Local preference only · not a verified cloud backup",
+                                color = MutedText, fontSize = 10.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                 V197WeeklyPlanActions(
                     previewCount = preview.missing.size,
                     previewEnabled = autoPlanEnabled && preview.missing.isNotEmpty(),
@@ -156,7 +244,7 @@ internal fun V08WeeklyScheduleScreen(
                     items(daySlots, key = { it.id }) { slot ->
                         V08SlotCard(
                             slot = slot,
-                            onToggle = { onToggle(slot.id, it) },
+                            onToggle = { pendingToggle = slot to it },
                             onEdit = { editorSlot = slot },
                         )
                         Spacer(Modifier.height(7.dp))
@@ -177,8 +265,63 @@ internal fun V08WeeklyScheduleScreen(
         V08SlotEditor(
             slot = slot,
             onDismiss = { editorSlot = null },
-            onSave = { onSave(it); editorSlot = null },
+            onSave = { updated -> pendingSave = slot to updated; editorSlot = null },
             onDelete = if (slot.id.isBlank()) null else ({ pendingDeleteSlot = slot; editorSlot = null }),
+        )
+    }
+
+    pendingToggle?.let { (original, enabled) ->
+        val unchanged = slots.firstOrNull { it.id == original.id } == original
+        AlertDialog(
+            onDismissRequest = { pendingToggle = null },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text(if (enabled) "Enable recurring slot?" else "Disable recurring slot?",
+                color = ProjectorIvory) },
+            text = {
+                Text(
+                    if (!unchanged) "This weekly slot changed. Close and reopen it before editing."
+                    else if (enabled) "Auto Plan can create future projects for this slot when enabled. Existing projects will not change."
+                    else "This stops future slot generation. Existing projects, reminders and saved work will stay unchanged.",
+                    color = MutedText,
+                )
+            },
+            confirmButton = {
+                Button(
+                    enabled = unchanged,
+                    onClick = { onToggle(original.id, enabled); pendingToggle = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                ) { Text("CONFIRM") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingToggle = null }) { Text("CANCEL") }
+            },
+        )
+    }
+
+    pendingSave?.let { (before, after) ->
+        val fresh = before.id.isBlank() || slots.firstOrNull { it.id == before.id } == before
+        AlertDialog(
+            onDismissRequest = { pendingSave = null },
+            containerColor = CinemaSurfaceRaised,
+            title = { Text(if (before.id.isBlank()) "Add weekly slot?" else "Save changes for future slots?",
+                color = ProjectorIvory) },
+            text = {
+                Text(
+                    if (!fresh) "This schedule changed while you edited. Reopen it before saving."
+                    else "Future recurring previews will use '${after.title}' on ${after.dayOfWeek.name.lowercase()} at ${v08Time(after.hour, after.minute)}. Already-created projects and reminders will not be rewritten.",
+                    color = MutedText,
+                )
+            },
+            confirmButton = {
+                Button(
+                    enabled = fresh,
+                    onClick = { onSave(after); pendingSave = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                ) { Text("SAVE FUTURE TEMPLATE") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSave = null }) { Text("CANCEL") }
+            },
         )
     }
 
@@ -303,6 +446,9 @@ private fun V08SlotEditor(
     var cadence by remember(slot.id) { mutableStateOf(slot.cadence) }
     var reminderMode by remember(slot.id) { mutableStateOf(slot.reminderMode) }
     var priority by remember(slot.id) { mutableStateOf(slot.priority) }
+    var estimateText by remember(slot.id) {
+        mutableStateOf(slot.estimatedMinutes.takeIf { it > 0 }?.toString().orEmpty())
+    }
     var showAdvanced by remember(slot.id) { mutableStateOf(false) }
     val creatorProfile = remember(context) { CreatorOsSettingsStore(context).snapshot().creatorProfile }
     val platformOptions = remember(creatorProfile, platform) { CreatorPlatformRegistry.orderedSelected(creatorProfile, platform) }
@@ -357,6 +503,19 @@ private fun V08SlotEditor(
                                 color = ProjectorIvory, fontSize = 11.sp)
                         }
                         Text("Saving this template never rewrites an existing project.", color = MutedText, fontSize = 10.sp)
+                        Spacer(Modifier.height(12.dp))
+                        V08Label("OPTIONAL EFFORT ESTIMATE")
+                        OutlinedTextField(
+                            value = estimateText,
+                            onValueChange = { candidate ->
+                                if (candidate.length <= 3 && candidate.all(Char::isDigit))
+                                    estimateText = candidate
+                            },
+                            singleLine = true,
+                            label = { Text("Minutes needed for this recurring post") },
+                            supportingText = { Text("Leave blank if unknown · maximum 720 minutes") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                         Spacer(Modifier.height(11.dp))
                         TextButton(onClick = { showAdvanced = !showAdvanced }, modifier = Modifier.fillMaxWidth()) {
                             Text(if (showAdvanced) "HIDE EXTRA OPTIONS" else "MORE OPTIONS · REMINDERS & PRIORITY",
@@ -404,9 +563,15 @@ private fun V08SlotEditor(
         confirmButton = {
             Button(
                 onClick = {
-                    onSave(slot.copy(title = title.trim(), dayOfWeek = day, hour = hour, minute = minute, platform = platform, contentType = contentType, cadence = cadence, reminderMode = reminderMode, priority = priority))
+                    onSave(slot.copy(
+                        title = title.trim(), dayOfWeek = day, hour = hour, minute = minute,
+                        platform = platform, contentType = contentType, cadence = cadence,
+                        reminderMode = reminderMode, priority = priority,
+                        estimatedMinutes = estimateText.toIntOrNull() ?: 0,
+                    ))
                 },
-                enabled = title.isNotBlank(),
+                enabled = title.isNotBlank() &&
+                    (estimateText.isBlank() || estimateText.toIntOrNull()?.let { it in 0..720 } == true),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
             ) { Text("SAVE") }
         },
