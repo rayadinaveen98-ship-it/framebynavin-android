@@ -190,6 +190,7 @@ internal fun DashboardHabitReview(
     onManageLinks: () -> Unit = {},
     linkedSpaceLabel: String? = null,
     linkedGroupLabel: String? = null,
+    onOpenLinkedSpace: (() -> Unit)? = null,
 ) {
     val today = LocalDate.ofInstant(now, ZoneId.of(habit.zoneId))
     val dayNumber = habit.dayNumber(now)
@@ -290,6 +291,13 @@ internal fun DashboardHabitReview(
         ReviewPanel {
             AccentLabel("LINKED PROGRESS")
             Hint("Space: ${linkedSpaceLabel ?: "None"}")
+            if (onOpenLinkedSpace != null) {
+                OutlinedButton(
+                    onClick = onOpenLinkedSpace,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-challenge-open-space-journal"),
+                ) { Text("OPEN LINKED SPACE & PHOTO JOURNAL") }
+            }
             Hint("Reminder Group: ${linkedGroupLabel ?: "None"}")
             OutlinedButton(
                 onClick = onManageLinks,
