@@ -36,8 +36,15 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onOpenProject: () -> Unit,
     onOpenScript: () -> Unit,
     onOpenPublish: () -> Unit,
+    currentDraftEditors: List<String> = emptyList(),
+    heldDraftEditors: List<String> = emptyList(),
 ) {
     val workspace = task.workspace
+    val p4Summary = remember(task, currentDraftEditors, heldDraftEditors) {
+        Phase4CreatorWorkspacePolicy.summarize(
+            task, currentDraftEditors, heldDraftEditors,
+        )
+    }
     val template = CreatorWorkflowEngine.templateFor(task)
     val stageIndex = CreatorWorkflowEngine.stageIndex(task)
     val currentStage = CreatorWorkflowEngine.currentStage(task)
@@ -96,6 +103,56 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     color = MutedText, fontSize = 13.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(Modifier.height(12.dp))
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("phase4-workspace-saved-status"),
+                    shape = RoundedCornerShape(16.dp),
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Column(Modifier.padding(15.dp)) {
+                        Text("PROJECT RECORD", color = RecRed,
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(7.dp))
+                        Text(p4Summary.revisionLabel, color = ProjectorIvory,
+                            fontSize = 14.sp)
+                        Text(p4Summary.backupLabel, color = MutedText,
+                            fontSize = 12.sp)
+                        p4Summary.pendingDraftLabel?.let {
+                            Spacer(Modifier.height(7.dp))
+                            Text(it, color = ProjectorIvory, fontSize = 13.sp,
+                                modifier = Modifier.testTag("phase4-recoverable-draft"))
+                        }
+                        p4Summary.heldDraftLabel?.let {
+                            Spacer(Modifier.height(7.dp))
+                            Text(it, color = ProjectorIvory, fontSize = 13.sp)
+                            val editor = heldDraftEditors.firstOrNull()
+                            TextButton(
+                                onClick = when (editor) {
+                                    "script" -> onOpenScript
+                                    "publish" -> onOpenPublish
+                                    else -> onOpenProject
+                                },
+                                modifier = Modifier.heightIn(min = 48.dp)
+                                    .testTag("phase4-review-earlier-draft"),
+                            ) {
+                                Text("REVIEW IN EDITOR", color = RecRed)
+                                Spacer(Modifier.width(5.dp))
+                                Icon(Icons.Outlined.ArrowForward, null,
+                                    tint = RecRed, modifier = Modifier.size(17.dp))
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(p4Summary.researchAndAssetsLabel, color = MutedText,
+                            fontSize = 13.sp)
+                        Text(p4Summary.productionLabel, color = MutedText,
+                            fontSize = 13.sp)
+                        Text(p4Summary.publishingLabel, color = ProjectorIvory,
+                            fontSize = 13.sp)
+                    }
+                }
                 Spacer(Modifier.height(20.dp))
 
                 Surface(
