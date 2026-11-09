@@ -27,7 +27,7 @@ internal object TrustSparkPreferenceInventory {
         var count = 0
         if (identity.contains("selected_character")) {
             val saved = identity.getString("selected_character", null)
-            require(saved in guideIds) { "Saved companion identity requires owner review" }
+            require(saved != null && saved in guideIds) { "Saved companion identity requires owner review" }
             root.put("selectedGuide", saved)
             count++
         }
