@@ -202,6 +202,9 @@ internal fun V2233PersonalAlertScreen(
     val violet = RecRed
     val blue = RecRed
     val coral = RecRed
+    val livePlayback by FC13PersonalPlaybackVisualState.receipts.collectAsState()
+    val playbackStage = if (locked || reminder == null) FC13PlaybackStage.SILENT
+        else livePlayback.stageFor(reminder.id, reminder.pendingToken)
     Surface(color = midnight, modifier = Modifier.fillMaxSize()
         .testTag("v2233-personal-alert-screen")) {
         Column(
@@ -256,7 +259,17 @@ internal fun V2233PersonalAlertScreen(
                 modifier = Modifier.size(width = 96.dp, height = 104.dp)
                     .testTag("fc13-spark-full-reminder"),
             )
-            V2233PersonalParticleWave(reminder.alert)
+            V2233PersonalParticleWave(
+                reminder.alert, playbackActive = playbackStage != FC13PlaybackStage.SILENT,
+            )
+            if (playbackStage != FC13PlaybackStage.SILENT) {
+                Text(
+                    if (playbackStage == FC13PlaybackStage.ALARM_RINGING)
+                        "ALARM SOUND PLAYING" else "VOICE SPEAKING",
+                    color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("fc13-personal-live-playback"),
+                )
+            }
             Text(if (reminder.alert == PersonalAlert.ALARM) "YOUR ALARM"
                 else if (reminder.alert == PersonalAlert.VOICE) "VOICE REMINDER"
                 else "YOUR REMINDER",
@@ -308,6 +321,9 @@ internal fun V2233PersonalAlertScreen(
  * reminder actions and screen routing are completely unchanged.
  */
 @Composable
-internal fun V2233PersonalParticleWave(alert: PersonalAlert) {
-    V2272PersonalParticleWave(alert)
+internal fun V2233PersonalParticleWave(
+    alert: PersonalAlert,
+    playbackActive: Boolean = false,
+) {
+    V2272PersonalParticleWave(alert, playbackActive = playbackActive)
 }
