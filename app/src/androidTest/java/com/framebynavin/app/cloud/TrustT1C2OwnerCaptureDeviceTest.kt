@@ -3,6 +3,7 @@ package com.framebynavin.app.cloud
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
+import com.framebynavin.app.data.CreatorWorkflowTimelineStore
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.personal.PersonalBackupTransfer
@@ -29,6 +30,7 @@ class TrustT1C2OwnerCaptureDeviceTest {
             .targetContext.applicationContext
         val beforeProjects = TaskStore(app).exportJsonForTrustReadOnly()
         val beforeIdeas = IdeaVaultStore(app).exportJson()
+        val beforeTimeline = CreatorWorkflowTimelineStore(app).exportJson()
         val beforePersonal = PersonalReminderStore(app).exportPersonalJson()
         val beforePortablePersonal = PersonalBackupTransfer(app).exportForCloud()
         val before21Day = Phase1HabitStore(app).exportJson()
@@ -82,6 +84,8 @@ class TrustT1C2OwnerCaptureDeviceTest {
             }
             assertEquals(beforeProjects, TaskStore(app).exportJsonForTrustReadOnly())
             assertEquals(beforeIdeas, IdeaVaultStore(app).exportJson())
+            assertEquals("Capturing legacy Script Studio must not seed the creator timeline",
+                beforeTimeline, CreatorWorkflowTimelineStore(app).exportJson())
             assertEquals(beforePersonal, PersonalReminderStore(app).exportPersonalJson())
             assertEquals(before21Day, Phase1HabitStore(app).exportJson())
         } finally {
