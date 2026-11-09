@@ -242,7 +242,14 @@ internal object TrustEncryptedStagingCodec {
                 return TrustVerifiedStagedBundle(verified, temp)
             }
         } catch (failure: Throwable) {
-            temp.deleteRecursively()
+            // Decrypted bytes must not survive a failed authenticity check.
+            // If cleanup itself fails, preserve that warning on the failure;
+            // never report a successful verification or restore.
+            if (!temp.deleteRecursively() && temp.exists()) {
+                failure.addSuppressed(IllegalStateException(
+                    "Failed to clean private decrypted staging after verification error",
+                ))
+            }
             throw failure
         }
     }
@@ -330,10 +337,17 @@ internal object TrustEncryptedStagingCodec {
         val buffer = ByteArray(CHUNK_BYTES)
         var frame = 0L
         var readTotal = 0L
+        var emptyReads = 0
         while (true) {
             val count = input.read(buffer)
             if (count < 0) break
-            if (count == 0) continue
+            if (count == 0) {
+                require(++emptyReads <= 16) {
+                    "Backup source did not make progress during staging"
+                }
+                continue
+            }
+            emptyReads = 0
             require(readTotal <= expectedBytes - count &&
                 readTotal <= cap - count) { "Backup source changed or exceeded its limit" }
             readTotal += count
