@@ -19,9 +19,9 @@ items may be added to this phase. Use one development branch and one draft PR.
 
 | No. | Required feature (no additions) | Initial verified baseline | Implementation status on FC13 branch |
 |----:|---|---|---|
-| 1 | Unified Personal + Creator Reminder UI | Shared headings/components, inconsistent screens | Pending |
+| 1 | Unified Personal + Creator Reminder UI | Shared headings/components, inconsistent screens | **Partial source integrated**: consistent REC-red filters, shared section headings and tab spacing on real hubs; nested review and native QA pending |
 | 2 | 21-day single activity challenge, alerts, states, notes and links | One-activity store, Done receipts and scheduler | **Source integrated for Strict/Flexible past-day receipts, per-day notes and optional existing Space/Group links**; full snooze and photo-journal presentation require remaining integration |
-| 3 | Simple progressive Personal Reminder creation | Show Suggestions/advanced disclosure in source | Pending |
+| 3 | Simple progressive Personal Reminder creation | Show Suggestions/advanced disclosure in source | **Source integrated**: four-stage flow, suggestions and advanced options collapsed, plus notes collapsed for new reminders; edit notes preserved, full Android QA pending |
 | 4 | Integrated Notification Center + Spark assistance | Separate reminder inbox/history/Spark digest | Pending |
 | 5 | Premium New Idea entry | Existing typed/voice capture and Idea Vault | **Source integrated**: cinematic one-focus capture surface, five universal writing prompts, existing voice/dictation and save authority; visual/device acceptance pending |
 | 6 | Replace Dictate orb with reactive dot field | FramePulseOrb still present | **Source integrated**: old renderer replaced with real-recognizer-RMS dot field; final animation and accessibility QA pending |
