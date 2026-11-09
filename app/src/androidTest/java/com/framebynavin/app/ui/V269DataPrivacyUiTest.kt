@@ -30,6 +30,10 @@ class V269DataPrivacyUiTest {
         rule.onNodeWithTag("v269-creator-backup").performScrollTo().assertExists()
         rule.onNodeWithTag("v269-personal-backup").performScrollTo().assertExists()
         rule.onNodeWithTag("v269-cloud-account").performScrollTo().assertExists()
+        // Universal Back Up, reviewed Restore and Delete Cloud Backup are
+        // not silently claimed by legacy two-store Sync Now.
+        rule.onNodeWithTag("fc13-universal-backup-unavailable")
+            .performScrollTo().assertExists()
     }
 
     @Test fun noMisleadingFullAccountDeletionActionIsExposed() {
