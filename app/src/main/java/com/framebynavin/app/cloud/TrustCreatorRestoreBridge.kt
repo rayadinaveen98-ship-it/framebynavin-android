@@ -2,6 +2,14 @@ package com.framebynavin.app.cloud
 
 import android.content.Context
 import com.framebynavin.app.data.CreatorBackupManager
+import com.framebynavin.app.data.CreatorFocusSessionStore
+import com.framebynavin.app.data.CreatorFocusSessionCodec
+import com.framebynavin.app.data.CreatorHeroArchive
+import com.framebynavin.app.data.CreatorPostPublishStore
+import com.framebynavin.app.data.CreatorRewardStore
+import com.framebynavin.app.data.CreatorWorkflowTimelineStore
+import com.framebynavin.app.data.ProjectPulseHistoryStore
+import com.framebynavin.app.data.WeeklyScheduleStore
 import com.framebynavin.app.data.PortableBackupArchive
 import com.framebynavin.app.data.PortableBackupMedia
 import com.framebynavin.app.data.PortableBestFrame
@@ -37,9 +45,11 @@ internal class TrustCreatorRestoreBridge(context: Context) {
         val incomingVoiceOriginals: Int,
         val incomingBestFrameOriginals: Int,
         val missingCreatorSources: Set<String>,
+        val existingNonProjectSources: List<String> = emptyList(),
     ) {
         val hasExistingOwnerWork: Boolean
-            get() = existingProjects > 0 || existingIdeas > 0
+            get() = existingProjects > 0 || existingIdeas > 0 ||
+                existingNonProjectSources.isNotEmpty()
         val canRestoreWithoutReplacingExistingWork: Boolean
             get() = missingCreatorSources.isEmpty() &&
                 projectIdConflicts == 0 && ideaIdConflicts == 0 &&
@@ -95,6 +105,34 @@ internal class TrustCreatorRestoreBridge(context: Context) {
                 "Creator Voice Idea originals do not match saved incoming ideas"
             }
             val sourceFrameCount = JSONArray(source("creator/best-frame-order")).length()
+            // The native Creator importer REPLACES more than projects/ideas:
+            // even an "empty projects" phone can contain owner content in
+            // rewards, weekly slots, focus, production history or YouTube
+            // metadata. Never silently replace those on second-device setup.
+            val occupied = mutableListOf<String>()
+            if ((WeeklyScheduleStore(app).inspectSavedForInventory()?.second ?: 0) > 0)
+                occupied += "weekly schedule"
+            val focusLedger = CreatorFocusSessionCodec.decode(
+                CreatorFocusSessionStore(app).exportPortableJson(),
+            )
+            if (focusLedger.active != null || focusLedger.history.isNotEmpty())
+                occupied += "focus sessions"
+            if (CreatorPostPublishStore(app).load().isNotEmpty())
+                occupied += "post-publish records"
+            if (CreatorRewardStore(app).load().isNotEmpty())
+                occupied += "reward history"
+            val timeline = CreatorWorkflowTimelineStore(app)
+            if (timeline.validateJson(timeline.exportJson()) > 0)
+                occupied += "workflow timeline"
+            val pulses = ProjectPulseHistoryStore(app)
+            if (pulses.validateJson(pulses.exportJson()) > 0)
+                occupied += "project pulse history"
+            if (CreatorHeroArchive.orderedSourceNames(app).isNotEmpty())
+                occupied += "original Best Frames"
+            val linked = TrustCreatorAdditionalSources.capture(app)
+            linked.filter {
+                it.id.startsWith("creator/history/youtube-") && it.count > 0
+            }.forEach { occupied += it.id }
             Review(
                 incomingProjects = incomingProjects.size,
                 existingProjects = existingProjects.size,
@@ -105,6 +143,7 @@ internal class TrustCreatorRestoreBridge(context: Context) {
                 incomingVoiceOriginals = expectedVoiceIds.size,
                 incomingBestFrameOriginals = sourceFrameCount,
                 missingCreatorSources = emptySet(),
+                existingNonProjectSources = occupied.sorted(),
             )
         }
 
