@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,6 +64,7 @@ internal fun V071WorkflowInlineContent(
     onAdvance: () -> Unit,
     onBack: () -> Unit,
     onFocus: () -> Unit,
+    onStart: (() -> Unit)? = null,
     onEditPublication: () -> Unit = {},
 ) {
     val template = CreatorWorkflowEngine.templateFor(task)
@@ -218,6 +220,19 @@ internal fun V071WorkflowInlineContent(
             }
 
             if (!done) {
+                // Phase 3B: an explicit user action owns PLANNED -> WORKING.
+                // Continue from Home never mutates this project or its reminders.
+                if (task.status == TaskStatus.PLANNED) {
+                    onStart?.let { begin ->
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = begin,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("phase3-project-begin"),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, RecRed),
+                        ) { Text("BEGIN PROJECT", color = ProjectorIvory, fontWeight = FontWeight.Bold) }
+                    }
+                }
                 Spacer(Modifier.height(18.dp))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
