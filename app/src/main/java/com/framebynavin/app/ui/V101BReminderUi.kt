@@ -493,6 +493,14 @@ internal fun PProjectComposer(
             onOpenSettings = onOpenSettings,
             onDismiss = { requestExit() },
             onCreate = {
+                // Snapshot every field before the parent queues a project write.
+                // The parent removes this exact journal only after durable
+                // receipt confirms the project is saved.
+                runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
+                    .onFailure {
+                        android.util.Log.w("BacklotComposer",
+                            "Local draft save failed before project creation", it)
+                    }
                 onSave(
                     PProjectDraft(
                         title = title.trim(),
