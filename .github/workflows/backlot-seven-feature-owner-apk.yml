@@ -12,7 +12,7 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-24.04
-    timeout-minutes: 23
+    timeout-minutes: 43
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          timeout --signal=TERM --kill-after=30s 1050s \
+          timeout --signal=TERM --kill-after=30s 2160s \
             gradle :app:assemblePersonalStable --no-daemon --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=daemon \
             "-Pkotlin.daemon.jvmargs=-Xmx9g -XX:+UseG1GC" \
