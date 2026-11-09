@@ -52,7 +52,7 @@ class Phase5CalendarAutomationWorkloadPolicyTest {
             workspace = CreatorContentWorkspace(deliverables = listOf(posted, ready)))
         val result = CreatorContentCalendarEngine.upcoming(
             tasks = listOf(project), weeklySlots = listOf(tuesday()),
-            nowMillis = now, daysAhead = 14,
+            nowMillis = now, daysAhead = 7,
         )
         assertEquals(1, result.count { it.source == CreatorCalendarSource.PROJECT })
         assertEquals(1, result.count { it.source == CreatorCalendarSource.WEEKLY_PLAN })
@@ -95,12 +95,14 @@ class Phase5CalendarAutomationWorkloadPolicyTest {
         )
         val calendar = CreatorContentCalendarEngine.upcoming(
             listOf(preserved), listOf(slot), nowMillis = now,
+            daysAhead = 7,
         )
         assertEquals(0, calendar.count {
             it.source == CreatorCalendarSource.WEEKLY_PLAN
         })
         assertEquals(0, CreatorWeeklyPlanPreviewEngine.build(
             listOf(slot), listOf(preserved), nowMillis = now,
+            daysAhead = 7,
         ).missing.size)
     }
 
