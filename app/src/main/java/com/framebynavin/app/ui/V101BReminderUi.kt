@@ -362,6 +362,48 @@ internal fun PProjectComposer(
         )
     )
     val originalDraftSignature = rememberSaveable(task?.id) { draftSignature }
+    // A NEW form is recoverable local input, not a created project. Persist
+    // only actual edits; do not seed a blank draft or overwrite a draft from
+    // another Creator restore generation.
+    val newFormSnapshot = CreatorNewProjectFormDraft(
+        title = title, creatorModeId = creatorModeId, archetypeId = archetypeId,
+        productionStyles = savedStyleList.toList(), platform = platform,
+        contentType = contentType, dueAt = dueAt, attentionPlan = attentionPlan,
+        deliveryPreference = deliveryPreference,
+        customReminderAt = customReminderAt, priority = priority,
+        notes = notes, soundUri = soundUri, voiceMusicMode = voiceMusicMode,
+        voiceMusicUri = voiceMusicUri, voice = voice, repeatCount = repeatCount,
+        repeatGap = repeatGap, alarmTimeout = alarmTimeout,
+        snoozeMinutes = snoozeMinutes, autoRetryEnabled = autoRetryEnabled,
+        autoRetryMinutes = autoRetryMinutes,
+        autoRetryMaxAttempts = autoRetryMaxAttempts,
+    )
+    val changedNewForm = V172ProjectDraftPolicy.changed(originalDraftSignature, draftSignature)
+    val currentFormForExit by rememberUpdatedState(newFormSnapshot)
+    val canWriteOnExit by rememberUpdatedState(
+        task == null && resolvedNewDraft && changedNewForm && !suppressNewDraftWrite
+    )
+    DisposableEffect(task?.id, draftGeneration) {
+        onDispose {
+            // Closing the Activity or detouring to Settings preserves the
+            // latest keystroke, even if debounce has not yet elapsed.
+            if (canWriteOnExit) runCatching {
+                newDraftStore.save(draftGeneration, currentFormForExit)
+            }.onFailure {
+                android.util.Log.w("BacklotComposer",
+                    "Could not preserve local draft during exit", it)
+            }
+        }
+    }
+    LaunchedEffect(newFormSnapshot, changedNewForm, resolvedNewDraft, suppressNewDraftWrite) {
+        if (task == null && changedNewForm && resolvedNewDraft && !suppressNewDraftWrite) {
+            kotlinx.coroutines.delay(180)
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
+            }
+            newDraftWriteError = result.isFailure
+        }
+    }
     var confirmDiscard by rememberSaveable(task?.id) { mutableStateOf(false) }
     var handledDismissToken by rememberSaveable(task?.id) { mutableIntStateOf(dismissRequestToken) }
     fun requestExit() {
