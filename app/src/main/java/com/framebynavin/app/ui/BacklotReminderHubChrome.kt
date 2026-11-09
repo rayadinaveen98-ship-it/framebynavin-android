@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -161,3 +163,56 @@ internal data class BacklotHubTabPalette(
     val foreground: Color,
     val secondary: Color,
 )
+
+/** FC13: presentation-only Director's Cut filters reused by both live reminder hubs. */
+@Composable
+internal fun BacklotReminderHubFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, fontSize = 11.sp, maxLines = 1) },
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = BacklotSurface,
+            labelColor = BacklotSecondaryText,
+            selectedContainerColor = BacklotSurfaceSelected,
+            selectedLabelColor = BacklotPrimaryText,
+        ),
+        border = BorderStroke(1.dp, if (selected) BacklotAccent else BacklotBorder),
+    )
+}
+
+/** Same section hierarchy, preserving each screen's independently computed count. */
+@Composable
+internal fun BacklotReminderHubSectionHeading(
+    label: String,
+    count: Int,
+    urgent: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            label,
+            color = if (urgent) BacklotAccent else BacklotSecondaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            count.toString(),
+            color = BacklotSecondaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
