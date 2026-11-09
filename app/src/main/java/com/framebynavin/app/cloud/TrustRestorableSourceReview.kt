@@ -7,6 +7,7 @@ import com.framebynavin.app.data.CreatorFocusSessionCodec
 import com.framebynavin.app.data.CreatorPostPublishStore
 import com.framebynavin.app.data.CreatorWorkflowTimelineStore
 import com.framebynavin.app.data.IdeaVaultStore
+import com.framebynavin.app.data.IdeaCaptureType
 import com.framebynavin.app.data.ProjectPulseHistoryStore
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.personal.PersonalCompletionBackupCodec
@@ -85,8 +86,15 @@ internal object TrustRestorableSourceReview {
         check(tasks.validateJson(json("creator/projects")) ==
             counts["creator/projects"]) { "Creator projects manifest count differs" }
         val ideas = IdeaVaultStore(app)
-        check(ideas.validateJson(json("creator/ideas")) ==
-            counts["creator/ideas"]) { "Creator ideas manifest count differs" }
+        val importedIdeas = ideas.inspectJsonForTrustReadOnly(
+            json("creator/ideas"),
+        )
+        check(importedIdeas.size == counts["creator/ideas"]) {
+            "Creator ideas manifest count differs"
+        }
+        val expectedVoiceIdeaIds = importedIdeas
+            .filter { it.captureType == IdeaCaptureType.VOICE }
+            .mapTo(HashSet()) { it.id }
         val focus = CreatorFocusSessionCodec.decode(json("creator/focus"))
         check(focus.history.size + (if (focus.active == null) 0 else 1) ==
             counts["creator/focus"]) { "Creator focus history is incomplete" }
@@ -254,6 +262,9 @@ internal object TrustRestorableSourceReview {
         require(entries.keys.count { it.startsWith("creator/voice-") &&
             it != "creator/voice-index" } == voiceIndex.length()) {
             "Unexpected unreferenced Voice Idea original"
+        }
+        require(voiceIdeas == expectedVoiceIdeaIds) {
+            "An original Voice Idea audio file is missing or linked to a wrong idea"
         }
 
         return Result(
