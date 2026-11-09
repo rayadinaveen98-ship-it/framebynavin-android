@@ -1,6 +1,7 @@
 package com.framebynavin.app.cloud
 
 import android.content.Context
+import com.framebynavin.app.data.CreatorBackupManager
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.data.PortableCreatorBackupManager
@@ -104,7 +105,9 @@ internal class TrustUnifiedRestoreCoordinator(
             selected, pending, trustPassword,
         ) { verified, head ->
             val personal = Phase1V2OwnerRestoreCoordinator(app)
-            check(!CreatorDataGate.hasPendingOwnerRecovery(app)) {
+            check(!CreatorBackupManager(
+                app, readOnlySourceValidation = true,
+            ).hasPendingRestore()) {
                 "Creator's native rollback journal needs recovery before a unified resume"
             }
             check(CreatorDataGate.generation(app) ==
