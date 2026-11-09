@@ -122,12 +122,22 @@ internal fun V195ReminderParticleScene(
         val activeAudioVisual = playbackActive && motionEnabled && !lowPower
         drawRect(brush = atmosphere)
         if (activeAudioVisual) {
+            // Real playback event unlocks only a restrained REC-red particle
+            // bloom. Wave rhythm is decorative, not a microphone/output meter.
+            val breath = (.5f + .5f *
+                kotlin.math.sin(elapsedSeconds * 4.1)).toFloat()
+            val bloom = size.minDimension * (.44f + .025f * breath)
             drawCircle(
                 brush = Brush.radialGradient(
-                    listOf(Color(0xFFE8323B).copy(alpha = .16f), Color.Transparent),
-                    center = center, radius = size.minDimension * .46f,
+                    listOf(
+                        Color(0xFFE8323B).copy(alpha = .12f + .07f * breath),
+                        Color.Transparent,
+                    ),
+                    center = center,
+                    radius = bloom,
                 ),
-                center = center, radius = size.minDimension * .46f,
+                center = center,
+                radius = bloom,
             )
         }
 
