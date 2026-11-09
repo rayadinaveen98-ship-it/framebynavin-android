@@ -42,15 +42,21 @@ jobs:
       - name: Build signed V324 sideload preview + same-build Android test APK
         run: |
           set -euo pipefail
-          timeout 90m gradle :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
+          # Signed internal AndroidTest configuration is exclusive: when testBuildType
+          # is personalStable, Gradle intentionally has no assembleDebugAndroidTest.
+          timeout 90m gradle :app:assemblePersonalStable :app:assemblePersonalStableAndroidTest \
             -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+            --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          # New daemon/configuration: default debug AndroidTest variant + all unit tests.
+          timeout 90m gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest \
             --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
           test -s app/build/outputs/apk/personalStable/app-personalStable.apk
           test -s app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
           mkdir -p output/v324-owner
           cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v324-owner/Backlot-V324-Phase3-Owner-Review.apk
-          (cd output/v324-owner && sha256sum Backlot-V324-Focus-Owner-Review.apk > SHA256SUMS.txt)
+          (cd output/v324-owner && sha256sum Backlot-V324-Phase3-Owner-Review.apk > SHA256SUMS.txt)
       - name: Download original successful signed V322 schedule-owner build
         uses: actions/download-artifact@v4
         with:
@@ -64,7 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           old=output/v322/Backlot-v322-Rebuild-Schedule.apk
-          next=output/v324-owner/Backlot-V324-Focus-Owner-Review.apk
+          next=output/v324-owner/Backlot-V324-Phase3-Owner-Review.apk
           test -s "$old" && test -s "$next"
           expected="$(awk 'NR == 1 { print $1 }' output/v322/SHA256SUMS.txt)"
           test "${#expected}" -eq 64
