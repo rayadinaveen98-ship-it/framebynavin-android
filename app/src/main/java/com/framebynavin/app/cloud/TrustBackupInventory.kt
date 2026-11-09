@@ -17,6 +17,7 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     CREATOR_WEEKLY_SLOTS("Persisted Creator weekly slots"),
     CREATOR_SAVED_SETTINGS("Persisted Creator local settings subset"),
     CREATOR_ROUTINE_PREFERENCES("Persisted Creator daily and weekly routine choices"),
+    APP_APPEARANCE_PREFERENCES("Saved Backlot theme and launch-sound preferences"),
     CREATOR_HISTORY("Creator workflow and publishing history"),
     CREATOR_WORKFLOW_TIMELINE("Creator workflow transition events"),
     CREATOR_PULSE_HISTORY("Creator pulse history"),
