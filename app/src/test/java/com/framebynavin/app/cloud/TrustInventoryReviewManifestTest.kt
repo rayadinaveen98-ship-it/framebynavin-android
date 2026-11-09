@@ -98,6 +98,12 @@ class TrustInventoryReviewManifestTest {
         assertThrows(IllegalArgumentException::class.java) {
             agree(old.copy(pendingDomains = emptyList()), old)
         }
+        // Even TWO matching malicious/incomplete inventories cannot fabricate
+        // full coverage: recompute the pending list from canonical domains.
+        assertThrows(IllegalArgumentException::class.java) {
+            val incomplete = old.copy(pendingDomains = emptyList())
+            agree(incomplete, incomplete)
+        }
         val newByteLength = old.inspected.single().copy(bytes = 999)
         assertThrows(IllegalArgumentException::class.java) {
             agree(old, old.copy(inspected = listOf(newByteLength)))
