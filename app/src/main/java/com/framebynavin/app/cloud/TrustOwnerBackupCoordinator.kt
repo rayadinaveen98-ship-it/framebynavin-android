@@ -3,6 +3,8 @@ package com.framebynavin.app.cloud
 import android.content.Context
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FilterOutputStream
+import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
@@ -93,8 +95,11 @@ internal class TrustOwnerBackupCoordinator(
                                     session.userId,
                                     ownerPassphrase,
                                     frozen.sources(),
-                                    disk,
+                                    FlushOnlyOutputStream(disk),
                                 )
+                                // TrustEncryptedStagingCodec closes its ZIP
+                                // wrapper. Only this owner controls the real
+                                // FD until fsync; a closed FD cannot be durable.
                                 disk.fd.sync()
                             }
                             check(pending.length() in 1..maxCloudBytes) {
@@ -221,6 +226,12 @@ internal class TrustOwnerBackupCoordinator(
         check(!Files.isSymbolicLink(root.toPath())) {
             "Refusing private backup directory symlink"
         }
+    }
+
+    /** Prevent the encrypted ZIP writer from closing AtomicFile's real FD. */
+    private class FlushOnlyOutputStream(target: OutputStream) :
+        FilterOutputStream(target) {
+        override fun close() { flush() }
     }
 
     private fun sha256(file: File): String {
