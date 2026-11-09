@@ -27,6 +27,7 @@ import com.framebynavin.app.cloud.TrustOwnerCloudPublisher
 import com.framebynavin.app.cloud.TrustOwnerCloudReview
 import com.framebynavin.app.cloud.TrustOwnerEncryptedLocalCopy
 import com.framebynavin.app.cloud.TrustOwnerDocumentTransfer
+import com.framebynavin.app.cloud.TrustOwnerLocalRecoveryReview
 import com.framebynavin.app.cloud.TrustRestorableSourceReview
 import com.framebynavin.app.cloud.TrustUnifiedRestoreJournal
 import com.framebynavin.app.cloud.TrustUnifiedRestoreCoordinator
@@ -69,6 +70,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     val documentTransfer = remember(context) {
         TrustOwnerDocumentTransfer(context.applicationContext)
     }
+    val offlineRecovery = remember(context) {
+        TrustOwnerLocalRecoveryReview(context.applicationContext)
+    }
     val owner = account.localState().session?.userId
 
     var passphrase by remember { mutableStateOf("") }
@@ -80,6 +84,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
         mutableStateOf<TrustOwnerEncryptedLocalCopy.Receipt?>(null)
     }
     var localReview by remember { mutableStateOf<TrustRestorableSourceReview.Result?>(null) }
+    var offlineRecoveryReview by remember {
+        mutableStateOf<TrustOwnerLocalRecoveryReview.Result?>(null)
+    }
     var publishReview by remember { mutableStateOf<TrustOwnerCloudPublisher.Review?>(null) }
     var publishConfirmation by remember { mutableStateOf("") }
     var remoteReview by remember { mutableStateOf<TrustOwnerCloudReview.OwnerHeadReview?>(null) }
@@ -104,6 +111,7 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
         selected = null
         pendingExportReceipt = null
         localReview = null
+        offlineRecoveryReview = null
         publishReview = null
         remoteReview = null
         downloadedReview = null
@@ -200,6 +208,7 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                     orphaned = latest.orphanedEncryptedFiles
                     selected = receipt
                     localReview = null
+                    offlineRecoveryReview = null
                     publishReview = null
                     downloadedReview = null
                     unifiedReview = null
@@ -349,6 +358,7 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                                     saved = inventory.receipts
                                     orphaned = inventory.orphanedEncryptedFiles
                                     localReview = null
+                                    offlineRecoveryReview = null
                                     publishReview = null
                                     "Encrypted local copy saved and verified. " +
                                         "It is NOT yet a complete cloud restore guarantee."
@@ -406,6 +416,7 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                             onClick = {
                                 selected = receipt
                                 localReview = null
+                                offlineRecoveryReview = null
                                 publishReview = null
                                 publishConfirmation = ""
                             },
@@ -466,6 +477,45 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                                     color = RecRed, fontSize = 11.sp,
                                 )
                             }
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val chosen = checkNotNull(selected)
+                                runAction {
+                                    val password = passphrase.toCharArray()
+                                    try {
+                                        val review = offlineRecovery.preview(chosen, password)
+                                        offlineRecoveryReview = review
+                                        "Reviewed offline encrypted Creator and Personal " +
+                                            "data without replacing anything on this phone."
+                                    } finally {
+                                        password.fill('\u0000')
+                                        passphrase = ""
+                                    }
+                                }
+                            },
+                            enabled = !busy && selected != null && passphrase.length >= 12,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-trust-offline-restore-preview"),
+                        ) { Text("REVIEW OFFLINE CREATOR + PERSONAL RECOVERY") }
+                        offlineRecoveryReview?.let { review ->
+                            Text(
+                                "Offline copy: ${review.creator.incomingProjects} projects, " +
+                                    "${review.creator.incomingIdeas} ideas, " +
+                                    "${review.personal.proposedAdditions} Personal additions.",
+                                color = ProjectorIvory, fontSize = 11.sp,
+                            )
+                            Text(
+                                if (review.safeToPrepareFreshDevice)
+                                    "Source and conflict review passed for a fresh Creator " +
+                                        "device. This preview does not install data."
+                                else "Existing Creator work, Personal ID conflicts or " +
+                                    "uncovered sources require a non-destructive merge plan. " +
+                                    "No records will be overwritten.",
+                                color = if (review.safeToPrepareFreshDevice)
+                                    MutedText else RecRed,
+                                fontSize = 11.sp,
+                            )
                         }
                     }
                 }
