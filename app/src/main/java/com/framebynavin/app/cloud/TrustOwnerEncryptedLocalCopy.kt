@@ -195,6 +195,55 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
         }
 
     /**
+     * Internal owner-bound handoff used ONLY by the universal cloud publisher.
+     * Revalidates session, local receipt, ciphertext and decrypted source coverage
+     * under the existing operation/file lock. The file cannot escape via a UI
+     * path, and no plaintext archive or passphrase is published.
+     */
+    internal suspend fun <T> withVerifiedCopyForPublish(
+        reviewed: Receipt,
+        passphrase: CharArray,
+        action: suspend (
+            session: CloudSession,
+            ciphertext: File,
+            review: TrustRestorableSourceReview.Result,
+        ) -> T,
+    ): T = accounts.withFreshSession { session ->
+        require(session.userId == reviewed.ownerId) {
+            "Signed-in owner changed after selecting the encrypted copy"
+        }
+        require(passphrase.size in 12..512 && uuidPattern.matches(reviewed.copyId))
+        TrustT1C3OperationGate.withExclusive(app) {
+            prepareFolders()
+            val saved = TrustOwnerCopyCatalog.inspect(root, session.userId)
+                .receipts.singleOrNull { it.copyId == reviewed.copyId }
+            check(saved == reviewed) { "Encrypted owner receipt changed after review" }
+            val file = File(verified, "copy-${reviewed.copyId}.enc")
+            check(file.isFile && !Files.isSymbolicLink(file.toPath()) &&
+                file.length() == reviewed.encryptedBytes &&
+                sha256(file) == reviewed.encryptedSha256) {
+                "Encrypted owner copy changed; cloud publication refused"
+            }
+            file.inputStream().buffered().use { encrypted ->
+                TrustEncryptedStagingCodec.stageAndVerify(
+                    session.userId, passphrase, encrypted, app.cacheDir,
+                ).use { parts ->
+                    val coverage = TrustRestorableSourceReview.inspect(app, parts)
+                    check(coverage.missingRequiredSources.isEmpty() &&
+                        coverage.uncoveredPreferenceKeys.isEmpty() &&
+                        coverage.sourcePartsValidated == reviewed.verifiedSources &&
+                        coverage.counts.values.sum() == reviewed.capturedRecords
+                    ) {
+                        "This source copy has missing or unrestorable owner data. " +
+                            "No cloud backup was written"
+                    }
+                    action(session, file, coverage)
+                }
+            }
+        }
+    }
+
+    /**
      * Reopen existing encrypted copies after Backlot restarts without reading
      * any owner notes, voice recordings, reminders or plaintext media.
      * Every entry still requires a password and disk checksum for inspection.
