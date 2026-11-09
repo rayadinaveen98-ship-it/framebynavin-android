@@ -12,7 +12,7 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 23
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -22,15 +22,36 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Build owner APK with isolated Kotlin compiler memory
+      - name: Trace JVM compilation and memory (diagnostic only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > monitor.sh <<'SH'
+          #!/usr/bin/env bash
+          while sleep 90; do
+            echo "===== $(date -u +%FT%TZ) memory ====="
+            free -m
+            ps -eo pid,etimes,rss,%cpu,comm,args --sort=-rss | head -n 7
+            # Capture a bounded compiler stack sample without stopping compilation.
+            for pid in $(pgrep -f 'GradleDaemon|KotlinCompileDaemon' || true); do
+              echo "===== JVM ${pid} selected stack ====="
+              timeout 12s jcmd "$pid" Thread.print 2>&1 | grep -E -m 18                 'FIR|fir\.|analysis|BodyResolve|Kotlin|GC Thread|compiler|Thread.State' || true
+            done
+          done
+          SH
+          chmod +x monitor.sh
+          nohup ./monitor.sh > v325-jvm-diagnostics.log 2>&1 &
+      - name: Build owner APK (bounded Kotlin daemon, no feature changes)
         shell: bash
         run: |
           set -o pipefail
-          gradle :app:assemblePersonalStable --no-daemon --max-workers=1 \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            "-Dorg.gradle.jvmargs=-Xmx10g -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC" \
-            --stacktrace 2>&1 | tee seven-feature-build.log
-      - name: Package and verify APK
+          timeout --signal=TERM --kill-after=30s 1050s \
+            gradle :app:assemblePersonalStable --no-daemon --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=daemon \
+            "-Pkotlin.daemon.jvmargs=-Xmx9g -XX:+UseG1GC" \
+            "-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m" \
+            --console=plain --stacktrace 2>&1 | tee v325-build.log
+      - name: Stage and verify owner APK
         shell: bash
         run: |
           set -euo pipefail
@@ -39,10 +60,10 @@ jobs:
           test -s "$APK"
           cp "$APK" out/Backlot-325-Seven-Features-Owner-Preview.apk
           sha256sum out/Backlot-325-Seven-Features-Owner-Preview.apk | tee out/SHA256.txt
-          command -v apksigner || true
           if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/build-tools" ]; then
             SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
-            if [ -n "$SIGNER" ]; then "$SIGNER" verify --verbose --print-certs out/Backlot-325-Seven-Features-Owner-Preview.apk; fi
+            test -n "$SIGNER"
+            "$SIGNER" verify --verbose --print-certs out/Backlot-325-Seven-Features-Owner-Preview.apk
           fi
       - uses: actions/upload-artifact@v4
         with:
@@ -50,10 +71,13 @@ jobs:
           path: out/
           if-no-files-found: error
           retention-days: 14
-      - name: Attach logs on failure
-        if: failure()
+      - name: Attach diagnostic build logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-325-Build-Diagnostics
-          path: seven-feature-build.log
+          name: Backlot-325-Compiler-Diagnostics
+          path: |
+            v325-build.log
+            v325-jvm-diagnostics.log
           if-no-files-found: ignore
+          retention-days: 3
