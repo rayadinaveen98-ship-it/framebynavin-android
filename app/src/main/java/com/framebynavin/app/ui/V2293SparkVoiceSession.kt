@@ -47,6 +47,12 @@ internal class V2293SparkVoiceSession(
         private set
     var speaking by mutableStateOf(false)
         private set
+    // Only the on-device SpeechRecognizer supplies this RMS reading.
+    // No audio is captured or retained beyond the current listening session.
+    var microphoneRmsDb by mutableFloatStateOf(-2f)
+        private set
+    var microphoneSpeechActive by mutableStateOf(false)
+        private set
     var preparingPlayback by mutableStateOf(false)
         private set
     val playbackActive: Boolean
@@ -94,16 +100,44 @@ internal class V2293SparkVoiceSession(
             val service = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
             recognizer = service
             listening = true
+            microphoneRmsDb = -2f
+            microphoneSpeechActive = false
             status = "Listening on-device… tap STOP to cancel."
             service.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
-                    if (!closed && recognizer === service) status = "Speak now…"
+                    main.post {
+                        if (!closed && recognizer === service && listening)
+                            status = "Speak now…"
+                    }
                 }
-                override fun onBeginningOfSpeech() = Unit
-                override fun onRmsChanged(rmsdB: Float) = Unit
+                override fun onBeginningOfSpeech() {
+                    main.post {
+                        if (!closed && recognizer === service && listening)
+                            microphoneSpeechActive = true
+                    }
+                }
+                override fun onRmsChanged(rmsdB: Float) {
+                    // Some speech engines invoke these callbacks off-main.
+                    // Keep state lifecycle-scoped; ignore late samples from an
+                    // old recognizer after STOP / permission / background.
+                    if (!rmsdB.isFinite()) return
+                    val bounded = rmsdB.coerceIn(-2f, 10f)
+                    main.post {
+                        if (!closed && recognizer === service && listening &&
+                            microphoneSpeechActive &&
+                            kotlin.math.abs(microphoneRmsDb - bounded) >= .15f
+                        ) microphoneRmsDb = bounded
+                    }
+                }
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() {
-                    if (!closed && recognizer === service) status = "Transcribing on-device…"
+                    main.post {
+                        if (!closed && recognizer === service && listening) {
+                            microphoneRmsDb = -2f
+                            microphoneSpeechActive = false
+                            status = "Transcribing on-device…"
+                        }
+                    }
                 }
                 override fun onError(error: Int) {
                     if (recognizer !== service) return
@@ -143,6 +177,8 @@ internal class V2293SparkVoiceSession(
 
     fun stopListening() {
         listening = false
+        microphoneRmsDb = -2f
+        microphoneSpeechActive = false
         val old = recognizer
         recognizer = null
         runCatching { old?.cancel() }
