@@ -138,4 +138,34 @@ class TrustT1C3StartupRecoveryDeviceTest {
                 target.delete()
             }
     }
+    @Test fun corruptCrashJournalRefusesUnverifiedCleanupAndNeverDeletesGoodCopy() =
+        runBlocking {
+            HardeningTestEnvironment.requireCiEmulator()
+            val id = UUID.randomUUID().toString()
+            val marker = File(root, "incomplete-preview-journal.json")
+                .apply { parentFile!!.mkdirs(); writeText("unrecognized-owner-journal") }
+            val stage = File(app.cacheDir, "trust-t1c2-owner-bytes-ci-$id")
+                .apply { mkdirs() }
+            val oldSource = File(stage, "source-0000")
+                .apply { writeText("private fixture awaiting manual review") }
+            val existing = File(root, "verified/verified-$id.enc").apply {
+                parentFile!!.mkdirs()
+                writeText("previous verified encrypted fixture")
+            }
+            try {
+                assertThrows(Exception::class.java) {
+                    runBlocking {
+                        TrustT1C3StartupRecovery.recoverOnMainActivityStartup(app)
+                    }
+                }
+                assertTrue(oldSource.isFile)
+                assertTrue(existing.isFile)
+                assertTrue(marker.isFile)
+            } finally {
+                TrustT1C3RecoveryJournal.clear(root)
+                stage.deleteRecursively()
+                existing.delete()
+            }
+        }
+
 }
