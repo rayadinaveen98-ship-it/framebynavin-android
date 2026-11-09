@@ -197,6 +197,23 @@ internal fun PProjectComposer(
     dismissRequestToken: Int = 0,
 ) {
     val context = LocalContext.current
+    val newDraftStore = remember(context) { CreatorNewProjectDraftStore(context.applicationContext) }
+    val draftGeneration = remember(task?.id) {
+        CreatorDataGate.generation(context.applicationContext)
+    }
+    val recoverableNewDraft = remember(task?.id, draftGeneration) {
+        if (task == null) newDraftStore.load(draftGeneration) else null
+    }
+    var askToResumeNewDraft by rememberSaveable(task?.id) {
+        mutableStateOf(task == null && recoverableNewDraft != null)
+    }
+    var resolvedNewDraft by rememberSaveable(task?.id) {
+        mutableStateOf(task != null || recoverableNewDraft == null)
+    }
+    var suppressNewDraftWrite by rememberSaveable(task?.id) {
+        mutableStateOf(false)
+    }
+    var newDraftWriteError by remember(task?.id) { mutableStateOf(false) }
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
     val defaultPlatform = remember(defaults.creatorProfile) { CreatorPlatformRegistry.primaryPlatform(defaults.creatorProfile) }
     val initialDna = remember(task?.id, task?.contentDna, defaults.creatorProfile, defaultPlatform) {
@@ -339,7 +356,8 @@ internal fun PProjectComposer(
             title, creatorModeId, archetypeId, productionStyles.sorted().joinToString("\\u001f"),
             platform, contentType, dueAt.toString(), attentionPlan.name,
             deliveryPreference.name, customReminderAt.toString(), priority.name, notes,
-            soundUri, voice.name, repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(), snoozeMinutes.toString(),
+            soundUri, voiceMusicMode.name, voiceMusicUri, voice.name,
+            repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(), snoozeMinutes.toString(),
             autoRetryEnabled.toString(), autoRetryMinutes.toString(), autoRetryMaxAttempts.toString(),
         )
     )
