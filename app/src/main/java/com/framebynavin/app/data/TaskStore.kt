@@ -108,6 +108,23 @@ class TaskStore(private val context: Context) {
         return encode(portable)
     }
 
+    /** Non-seeding export for frozen, owner-reviewed Trust capture. */
+    internal suspend fun exportJsonForTrustReadOnly(): String {
+        val legacyStore = ScriptStudioStore(context)
+        val portable = tasksFlow.first().map { task ->
+            if (task.archivedAtMillis < 0L) {
+                return@map task.copy(workspace = CreatorContentWorkspace())
+            }
+            if (task.workspace.scriptStudio != null) return@map task
+            val legacy = legacyStore.loadForTrustReadOnly(
+                task.id, task.workspace.hook, task.workspace.script,
+            ).normalized(projectId = task.id)
+            if (legacy.isEmpty()) task
+            else task.copy(workspace = task.workspace.copy(scriptStudio = legacy))
+        }
+        return encode(portable)
+    }
+
     suspend fun importJson(raw: String): List<CreatorTask> {
         val decoded = decode(raw)
         CreatorDataGate.transaction {
