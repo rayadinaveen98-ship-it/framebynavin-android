@@ -119,7 +119,8 @@ internal object PersonalReminderNotifications {
         FC13SparkNotificationIdentity.decoratePrivate(
             builder,
             context,
-            when (reminder.alert) {
+            if (followUp) FC13SparkNotificationMood.CALM
+            else when (reminder.alert) {
                 PersonalAlert.ALARM -> FC13SparkNotificationMood.ALERT
                 PersonalAlert.VOICE -> FC13SparkNotificationMood.SPEAK
                 PersonalAlert.NOTIFICATION -> FC13SparkNotificationMood.CALM
