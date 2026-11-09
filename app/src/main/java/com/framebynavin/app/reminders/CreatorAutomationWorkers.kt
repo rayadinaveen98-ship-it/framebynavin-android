@@ -47,11 +47,13 @@ class CreatorAutoPlanWorker(
 
     override suspend fun doWork(): Result {
         val app = applicationContext
-        return runCatching { CreatorDataGate.readyTransaction(app) {
-        val settings = CreatorOsSettingsStore(app).snapshot()
         val state = CreatorAutomationStateStore(app)
+        return runCatching {
+            state.recordPlannerAttempt()
+            CreatorDataGate.readyTransaction(app) {
+        val settings = CreatorOsSettingsStore(app).snapshot()
         if (!settings.weeklyAutoPlanEnabled) {
-            state.recordPlannerRun(0)
+            state.recordPlannerDisabled()
             return@readyTransaction Result.success()
         }
 
@@ -86,8 +88,15 @@ class CreatorAutoPlanWorker(
             }
             state.recordPlannerRun(result.created.size)
             Result.success()
-        }.getOrElse { Result.retry() }
-        } }.getOrElse { Result.retry() }
+        }.getOrElse {
+            runCatching { state.recordPlannerRetry(runAttemptCount + 1) }
+            Result.retry()
+        }
+        }
+        }.getOrElse {
+            runCatching { state.recordPlannerRetry(runAttemptCount + 1) }
+            Result.retry()
+        }
     }
 
     companion object {
