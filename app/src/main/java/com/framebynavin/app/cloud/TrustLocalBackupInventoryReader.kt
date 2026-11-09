@@ -179,6 +179,6 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
         )
         // Deliberately leaves original JPEG/photo/media bytes, alarm/app
         // preferences and missing Creator source families unproved.
-        return TrustBackupInventoryPolicy.assemble(evidence)
+        TrustBackupInventoryPolicy.assemble(evidence)
     }
 }
