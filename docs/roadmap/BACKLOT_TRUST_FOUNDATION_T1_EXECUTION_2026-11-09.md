@@ -302,6 +302,42 @@ the full Trust T1 QA remains reserved for the explicit milestone gate.
 T1C3 startup/recovery hardening, T1C4 real cloud/version/key design, T1D
 integration test and T2 owner-reviewed restore all remain pending.
 
+## T1C4A — cloud revision policy + offline two-phase state machine (SOURCE ONLY)
+
+Drafted a **new, separate** universal-backup protocol that cannot overwrite
+Creator JSON sync or the existing encrypted Personal Archive V2. No live
+bucket, SQL migration, HTTP client, cloud API call, authenticated session,
+storage object upload, owner login, APK or restore is wired here.
+
+`TrustT1C4CloudRevisionPolicy` validates canonical UUID account ownership,
+immutable owner-prefixed ciphertext paths, SHA-256 and byte size, exact next
+revision CAS acknowledgement, remote-head conflicts and **actual streamed
+ciphertext downloaded from the server**. The verified-readback token has
+a private constructor; a plain HTTP success cannot create it.
+`TrustT1C4TwoPhaseState` models the required order of immutable upload,
+streamed object readback, server CAS and independently fetched head proof.
+State skipping and altered or concurrent revisions fail closed.
+
+Even a transport-verified object is **not** a universal Backlot backup:
+`canClaimCompleteBacklotBackup` and `canOfferRestore` stay false. Existing
+T1C3 partial snapshots are rejected for live cloud upload. Underlying Creator
+and Personal data gaps, key recovery and account-authenticated upload remain
+T1C4B/release gates.
+
+Ten pure-JVM test cases were written for owner isolation, changed/truncated
+ciphertext, key naming, CAS/old-good protection, ordering and proof
+requirements; **NOT run** under our owner-approved phase-end testing cadence.
+[Exact T1C4A cloud/security contract](
+  ./BACKLOT_TRUST_T1C4A_CLOUD_REVISION_PROTOCOL_2026-11-09.md).
+
+Before enabling a live cloud adapter, provision and security-test a new
+**private** authenticated storage bucket with RLS, separate head/history
+schema and server-atomic CAS. Avoid direct arbitrary head UPDATE privileges
+and never expose service-role credentials in Android. Verify account-switch
+fencing, download/readback, retention and zero-spend/quota constraints.
+T1D Android 11/15, owner-signed upgrade, two-device data recovery and
+exact 21-day Done/JPEG integrity tests still precede any release.
+
 ## Remaining owner acceptance and release gates
 
 - Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
