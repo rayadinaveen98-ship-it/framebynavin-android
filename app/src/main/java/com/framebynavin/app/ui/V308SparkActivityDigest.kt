@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.reminders.FC13SparkNotificationMood
 import java.security.MessageDigest
 
 /**
@@ -81,7 +82,13 @@ internal fun V308SparkActivityDigest(
         Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Icon(Icons.Outlined.NotificationsActive, null, tint = RecRed)
+                FC13SparkPose(
+                    mood = if (actionCount > 0)
+                        FC13SparkNotificationMood.THINK
+                    else FC13SparkNotificationMood.SUCCESS,
+                    size = FC13SparkPoseSize.COMPACT,
+                    modifier = Modifier.testTag("fc13-spark-digest-expression"),
+                )
                 Column(Modifier.weight(1f)) {
                     Text("YOUR ACTIVITY", color = ProjectorIvory,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
