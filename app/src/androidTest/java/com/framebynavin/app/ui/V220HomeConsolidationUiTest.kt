@@ -114,9 +114,11 @@ class V220HomeConsolidationUiTest {
         capture("live-after")
     }
 
-    @Test fun nextMoveIsCompactUntilExpandedAndKeepsExistingActions() {
+    @Test fun nextMoveHasNoDuplicateStartAndContinueOpensSelectedProject() {
         HardeningTestEnvironment.requireCiEmulator()
         var startCount = 0
+        var advanceCount = 0
+        var openedProject: String? = null
         val item = CreatorTask(
             id = "next-move", title = "A cinematic project · తెలుగు",
             platform = "YouTube", contentType = "Film", dueLabel = "Tomorrow",
@@ -127,27 +129,67 @@ class V220HomeConsolidationUiTest {
                 PTodayScreen(
                     creatorProfile = profile,
                     tasks = listOf(item),
-                    onAdd = {}, onStart = { startCount++ }, onAdvance = {},
+                    onAdd = {}, onStart = { startCount++ },
+                    onAdvance = { advanceCount++ },
                     onViewAllReminders = {}, onFocus = {},
+                    onOpenProject = { openedProject = it },
                 )
             }
         }
-        // Project card owns the ONE Up Next heading. A different Next Move
-        // card stays collapsed until the creator asks for reasoning.
         rule.onAllNodesWithText("UP NEXT", useUnmergedTree = true).assertCountEquals(1)
         rule.onNodeWithTag("v2202-next-move").performScrollTo().assertExists()
-        rule.onNodeWithText("NEXT MOVE", useUnmergedTree = true).assertExists()
         rule.onNodeWithText("VIEW DETAILS", useUnmergedTree = true).assertExists()
         rule.onNodeWithText("WHY THIS MOVE", useUnmergedTree = true).assertDoesNotExist()
-        capture("next-move-collapsed")
+        capture("phase3-next-move-collapsed")
         rule.onNodeWithTag("v2202-next-move").performClick()
         rule.onNodeWithText("WHY THIS MOVE", useUnmergedTree = true)
             .performScrollTo().assertExists()
-        rule.onNodeWithText("START THIS MOVE", useUnmergedTree = true)
-            .performScrollTo().assertExists()
-        capture("next-move-expanded")
-        rule.onNodeWithText("START THIS MOVE", useUnmergedTree = true).performClick()
-        rule.runOnIdle { assertEquals(1, startCount) }
+        rule.onNodeWithText("START THIS MOVE", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("PRIORITY 1228", useUnmergedTree = true).assertDoesNotExist()
+        capture("phase3-next-move-expanded")
+
+        rule.onNodeWithTag("phase3-home-continue").performScrollTo().assertExists().performClick()
+        rule.runOnIdle {
+            assertEquals("next-move", openedProject)
+            assertEquals("Continue must not silently start a planned project", 0, startCount)
+            assertEquals("Continue must not silently complete a stage", 0, advanceCount)
+        }
+        rule.onNodeWithTag("phase3-home-focus").assertExists()
+        rule.onNodeWithText("WORKING", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("MARK STEP DONE", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun workingProjectHasContinueAndFocusWithoutDuplicateStartButtons() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val item = CreatorTask(
+            id = "working-project", title = "Continue script editing",
+            platform = "YouTube", contentType = "Long-form", dueLabel = "Tomorrow",
+            status = TaskStatus.WORKING,
+        )
+        var startCount = 0
+        var opened = 0
+        var focus = 0
+        rule.setContent {
+            FrameByNavinTheme {
+                PTodayScreen(
+                    creatorProfile = profile,
+                    tasks = listOf(item),
+                    onAdd = {}, onStart = { startCount++ }, onAdvance = {},
+                    onViewAllReminders = {}, onFocus = { focus++ },
+                    onOpenProject = { id -> if (id == item.id) opened++ },
+                )
+            }
+        }
+        rule.onNodeWithTag("phase3-home-continue").performScrollTo().performClick()
+        rule.onNodeWithTag("phase3-home-focus").performScrollTo().performClick()
+        rule.runOnIdle {
+            assertEquals(1, opened)
+            assertEquals(1, focus)
+            assertEquals(0, startCount)
+        }
+        rule.onNodeWithText("WORKING", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("START THIS MOVE", useUnmergedTree = true).assertDoesNotExist()
+        capture("phase3-working-home-actions")
     }
 
     private fun capture(scene: String) {
