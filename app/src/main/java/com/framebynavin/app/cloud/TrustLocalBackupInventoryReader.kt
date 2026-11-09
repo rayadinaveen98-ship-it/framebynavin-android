@@ -49,6 +49,8 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
             val focusJson = focus.exportPortableJson()
             val focusLedger = CreatorFocusSessionCodec.decode(focusJson)
             val weeklyStore = WeeklyScheduleStore(app)
+            val savedSettings = TrustSavedSettingsInventory.inspect(app)
+            val slideshowPlayback = TrustSavedSettingsInventory.homePlayback(app)
             // Null is an unseeded plan, not a verified empty backup.
             // This bypasses loadOrSeed so inventory never edits the schedule.
             val persistedWeekly = weeklyStore.inspectSavedForInventory()
@@ -109,11 +111,15 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
                     TrustBackupDomain.CREATOR_POST_PUBLISH,
                     publishingJson, publishing.validateJson(publishingJson),
                 ),
-            ) + listOfNotNull(persistedWeekly?.let { (raw, count) ->
-                TrustBackupInventoryPolicy.evidence(
-                    TrustBackupDomain.CREATOR_WEEKLY_SLOTS, raw, count,
-                )
-            })
+            ) + listOfNotNull(
+                persistedWeekly?.let { (raw, count) ->
+                    TrustBackupInventoryPolicy.evidence(
+                        TrustBackupDomain.CREATOR_WEEKLY_SLOTS, raw, count,
+                    )
+                },
+                savedSettings,
+                slideshowPlayback,
+            )
         }
 
         // Stable Personal lock and photo integrity preflight; any corrupt store,
