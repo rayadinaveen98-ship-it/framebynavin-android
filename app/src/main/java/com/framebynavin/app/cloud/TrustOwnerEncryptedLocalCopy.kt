@@ -27,6 +27,7 @@ import kotlinx.coroutines.withContext
  */
 internal class TrustOwnerEncryptedLocalCopy(context: Context) {
     private val app = context.applicationContext
+    private val accounts = CloudSyncManager(app)
     private val root = File(app.noBackupFilesDir, "trust-fc13-owner-encrypted-v1")
     private val pending = File(root, "pending")
     private val verified = File(root, "verified")
@@ -51,9 +52,10 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
     }
 
     suspend fun createAfterOwnerRequest(
-        ownerUserId: String,
         passphrase: CharArray,
-    ): Receipt = TrustT1C3OperationGate.withExclusive(app) {
+    ): Receipt = accounts.withFreshSession { session ->
+        val ownerUserId = session.userId
+        TrustT1C3OperationGate.withExclusive(app) {
         TrustT1C4CloudRevisionPolicy.validateOwner(ownerUserId)
         require(passphrase.size in 12..512) {
             "An owner passphrase of at least 12 characters is required"
@@ -142,6 +144,7 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
                 .onFailure(failure::addSuppressed)
             throw failure
         }
+        }
     }
 
     /**
@@ -153,6 +156,10 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
         receipt: Receipt,
         passphrase: CharArray,
     ): TrustRestorableSourceReview.Result =
+        accounts.withFreshSession { session ->
+        check(session.userId == receipt.ownerId) {
+            "The signed-in owner changed; this private archive cannot be opened"
+        }
         TrustT1C3OperationGate.withExclusive(app) {
             TrustT1C4CloudRevisionPolicy.validateOwner(receipt.ownerId)
             require(uuidPattern.matches(receipt.copyId) &&
@@ -174,6 +181,7 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
                     }
                 }
             }
+        }
         }
 
     private fun prepareFolders() {
