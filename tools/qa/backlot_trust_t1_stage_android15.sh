@@ -14,6 +14,7 @@ for spec in \
   "com.framebynavin.app.cloud.TrustT1B4SavedPreferencesDeviceTest TRUST-T1B4-PREFERENCES 1" \
   "com.framebynavin.app.cloud.TrustT1C1StagingDeviceTest TRUST-T1C1-ENCRYPTION 1" \
   "com.framebynavin.app.cloud.TrustT1C2OwnerCaptureDeviceTest TRUST-T1C2-OWNER-FREEZE 1" \
+  "com.framebynavin.app.cloud.TrustT1C3LocalEncryptedPreviewDeviceTest TRUST-T1C3-ATOMIC-PREVIEW 1" \
   "com.framebynavin.app.personal.Phase1HabitArchiveCoverageGuardDeviceTest TRUST-T1-ARCHIVE 1"; do
   set -- $spec
   cls="$1"; name="$2"; count="$3"
