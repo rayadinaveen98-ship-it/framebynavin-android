@@ -105,7 +105,7 @@ class BacklotV322To323SignedUpgradeTest {
         val expected = JSONObject(AtomicFile(evidence).openRead().bufferedReader().use { it.readText() })
         assertEquals(322L, expected.getLong("versionCode"))
         val personal = PersonalReminderStore(app)
-        val original = PersonalReminderCodec.decode(expected.getString("personal"))
+        val original = PersonalCompletionBackupCodec.decode(expected.getString("personal")).reminders
             .filter { it.id.startsWith(PersonalRebuildSchedulePack.PREFIX) }
         val actual = personal.load().filter { it.id.startsWith(PersonalRebuildSchedulePack.PREFIX) }
         assertEquals(16, original.size)
