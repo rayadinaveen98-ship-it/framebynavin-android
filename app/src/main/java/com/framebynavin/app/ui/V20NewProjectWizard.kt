@@ -113,6 +113,7 @@ internal fun V20NewProjectWizard(
     onDismiss: () -> Unit,
     onCreate: () -> Unit,
     startWithQuickCreate: Boolean = false,
+    draftStatusLabel: String = "",
 ) {
     var revealedStage by rememberSaveable { mutableIntStateOf(0) }
     var activeStage by rememberSaveable { mutableIntStateOf(0) }
@@ -263,6 +264,17 @@ internal fun V20NewProjectWizard(
                             fontWeight = FontWeight.Black,
                         )
                     }
+                }
+                if (draftStatusLabel.isNotBlank()) {
+                    Text(
+                        draftStatusLabel,
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 6.dp)
+                            .testTag("phase4-new-project-draft-status"),
+                        color = if (draftStatusLabel.startsWith("Draft save failed"))
+                            RecRed else MutedText,
+                        fontSize = 12.sp,
+                    )
                 }
                 if (showAdvancedSetup) {
                     LinearProgressIndicator(
