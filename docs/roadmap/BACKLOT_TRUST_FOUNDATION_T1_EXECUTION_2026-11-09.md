@@ -268,6 +268,40 @@ T1C3 durable encrypted local coordinator and T1C4 immutable authenticated
 cloud CAS/readback remain pending. No existing owner's data, account,
 installed APK or cloud snapshot was changed by this source-only commit.
 
+## T1C3A — atomic encrypted LOCAL PARTIAL preview (source only, not tested)
+
+The isolated `TrustT1C3LocalEncryptedPreview` coordinates T1C2 frozen
+real-source bytes and T1C1 authenticated AES-GCM ZIP into a **new**
+Android `AtomicFile`, performs whole-bundle decrypted byte/hash readback,
+then atomically promotes only the validated encrypted object without
+overwriting existing reviewed copies. A process-wide mutex protects
+separate coordinator instances. The stream wrapper preserves AtomicFile's
+descriptor until its final disk sync and rename. Each result has an
+opaque review UUID, encrypted SHA-256, size and verified part count.
+
+Known abandoned encrypted pending objects and temporary plaintext copies are
+cleaned before the **next explicit** preview; a same-process registry avoids
+removing active source/decryption directories. There is NO app-startup recovery
+hook, no global multi-process lock, no guaranteed physical secure erase,
+and no full owner-domain coverage. Crashes can leave sensitive private
+plaintext until a later explicitly initiated cleanup. The encrypted local
+files are stored in app-private `noBackupFilesDir`, NOT uploaded to a provider.
+No app button, auto job, restoration or user backup-complete message is wired.
+
+**Hard-false in source**: `isUniversalBackup`,
+`canUploadToCloud`, and `canRestoreOwnerData`. The provided owner ID
+is not authenticated; passphrase loss may make data unrecoverable.
+[Threat model and remaining gates](
+  ./BACKLOT_TRUST_T1C3_ATOMIC_LOCAL_PREVIEW_2026-11-09.md).
+
+A real Android15 test is authored for encrypted local creation/reopen,
+owner/password rejection, preserving old copy after failed attempt,
+abandoned staging cleanup and unchanged Creator/Personal stores.
+Two simple pure JVM tests cover active-path registry. These are **not run**:
+the full Trust T1 QA remains reserved for the explicit milestone gate.
+T1C3 startup/recovery hardening, T1C4 real cloud/version/key design, T1D
+integration test and T2 owner-reviewed restore all remain pending.
+
 ## Remaining owner acceptance and release gates
 
 - Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
