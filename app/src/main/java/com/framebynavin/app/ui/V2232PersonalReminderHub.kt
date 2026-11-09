@@ -582,6 +582,21 @@ internal fun V2232PersonalReminderHub(
                 Text("YOUR REMINDERS · ${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
                     color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
+                BacklotReminderHubMetrics(
+                    metrics = listOf(
+                        BacklotReminderHubMetric(
+                            "NEEDS",
+                            reminders.count {
+                                PersonalAgendaPolicy.section(it, agendaNowMillis) ==
+                                    PersonalAgendaSection.NEEDS_ATTENTION
+                            },
+                            urgent = true,
+                        ),
+                        BacklotReminderHubMetric("ACTIVE", reminders.count { !it.paused }),
+                        BacklotReminderHubMetric("PAUSED", reminders.count { it.paused }),
+                    ),
+                    modifier = Modifier.testTag("fc13-personal-hub-metrics"),
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                         .testTag("v285-agenda-scope-selector"),
@@ -822,17 +837,10 @@ private fun V2232PersonalItem(
     val actionReady = V288PersonalTodayPolicy.canRespond(reminder)
     val needsAttention = PersonalAgendaPolicy.section(reminder, nowMillis) ==
         PersonalAgendaSection.NEEDS_ATTENTION
-    Surface(
-        color = CinemaSurface,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (needsAttention) RecRed.copy(alpha = .55f)
-            else CinemaLine),
-        modifier = Modifier.fillMaxWidth().testTag("v2232-personal-item"),
+    BacklotReminderHubItemCard(
+        urgent = needsAttention,
+        modifier = Modifier.testTag("v2232-personal-item"),
     ) {
-        Column(
-            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 V288PersonalReminderIcon(reminder)
                 Spacer(Modifier.width(12.dp))
@@ -862,17 +870,20 @@ private fun V2232PersonalItem(
                 }
             }
             if (actionReady) {
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    OutlinedButton(
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BacklotReminderHubRowAction(
                         enabled = !busy,
                         onClick = { onRespond(PersonalDeliveryContract.ACTION_DONE) },
-                        modifier = Modifier.testTag("v288-row-done"),
-                    ) { Text("DONE", fontSize = 11.sp) }
-                    OutlinedButton(
+                        modifier = Modifier.weight(1f).testTag("v288-row-done"),
+                    ) { Text("DONE", fontSize = 11.sp, maxLines = 1) }
+                    BacklotReminderHubRowAction(
                         enabled = !busy,
                         onClick = { onRespond(PersonalDeliveryContract.ACTION_SNOOZE) },
-                        modifier = Modifier.testTag("v288-row-snooze"),
-                    ) { Text("SNOOZE ${reminder.snoozeMinutes}m", fontSize = 11.sp) }
+                        modifier = Modifier.weight(1f).testTag("v288-row-snooze"),
+                    ) { Text("SNOOZE ${reminder.snoozeMinutes}m", fontSize = 11.sp, maxLines = 1) }
                 }
             }
             if (expanded) {
@@ -906,7 +917,6 @@ private fun V2232PersonalItem(
                     }
                 }
             }
-        }
     }
 }
 
