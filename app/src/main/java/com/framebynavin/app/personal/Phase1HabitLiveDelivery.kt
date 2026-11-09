@@ -23,6 +23,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
+import com.framebynavin.app.reminders.FC13SparkNotificationIdentity
+import com.framebynavin.app.reminders.FC13SparkNotificationMood
 import java.lang.ref.WeakReference
 import java.time.Instant
 import java.time.LocalDate
@@ -87,7 +89,7 @@ internal object Phase1HabitNotification {
         val pi = PendingIntent.getActivity(context, challenge.id.hashCode(), open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = NotificationCompat.Builder(context, channel(kind))
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle("Today's 21-day activity")
             .setContentText(challenge.activity)
             .setContentIntent(pi)
@@ -97,6 +99,14 @@ internal object Phase1HabitNotification {
             .setPriority(if (kind == Phase1HabitAlertKind.QUIET)
                 NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setSilent(kind == Phase1HabitAlertKind.QUIET)
+        FC13SparkNotificationIdentity.decoratePrivate(
+            builder, context,
+            when (kind) {
+                Phase1HabitAlertKind.QUIET -> FC13SparkNotificationMood.CALM
+                Phase1HabitAlertKind.VOICE -> FC13SparkNotificationMood.SPEAK
+                Phase1HabitAlertKind.ALARM -> FC13SparkNotificationMood.ALERT
+            },
+        )
         // Only the exact, posted occurrence can be snoozed from the OS notice.
         // Completing a challenge is never inferred from an alert interaction.
         if (scheduledAt > 0L) {
@@ -238,7 +248,7 @@ internal class Phase1HabitVoiceService : Service() {
         try {
             startForeground(0x210A, NotificationCompat.Builder(this,
                 Phase1HabitNotification.channel(Phase1HabitAlertKind.VOICE))
-                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
                 .setContentTitle("21-day challenge voice").setContentText(activity)
                 .setOngoing(true).build())
         } catch (error: Exception) {
