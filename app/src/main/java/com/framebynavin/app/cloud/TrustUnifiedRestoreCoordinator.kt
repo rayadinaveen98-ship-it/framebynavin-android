@@ -91,6 +91,21 @@ internal class TrustUnifiedRestoreCoordinator(
             original.length() == savedEscrow.encryptedBytes) {
             "The original encrypted phone snapshot must be retained"
         }
+        // Owner escrow is never trusted by filename, length or catalog
+        // metadata alone: verify the actual bytes against the saved digest.
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        original.inputStream().buffered().use { source ->
+            val block = ByteArray(64 * 1024)
+            while (true) {
+                val size = source.read(block)
+                if (size < 0) break
+                if (size > 0) digest.update(block, 0, size)
+            }
+        }
+        check(digest.digest().joinToString("") { "%02x".format(it) } ==
+            savedEscrow.encryptedSha256) {
+            "Original encrypted phone escrow was modified or truncated"
+        }
         // Explicitly reauthenticate the ORIGINAL before resuming any write.
         original.inputStream().buffered().use { input ->
             TrustEncryptedStagingCodec.stageAndVerify(
