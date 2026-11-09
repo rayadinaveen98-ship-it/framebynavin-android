@@ -44,8 +44,9 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
             val ideaJson = ideas.exportJson()
             val focusJson = focus.exportPortableJson()
             val focusLedger = CreatorFocusSessionCodec.decode(focusJson)
-            // "Active originals" are independently verified, not confused with
-            // voice recordings, archived originals or the Home slideshow.
+            // Active Best Frames ARE the saved Home slideshow collection.
+            // Voice recordings and rollback-only frame files remain separate
+            // pending categories; do not pretend they are included.
             val activeFrameNames = CreatorHeroArchive.orderedSourceNames(app)
             val frames = PortableBestFrameMedia.prepareFromFiles(
                 app.filesDir, activeFrameNames,
@@ -78,6 +79,10 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
                         if (focusLedger.active == null) 0 else 1,
                 ),
                 bestFramesProof,
+                // Home slideshow uses the very same active CreatorHeroArchive
+                // originals; reuse the VERIFIED bytes rather than a second
+                // read or an invented independent collection.
+                bestFramesProof.copy(domain = TrustBackupDomain.HOME_SLIDESHOW_MEDIA),
             )
         }
 
