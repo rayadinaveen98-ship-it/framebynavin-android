@@ -48,7 +48,10 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
     private val root = File(app.noBackupFilesDir, "trust-t1c3-local-review-v1")
     private val pending = File(root, "pending")
     private val verified = File(root, "verified")
-    private val guard = Mutex()
+    // All coordinator instances in the process serialize cleanup, promotion
+    // and verification. An instance-local mutex cannot protect a new object
+    // constructed after navigation/recreation.
+    private companion object { val guard = Mutex() }
 
     private val uuidPattern =
         Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
