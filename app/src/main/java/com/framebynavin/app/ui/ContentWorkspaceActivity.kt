@@ -131,6 +131,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
                             onOpenScript = { openScriptStudio(task!!) },
                             onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
+                            currentDraftEditors = editorDrafts.currentDraftEditors(
+                                task!!.id, task!!.workspace.revision,
+                                task!!.workspace.scriptStudio?.revision,
+                            ),
+                            heldDraftEditors = editorDrafts.heldDraftEditors(task!!.id),
                         )
                         mode == Alpha6WorkspaceMode.BLUEPRINT -> V20ContentBlueprintDialog(
                             task = task!!,
