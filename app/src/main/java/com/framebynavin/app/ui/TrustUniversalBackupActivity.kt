@@ -25,6 +25,7 @@ import com.framebynavin.app.cloud.TrustOwnerCloudPublisher
 import com.framebynavin.app.cloud.TrustOwnerCloudReview
 import com.framebynavin.app.cloud.TrustOwnerEncryptedLocalCopy
 import com.framebynavin.app.cloud.TrustRestorableSourceReview
+import com.framebynavin.app.cloud.TrustUnifiedRestoreJournal
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -75,6 +76,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     var preparedRestore by remember {
         mutableStateOf<TrustOwnerCloudReview.PreparedUnifiedSource?>(null)
     }
+    var pendingRestoreJournal by remember {
+        mutableStateOf<TrustUnifiedRestoreJournal.Checkpoint?>(null)
+    }
     var deletionReview by remember { mutableStateOf<TrustCloudBackupDeletionCoordinator.Review?>(null) }
     var deletionConfirmation by remember { mutableStateOf("") }
     var orphaned by remember { mutableIntStateOf(0) }
@@ -95,6 +99,11 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
         deletionConfirmation = ""
         saved = emptyList()
         orphaned = 0
+        pendingRestoreJournal = runCatching {
+            TrustUnifiedRestoreJournal.inspect(context.applicationContext)
+        }.onFailure {
+            message = "A saved cross-domain recovery journal needs owner attention."
+        }.getOrNull()
         if (owner != null) {
             runCatching { local.availableCopiesForSignedInOwner() }
                 .onSuccess { inventory ->
@@ -142,6 +151,19 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                     "voice originals are checked without replacing data on this phone.",
                 color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
             )
+            pendingRestoreJournal?.let { pending ->
+                TrustUiSection("Interrupted Creator + Personal recovery") {
+                    Text(
+                        "A ${pending.stage.name.lowercase().replace('_', ' ')} " +
+                            "recovery journal exists for an earlier owner operation. " +
+                            "Backlot will not silently replay it or delete its " +
+                            "encrypted source/escrow. Finish owner-reviewed recovery " +
+                            "before beginning another restore.",
+                        color = RecRed, fontSize = 12.sp,
+                        modifier = Modifier.testTag("fc13-trust-pending-unified-restore"),
+                    )
+                }
+            }
             if (owner == null) {
                 TrustUiSection("Sign in required") {
                     Text("Connect your Backlot account in Cloud Sync before creating " +
@@ -410,7 +432,8 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                                 "${review.personal.conflicts} conflicts.",
                             color = ProjectorIvory, fontSize = 12.sp,
                         )
-                        val canPrepare = !review.creator.hasExistingOwnerWork &&
+                        val canPrepare = pendingRestoreJournal == null &&
+                            !review.creator.hasExistingOwnerWork &&
                             review.creator.projectIdConflicts == 0 &&
                             review.creator.ideaIdConflicts == 0 &&
                             review.personal.conflicts == 0 &&
