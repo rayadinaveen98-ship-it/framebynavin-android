@@ -1,0 +1,64 @@
+name: Backlot FC13 owner APK candidate
+
+on:
+  push:
+    branches:
+      - feature/backlot-fc13-feedback-completion
+  pull_request:
+    branches:
+      - feature/backlot-phase5-calendar-reminders-weekly-automation-20261109
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  personal-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assemble Backlot personal-install APK (prototype signer only)
+        run: |
+          set -o pipefail
+          gradle :app:assemblePersonalStable --no-daemon --stacktrace 2>&1 | tee fc13-build.log
+      - name: Verify and stage APK
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p staging
+          APK=$(find app/build/outputs/apk/personalStable -type f -name '*.apk' | head -n 1)
+          test -s "$APK"
+          cp "$APK" staging/Backlot-FC13-Owner-Preview.apk
+          sha256sum staging/Backlot-FC13-Owner-Preview.apk | tee staging/SHA256.txt
+          ls -lh staging/Backlot-FC13-Owner-Preview.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs staging/Backlot-FC13-Owner-Preview.apk
+      - name: Upload APK candidate
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-FC13-Owner-Preview
+          path: staging/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload failed-build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-FC13-Build-Log
+          path: fc13-build.log
+          if-no-files-found: ignore
+          retention-days: 3
