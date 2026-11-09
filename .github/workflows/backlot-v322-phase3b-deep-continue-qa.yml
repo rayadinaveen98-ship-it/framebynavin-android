@@ -83,6 +83,8 @@ jobs:
             grep -Fq 'OK (4 tests)' output/backlot-phase3-3ab/ANDROID-EXPLICIT-BEGIN-TEST.txt
             adb exec-out run-as com.framebynavin.app cat "files/phase3-project-begin/planned-explicit-begin.png" > "output/backlot-phase3-3ab/phase3-planned-explicit-begin.png"
             test -s output/backlot-phase3-3ab/phase3-planned-explicit-begin.png
+            adb exec-out run-as com.framebynavin.app cat "files/phase3-project-begin/working-work-on-and-focus.png" > "output/backlot-phase3-3ab/phase3-working-work-on-and-focus.png"
+            test -s output/backlot-phase3-3ab/phase3-working-work-on-and-focus.png
             # android-emulator-runner executes script lines individually; keep loops on one shell line.
             for scene in phase3-next-move-collapsed phase3-next-move-expanded phase3-working-home-actions; do adb exec-out run-as com.framebynavin.app cat "files/v220-ui/v220-default-${scene}.png" > "output/backlot-phase3-3ab/v220-default-${scene}.png" && test -s "output/backlot-phase3-3ab/v220-default-${scene}.png" || exit 1; done
             adb shell am instrument -w -r -e class com.framebynavin.app.ui.V215HomeFirstFoldVisualUiTest -e backlotVisualProfile default -e hardeningTestEnvironment ci-emulator com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee output/backlot-phase3-3ab/ANDROID-HOME-NAV-TEST.txt
