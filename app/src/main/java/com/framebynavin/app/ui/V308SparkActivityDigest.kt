@@ -81,7 +81,7 @@ internal fun V308SparkActivityDigest(
         Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Icon(Icons.Outlined.NotificationsActive, null, tint = MutedGold)
+                Icon(Icons.Outlined.NotificationsActive, null, tint = RecRed)
                 Column(Modifier.weight(1f)) {
                     Text("YOUR ACTIVITY", color = ProjectorIvory,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -128,7 +128,7 @@ internal fun V308SparkActivityDigest(
                                     tint = MutedText)
                             }
                         } else {
-                            Icon(Icons.Outlined.ChevronRight, null, tint = MutedGold)
+                            Icon(Icons.Outlined.ChevronRight, null, tint = RecRed)
                         }
                     }
                 }
@@ -136,7 +136,7 @@ internal fun V308SparkActivityDigest(
             TextButton(
                 onClick = onOpenActivity,
                 modifier = Modifier.fillMaxWidth().testTag("v308-spark-see-all"),
-            ) { Text("SEE ALL ACTIVITY", color = MutedGold, fontSize = 11.sp) }
+            ) { Text("SEE ALL ACTIVITY", color = RecRed, fontSize = 11.sp) }
         }
     }
 }
