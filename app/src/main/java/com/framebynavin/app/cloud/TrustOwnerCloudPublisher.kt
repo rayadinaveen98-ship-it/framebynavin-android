@@ -58,14 +58,19 @@ internal class TrustOwnerCloudPublisher(
         check(session.userId == selected.ownerId) {
             "This encrypted copy belongs to another signed-in Backlot user"
         }
-        check(transport.phase(session) == "active") {
-            "Universal cloud backup is unavailable or its deletion is pending"
-        }
+        val phaseBefore = transport.phase(session)
+        // The very first backup has no owner-state row UNTIL beginUpload()
+        // creates it transactionally. Null is allowed only for an empty head.
+        // A missing Trust backend still fails on the head/phase REST query.
         // A catalog record is not an integrity proof. The publish action
         // checks local and decrypted bytes again under the owner operation lock.
         check(selected in available) { "Selected encrypted copy is unavailable" }
         val newest = available.maxOfOrNull { it.createdAtMillis } ?: selected.createdAtMillis
         val before = transport.head(session)
+        check(phaseBefore == "active" ||
+            (phaseBefore == null && before == null)) {
+            "Cloud backup deletion/inactive owner blocks revision review"
+        }
         check(before == null || before.revision < Long.MAX_VALUE)
         Review(
             ownerUserId = session.userId,
@@ -101,10 +106,12 @@ internal class TrustOwnerCloudPublisher(
             check(session.userId == reviewed.ownerUserId) {
                 "The account changed while preparing a cloud backup"
             }
-            check(transport.phase(session) == "active") {
+            val phaseBefore = transport.phase(session)
+            val freshHead = transport.head(session)
+            check(phaseBefore == "active" ||
+                (phaseBefore == null && freshHead == null)) {
                 "Remote backup deletion or an inactive owner blocks publication"
             }
-            val freshHead = transport.head(session)
             TrustT1C4CloudRevisionPolicy.requireUnchanged(
                 reviewed.remoteBefore, freshHead, session.userId,
             )
@@ -128,6 +135,9 @@ internal class TrustOwnerCloudPublisher(
             // not arbitrary booleans returned by a provider API response.
             TrustT1C4TwoPhaseState.begin(freshHead, descriptor)
             transport.beginUpload(session)
+            check(transport.phase(session) == "active") {
+                "The new owner revision write fence was not established"
+            }
             TrustT1C4CloudRevisionPolicy.requireUnchanged(
                 freshHead, transport.head(session), session.userId,
             )
