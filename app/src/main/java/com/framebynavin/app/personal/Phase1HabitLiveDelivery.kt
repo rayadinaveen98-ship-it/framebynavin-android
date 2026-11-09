@@ -169,7 +169,7 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
         if (intent?.action != Phase1HabitNotification.ACTION) return
         val id = intent.getStringExtra(Phase1HabitNotification.ID)
             ?.takeIf { it.isNotBlank() } ?: return
-        val at = request.getLongExtra(Phase1HabitNotification.AT, 0L)
+        val at = intent.getLongExtra(Phase1HabitNotification.AT, 0L)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -229,7 +229,7 @@ internal class Phase1HabitVoiceService : Service() {
             ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
         val id = request.getStringExtra(Phase1HabitNotification.ID)
             ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
-        val at = intent.getLongExtra(Phase1HabitNotification.AT, 0L)
+        val at = request.getLongExtra(Phase1HabitNotification.AT, 0L)
         if (at <= 0L) return START_NOT_STICKY
         currentChallengeId = id
         currentScheduledAt = at
