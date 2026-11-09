@@ -35,6 +35,7 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     PERSONAL_PHOTO_METADATA("Private Space photo metadata"),
     PERSONAL_PHOTO_BYTES("Private Space JPEG bytes"),
     NOTIFICATION_PREFERENCES("Notification, alarm and voice preferences"),
+    CREATOR_ESCALATION_TIMINGS("Saved Creator Smart notification, voice and alarm delays"),
     SPARK_PREFERENCES("Spark and companion preferences"),
     SPARK_IDENTITY_AND_TIPS("Saved companion identity and tip dismissals"),
     HOME_SLIDESHOW_MEDIA("Home slideshow original images"),
