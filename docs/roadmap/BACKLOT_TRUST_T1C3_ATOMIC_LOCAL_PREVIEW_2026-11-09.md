@@ -1,5 +1,13 @@
 # Backlot Trust T1C3 — encrypted atomic LOCAL PREVIEW (source review)
 
+> **T1C3B update:** MainActivity-startup temporary staging cleanup,
+> a minimal interrupted-attempt journal and a shared process/OS lock are now
+> implemented as source on a later stacked branch. See
+> [T1C3B startup recovery notes](./BACKLOT_TRUST_T1C3B_STARTUP_RECOVERY_2026-11-09.md).
+> The original T1C3A limitations below describe the previous implementation.
+> Real account binding, global completeness and full Android testing are still
+> missing.
+
 9 November 2026 • isolated draft only • not compiled, QA not executed, no APK
 
 ## Implemented
