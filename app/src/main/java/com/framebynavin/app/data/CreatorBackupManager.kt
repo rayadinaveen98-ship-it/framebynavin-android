@@ -33,7 +33,10 @@ internal object CreatorRecoveryRetentionPolicy {
 }
 
 /** Versioned, offline-only backup/restore for the local Creator OS. */
-class CreatorBackupManager(private val context: Context) {
+class CreatorBackupManager(
+    private val context: Context,
+    private val readOnlySourceValidation: Boolean = false,
+) {
     data class BackupPreview(
         val schemaVersion: Int,
         val createdAtMillis: Long,
@@ -71,7 +74,9 @@ class CreatorBackupManager(private val context: Context) {
     private val taskStore = TaskStore(appContext)
     private val ideaStore = IdeaVaultStore(appContext)
     private val weeklyStore = WeeklyScheduleStore(appContext)
-    private val settingsStore = CreatorOsSettingsStore(appContext)
+    private val settingsStore = CreatorOsSettingsStore(
+        appContext, initializeGuidedTour = !readOnlySourceValidation,
+    )
     private val smartConfigStore = SmartEscalationConfigStore(appContext)
     private val postPublishStore = CreatorPostPublishStore(appContext)
     private val rewardStore = CreatorRewardStore(appContext)
