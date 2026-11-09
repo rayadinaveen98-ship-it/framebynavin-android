@@ -74,7 +74,7 @@ internal object TrustUnifiedRestoreJournal {
             createdAtMillis = body.getLong("created"),
         )
         validate(record)
-        require(json.getString("sha256") == hash(serialize(record).toString())) {
+        require(json.getString("sha256") == hash(canonical(record))) {
             "Cross-domain recovery journal changed or was partially written"
         }
         return record
@@ -168,7 +168,7 @@ internal object TrustUnifiedRestoreJournal {
         val body = serialize(value)
         val raw = JSONObject()
             .put("data", body)
-            .put("sha256", hash(body.toString()))
+            .put("sha256", hash(canonical(value)))
             .toString().toByteArray(Charsets.UTF_8)
         require(raw.size <= 8192)
         val atomic = AtomicFile(path)
@@ -210,6 +210,24 @@ internal object TrustUnifiedRestoreJournal {
             require(value.committedCreatorGeneration != null)
         } else {
             require(value.committedCreatorGeneration == null)
+        }
+    }
+
+    /**
+     * Hash an exact length-prefixed field sequence. JSON object key order and
+     * provider-specific serialization must never affect journal verification.
+     */
+    private fun canonical(value: Checkpoint): String = buildString {
+        val fields = listOf(
+            value.ownerId, value.remoteRevision.toString(),
+            value.encryptedSourceSha256, value.reviewedSourceId,
+            value.encryptedEscrowCopyId, value.stage.name,
+            value.originalCreatorGeneration.toString(),
+            value.committedCreatorGeneration?.toString() ?: "null",
+            value.createdAtMillis.toString(),
+        )
+        fields.forEach { part ->
+            append(part.length).append(':').append(part)
         }
     }
 
