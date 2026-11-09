@@ -133,6 +133,52 @@ internal object PortableBestFrameMedia {
     }
 
     /**
+     * Build exactly the same compact original-photo marker from already frozen,
+     * authenticated Trust source parts. No source is looked up on this phone,
+     * and no original frame bytes are allocated into a large JSON string.
+     */
+    internal fun prepareFromVerifiedSourceFiles(
+        staged: List<PortableBestFrame>,
+    ): PreparedPortableFrames {
+        require(staged.size <= MAX_COUNT &&
+            staged.map { it.name }.distinct().size == staged.size) {
+            "Duplicate or excessive original Best Frames in owner archive"
+        }
+        if (staged.isEmpty()) return PreparedPortableFrames("[]", emptyList())
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update("[".toByteArray(Charsets.UTF_8))
+        var total = 0L
+        staged.forEachIndexed { index, frame ->
+            require(safeName.matches(frame.name) &&
+                frame.name !in setOf(".", "..") && hash.matches(frame.sha256) &&
+                frame.file.isFile && frame.file.canRead()) {
+                "Invalid original Best Frames source reference"
+            }
+            val size = frame.file.length()
+            require(size in 1..MAX_FILE_BYTES &&
+                total <= MAX_TOTAL_BYTES - size && sha256(frame.file) == frame.sha256) {
+                "Best Frames data changed after Trust decryption"
+            }
+            total += size
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(frame.file.absolutePath, bounds)
+            require(bounds.outWidth in 1..20000 && bounds.outHeight in 1..20000) {
+                "Invalid restored original image"
+            }
+            if (index > 0) digest.update(",".toByteArray(Charsets.UTF_8))
+            digestCanonicalFrameRecord(digest, frame)
+        }
+        digest.update("]".toByteArray(Charsets.UTF_8))
+        val marker = JSONObject()
+            .put("format", FORMAT)
+            .put("version", FORMAT_VERSION)
+            .put("count", staged.size)
+            .put("originalSha256",
+                digest.digest().joinToString("") { "%02x".format(it) })
+        return PreparedPortableFrames(marker.toString(), staged)
+    }
+
+    /**
      * Hash a frame's canonical JSON record with constant-memory Base64 encoding.
      * This is used by both export preparation and ZIP preview verification.
      * In particular, verification must NEVER load a 20 MiB original frame
