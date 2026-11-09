@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.cloud.CreatorCloudSyncWorker
+import com.framebynavin.app.cloud.TrustT1C3StartupRecovery
 import com.framebynavin.app.data.CreatorBackupManager
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.reminders.CreatorAutoPlanWorker
@@ -87,6 +88,17 @@ class MainActivity : ComponentActivity() {
         startupError = null
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
+                // T1C3B: remove only abandoned temporary owner-backup bytes
+                // before opening normal Backlot screens. This is independent
+                // of Creator/Personal recovery and must NEVER clear existing
+                // reminders, schedules, challenges or verified encrypted copies.
+                // Failures need diagnostics but cannot stop alarm reconciliation.
+                runCatching {
+                    TrustT1C3StartupRecovery.recoverOnMainActivityStartup(applicationContext)
+                }.onFailure {
+                    android.util.Log.w("BacklotTrust",
+                        "Temporary private backup recovery needs review; owner records untouched")
+                }
                 CreatorBackupManager(applicationContext).recoverPendingRestore()
                 VoiceIdeaRecorder.cleanupAbandonedWorkingFiles(applicationContext)
                 ReminderNotifications.ensureChannel(applicationContext)
