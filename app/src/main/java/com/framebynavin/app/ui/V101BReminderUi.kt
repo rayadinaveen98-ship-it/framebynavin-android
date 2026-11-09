@@ -528,8 +528,99 @@ internal fun PProjectComposer(
                 )
             },
         )
+        if (askToResumeNewDraft && recoverableNewDraft != null) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Resume unfinished project?") },
+                text = {
+                    Text(
+                        "A local project draft was saved on this phone. Resume it or start fresh. " +
+                            "This is not a created project or a cloud backup.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val d = recoverableNewDraft
+                        title = d.title
+                        creatorModeId = d.creatorModeId
+                        archetypeId = d.archetypeId
+                        savedStyleList = ArrayList(d.productionStyles)
+                        platform = d.platform
+                        contentType = d.contentType
+                        dueAt = d.dueAt
+                        attentionPlan = d.attentionPlan
+                        deliveryPreference = d.deliveryPreference
+                        customReminderAt = d.customReminderAt
+                        priority = d.priority
+                        notes = d.notes
+                        soundUri = d.soundUri
+                        voiceMusicMode = d.voiceMusicMode
+                        voiceMusicUri = d.voiceMusicUri
+                        voice = d.voice
+                        repeatCount = d.repeatCount
+                        repeatGap = d.repeatGap
+                        alarmTimeout = d.alarmTimeout
+                        snoozeMinutes = d.snoozeMinutes
+                        autoRetryEnabled = d.autoRetryEnabled
+                        autoRetryMinutes = d.autoRetryMinutes
+                        autoRetryMaxAttempts = d.autoRetryMaxAttempts
+                        resolvedNewDraft = true
+                        askToResumeNewDraft = false
+                    }) { Text("RESUME DRAFT") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        runCatching { newDraftStore.clear(draftGeneration) }
+                            .onSuccess {
+                                resolvedNewDraft = true
+                                askToResumeNewDraft = false
+                            }
+                            .onFailure {
+                                newDraftWriteError = true
+                            }
+                    }) { Text("START FRESH") }
+                },
+            )
+        }
         if (confirmDiscard) {
-            V172ConfirmDiscardDialog(onKeep = { confirmDiscard = false }, onDiscard = onDismiss)
+            AlertDialog(
+                onDismissRequest = { confirmDiscard = false },
+                title = { Text("Leave unfinished project?") },
+                text = {
+                    Text("Save a recoverable draft on this phone, keep editing, or explicitly discard it.")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
+                            .onSuccess {
+                                suppressNewDraftWrite = true
+                                onDismiss()
+                            }
+                            .onFailure { newDraftWriteError = true }
+                    }) { Text("SAVE DRAFT & EXIT") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDiscard = false }) { Text("KEEP EDITING") }
+                    TextButton(onClick = {
+                        runCatching { newDraftStore.clear(draftGeneration) }
+                            .onSuccess {
+                                suppressNewDraftWrite = true
+                                onDismiss()
+                            }
+                            .onFailure { newDraftWriteError = true }
+                    }) { Text("DISCARD") }
+                },
+            )
+        }
+        if (newDraftWriteError) {
+            AlertDialog(
+                onDismissRequest = { newDraftWriteError = false },
+                title = { Text("Local draft needs attention") },
+                text = { Text("Backlot could not save or clear this project draft. Your current form remains open. Try again.") },
+                confirmButton = {
+                    TextButton(onClick = { newDraftWriteError = false }) { Text("CONTINUE") }
+                },
+            )
         }
         return
     }
