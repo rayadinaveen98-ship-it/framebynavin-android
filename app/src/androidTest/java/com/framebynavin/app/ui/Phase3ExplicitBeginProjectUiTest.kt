@@ -1,6 +1,10 @@
 package com.framebynavin.app.ui
 
 import android.graphics.Bitmap
+import android.content.ContextWrapper
+import android.content.Intent
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +16,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.CreatorTask
+import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.data.TaskStatus
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
@@ -73,6 +78,80 @@ class Phase3ExplicitBeginProjectUiTest {
         }
         rule.onNodeWithTag("phase3-project-begin").assertDoesNotExist()
         rule.runOnIdle { assertEquals(0, startCount) }
+    }
+
+    @Test fun workOnAtScriptStageOpensActualScriptWorkspaceWithoutStartingTimer() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val original = project(TaskStatus.WORKING)
+        val scriptIndex = CreatorWorkflowEngine.templateFor(original).stages.indexOfFirst { it.id == "script" }
+        assertTrue(scriptIndex >= 0)
+        val workingScript = original.copy(workflowStageIndex = scriptIndex)
+        var focusCount = 0
+        var openedIntent: Intent? = null
+        val testContext = object : ContextWrapper(InstrumentationRegistry.getInstrumentation().targetContext) {
+            override fun startActivity(intent: Intent) {
+                openedIntent = intent
+            }
+        }
+        rule.setContent {
+            CompositionLocalProvider(LocalContext provides testContext) {
+                FrameByNavinTheme {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        V071WorkflowInlineContent(
+                            task = workingScript,
+                            onAdvance = {}, onBack = {}, onFocus = { focusCount++ },
+                        )
+                    }
+                }
+            }
+        }
+        rule.onNodeWithTag("phase3-project-work-on").performScrollTo().performClick()
+        rule.runOnIdle {
+            assertEquals(0, focusCount)
+            assertEquals(workingScript.id,
+                openedIntent?.getStringExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID))
+            assertEquals("script",
+                openedIntent?.getStringExtra(ContentWorkspaceActivity.EXTRA_HOME_CONTINUE_STAGE_ID))
+        }
+        openedIntent = null
+        rule.onNodeWithTag("phase3-project-focus").performScrollTo().performClick()
+        rule.runOnIdle {
+            assertEquals(1, focusCount)
+            assertEquals(null, openedIntent)
+        }
+    }
+
+    @Test fun plannedWorkOnOpensHubWithoutImplicitlyStartingProjectOrTimer() {
+        HardeningTestEnvironment.requireCiEmulator()
+        val planned = project(TaskStatus.PLANNED)
+        var startCount = 0
+        var focusCount = 0
+        var openedIntent: Intent? = null
+        val testContext = object : ContextWrapper(InstrumentationRegistry.getInstrumentation().targetContext) {
+            override fun startActivity(intent: Intent) { openedIntent = intent }
+        }
+        rule.setContent {
+            CompositionLocalProvider(LocalContext provides testContext) {
+                FrameByNavinTheme {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        V071WorkflowInlineContent(
+                            task = planned,
+                            onAdvance = {}, onBack = {},
+                            onStart = { startCount++ }, onFocus = { focusCount++ },
+                        )
+                    }
+                }
+            }
+        }
+        rule.onNodeWithTag("phase3-project-work-on").performScrollTo().performClick()
+        rule.runOnIdle {
+            assertEquals(planned.id,
+                openedIntent?.getStringExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID))
+            assertEquals(null,
+                openedIntent?.getStringExtra(ContentWorkspaceActivity.EXTRA_HOME_CONTINUE_STAGE_ID))
+            assertEquals(0, focusCount)
+            assertEquals(0, startCount)
+        }
     }
 
     private fun capture(scene: String) {
