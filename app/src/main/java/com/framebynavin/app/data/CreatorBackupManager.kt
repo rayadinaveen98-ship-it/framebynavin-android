@@ -224,8 +224,11 @@ class CreatorBackupManager(private val context: Context) {
         }
         val personalFramesRaw = optionalSection(root, "personalFrames")
         val cloudMediaOmitted = personalFramesRaw == CLOUD_FRAMES_OMITTED
-        require(!cloudMediaOmitted || (allowCloudFrameOmission && schema == SCHEMA_VERSION)) {
-            "Original Best Frames were omitted from this cloud-only snapshot"
+        // Schema v9 introduced the explicit omitted-original-frames cloud marker.
+        // A v10 app must still read legitimate v9 cloud backups (subject to the
+        // separate Focus-data omission guard before any destructive restore).
+        require(!cloudMediaOmitted || (allowCloudFrameOmission && schema in 9..SCHEMA_VERSION)) {
+            "Original Best Frames were omitted from an unsupported cloud-only snapshot"
         }
         val personalFrameCount = if (cloudMediaOmitted) 0 else
             verifiedFrameCount ?: (personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0)
