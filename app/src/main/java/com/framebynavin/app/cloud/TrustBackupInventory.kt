@@ -92,6 +92,7 @@ internal object TrustBackupInventoryPolicy {
     ): TrustDomainEvidence {
         require(domain in setOf(
             TrustBackupDomain.CREATOR_HERO_ORIGINAL_BYTES,
+            TrustBackupDomain.HOME_SLIDESHOW_MEDIA,
             TrustBackupDomain.PERSONAL_PHOTO_BYTES,
         )) { "Unapproved media domain" }
         require(byteCount in 0..Int.MAX_VALUE.toLong()) { "Media proof exceeds size limit" }
