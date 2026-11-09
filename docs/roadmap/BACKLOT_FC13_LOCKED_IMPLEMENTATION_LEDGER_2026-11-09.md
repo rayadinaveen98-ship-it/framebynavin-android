@@ -26,8 +26,8 @@ items may be added to this phase. Use one development branch and one draft PR.
 | 5 | Premium New Idea entry | Existing typed/voice capture and Idea Vault | **Source integrated**: cinematic one-focus capture surface, five universal writing prompts, existing voice/dictation and save authority; visual/device acceptance pending |
 | 6 | Replace Dictate orb with reactive dot field | FramePulseOrb still present | **Source integrated**: old renderer replaced with real-recognizer-RMS dot field; final animation and accessibility QA pending |
 | 7 | Content Workspace five zones | Existing Plan/Script/Publish, Phase4 enhancements | **Source integrated**: Overview, Plan, Content, Production, Activity panels and canonical editor routes, no new project store; final UI QA pending |
-| 8 | Spark notification icon/expression set | Prior Spark visual policy | Pending |
-| 9 | Personal urgent/full-screen alert reliability | Existing permission/fallback logic | Pending |
+| 8 | Spark notification icon/expression set | Prior Spark visual policy | **Partial source integrated**: original Spark WebP for private medium-size notification art and CinePulseGuide poses on full Personal alert screens; existing monochrome Backlot status-bar icon retained. Spark-specific small silhouette and owner visual/device QA remain pending |
+| 9 | Personal urgent/full-screen alert reliability | Existing permission/fallback logic | **Partial source integrated**: alarm-only FSI flag now excludes follow-ups/denial; special access rechecked when opening alert activity; Today/Settings explain tappable fallback and offer Android access settings. Existing notification and private Done/Snooze remain; Samsung permission/reboot and signed-upgrade QA pending |
 | 10 | Premium audio-reactive dot/wave/bloom treatment | Some isolated effects | **Partial**: real-audio reactive dot/wave in Dictate; reminder alerts/Spark and consistency not yet integrated |
 | 11 | Reminder Groups pause/resume and genuine daily progress | Group links without actions | **Source integrated**: `FC13ReminderGroupOperations.kt` and existing `V298ReminderGroupsScreen.kt`, pending source review and final QA |
 | 12 | Universal Backup / Restore / Delete Cloud Backup | Parked Trust draft PRs #343–#353, unmerged | Pending, never enable before safe service and data coverage |
@@ -55,3 +55,11 @@ items may be added to this phase. Use one development branch and one draft PR.
 **Status distinction:** "source integrated" != "compiled" != "Android tested"
 != "owner accepted" != "released". Update this table only when there is an
 actual corresponding committed source change.
+
+### FC13 Spark + Personal full-screen permission boundary (source review only)
+- Small system icon remains the approved monochrome Backlot vector, not an unapproved colored Spark raster. Private medium notification art uses approved original Spark WebPs scaled to a maximum 192px, and can be safely omitted if decoding fails.
+- Personal public lock-screen notification stays generic and has no large Spark illustration, private title or notes.
+- PersonalFullScreenPolicy.eligible remains the FSI gate. Its result controls both the notification fullScreenIntent and alarm-visual opening extra. The Activity also rechecks Android special access when opening.
+- Denied FSI, follow-up, Voice and ordinary notification cases retain existing content opening and original token-scoped Done/Snooze/Dismiss actions.
+- Existing synthetic Android tests were extended for private/public icon separation and locked/unlocked Spark UI. They were not executed, and this source is not APK-ready.
+- Android may show a heads-up notification rather than full-screen. Owner permission, Play eligibility and Samsung behavior require final release acceptance.
