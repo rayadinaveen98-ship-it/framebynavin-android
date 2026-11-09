@@ -10,10 +10,6 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 
 /**
  * T1C3: INTERNAL, explicitly invoked encryption/readback proof for the
@@ -48,11 +44,6 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
     private val root = File(app.noBackupFilesDir, "trust-t1c3-local-review-v1")
     private val pending = File(root, "pending")
     private val verified = File(root, "verified")
-    // All coordinator instances in the process serialize cleanup, promotion
-    // and verification. An instance-local mutex cannot protect a new object
-    // constructed after navigation/recreation.
-    private companion object { val guard = Mutex() }
-
     private val uuidPattern =
         Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
@@ -65,10 +56,9 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
     suspend fun createPartialReview(
         assertedOwnerId: String,
         passphrase: CharArray,
-    ): TrustLocalPartialPreviewReceipt = guard.withLock {
-        withContext(Dispatchers.IO) {
+    ): TrustLocalPartialPreviewReceipt = TrustT1C3OperationGate.withExclusive(app) {
             preparePrivateDirectories()
-            cleanupAbandonedWhileExclusive()
+            TrustT1C3StartupRecovery.sweepWithinExclusive(app)
             // Reject excessive retained encrypted previews rather than
             // deleting an owner's previously verified copy without consent.
             check(verified.listFiles().orEmpty().count {
@@ -80,8 +70,10 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
             val verifiedFile = File(verified, "verified-$id.enc")
             val atomic = AtomicFile(pendingFile)
             var promoted = false
+            TrustT1C3RecoveryJournal.mark(root, id, "CAPTURING")
             try {
                 TrustT1C2OwnerSourceCapture(app).freezePartialReadOnly().use { frozen ->
+                    TrustT1C3RecoveryJournal.mark(root, id, "ENCRYPTING")
                     var output: FileOutputStream? = null
                     try {
                         val fd = atomic.startWrite()
@@ -101,6 +93,7 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                         throw failure
                     }
 
+                    TrustT1C3RecoveryJournal.mark(root, id, "VERIFYING")
                     val checked = verifyEncrypted(
                         pendingFile, assertedOwnerId, passphrase, frozen.parts,
                     )
@@ -118,6 +111,8 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                     )
                     promoted = true
                     require(verifiedFile.isFile) { "Encrypted review promotion failed" }
+                    TrustT1C3RecoveryJournal.mark(root, id, "PROMOTED")
+                    TrustT1C3RecoveryJournal.clear(root)
                     TrustLocalPartialPreviewReceipt(
                         previewId = id,
                         encryptedBytes = confirmedBytes,
@@ -135,7 +130,6 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                 }
                 throw failure
             }
-        }
     }
 
     /**
@@ -146,8 +140,7 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
         previewId: String,
         assertedOwnerId: String,
         passphrase: CharArray,
-    ): TrustLocalPartialPreviewReceipt = guard.withLock {
-        withContext(Dispatchers.IO) {
+    ): TrustLocalPartialPreviewReceipt = TrustT1C3OperationGate.withExclusive(app) {
             require(uuidPattern.matches(previewId)) { "Invalid private review identifier" }
             preparePrivateDirectories()
             val file = File(verified, "verified-$previewId.enc")
@@ -166,7 +159,6 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                 previewId, file.length(), sha256(file), parts,
                 verifiedAtMillis = System.currentTimeMillis(),
             )
-        }
     }
 
     private fun verifyEncrypted(
@@ -205,48 +197,6 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
         for (path in listOf(root, pending, verified)) {
             require(!Files.isSymbolicLink(path.toPath())) {
                 "Private preview directory cannot be a symlink"
-            }
-        }
-    }
-
-    /**
-     * Must run ONLY with this coordinator's mutex and with no other T1C
-     * producer. Does not touch ordinary cache or any unknown user filename.
-     * Intended to be called again on next explicit owner preview after crash.
-     * NOT an automatic startup recovery guarantee.
-     */
-    private fun cleanupAbandonedWhileExclusive() {
-        val safePending = Regex("pending-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.enc(\\.new|\\.bak)?")
-        for (file in pending.listFiles().orEmpty()) {
-            require(file.name.matches(safePending)) {
-                "Unexpected item in private pending preview directory"
-            }
-            require(!Files.isSymbolicLink(file.toPath()) && file.isFile) {
-                "Unexpected private pending preview file type"
-            }
-            check(file.delete()) { "Unable to remove abandoned encrypted preview" }
-        }
-        // T1C2 plaintext copies and T1C1 temporary DECRYPTED readback may
-        // survive a process crash. Sweep only these exact app-owned prefixes
-        // at the next explicit operation (NOT an app-startup recovery claim).
-        val known = listOf(
-            Regex("trust-t1c2-owner-bytes-[A-Za-z0-9_-]{1,40}"),
-            Regex("backlot-trust-check-[A-Za-z0-9_-]{1,40}"),
-        )
-        for (file in app.cacheDir.listFiles().orEmpty()) {
-            if (!known.any { it.matches(file.name) }) continue
-            if (TrustTemporaryStageRegistry.isActive(file)) continue
-            require(file.isDirectory && !Files.isSymbolicLink(file.toPath())) {
-                "Unrecognized owner staging directory requires manual review"
-            }
-            // Never follow a symlink while cleaning up sensitive owner data.
-            file.walkTopDown().forEach { child ->
-                require(!Files.isSymbolicLink(child.toPath())) {
-                    "Private plaintext staging contains a symlink; review required"
-                }
-            }
-            require(file.deleteRecursively() || !file.exists()) {
-                "Abandoned plaintext owner snapshot could not be removed"
             }
         }
     }
