@@ -3,7 +3,6 @@ package com.framebynavin.app.cloud
 import android.content.Context
 import android.util.AtomicFile
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.FilterOutputStream
 import java.io.OutputStream
@@ -105,6 +104,8 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                         "Encrypted owner preview did not contain any source parts"
                     }
                     check(!verifiedFile.exists()) { "Encrypted preview ID collision" }
+                    val confirmedHash = sha256(pendingFile)
+                    val confirmedBytes = pendingFile.length()
                     // Same app-private filesystem; atomic rename never replaces
                     // an older verified backup or a legacy cloud head.
                     Files.move(
@@ -115,8 +116,8 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
                     require(verifiedFile.isFile) { "Encrypted review promotion failed" }
                     TrustLocalPartialPreviewReceipt(
                         previewId = id,
-                        encryptedBytes = verifiedFile.length(),
-                        encryptedSha256 = sha256(verifiedFile),
+                        encryptedBytes = confirmedBytes,
+                        encryptedSha256 = confirmedHash,
                         verifiedParts = checked,
                         verifiedAtMillis = System.currentTimeMillis(),
                     )
@@ -221,15 +222,24 @@ internal class TrustT1C3LocalEncryptedPreview(context: Context) {
             }
             check(file.delete()) { "Unable to remove abandoned encrypted preview" }
         }
-        // The T1C2 source reader writes only to this cache prefix.
+        // T1C2 plaintext copies and T1C1 temporary DECRYPTED readback may
+        // survive a process crash. Sweep only these exact app-owned prefixes
+        // at the next explicit operation (NOT an app-startup recovery claim).
+        val known = listOf(
+            Regex("trust-t1c2-owner-bytes-[A-Za-z0-9_-]{1,40}"),
+            Regex("backlot-trust-check-[A-Za-z0-9_-]{1,40}"),
+        )
         for (file in app.cacheDir.listFiles().orEmpty()) {
-            if (!file.name.startsWith("trust-t1c2-owner-bytes-")) continue
-            require(
-                Regex("trust-t1c2-owner-bytes-[A-Za-z0-9_-]{1,40}")
-                    .matches(file.name) &&
-                    file.isDirectory &&
-                    !Files.isSymbolicLink(file.toPath()),
-            ) { "Unrecognized owner staging directory requires manual review" }
+            if (!known.any { it.matches(file.name) }) continue
+            require(file.isDirectory && !Files.isSymbolicLink(file.toPath())) {
+                "Unrecognized owner staging directory requires manual review"
+            }
+            // Never follow a symlink while cleaning up sensitive owner data.
+            file.walkTopDown().forEach { child ->
+                require(!Files.isSymbolicLink(child.toPath())) {
+                    "Private plaintext staging contains a symlink; review required"
+                }
+            }
             require(file.deleteRecursively() || !file.exists()) {
                 "Abandoned plaintext owner snapshot could not be removed"
             }
