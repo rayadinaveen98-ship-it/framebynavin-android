@@ -153,6 +153,70 @@ internal class TrustOwnerCloudReview(
         }
     }
 
+    /**
+     * Read-only, account-rechecked Personal conflict preview from a previously
+     * verified encrypted owner revision. No import/restore code is called.
+     * This is the same nine-domain dry-run used by the existing Personal v2
+     * journaled owner restore, not a new merge algorithm.
+     */
+    suspend fun previewPersonalRestore(
+        selected: SourceCoverageReview,
+        passphrase: CharArray,
+    ): com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport {
+        require(uuid.matches(selected.encryptedLocalReviewId)) {
+            "Invalid owner encrypted review identifier"
+        }
+        require(passphrase.size in 12..512)
+        return accounts.withFreshSession { session ->
+            check(session.userId == selected.ownerId &&
+                transport.phase(session) == "active") {
+                "Owner or cloud backup state changed since the preview"
+            }
+            val head = checkNotNull(transport.head(session)) {
+                "The selected cloud backup no longer exists"
+            }
+            check(head.revision == selected.remoteRevision &&
+                head.encryptedBytes == selected.encryptedBytes) {
+                "Another device updated the backup; review the new revision first"
+            }
+            val file = File(
+                ensurePrivateRoot(),
+                "review-" + selected.encryptedLocalReviewId + ".enc",
+            )
+            require(file.isFile &&
+                !Files.isSymbolicLink(file.toPath())) {
+                "The private encrypted owner copy was not found"
+            }
+            val descriptor = TrustCloudCiphertextDescriptor(
+                session.userId, head.objectPath, head.encryptedSha256,
+                head.encryptedBytes,
+            )
+            withContext(Dispatchers.IO) {
+                TrustCloudVerifiedReadback.verify(
+                    file.inputStream().buffered(), descriptor,
+                )
+                file.inputStream().buffered().use { encrypted ->
+                    TrustEncryptedStagingCodec.stageAndVerify(
+                        session.userId, passphrase, encrypted, app.cacheDir,
+                    ).use { verified ->
+                        val review = TrustRestorableSourceReview.inspect(app, verified)
+                        check(review.missingRequiredSources.isEmpty()) {
+                            "This encrypted owner archive lacks required Personal source parts"
+                        }
+                        TrustPersonalRestoreBridge(app).previewAdditions(verified)
+                    }
+                }
+            }.also {
+                // Owner and exact remote revision must still be current after
+                // the local database comparison, never only before it.
+                check(transport.phase(session) == "active")
+                TrustT1C4CloudRevisionPolicy.requireUnchanged(
+                    head, transport.head(session), session.userId,
+                )
+            }
+        }
+    }
+
     private fun ensurePrivateRoot(): File {
         check(root.isDirectory || root.mkdirs()) {
             "Unable to prepare private owner ciphertext review directory"
