@@ -108,6 +108,27 @@ class TaskStore(private val context: Context) {
         return encode(portable)
     }
 
+    /**
+     * Trusted owner capture: preserves old Script Studio sidecars without
+     * calling load(), whose workflow timeline seeding can write preferences.
+     * The ordinary exportJson remains unchanged for existing backup flows.
+     */
+    internal suspend fun exportJsonForTrustReadOnly(): String {
+        val legacyStore = ScriptStudioStore(context)
+        val portable = tasksFlow.first().map { task ->
+            if (task.archivedAtMillis < 0L) {
+                return@map task.copy(workspace = CreatorContentWorkspace())
+            }
+            if (task.workspace.scriptStudio != null) return@map task
+            val legacy = legacyStore.loadForTrustReadOnly(
+                task.id, task.workspace.hook, task.workspace.script,
+            ).normalized(projectId = task.id)
+            if (legacy.isEmpty()) task
+            else task.copy(workspace = task.workspace.copy(scriptStudio = legacy))
+        }
+        return encode(portable)
+    }
+
     suspend fun importJson(raw: String): List<CreatorTask> {
         val decoded = decode(raw)
         CreatorDataGate.transaction {
