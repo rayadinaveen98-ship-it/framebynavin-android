@@ -20,15 +20,15 @@ items may be added to this phase. Use one development branch and one draft PR.
 | No. | Required feature (no additions) | Initial verified baseline | Implementation status on FC13 branch |
 |----:|---|---|---|
 | 1 | Unified Personal + Creator Reminder UI | Shared headings/components, inconsistent screens | Pending |
-| 2 | 21-day single activity challenge, alerts, states, notes and links | One-activity store, Done receipts and scheduler | Pending |
+| 2 | 21-day single activity challenge, alerts, states, notes and links | One-activity store, Done receipts and scheduler | **Source integrated for Strict/Flexible past-day receipts, per-day notes and optional existing Space/Group links**; full snooze and photo-journal presentation require remaining integration |
 | 3 | Simple progressive Personal Reminder creation | Show Suggestions/advanced disclosure in source | Pending |
 | 4 | Integrated Notification Center + Spark assistance | Separate reminder inbox/history/Spark digest | Pending |
-| 5 | Premium New Idea entry | Existing typed/voice capture and Idea Vault | Pending |
-| 6 | Replace Dictate orb with reactive dot field | FramePulseOrb still present | Pending |
-| 7 | Content Workspace five zones | Existing Plan/Script/Publish, Phase4 enhancements | Pending |
+| 5 | Premium New Idea entry | Existing typed/voice capture and Idea Vault | **Source integrated**: cinematic one-focus capture surface, five universal writing prompts, existing voice/dictation and save authority; visual/device acceptance pending |
+| 6 | Replace Dictate orb with reactive dot field | FramePulseOrb still present | **Source integrated**: old renderer replaced with real-recognizer-RMS dot field; final animation and accessibility QA pending |
+| 7 | Content Workspace five zones | Existing Plan/Script/Publish, Phase4 enhancements | **Source integrated**: Overview, Plan, Content, Production, Activity panels and canonical editor routes, no new project store; final UI QA pending |
 | 8 | Spark notification icon/expression set | Prior Spark visual policy | Pending |
 | 9 | Personal urgent/full-screen alert reliability | Existing permission/fallback logic | Pending |
-| 10 | Premium audio-reactive dot/wave/bloom treatment | Some isolated effects | Pending |
+| 10 | Premium audio-reactive dot/wave/bloom treatment | Some isolated effects | **Partial**: real-audio reactive dot/wave in Dictate; reminder alerts/Spark and consistency not yet integrated |
 | 11 | Reminder Groups pause/resume and genuine daily progress | Group links without actions | **Source integrated**: `FC13ReminderGroupOperations.kt` and existing `V298ReminderGroupsScreen.kt`, pending source review and final QA |
 | 12 | Universal Backup / Restore / Delete Cloud Backup | Parked Trust draft PRs #343–#353, unmerged | Pending, never enable before safe service and data coverage |
 | 13 | Complete Backlot account deletion | Sign-out only | Pending, never enable before authenticated cross-domain deletion proof |
