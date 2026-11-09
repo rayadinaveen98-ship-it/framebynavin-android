@@ -28,7 +28,10 @@ object CreatorDailyBriefEngine {
         val focus = active.firstOrNull()
         val recommendation = focus?.let { CreatorPriorityEngine.recommendation(it, nowMillis) }
         val nudges = CreatorContextNudgeEngine.nudges(tasks, nowMillis)
-        val calendar = CreatorContentCalendarEngine.upcoming(tasks, weeklySlots, nowMillis, daysAhead = 7)
+        val calendar = CreatorContentCalendarEngine.upcoming(
+            tasks, weeklySlots, nowMillis, daysAhead = 7,
+            includeRecordedPublications = false,
+        )
 
         return CreatorDailyBrief(
             focusTask = focus,
