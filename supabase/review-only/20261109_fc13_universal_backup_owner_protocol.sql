@@ -84,8 +84,9 @@ create policy trust_ciphertext_owner_delete_v1 on storage.objects
 create or replace function public.trust_begin_upload_v1()
 returns jsonb language plpgsql security definer set search_path = ''
 as $f$
-declare owner_id uuid := (select auth.uid());
-declare phase_now text;
+declare
+  owner_id uuid := (select auth.uid());
+  phase_now text;
 begin
   if owner_id is null then
     raise exception 'Authenticated owner required' using errcode='28000';
@@ -106,8 +107,9 @@ create or replace function public.trust_claim_backup_head_v1(
   p_new_path text, p_new_sha text, p_new_bytes bigint
 ) returns jsonb language plpgsql security definer set search_path = ''
 as $f$
-declare owner_id uuid := (select auth.uid());
-declare phase_now text;
+declare
+  owner_id uuid := (select auth.uid());
+  phase_now text;
 declare prior public.trust_backup_heads_v1%rowtype;
 declare next_revision bigint;
 begin
@@ -163,9 +165,10 @@ create or replace function public.trust_begin_delete_backup_v1(
   p_confirmation text
 ) returns jsonb language plpgsql security definer set search_path = ''
 as $f$
-declare owner_id uuid := (select auth.uid());
-declare current_head public.trust_backup_heads_v1%rowtype;
-declare current_phase text;
+declare
+  owner_id uuid := (select auth.uid());
+  current_head public.trust_backup_heads_v1%rowtype;
+  current_phase text;
 begin
   if owner_id is null then
     raise exception 'Authenticated owner required' using errcode='28000';
@@ -201,8 +204,9 @@ end $f$;
 create or replace function public.trust_finish_delete_backup_v1()
 returns jsonb language plpgsql security definer set search_path = ''
 as $f$
-declare owner_id uuid := (select auth.uid());
-declare phase_now text;
+declare
+  owner_id uuid := (select auth.uid());
+  phase_now text;
 begin
   if owner_id is null then
     raise exception 'Authenticated owner required' using errcode='28000';
@@ -216,7 +220,7 @@ begin
   if exists (
     select 1 from storage.objects
     where bucket_id='backlot-trust-universal-v1'
-      and name like owner_id::text || '/%'
+      and name like (owner_id::text || '/%')
   ) then
     return jsonb_build_object('status','objects_remaining');
   end if;
