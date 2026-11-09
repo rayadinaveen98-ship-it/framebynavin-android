@@ -47,7 +47,7 @@ internal fun V117VoiceIdeaInput(
     val context = LocalContext.current
     val latestOnTranscript by rememberUpdatedState(onTranscript)
 
-    var orbOpen by remember { mutableStateOf(false) }
+    var dotFieldOpen by remember { mutableStateOf(false) }
     var language by remember { mutableStateOf(IdeaVoiceLanguage.AUTO) }
     var listening by remember { mutableStateOf(false) }
     var partial by remember { mutableStateOf("") }
@@ -63,12 +63,12 @@ internal fun V117VoiceIdeaInput(
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         microphoneGranted = granted
-        if (granted && pendingPermissionStart && orbOpen) {
+        if (granted && pendingPermissionStart && dotFieldOpen) {
             error = null
             partial = ""
             transcriber?.start(language)
         } else if (!granted) {
-            error = "Microphone access is needed only when you tap the orb to listen."
+            error = "Microphone access is needed only when you tap the dots to listen."
         }
         pendingPermissionStart = false
     }
@@ -103,7 +103,7 @@ internal fun V117VoiceIdeaInput(
         }
     }
 
-    fun startVoiceFromOrb() {
+    fun startVoiceFromField() {
         error = null
         partial = ""
         detectedLanguage = null
@@ -115,10 +115,10 @@ internal fun V117VoiceIdeaInput(
         }
     }
 
-    fun closeOrb() {
+    fun closeDotField() {
         if (listening) transcriber?.stop()
         pendingPermissionStart = false
-        orbOpen = false
+        dotFieldOpen = false
         partial = ""
         rmsDb = 0f
     }
@@ -130,22 +130,22 @@ internal fun V117VoiceIdeaInput(
         border = BorderStroke(1.dp, if (listening) RecRed.copy(alpha = .52f) else CinemaLine),
     ) {
         AnimatedContent(
-            targetState = orbOpen,
+            targetState = dotFieldOpen,
             transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(170)) },
-            label = "voiceOrbOpenState",
+            label = "voiceDotFieldOpenState",
         ) { opened ->
             if (!opened) {
                 Column(Modifier.fillMaxWidth().padding(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         FilledIconButton(
-                            onClick = { orbOpen = true; error = null },
+                            onClick = { dotFieldOpen = true; error = null },
                             colors = IconButtonDefaults.filledIconButtonColors(containerColor = RecRed.copy(alpha = .16f), contentColor = RecRed),
                             modifier = Modifier.size(46.dp),
                         ) { Icon(Icons.Outlined.Mic, "Open voice capture", modifier = Modifier.size(23.dp)) }
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Voice capture", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text("Tap to start speaking.", color = MutedText, fontSize = 8.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Open the dot field to dictate.", color = MutedText, fontSize = 8.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     Spacer(Modifier.height(5.dp))
@@ -159,12 +159,12 @@ internal fun V117VoiceIdeaInput(
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("VOICE INPUT", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-                            Text(if (listening) listeningSubtitle(language, detectedLanguage) else "Idle · tap the orb to listen", color = MutedText, fontSize = 8.5.sp)
+                            Text(if (listening) listeningSubtitle(language, detectedLanguage) else "Ready · tap the dots to listen", color = MutedText, fontSize = 8.5.sp)
                         }
                         Text(if (listening) formatVoiceTime(elapsedSeconds) else "READY", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(4.dp))
-                        IconButton(onClick = ::closeOrb, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Outlined.Close, "Close Frame Pulse", tint = MutedText, modifier = Modifier.size(17.dp))
+                        IconButton(onClick = ::closeDotField, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Outlined.Close, "Close voice input", tint = MutedText, modifier = Modifier.size(17.dp))
                         }
                     }
 
@@ -181,10 +181,10 @@ internal fun V117VoiceIdeaInput(
                     }
 
                     Spacer(Modifier.height(4.dp))
-                    FramePulseOrb(
+                    FC13ReactiveDotField(
                         active = listening,
                         rmsDb = rmsDb,
-                        onTap = { if (listening) transcriber?.stop() else startVoiceFromOrb() },
+                        onTap = { if (listening) transcriber?.stop() else startVoiceFromField() },
                         modifier = Modifier.size(166.dp),
                     )
                     Text(if (listening) "Listening" else "Tap to listen", color = ProjectorIvory, fontSize = 12.8.sp, fontWeight = FontWeight.Black)
@@ -208,71 +208,103 @@ internal fun V117VoiceIdeaInput(
     }
 }
 
+/**
+ * FC13: real microphone RMS drives a field of individual dots, not a rotating
+ * orb. No recorder, external analyzer, or audio persistence is added.
+ * Idle is calm; speaking pushes the dots outward and creates a subtle wave.
+ */
 @Composable
-private fun FramePulseOrb(active: Boolean, rmsDb: Float, onTap: () -> Unit, modifier: Modifier = Modifier) {
-    val raw = if (active) ((rmsDb + 2f) / 12f).coerceIn(0f, 1f) else 0f
-    val amplitude by animateFloatAsState(raw, spring(dampingRatio = .74f, stiffness = 135f), label = "voiceAmplitudeV3")
-    val infinite = rememberInfiniteTransition(label = "voiceOrbV3")
-    val spin by infinite.animateFloat(0f, 360f, infiniteRepeatable(tween(if (active) 5200 else 9800, easing = LinearEasing)), label = "orbSpinV3")
-    val counterSpin by infinite.animateFloat(360f, 0f, infiniteRepeatable(tween(if (active) 7600 else 12600, easing = LinearEasing)), label = "orbCounterSpinV3")
-    val breathe by infinite.animateFloat(if (active) .96f else .985f, if (active) 1.055f else 1.018f, infiniteRepeatable(tween(if (active) 1250 else 2100, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "orbBreatheV3")
-
-    Canvas(modifier.clickable(onClick = onTap)) {
+private fun FC13ReactiveDotField(
+    active: Boolean,
+    rmsDb: Float,
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val target = if (active) ((rmsDb + 2f) / 12f).coerceIn(0f, 1f) else 0f
+    val amplitude by animateFloatAsState(
+        target,
+        spring(dampingRatio = .8f, stiffness = 170f),
+        label = "fc13RealMicIntensity",
+    )
+    val transition = rememberInfiniteTransition(label = "fc13DotMotion")
+    val motion by transition.animateFloat(
+        0f, 6.2831853f,
+        infiniteRepeatable(
+            tween(if (active) 2400 else 7600, easing = LinearEasing),
+        ),
+        label = "fc13WavePhase",
+    )
+    Canvas(
+        modifier.clickable(
+            role = androidx.compose.ui.semantics.Role.Button,
+            onClick = onTap,
+        ),
+    ) {
         val c = center
-        val base = size.minDimension * (.20f + amplitude * .045f)
-        val halo = base * (if (active) 2.65f + amplitude * .68f else 2.25f)
-        val energy = if (active) 1f else .48f
-
+        val spacing = size.minDimension / 14.5f
+        val intensity = if (active) amplitude else 0f
+        val bloom = spacing * (6.15f + 0.45f * intensity)
         drawCircle(
             brush = Brush.radialGradient(
                 listOf(
-                    RecRed.copy(alpha = (.30f + amplitude*.20f) * energy),
-                    FrameTertiary.copy(alpha = (.22f + amplitude*.12f) * energy),
-                    MutedGold.copy(alpha = .12f * energy),
+                    RecRed.copy(alpha = .055f + intensity * .11f),
+                    RecRedDeep.copy(alpha = .055f + intensity * .065f),
                     Color.Transparent,
-                ), c, halo,
-            ), halo, c,
-        )
-        drawCircle(FrameTertiary.copy(alpha = .085f * energy), base*1.88f*breathe, c)
-        drawCircle(RecRed.copy(alpha = .12f * energy), base*1.58f, c)
-        drawCircle(MutedGold.copy(alpha = .085f * energy), base*1.34f*(2f-breathe), c)
-        drawCircle(CinemaBlack.copy(alpha=.92f), base*1.05f, c)
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(
-                    ProjectorIvory.copy(alpha = if (active) .66f + amplitude*.16f else .36f),
-                    FrameTertiary.copy(alpha = if (active) .68f else .38f),
-                    RecRed.copy(alpha = if (active) .88f else .48f),
-                    RecRedDeep.copy(alpha = .98f),
                 ),
-                Offset(c.x-base*.30f, c.y-base*.34f), base*1.62f,
+                center = c,
+                radius = bloom,
             ),
-            radius = base*.88f*breathe,
+            radius = bloom,
             center = c,
         )
-
-        val ringRadius = base*1.40f
-        repeat(6) { index ->
-            val r = ringRadius + index*5.2f
-            val direction = if (index%2==0) spin else counterSpin
-            val tint = when(index%3) { 0 -> MutedGold; 1 -> FrameTertiary; else -> RecRed }
-            drawArc(
-                tint.copy(alpha = (.36f + amplitude*.34f)*energy),
-                startAngle = direction + index*59f,
-                sweepAngle = 22f + index*6f + amplitude*32f,
-                useCenter = false,
-                topLeft = Offset(c.x-r, c.y-r),
-                size = androidx.compose.ui.geometry.Size(r*2f, r*2f),
-                style = Stroke(width = 1f + amplitude*1.7f),
+        // Low amplitude = precise grid. Real speech energy expands local dots
+        // and produces a visible traveling wave, without photosensitivity-
+        // inducing flashes or rapidly changing full-screen colors.
+        for (y in -6..6) {
+            for (x in -6..6) {
+                val horizontal = x.toFloat()
+                val vertical = y.toFloat()
+                val distance = kotlin.math.sqrt(
+                    horizontal * horizontal + vertical * vertical,
+                )
+                if (distance > 6.15f) continue
+                val attenuation = (1f - distance / 8f).coerceIn(.15f, 1f)
+                val traveling = (
+                    kotlin.math.sin(distance * 1.35f - motion * 1.2f) + 1f
+                ) * .5f
+                val reaction = intensity * traveling * attenuation
+                val offset = reaction * spacing * .24f
+                val xSign = if (distance > .001f) horizontal / distance else 0f
+                val ySign = if (distance > .001f) vertical / distance else 0f
+                val dotCenter = Offset(
+                    c.x + horizontal * spacing + xSign * offset,
+                    c.y + vertical * spacing + ySign * offset,
+                )
+                val light = (attenuation * (.45f + reaction * .55f))
+                    .coerceIn(.20f, 1f)
+                val radius = (spacing * (.125f + reaction * .145f))
+                    .coerceAtMost(spacing * .33f)
+                val dotColor = if ((x + y) % 4 == 0) ProjectorIvory else RecRed
+                drawCircle(
+                    color = dotColor.copy(alpha = light),
+                    radius = radius,
+                    center = dotCenter,
+                )
+            }
+        }
+        if (active) {
+            drawCircle(
+                color = RecRed.copy(alpha = .13f + intensity * .20f),
+                radius = spacing * (3.4f + intensity * 1.55f),
+                center = c,
+                style = Stroke(width = 1f + intensity * 1.5f),
             )
         }
-        repeat(5) { i ->
-            val angle = (spin + i*72f) * 0.017453292f
-            val r = base*(1.10f+i*.11f)
-            val point = Offset(c.x+kotlin.math.cos(angle)*r, c.y+kotlin.math.sin(angle)*r)
-            drawCircle(ProjectorIvory.copy(alpha=(.26f+amplitude*.36f)*energy), 1.1f+amplitude*1.5f, point)
-        }
-        drawCircle(ProjectorIvory.copy(alpha = if (active) .94f else .54f), 1.7f+amplitude*1.9f, c)
+        drawCircle(
+            color = ProjectorIvory.copy(alpha = .85f),
+            radius = spacing * (.14f + intensity * .11f),
+            center = c,
+        )
     }
 }
 
