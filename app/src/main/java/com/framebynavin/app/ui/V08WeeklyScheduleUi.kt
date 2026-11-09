@@ -185,9 +185,9 @@ internal fun V08WeeklyScheduleScreen(
                             }
                             Button(
                                 onClick = {
-                                    val parsed = availableInput.toIntOrNull()
-                                    val next = if (availableInput.isBlank()) 0 else parsed
-                                    if (next == null || (next != 0 && next !in 30..10080)) {
+                                    val next = if (availableInput.isBlank()) 0
+                                        else availableInput.toIntOrNull() ?: -1
+                                    if (next != 0 && next !in 30..10080) {
                                         workloadError = "Enter at least 30 minutes or leave it blank."
                                     } else {
                                         runCatching { availabilityStore.saveAvailableMinutes(next) }
