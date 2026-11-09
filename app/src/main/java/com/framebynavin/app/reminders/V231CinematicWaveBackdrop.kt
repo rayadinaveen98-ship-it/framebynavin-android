@@ -62,6 +62,7 @@ internal fun V231CinematicWaveBackdrop(
     lowPower: Boolean,
     motionEnabled: Boolean,
     modifier: Modifier = Modifier,
+    playbackActive: Boolean = false,
 ) {
     val elapsedSeconds by produceState(
         initialValue = 0.0,
@@ -89,6 +90,9 @@ internal fun V231CinematicWaveBackdrop(
         drawRect(darkBase)
         val t = if (motionEnabled) elapsedSeconds else 0.0
         val extent = max(size.width, size.height)
+        // Stage response from a real MediaPlayer or TTS callback, not output RMS.
+        // Lower power and disabled motion retain the original calm backdrop.
+        val accent = if (playbackActive && motionEnabled && !lowPower) 1.22f else 1f
         val count = if (lowPower) 3 else 5
         for (i in 0 until count) {
             val horizontal = V231CinematicWaveMotion.travel(t * (.095 + i * .021) + .19 * i + .12)
@@ -100,8 +104,8 @@ internal fun V231CinematicWaveBackdrop(
             // Continuous falloff is the blur: no sharp blobs, bokeh dots or GPU blur allocation.
             drawCircle(
                 brush = Brush.radialGradient(
-                    0f to chroma.copy(alpha = .23f),
-                    .32f to chroma.copy(alpha = .13f),
+                    0f to chroma.copy(alpha = .23f * accent),
+                    .32f to chroma.copy(alpha = .13f * accent),
                     1f to chroma.copy(alpha = 0f),
                     center = center,
                     radius = radius,
