@@ -65,7 +65,7 @@ object CreatorContentCalendarEngine {
         // Only real owner-confirmed publication timestamps qualify. Publishing
         // readiness, due dates and template previews are NEVER publication.
         val publications = tasks.asSequence()
-            .filter { it.archivedAtMillis <= 0L }
+            // Archived projects can still have real publication history.
             .flatMap { task ->
                 val known = task.workspace.deliverables.asSequence()
                     .filter {
