@@ -70,6 +70,7 @@ class AlarmRingingService : Service() {
         }
         val previous = currentTask
         val previousToken = currentToken
+        FC13CreatorPlaybackVisualState.clear(previous?.id.orEmpty(), previousToken)
         if (previous != null && (previous.id != task.id || previousToken != token) &&
             ReminderOccurrenceStore(applicationContext).matches(previous, previousToken)) {
             runCatching { ReminderNotifications.show(applicationContext, previous,
@@ -227,7 +228,14 @@ class AlarmRingingService : Service() {
         val chosen = task.alarmSoundUri.takeIf { it.isNotBlank() }?.let { runCatching { Uri.parse(it) }.getOrNull() }
         val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         player = createLoopingPlayer(chosen ?: defaultUri) ?: createLoopingPlayer(defaultUri)
-        player?.start()
+        runCatching { player?.start() }
+            .onSuccess {
+                if (player?.isPlaying == true) {
+                    FC13CreatorPlaybackVisualState.show(
+                        task.id, currentToken, FC13CreatorAudioStage.ALARM_PLAYING)
+                }
+            }
+            .onFailure { android.util.Log.w("BacklotAlarm", "Sound unavailable; notification retained") }
     }
 
     private fun createLoopingPlayer(uri: Uri?): MediaPlayer? {
@@ -306,6 +314,7 @@ class AlarmRingingService : Service() {
     }
 
     private fun stopAlertHardware() {
+        FC13CreatorPlaybackVisualState.clear(currentTask?.id.orEmpty(), currentToken)
         runCatching { player?.stop() }
         player?.release()
         player = null
@@ -323,6 +332,7 @@ class AlarmRingingService : Service() {
 
     private fun stopCurrent() {
         if (currentTask == null) return
+        FC13CreatorPlaybackVisualState.clear(currentTask?.id.orEmpty(), currentToken)
         currentTask = null
         currentToken = ""
         currentSmartStage = null
