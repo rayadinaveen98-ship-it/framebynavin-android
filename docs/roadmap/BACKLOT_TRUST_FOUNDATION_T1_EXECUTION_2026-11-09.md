@@ -45,6 +45,51 @@ The existing legacy Personal sync path **must not overwrite a remotely stored ri
 - Show accurate only-after-verification status and backup history. Account mismatch, offline, stale CAS and incomplete photo inventory fail without overwriting a good copy.
 - Run device A→device B evidence via phone/emulator, with receipt instants and photo bytes. Never enable live Restore Backup until T2's staged owner-reviewed coordinator passes.
 
+## T1B2 — source implementation: verified media byte proofs and saved settings (UNTESTED)
+
+The current T1B2 implementation on the isolated review branch adds read-only
+SHA-256 proofs from actual files, not merely their Room/photo filenames:
+
+- **Personal Space original JPEGs** — bounded streaming rehash of every
+  `V290SpacePhotoEntity` referenced original, matching its exact SHA-256,
+  checking the canonical private folder, disallowing symlinks/traversal,
+  refusing any missing, untracked or partial private photo file. The actual
+  byte reads run under the existing Personal stable-snapshot lock. A valid
+  **zero-file inventory** requires an actual empty photo directory/no orphans.
+- **Active Best Frames / Home slideshow originals** — `CreatorHeroArchive`
+  current ordering and `PortableBestFrameMedia.prepareFromFiles` validate
+  each image; the active files are independently streamed and hashed. The
+  Home slideshow uses these **same** originals, so both categories reference
+  the same verified bytes. Retired/rollback files and voice idea recordings
+  remain outside this limited proof.
+- **Creator timeline** — read-only export of Workflow Timeline, Project Pulse
+  history and Post Publish checkpoint data under Creator data gate. The broad
+  history family remains incomplete until all publishing/YouTube sources are
+  enumerated.
+- **Weekly schedule** — `WeeklyScheduleStore.inspectSavedForInventory()`
+  reads the actual persisted slot payload without `loadOrSeed`, upgrades or
+  data writes. If there is no saved source, the category remains pending.
+- **Settings** — a narrowly whitelisted, read-only
+  `creator_os_settings_v1` preference subset, plus the saved slideshow
+  pause flag if present. We explicitly do NOT invoke
+  `CreatorOsSettingsStore` during inventory because its constructor can
+  write a guided-tour migration. Notification/Spark and other configuration
+  domains remain pending.
+
+Each proof yields only a count, byte count and SHA-256; no filenames, photos,
+notes, private auth tokens or user media are uploaded. The inventory cannot
+authorize a cloud upload or declare a full backup. It does NOT yet achieve
+atomic Creator+Personal snapshot consistency. All tests in this incremental
+branch are source-only and deliberately deferred to the explicit T1 phase gate
+per the approved batched QA cadence.
+
+**T1B2 remaining scope:** complete and safely export Idea voice recordings,
+Creator script-linked external media, Hero rollback originals policy, missing
+local preferences (including Spark, alerts and notification settings),
+large-file inventory consistency across process death, and a versioned
+owner-scoped full domain manifest. T1C still needs encryption, durable cloud
+commit, backup history, prior-good retention and device-A/B evidence.
+
 ## Remaining owner acceptance and release gates
 
 - Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
