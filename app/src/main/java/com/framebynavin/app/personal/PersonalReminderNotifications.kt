@@ -69,14 +69,32 @@ internal object PersonalReminderNotifications {
     fun show(context: Context, reminder: PersonalReminder, followUp: Boolean = false): Boolean {
         if (!canPost(context) || reminder.pendingToken.isBlank()) return false
         val tag = PersonalDeliveryContract.notificationTag(reminder.id)
-        val notification = buildForOccurrence(
-            context, reminder, followUp,
-            V268FullScreenReminderAccess.allowed(context) &&
-                hasHighImportanceChannel(context),
-        )
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val requestFullScreen = V268FullScreenReminderAccess.allowed(context) &&
+            hasHighImportanceChannel(context) &&
+            PersonalFullScreenPolicy.eligible(
+                reminder.alert, followUp, fullScreenPermissionAllowed = true,
+                automaticRetry = reminder.autoRetryCount > 0,
+            )
+
+        // FSI construction or posting may be rejected by Android/OEM policy.
+        // Recover by posting the SAME occurrence as an ordinary, actionable
+        // notification. Never invent a new token, silently switch channels,
+        // mark Posted/Done, or launch an Activity from the background.
+        val first = runCatching {
+            val card = buildForOccurrence(
+                context, reminder, followUp, fullScreenPermissionAllowed = requestFullScreen,
+            )
+            manager.notify(tag, NOTIFICATION_ID, card)
+        }
+        if (first.isSuccess) return true
+        if (!requestFullScreen) return false
         return runCatching {
-            context.getSystemService(NotificationManager::class.java)
-                .notify(tag, NOTIFICATION_ID, notification)
+            manager.notify(
+                tag, NOTIFICATION_ID,
+                buildForOccurrence(context, reminder, followUp,
+                    fullScreenPermissionAllowed = false),
+            )
             true
         }.getOrDefault(false)
     }
