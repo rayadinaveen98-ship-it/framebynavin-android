@@ -4,6 +4,10 @@ import android.content.Context
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorFocusSessionCodec
 import com.framebynavin.app.data.CreatorFocusSessionStore
+import com.framebynavin.app.data.CreatorWorkflowTimelineStore
+import com.framebynavin.app.data.CreatorPostPublishStore
+import com.framebynavin.app.data.ProjectPulseHistoryStore
+import com.framebynavin.app.data.WeeklyScheduleStore
 import com.framebynavin.app.data.CreatorHeroArchive
 import com.framebynavin.app.data.IdeaCaptureType
 import com.framebynavin.app.data.IdeaVaultStore
@@ -18,6 +22,8 @@ import com.framebynavin.app.personal.V298ReminderGroupCodec
 import com.framebynavin.app.personal.V301LocalRecoveryReader
 import com.framebynavin.app.personal.V303SpaceReceiptArchiveCodec
 import java.io.File
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -78,6 +84,32 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                             portablePreferences.includedKeys,
                         )
 
+                        // The existing local Creator history stores already
+                        // expose non-seeding JSON + validation; freeze the real
+                        // events rather than inventing empty event histories.
+                        val timeline = CreatorWorkflowTimelineStore(app)
+                        val timelineJson = timeline.exportJson()
+                        freezer.addJson("creator/history/workflow", timelineJson,
+                            timeline.validateJson(timelineJson))
+                        val pulses = ProjectPulseHistoryStore(app)
+                        val pulseJson = pulses.exportJson()
+                        freezer.addJson("creator/history/pulse", pulseJson,
+                            pulses.validateJson(pulseJson))
+                        val publishing = CreatorPostPublishStore(app)
+                        val publishJson = publishing.exportJson()
+                        freezer.addJson("creator/history/post-publish", publishJson,
+                            publishing.validateJson(publishJson))
+                        val weekly = WeeklyScheduleStore(app).inspectSavedForInventory()
+                        freezer.addJson(
+                            "creator/config/weekly-slots",
+                            weekly?.first ?: "[]",
+                            weekly?.second ?: 0,
+                        )
+                        freezer.addJson(
+                            "creator/config/weekly-presence",
+                            JSONObject().put("hasSavedSlots", weekly != null).toString(), 1,
+                        )
+
                         val personal = V301LocalRecoveryReader(app).readV2()
                         check(personal.localIntegrityVerified) {
                             "Personal owner source integrity is not confirmed"
@@ -122,10 +154,30 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                             checkNotNull(components.singleActivityChallenges),
                             challenges.size + challenges.sumOf { it.confirmations.size })
 
+                        // A private JPEG is not restorable from bytes alone:
+                        // retain the exact Room-backed owner photo row, filename,
+                        // Space ID, note, checksum and chronology. No public URI.
+                        val privatePhotos = personal.photos.sortedBy { it.id }
+                        val photoMetadata = JSONArray().apply {
+                            privatePhotos.forEach { photo ->
+                                put(JSONObject()
+                                    .put("id", photo.id)
+                                    .put("spaceId", photo.spaceId)
+                                    .put("fileName", photo.fileName)
+                                    .put("sha256Hex", photo.sha256Hex)
+                                    .put("takenAtMillis", photo.takenAtMillis)
+                                    .put("addedAtMillis", photo.addedAtMillis)
+                                    .put("widthPx", photo.widthPx)
+                                    .put("heightPx", photo.heightPx)
+                                    .put("note", photo.note))
+                            }
+                        }.toString()
+                        freezer.addJson(
+                            "personal/photo-metadata", photoMetadata, privatePhotos.size,
+                        )
                         // Every DB-indexed JPEG must have verified original
                         // bytes. V301 has already refused untracked/orphan files,
                         // and this copy requires its expected SHA again.
-                        val privatePhotos = personal.photos.sortedBy { it.id }
                         privatePhotos.forEachIndexed { index, photo ->
                             val original = File(
                                 File(app.filesDir, "backlot-personal-space-photos"),
@@ -140,8 +192,13 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                         // Creator active Best Frames are also the saved Home
                         // slideshow originals. Retired/orphan originals remain
                         // unverified and block any universal-backup claim.
+                        val heroOrder = CreatorHeroArchive.orderedSourceNames(app)
                         val preparedFrames = PortableBestFrameMedia.prepareFromFiles(
-                            app.filesDir, CreatorHeroArchive.orderedSourceNames(app),
+                            app.filesDir, heroOrder,
+                        )
+                        freezer.addJson(
+                            "creator/best-frame-order",
+                            JSONArray(heroOrder).toString(), heroOrder.size,
                         )
                         preparedFrames.frames.forEachIndexed { index, frame ->
                             freezer.addOwnedFile(
@@ -165,12 +222,19 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                         check(recordingProof.records == voices.size) {
                             "Voice Idea original inventory changed during capture"
                         }
+                        val voiceIndex = JSONArray()
                         voices.forEachIndexed { index, voice ->
+                            val partId = "creator/voice-" +
+                                index.toString().padStart(4, '0')
                             freezer.addOwnedFile(
-                                "creator/voice-" + index.toString().padStart(4, '0'),
-                                File(voice.audioLocalPath), 1,
+                                partId, File(voice.audioLocalPath), 1,
                             )
+                            voiceIndex.put(JSONObject()
+                                .put("ideaId", voice.id).put("partId", partId))
                         }
+                        freezer.addJson(
+                            "creator/voice-index", voiceIndex.toString(), voices.size,
+                        )
 
                         // Detect unrelated producers that bypass a lock but
                         // change primary Creator or Personal serialization
@@ -179,7 +243,12 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                             ideaStore.exportJson() == ideasJson &&
                             PersonalBackupTransfer(app).exportForCloud() == portableReminders &&
                             TrustPortablePreferenceCapture.capture(app).json ==
-                                portablePreferences.json
+                                portablePreferences.json &&
+                            timeline.exportJson() == timelineJson &&
+                            pulses.exportJson() == pulseJson &&
+                            publishing.exportJson() == publishJson &&
+                            WeeklyScheduleStore(app).inspectSavedForInventory() == weekly &&
+                            CreatorHeroArchive.orderedSourceNames(app) == heroOrder
                         ) {
                             "Owner records changed during the immutable source capture"
                         }
