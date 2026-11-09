@@ -49,6 +49,25 @@ internal data class TrustCloudRevisionProgress(
     val canOfferRestore: Boolean get() = false
 }
 
+/**
+ * This proof exists only after reading all remote ciphertext bytes locally.
+ * The private constructor prevents a plain HTTP/upload status from becoming
+ * a simulated readback-success record.
+ */
+internal class TrustCloudVerifiedReadback private constructor(
+    val descriptor: TrustCloudCiphertextDescriptor,
+) {
+    companion object {
+        fun verify(
+            stream: InputStream,
+            descriptor: TrustCloudCiphertextDescriptor,
+        ): TrustCloudVerifiedReadback {
+            TrustT1C4CloudRevisionPolicy.verifyRemoteCiphertext(stream, descriptor)
+            return TrustCloudVerifiedReadback(descriptor)
+        }
+    }
+}
+
 internal object TrustT1C4CloudRevisionPolicy {
     const val REVIEW_ONLY_BUCKET = "backlot-trust-universal-v1"
     const val MAX_ENCRYPTED_BYTES = 1024L * 1024 * 1024 + 50L * 1024 * 1024
@@ -125,8 +144,12 @@ internal object TrustT1C4CloudRevisionPolicy {
         previous: TrustCloudRevisionHead?,
         claimed: TrustCloudRevisionHead,
         descriptor: TrustCloudCiphertextDescriptor,
+        proof: TrustCloudVerifiedReadback,
     ): TrustCloudRevisionProgress {
         validate(descriptor, descriptor.ownerUserId)
+        check(proof.descriptor == descriptor) {
+            "Remote ciphertext readback does not match the committed object"
+        }
         validateRemoteHead(previous, descriptor.ownerUserId)
         validateRemoteHead(claimed, descriptor.ownerUserId)
         val next = if (previous == null) 1L else {
