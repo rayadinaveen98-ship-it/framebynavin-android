@@ -70,10 +70,10 @@ class CreatorFocusBackupV10Test {
                 targetMinutes = 15, atWallMillis = 1_700_000_000_000L,
                 id = "focus-recovery-v10"
             )
-            val active = CreatorFocusSessionPolicy.start(created, 1_000L, 4)
-            val checked = CreatorFocusSessionPolicy.checkpoint(active, 21_000L, 4)
-            store.importAfterApprovedRestore(CreatorFocusSessionCodec.encode(
-                CreatorFocusLedger(active = checked)))
+            store.importAfterApprovedRestore(CreatorFocusSessionCodec.encode(CreatorFocusLedger()))
+            store.create(created)
+            store.update(created.id) { CreatorFocusSessionPolicy.start(it, 1_000L, 4) }
+            store.update(created.id) { CreatorFocusSessionPolicy.checkpoint(it, 21_000L, 4) }
             val backup = CreatorFocusSessionCodec.decode(store.exportPortableJson())
             assertEquals(CreatorFocusState.PAUSED, backup.active?.state)
             assertEquals(-1L, backup.active?.segmentStartedElapsedMillis)
