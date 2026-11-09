@@ -2,6 +2,8 @@ package com.framebynavin.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -109,6 +111,13 @@ internal fun V306ActivityCenterScreen(
     val visible = V306ActivityCenterPolicy.filter(feed, filter)
     val actionCount = feed.count { it.bucket == V306ActivityBucket.NEEDS_ACTION }
     val historyCount = feed.count { it.bucket == V306ActivityBucket.HISTORY }
+    // Source-only Spark guidance: never infer that an unavailable store is empty.
+    val evidenceComplete = creatorEvidence != null && personalReady && receiptsReady &&
+        !personalFailure && !receiptFailure
+    val sparkNext = if (evidenceComplete)
+        V308SparkActivityPolicy.top(feed)
+            .firstOrNull { it.bucket == V306ActivityBucket.NEEDS_ACTION }
+    else null
     BackHandler(onBack = onClose)
 
     CreatorAdaptiveFullScreen(onDismissRequest = onClose) {
@@ -121,10 +130,10 @@ internal fun V306ActivityCenterScreen(
                     Icon(Icons.Outlined.ArrowBack, "Back to reminders", tint = ProjectorIvory)
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("ACTIVITY CENTER", color = MutedGold,
-                        fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("Your real reminder activity", color = ProjectorIvory,
-                        fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("BACKLOT / REMINDERS", color = BacklotAccent,
+                        fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    Text("Notification Center", color = BacklotPrimaryText,
+                        fontSize = 20.sp, fontWeight = FontWeight.Black)
                 }
                 IconButton(onClick = { refresh++ },
                     modifier = Modifier.testTag("v306-activity-refresh")) {
@@ -132,20 +141,23 @@ internal fun V306ActivityCenterScreen(
                 }
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
                     .testTag("v306-activity-filters"),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 V306ActivityFilter.entries.forEach { option ->
                     val label = when (option) {
-                        V306ActivityFilter.NEEDS_ACTION -> "Needs action $actionCount"
+                        V306ActivityFilter.NEEDS_ACTION ->
+                            if (evidenceComplete) "Needs action $actionCount" else "Needs action"
                         V306ActivityFilter.ALL -> "All"
-                        V306ActivityFilter.HISTORY -> "History $historyCount"
+                        V306ActivityFilter.HISTORY ->
+                            if (evidenceComplete) "History $historyCount" else "History"
                     }
-                    FilterChip(
+                    BacklotReminderHubFilterChip(
+                        label = label,
                         selected = filter == option,
                         onClick = { selectedName = option.name },
-                        label = { Text(label, fontSize = 11.sp) },
                         modifier = Modifier.testTag("v306-filter-${option.name.lowercase()}"),
                     )
                 }
@@ -162,6 +174,55 @@ internal fun V306ActivityCenterScreen(
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
                         .testTag("v306-activity-read-error"),
                 )
+            }
+            // Spark links to the original, verified actionable reminder.
+            // This does not acknowledge, schedule, dismiss or post an alert.
+            if (filter == V306ActivityFilter.NEEDS_ACTION && sparkNext != null) {
+                Surface(
+                    onClick = {
+                        if (sparkNext.domain == V306ActivityDomain.CREATOR)
+                            onOpenCreator(sparkNext.targetId)
+                        else onOpenPersonal()
+                    },
+                    color = BacklotSurfaceSelected,
+                    shape = RoundedCornerShape(15.dp),
+                    border = BorderStroke(1.dp, BacklotAccent.copy(alpha = .55f)),
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .testTag("fc13-spark-notification-assist"),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        CinePulseGuide(
+                            state = CinePulseState.POINT,
+                            modifier = Modifier.size(width = 49.dp, height = 58.dp),
+                        )
+                        Column(Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("SPARK · NEXT ACTION", color = BacklotAccent,
+                                fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                V308SparkActivityPolicy.displayedTitle(sparkNext),
+                                color = BacklotPrimaryText, fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                actionCount.toString() + " recorded item" +
+                                    (if (actionCount == 1) "" else "s") +
+                                    " need a response. Open the original reminder.",
+                                color = BacklotSecondaryText, fontSize = 11.sp,
+                                maxLines = 2,
+                            )
+                        }
+                        Icon(Icons.Outlined.ChevronRight,
+                            contentDescription = "Open suggested reminder",
+                            tint = BacklotAccent)
+                    }
+                }
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -180,7 +241,7 @@ internal fun V306ActivityCenterScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Icon(Icons.Outlined.NotificationsActive, null, tint = MutedGold)
+                                Icon(Icons.Outlined.NotificationsActive, null, tint = RecRed)
                                 Text(
                                     if (!personalReady || !receiptsReady || creatorEvidence == null)
                                         "Loading available activity…"
@@ -218,7 +279,7 @@ internal fun V306ActivityCenterScreen(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
                                     if (activity.domain == V306ActivityDomain.CREATOR) "CREATOR" else "PERSONAL",
-                                    color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                    color = BacklotSecondaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                                 )
                                 Text(activity.title, color = ProjectorIvory, fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -234,7 +295,7 @@ internal fun V306ActivityCenterScreen(
                                     )
                                 }
                             }
-                            Icon(Icons.Outlined.ChevronRight, "Open original reminder", tint = MutedGold)
+                            Icon(Icons.Outlined.ChevronRight, "Open original reminder", tint = RecRed)
                         }
                     }
                 }
