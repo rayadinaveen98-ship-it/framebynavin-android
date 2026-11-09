@@ -125,9 +125,10 @@ internal fun ReminderCheckInScreen(
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
     val actualAudio by FC13CreatorPlaybackVisualState.receipts.collectAsState()
-    val playbackActive = actualAudio.forOccurrence(
+    val liveAudioStage = actualAudio.forOccurrence(
         playbackTaskId, playbackOccurrenceId,
-    ) != FC13CreatorAudioStage.SILENT
+    )
+    val playbackActive = liveAudioStage != FC13CreatorAudioStage.SILENT
     // The user, not an intro timer, chooses when to reveal controls.
     // When OS animations are disabled, accessible controls appear immediately.
     var revealed by rememberSaveable(kind, title) {
@@ -225,6 +226,22 @@ internal fun ReminderCheckInScreen(
                     .size(if (compact) 104.dp else 126.dp)
                     .testTag(if (kind == ReminderCheckInKind.VOICE) "v195-voice-guide" else "v195-alarm-guide"),
             )
+            if (playbackActive) {
+                // Only an authenticated service callback can display this label.
+                // This is a playback status, never a measured sound meter.
+                Text(
+                    text = when (liveAudioStage) {
+                        FC13CreatorAudioStage.ALARM_PLAYING -> "ALARM SOUND PLAYING"
+                        FC13CreatorAudioStage.VOICE_SPEAKING -> "VOICE SPEAKING"
+                        FC13CreatorAudioStage.SILENT -> ""
+                    },
+                    color = BacklotAccent,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = .8.sp,
+                    modifier = Modifier.testTag("fc13-creator-real-playback-stage"),
+                )
+            }
             Spacer(Modifier.height(if (compact) 8.dp else 13.dp))
 
             Text(
