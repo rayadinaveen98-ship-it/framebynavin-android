@@ -104,6 +104,10 @@ class IdeaVaultStore(private val context: Context) {
 
     fun validateJson(raw: String): Int = decode(raw).size
 
+    /** Strictly decode owner backup metadata for Trust voice-file linkage.
+     * No DataStore load, migration, playback, save or audio-file cleanup. */
+    internal fun inspectJsonForTrustReadOnly(raw: String): List<CreatorIdea> = decode(raw)
+
     /**
      * Removes only recordings owned by Backlot after the new vault state is durably written.
      * Import/restore uses save() directly and intentionally never destroys local audio as a side effect.

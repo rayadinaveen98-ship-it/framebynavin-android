@@ -33,7 +33,10 @@ internal object CreatorRecoveryRetentionPolicy {
 }
 
 /** Versioned, offline-only backup/restore for the local Creator OS. */
-class CreatorBackupManager(private val context: Context) {
+class CreatorBackupManager(
+    private val context: Context,
+    private val readOnlySourceValidation: Boolean = false,
+) {
     data class BackupPreview(
         val schemaVersion: Int,
         val createdAtMillis: Long,
@@ -71,7 +74,9 @@ class CreatorBackupManager(private val context: Context) {
     private val taskStore = TaskStore(appContext)
     private val ideaStore = IdeaVaultStore(appContext)
     private val weeklyStore = WeeklyScheduleStore(appContext)
-    private val settingsStore = CreatorOsSettingsStore(appContext)
+    private val settingsStore = CreatorOsSettingsStore(
+        appContext, initializeGuidedTour = !readOnlySourceValidation,
+    )
     private val smartConfigStore = SmartEscalationConfigStore(appContext)
     private val postPublishStore = CreatorPostPublishStore(appContext)
     private val rewardStore = CreatorRewardStore(appContext)
@@ -104,6 +109,63 @@ class CreatorBackupManager(private val context: Context) {
             snapshot(includeHero = false).copy(heroJson = CLOUD_FRAMES_OMITTED),
             System.currentTimeMillis(),
         )
+    }
+
+    /**
+     * Reuse the SAME CreatorBackupManager v10 envelope and checksum for a
+     * future owner-approved Trust import. Inputs are previously authenticated
+     * encrypted source parts, not live stores. This does NOT import data,
+     * install media or bypass the current restore and rollback authorities.
+     */
+    internal fun assembleTrustedSourceEnvelope(
+        raw: Map<String, String>,
+        nativeSettings: String,
+        nativeEscalation: String,
+        preparedFrames: PreparedPortableFrames,
+    ): String {
+        fun section(name: String): String = requireNotNull(raw[name]) {
+            "Authenticated Creator source omitted required domain: $name"
+        }
+        require(raw.keys == setOf(
+            "creator/projects", "creator/ideas", "creator/focus",
+            "creator/config/weekly-slots",
+            "creator/history/workflow", "creator/history/pulse",
+            "creator/history/post-publish", "creator/history/rewards",
+            "creator/config/automation", "creator/history/youtube-links",
+            "creator/history/youtube-milestones",
+            "creator/history/youtube-checkpoints",
+        )) { "Unknown or incomplete canonical Creator Trust payload" }
+        val before = Snapshot(
+            tasksJson = section("creator/projects"),
+            ideasJson = section("creator/ideas"),
+            weeklyJson = section("creator/config/weekly-slots"),
+            settingsJson = nativeSettings,
+            smartConfigJson = nativeEscalation,
+            postPublishJson = section("creator/history/post-publish"),
+            rewardsJson = section("creator/history/rewards"),
+            heroJson = preparedFrames.personalFramesSection,
+            youtubeLinksJson = section("creator/history/youtube-links"),
+            youtubeMilestonesJson = section("creator/history/youtube-milestones"),
+            youtubePublishCheckpointsJson =
+                section("creator/history/youtube-checkpoints"),
+            projectPulseHistoryJson = section("creator/history/pulse"),
+            workflowTimelineJson = section("creator/history/workflow"),
+            automationPrefsJson = section("creator/config/automation"),
+            focusSessionsJson = section("creator/focus"),
+        )
+        val packed = encode(before, System.currentTimeMillis().coerceAtLeast(1L))
+        verifyPortableJsonEnvelope(packed)
+        if (preparedFrames.frames.isEmpty()) {
+            validate(packed)
+        } else {
+            validatePortableCompact(packed, preparedFrames.frames.size)
+            require(PortableBestFrameMedia.verifyCompactPreview(
+                packed, preparedFrames.frames, true,
+            ) == preparedFrames.frames.size) {
+                "Trusted original Best Frames did not match native Creator payload"
+            }
+        }
+        return packed
     }
 
     /**
@@ -467,6 +529,15 @@ class CreatorBackupManager(private val context: Context) {
             }
             throw error
         }
+    }
+
+    /**
+     * Read-only native Creator recovery check used by FC13's outer journal.
+     * Do not call recoverPendingRestore() during an owner-authenticated
+     * cross-domain resume: it can mutate existing Creator records.
+     */
+    fun hasPendingRestore(): Boolean = pendingFile().let { path ->
+        path.exists() || java.nio.file.Files.isSymbolicLink(path.toPath())
     }
 
     /** Called before normal app startup and by maintenance workers. Never silently discard a journal. */

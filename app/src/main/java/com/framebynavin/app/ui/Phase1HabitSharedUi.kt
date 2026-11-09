@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.Phase1HabitAlertKind
 import com.framebynavin.app.personal.Phase1HabitChallenge
+import com.framebynavin.app.personal.Phase1HabitCompletionMode
 import com.framebynavin.app.personal.Phase1HabitDayStatus
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
@@ -84,6 +86,8 @@ internal fun CreateHabitReview(
     error: Boolean, onStart: () -> Unit,
     previewOnly: Boolean = false,
     liveErrorMessage: String? = null,
+    completionMode: Phase1HabitCompletionMode = Phase1HabitCompletionMode.STRICT,
+    onCompletionMode: (Phase1HabitCompletionMode) -> Unit = {},
 ) {
     val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
@@ -142,6 +146,20 @@ internal fun CreateHabitReview(
                 } else Hint("No alert. You can still mark each day done.")
             }
             ReviewPanel {
+                AccentLabel("COMPLETION RULE")
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Choice("Strict", completionMode == Phase1HabitCompletionMode.STRICT) {
+                        onCompletionMode(Phase1HabitCompletionMode.STRICT)
+                    }
+                    Choice("Flexible", completionMode == Phase1HabitCompletionMode.FLEXIBLE) {
+                        onCompletionMode(Phase1HabitCompletionMode.FLEXIBLE)
+                    }
+                }
+                Hint(if (completionMode == Phase1HabitCompletionMode.STRICT)
+                    "Mark only the current day Done."
+                else "You can explicitly confirm a missed day later. Backlot preserves the real confirmation time.")
+            }
+            ReviewPanel {
                 Text("What happens next?", color = BacklotPrimaryText,
                     fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Hint("One activity for 21 dates. Only your explicit Done action counts.")
@@ -167,7 +185,13 @@ internal fun CreateHabitReview(
 internal fun DashboardHabitReview(
     habit: Phase1HabitChallenge, now: Instant,
     onDone: () -> Unit, onUndo: () -> Unit, onPause: () -> Unit,
+    onSnooze: (() -> Unit)? = null,
     previewOnly: Boolean = false,
+    onDaySelected: (LocalDate) -> Unit = {},
+    onManageLinks: () -> Unit = {},
+    linkedSpaceLabel: String? = null,
+    linkedGroupLabel: String? = null,
+    onOpenLinkedSpace: (() -> Unit)? = null,
 ) {
     val today = LocalDate.ofInstant(now, ZoneId.of(habit.zoneId))
     val dayNumber = habit.dayNumber(now)
@@ -190,6 +214,9 @@ internal fun DashboardHabitReview(
                 fontSize = 27.sp, modifier = Modifier.testTag("habit-day-counter"),
             )
             Hint("$count days completed · Current streak " + habit.currentStreak(now))
+            Hint("Completion rule: " +
+                if (habit.completionMode == Phase1HabitCompletionMode.STRICT) "Strict"
+                else "Flexible · past days require your explicit confirmation")
             LinearProgressIndicator(
                 progress = { count / 21f },
                 modifier = Modifier.fillMaxWidth().height(7.dp),
@@ -213,6 +240,7 @@ internal fun DashboardHabitReview(
                             val current = day == today
                             Box(
                                 Modifier.weight(1f).aspectRatio(1f)
+                                    .clickable { onDaySelected(day) }
                                     .background(
                                         if (isDone) BacklotAccent else BacklotSurfaceRaised,
                                         RoundedCornerShape(11.dp))
@@ -229,6 +257,7 @@ internal fun DashboardHabitReview(
                 }
             }
             Hint("Red = Done · Red number = Today · Grey = not confirmed")
+            Hint("Tap a day to see its note or receipt. Flexible catch-up never backdates the confirmation.")
         }
         ReviewPanel {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -256,9 +285,39 @@ internal fun DashboardHabitReview(
                 }
             }
         }
+        if (onSnooze != null && habit.canSnooze(now)) {
+            OutlinedButton(
+                onClick = onSnooze,
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("fc13-challenge-snooze"),
+            ) { Text("SNOOZE TODAY'S ALERT 10 MIN") }
+        }
+        if (habit.snoozedUntil != null && habit.snoozedUntil.isAfter(now) &&
+            habit.snoozedDay == today && !doneToday) {
+            Hint("Snoozed until " + habit.snoozedUntil.atZone(
+                ZoneId.of(habit.zoneId)).toLocalTime().format(timeFormat) +
+                " · Android exact-alarm access affects delivery timing")
+        }
         OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()
             .testTag("habit-pause")) {
             Text(if (habit.paused) "Resume challenge" else "Pause challenge")
+        }
+        ReviewPanel {
+            AccentLabel("LINKED PROGRESS")
+            Hint("Space: ${linkedSpaceLabel ?: "None"}")
+            if (onOpenLinkedSpace != null) {
+                OutlinedButton(
+                    onClick = onOpenLinkedSpace,
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-challenge-open-space-journal"),
+                ) { Text("OPEN LINKED SPACE & PHOTO JOURNAL") }
+            }
+            Hint("Reminder Group: ${linkedGroupLabel ?: "None"}")
+            OutlinedButton(
+                onClick = onManageLinks,
+                modifier = Modifier.fillMaxWidth().testTag("fc13-challenge-links-open"),
+            ) { Text("MANAGE LINKS") }
+            Hint("Links are optional. They never create reminders or mark any day Done.")
         }
         Text(if (previewOnly) "Review only · No data or alerts saved"
             else "Progress saved on this device · Android alert permissions apply",

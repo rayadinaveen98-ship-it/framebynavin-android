@@ -32,6 +32,7 @@ class V279LockedPersonalAlertUiTest {
             }
         }
         rule.onNodeWithTag("v279-locked-generic-alarm").assertExists()
+        rule.onNodeWithTag("fc13-spark-locked-alarm").assertExists()
         rule.onNodeWithText("VERY PRIVATE SYNTHETIC TITLE").assertDoesNotExist()
         rule.onNodeWithTag("v2233-personal-done").assertDoesNotExist()
         rule.onNodeWithTag("v2233-personal-snooze").assertDoesNotExist()
@@ -49,5 +50,6 @@ class V279LockedPersonalAlertUiTest {
         rule.onNodeWithText("VERY PRIVATE SYNTHETIC TITLE").assertExists()
         rule.onNodeWithTag("v2233-personal-done").assertExists()
         rule.onNodeWithTag("v2233-personal-snooze").assertExists()
+        rule.onNodeWithTag("fc13-spark-full-reminder").assertExists()
     }
 }

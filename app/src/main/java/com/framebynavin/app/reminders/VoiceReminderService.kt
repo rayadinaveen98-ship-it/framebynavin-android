@@ -67,6 +67,7 @@ class VoiceReminderService : Service() {
         // Duplicate delivery of the same occurrence must never restart a sentence that is already
         // speaking. Explicit Replay is the only same-occurrence path allowed to restart speech.
         if (sameOccurrence && !forceRestart && tts != null) return START_NOT_STICKY
+        FC13CreatorPlaybackVisualState.clear(previous?.id.orEmpty(), previousToken)
 
         if (previous != null && !sameOccurrence &&
             ReminderOccurrenceStore(applicationContext).matches(previous, previousToken)) {
@@ -147,6 +148,14 @@ class VoiceReminderService : Service() {
                 override fun onStart(utteranceId: String?) {
                     if (isCurrent(task.id, token) && generation == speechGeneration) {
                         runCatching { ReminderAcknowledgementStore(applicationContext).markVoiceSpeaking(task.id, token) }
+                        // The real TTS callback may run off Main.
+                        handler.post {
+                            if (isCurrent(task.id, token) &&
+                                generation == speechGeneration &&
+                                utteranceId != null && currentUtteranceId == utteranceId
+                            ) FC13CreatorPlaybackVisualState.show(
+                                task.id, token, FC13CreatorAudioStage.VOICE_SPEAKING)
+                        }
                     }
                 }
 
@@ -155,6 +164,7 @@ class VoiceReminderService : Service() {
                         if (!isCurrent(task.id, token) || generation != speechGeneration) return@post
                         if (utteranceId.isNullOrBlank() || currentUtteranceId != utteranceId) return@post
                         currentUtteranceId = null
+                        FC13CreatorPlaybackVisualState.clear(task.id, token)
                         music.setSpeaking(false)
                         val completedIndex = utteranceIndex(utteranceId)
                         val nextIndex = completedIndex + 1
@@ -313,7 +323,7 @@ class VoiceReminderService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, ReminderConstants.VOICE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle(task.title)
             .setContentText("Voice reminder · ${task.dueLabel}")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -323,6 +333,9 @@ class VoiceReminderService : Service() {
             .setAutoCancel(false)
             .setContentIntent(fullScreen)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        FC13SparkNotificationIdentity.decoratePrivate(
+            builder, this, FC13SparkNotificationMood.SPEAK,
+        )
         return V268FullScreenReminderAccess.configure(
             builder,
             fullScreen,
@@ -362,6 +375,7 @@ class VoiceReminderService : Service() {
     private fun stopVoiceService(taskId: String? = null, token: String? = null) {
         if (taskId != null &&
             (currentTask?.id != taskId || (token != null && currentToken != token))) return
+        FC13CreatorPlaybackVisualState.clear(currentTask?.id.orEmpty(), currentToken)
         currentTask = null
         currentToken = ""
         currentCreatorName = "Creator"
@@ -380,6 +394,7 @@ class VoiceReminderService : Service() {
     }
 
     override fun onDestroy() {
+        FC13CreatorPlaybackVisualState.clear(currentTask?.id.orEmpty(), currentToken)
         currentTask = null
         currentToken = ""
         currentCreatorName = "Creator"

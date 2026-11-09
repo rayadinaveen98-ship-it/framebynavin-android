@@ -42,6 +42,7 @@ internal fun V195ReminderParticleScene(
     onReveal: () -> Unit,
     modifier: Modifier = Modifier,
     motionEnabled: Boolean = true,
+    playbackActive: Boolean = false,
 ) {
     val glyph = if (kind == ReminderCheckInKind.ALARM)
         V195ReminderGlyph.CLOCK else V195ReminderGlyph.MICROPHONE
@@ -116,7 +117,29 @@ internal fun V195ReminderParticleScene(
         .clickable(interactionSource = interactions, indication = null, onClick = onReveal)
 
     Canvas(modifier = modifier.fillMaxSize().testTag("v1952-ambient-particles").then(touch)) {
+        // No microphone permission or guessed sound meter. Only service-confirmed
+        // audio playback mildly brightens this existing introduction field.
+        val activeAudioVisual = playbackActive && motionEnabled && !lowPower
         drawRect(brush = atmosphere)
+        if (activeAudioVisual) {
+            // Real playback event unlocks only a restrained REC-red particle
+            // bloom. Wave rhythm is decorative, not a microphone/output meter.
+            val breath = (.5 + .5 *
+                kotlin.math.sin(elapsedSeconds * 4.1)).toFloat()
+            val bloom = size.minDimension * (.44f + .025f * breath)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(
+                        Color(0xFFE8323B).copy(alpha = .12f + .07f * breath),
+                        Color.Transparent,
+                    ),
+                    center = center,
+                    radius = bloom,
+                ),
+                center = center,
+                radius = bloom,
+            )
+        }
 
         val center = Offset(size.width * .5f, size.height * .42f)
         // Two fixed-cost radial blooms behind the wave; never blur every dot.

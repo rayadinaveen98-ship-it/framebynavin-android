@@ -25,13 +25,16 @@ data class CreatorOsSettings(
     val quietHoursEndMinute: Int = QuietHoursPolicy.DEFAULT_END_MINUTE,
 )
 
-class CreatorOsSettingsStore(context: Context) {
+class CreatorOsSettingsStore(
+    context: Context,
+    private val initializeGuidedTour: Boolean = true,
+) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val cloudLocal = CloudLocalStore(appContext)
 
     init {
-        if (!prefs.contains(KEY_GUIDED_TOUR_VERSION)) {
+        if (initializeGuidedTour && !prefs.contains(KEY_GUIDED_TOUR_VERSION)) {
             // Never force the new tour on creators who already completed setup before v124.
             val legacyCreatorSetupComplete = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
             val initial = CreatorGuidedTourPolicy.initialCompletedVersion(legacyCreatorSetupComplete)

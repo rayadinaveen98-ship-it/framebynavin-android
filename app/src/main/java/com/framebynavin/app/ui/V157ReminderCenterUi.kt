@@ -237,7 +237,7 @@ internal fun V157ReminderCenterUi(
                     selected = BacklotReminderWorkspace.CREATOR,
                     onOpenPersonal = onPersonal,
                     onOpenCreator = {},
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp)
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
                         .testTag("v2232-reminders-space-switcher"),
                 )
 
@@ -259,11 +259,14 @@ internal fun V157ReminderCenterUi(
                     val attentionCount = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size
                     val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
                     val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
-                        V157InboxCount("TODAY", todayCount, MutedText, Modifier.weight(1f))
-                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
-                    }
+                    BacklotReminderHubMetrics(
+                        metrics = listOf(
+                            BacklotReminderHubMetric("NEEDS", attentionCount, urgent = true),
+                            BacklotReminderHubMetric("TODAY", todayCount),
+                            BacklotReminderHubMetric("DELAYED", postponedCount),
+                        ),
+                        modifier = Modifier.testTag("fc13-creator-hub-metrics"),
+                    )
                     }
 
                     // Empty state keeps History reachable but does not show
@@ -316,42 +319,24 @@ internal fun V157ReminderCenterUi(
                             .testTag("v219-hub-filters"),
                         horizontalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
-                        // Material3 FilterChip defaults pick a lavender primary
-                        // from the ambient MaterialTheme. Use Backlot's semantic
-                        // Director's Cut/Light tokens instead: no purple accents.
-                        val backlotFilterColors = FilterChipDefaults.filterChipColors(
-                            containerColor = BacklotSurface,
-                            labelColor = BacklotSecondaryText,
-                            selectedContainerColor = BacklotSurfaceSelected,
-                            selectedLabelColor = BacklotPrimaryText,
-                        )
+                        // FC13: shared semantic chips; search/selection ownership unchanged.
                         V219ReminderHubFilter.entries.forEach { filter ->
-                            val activeFilter = !historyOpen && hubFilter == filter
-                            FilterChip(
-                                selected = activeFilter,
+                            BacklotReminderHubFilterChip(
+                                label = "${filter.title} ${filter.count(matchingGroups)}",
+                                selected = !historyOpen && hubFilter == filter,
                                 onClick = { hubFilter = filter; historyOpen = false; selected = emptySet() },
-                                label = {
-                                    Text("${filter.title} ${filter.count(matchingGroups)}", fontSize = 11.sp,
-                                        maxLines = 1)
-                                },
                                 modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
-                                shape = RoundedCornerShape(18.dp),
-                                colors = backlotFilterColors,
-                                border = BorderStroke(1.dp, if (activeFilter) BacklotAccent else BacklotBorder),
                             )
                         }
-                        FilterChip(
+                        BacklotReminderHubFilterChip(
+                            label = "History",
                             selected = historyOpen,
                             onClick = {
                                 historyOpen = !historyOpen
                                 hubFilter = V219ReminderHubFilter.ALL
                                 selected = emptySet()
                             },
-                            label = { Text("History", fontSize = 11.sp, maxLines = 1) },
                             modifier = Modifier.testTag("v2193-history-tab"),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = backlotFilterColors,
-                            border = BorderStroke(1.dp, if (historyOpen) BacklotAccent else BacklotBorder),
                         )
                     }
                     } else {
@@ -502,21 +487,6 @@ internal fun V157ReminderCenterUi(
 }
 
 @Composable
-private fun V157InboxCount(label: String, count: Int, accent: Color, modifier: Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(13.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
-    ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 11.dp)) {
-            Text(count.toString(), color = accent, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text(label, color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
 private fun V157ReminderGroup(
     label: String,
     subtitle: String,
@@ -538,10 +508,11 @@ private fun V157ReminderGroup(
     val context = LocalContext.current
     val smartConfig = remember(context) { SmartEscalationConfigStore(context.applicationContext) }
     Spacer(Modifier.height(22.dp))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
-        Text("${tasks.size}", color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
+    BacklotReminderHubSectionHeading(
+        label = label,
+        count = tasks.size,
+        urgent = accent == RecRed,
+    )
     Spacer(Modifier.height(3.dp))
     Text(subtitle, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
     Spacer(Modifier.height(9.dp))
@@ -558,16 +529,14 @@ private fun V157ReminderGroup(
         val canPause = onPause != null && ReminderCenterPolicy.canPause(task, now)
         var optionsOpen by remember(task.id) { mutableStateOf(false) }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).combinedClickable(
+        BacklotReminderHubItemCard(
+            urgent = accent == RecRed,
+            selected = chosen,
+            modifier = Modifier.padding(bottom = 10.dp).combinedClickable(
                 onClick = { if (selectionMode) onSelect(task.id) else onEdit(task.id) },
                 onLongClick = { onHold(task.id) },
             ),
-            shape = RoundedCornerShape(17.dp),
-            color = if (chosen) RecRed.copy(alpha = .11f) else CinemaSurface,
-            border = BorderStroke(1.dp, if (chosen) RecRed else CinemaLine),
         ) {
-            Column(Modifier.padding(14.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                     if (selectionMode) {
                         Icon(
@@ -643,12 +612,9 @@ private fun V157ReminderGroup(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (canSnooze) {
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                            BacklotReminderHubRowAction(
+                                modifier = Modifier.weight(1f),
                                 onClick = { onSnooze?.invoke(task, snoozeMinutes) },
-                                border = BorderStroke(1.dp, CinemaLine),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Outlined.Snooze, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -656,12 +622,9 @@ private fun V157ReminderGroup(
                             }
                         }
                         if (canReschedule) {
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                            BacklotReminderHubRowAction(
+                                modifier = Modifier.weight(1f),
                                 onClick = { onReschedule?.invoke(task) },
-                                border = BorderStroke(1.dp, CinemaLine),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -686,7 +649,6 @@ private fun V157ReminderGroup(
                         Text("SET UP NEXT REMINDER", color = RecRed, fontSize = 11.sp)
                     }
                 }
-            }
         }
     }
 }

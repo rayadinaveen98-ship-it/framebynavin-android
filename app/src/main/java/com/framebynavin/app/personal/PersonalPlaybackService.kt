@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import com.framebynavin.app.R
 import com.framebynavin.app.reminders.ReminderBackingMusic
 import com.framebynavin.app.reminders.ReminderMusicChoice
+import com.framebynavin.app.reminders.FC13SparkNotificationIdentity
 import java.lang.ref.WeakReference
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -144,7 +145,7 @@ internal class PersonalPlaybackService : Service() {
             }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle("Personal reminder")
             .setContentText("Reminder sound in progress")
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
@@ -175,7 +176,13 @@ internal class PersonalPlaybackService : Service() {
             media.isLooping = true
             media.setOnPreparedListener { prepared ->
                 if (expectedGeneration == generation) {
-                    runCatching { prepared.start() }.onFailure { endPlayback() }
+                    runCatching { prepared.start() }
+                        .onSuccess {
+                            FC13PersonalPlaybackVisualState.show(
+                                currentId, currentToken, FC13PlaybackStage.ALARM_RINGING,
+                            )
+                        }
+                        .onFailure { endPlayback() }
                 }
             }
             media.setOnErrorListener { _, _, _ ->
@@ -238,11 +245,22 @@ internal class PersonalPlaybackService : Service() {
                 }
 
                 engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onStart(utteranceId: String?) {
+                        // TTS callbacks can arrive off Main. Publish only for
+                        // the same in-flight utterance and service generation.
+                        handler.post {
+                            if (expectedGeneration == generation &&
+                                activeId == utteranceId && !utteranceId.isNullOrBlank()
+                            ) FC13PersonalPlaybackVisualState.show(
+                                currentId, currentToken, FC13PlaybackStage.VOICE_SPEAKING,
+                            )
+                        }
+                    }
                     override fun onDone(utteranceId: String?) {
                         handler.post {
                             if (expectedGeneration != generation || activeId != utteranceId) return@post
                             activeId = null
+                            FC13PersonalPlaybackVisualState.clear(currentId, currentToken)
                             music.setSpeaking(false)
                             val completed = utteranceId?.substringAfterLast(':')?.toIntOrNull()
                                 ?: run { endPlayback(); return@post }
@@ -282,6 +300,8 @@ internal class PersonalPlaybackService : Service() {
         val completedId = currentId
         val completedToken = currentToken
         val finishedGeneration = ++generation
+        // Clear the old receipt before resetting its identity.
+        FC13PersonalPlaybackVisualState.clear(completedId, completedToken)
         currentId = ""
         currentToken = ""
         stopHardware()
@@ -313,6 +333,9 @@ internal class PersonalPlaybackService : Service() {
     }
 
     private fun stopHardware() {
+        // Also runs when a new occurrence preempts audio or the service dies.
+        // Never leave Spark's wave animating after playback stops.
+        FC13PersonalPlaybackVisualState.clear(currentId, currentToken)
         handler.removeCallbacksAndMessages(null)
         music.stop()
         runCatching { player?.stop() }

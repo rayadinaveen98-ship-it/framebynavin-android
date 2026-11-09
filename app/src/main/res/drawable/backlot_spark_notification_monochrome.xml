@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        Android status-bar small icon: native, WHITE alpha mask derived directly
+        from the approved transparent Spark pointing WebP, not the colored art.
+        Android controls the monochrome system tint. The full pose appears only
+        as an optional private notification largeIcon or in Backlot's own UI.
+        Keep the original Spark WebP and all existing guide resources unchanged.
+    -->
+    <item
+        android:width="24dp"
+        android:height="24dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/guide_funny_point"
+            android:gravity="fill"
+            android:filter="true"
+            android:tint="#FFFFFFFF"
+            android:tintMode="src_in" />
+    </item>
+</layer-list>

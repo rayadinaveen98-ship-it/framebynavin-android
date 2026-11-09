@@ -93,6 +93,8 @@ internal fun ReminderCheckInScreen(
     onDismiss: () -> Unit,
     onReplay: (() -> Unit)? = null,
     attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
+    playbackTaskId: String = "",
+    playbackOccurrenceId: String = "",
 ) {
     BackHandler(enabled = true) { }
     val accent = if (kind == ReminderCheckInKind.VOICE) BacklotSecondaryAccent else BacklotAccent
@@ -122,6 +124,11 @@ internal fun ReminderCheckInScreen(
     val lowPower = remember(context) {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
+    val actualAudio by FC13CreatorPlaybackVisualState.receipts.collectAsState()
+    val liveAudioStage = actualAudio.forOccurrence(
+        playbackTaskId, playbackOccurrenceId,
+    )
+    val playbackActive = liveAudioStage != FC13CreatorAudioStage.SILENT
     // The user, not an intro timer, chooses when to reveal controls.
     // When OS animations are disabled, accessible controls appear immediately.
     var revealed by rememberSaveable(kind, title) {
@@ -155,6 +162,7 @@ internal fun ReminderCheckInScreen(
                     lowPower = lowPower,
                     motionEnabled = motionEnabled,
                     modifier = Modifier.fillMaxSize(),
+                    playbackActive = playbackActive,
                 )
             } else {
                 V195ReminderParticleScene(
@@ -164,6 +172,7 @@ internal fun ReminderCheckInScreen(
                     onReveal = { revealed = true },
                     modifier = Modifier.fillMaxSize(),
                     motionEnabled = motionEnabled,
+                    playbackActive = playbackActive,
                 )
             }
         }
@@ -212,10 +221,27 @@ internal fun ReminderCheckInScreen(
                 kind = kind,
                 motionEnabled = motionEnabled,
                 lowPower = lowPower,
+                playbackActive = playbackActive,
                 modifier = Modifier
                     .size(if (compact) 104.dp else 126.dp)
                     .testTag(if (kind == ReminderCheckInKind.VOICE) "v195-voice-guide" else "v195-alarm-guide"),
             )
+            if (playbackActive) {
+                // Only an authenticated service callback can display this label.
+                // This is a playback status, never a measured sound meter.
+                Text(
+                    text = when (liveAudioStage) {
+                        FC13CreatorAudioStage.ALARM_PLAYING -> "ALARM SOUND PLAYING"
+                        FC13CreatorAudioStage.VOICE_SPEAKING -> "VOICE SPEAKING"
+                        FC13CreatorAudioStage.SILENT -> ""
+                    },
+                    color = BacklotAccent,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = .8.sp,
+                    modifier = Modifier.testTag("fc13-creator-real-playback-stage"),
+                )
+            }
             Spacer(Modifier.height(if (compact) 8.dp else 13.dp))
 
             Text(

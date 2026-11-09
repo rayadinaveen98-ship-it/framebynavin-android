@@ -22,8 +22,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
-import com.framebynavin.app.ui.CinePulseGuide
-import com.framebynavin.app.ui.CinePulseState
+import com.framebynavin.app.ui.FC13SparkPose
+import com.framebynavin.app.ui.FC13SparkPoseSize
+import com.framebynavin.app.ui.theme.RecRed
 import kotlin.math.min
 
 /**
@@ -40,22 +41,27 @@ internal fun V199ReminderSpark(
     motionEnabled: Boolean,
     lowPower: Boolean,
     modifier: Modifier = Modifier,
+    playbackActive: Boolean = false,
 ) {
     val expression = V199SparkMotionPolicy.expression(kind)
     val animate = motionEnabled && !lowPower
-    val transition = rememberInfiniteTransition(label = "v199-spark-scene")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = V199SparkMotionPolicy.FULL_TURN,
-        animationSpec = infiniteRepeatable(
-            tween(V199SparkMotionPolicy.CYCLE_MILLIS, easing = LinearEasing),
-        ),
-        label = "v199-spark-pose-cycle",
-    )
-    val t = if (animate) phase else 0f
+    // Don't keep an infinite animation ticking when the owner disabled motion
+    // or the phone is saving power. Spark's approved pose still remains visible.
+    val t = if (animate) {
+        val transition = rememberInfiniteTransition(label = "v199-spark-scene")
+        val phase by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = V199SparkMotionPolicy.FULL_TURN,
+            animationSpec = infiniteRepeatable(
+                tween(V199SparkMotionPolicy.CYCLE_MILLIS, easing = LinearEasing),
+            ),
+            label = "v199-spark-pose-cycle",
+        )
+        phase
+    } else 0f
     val glow = if (animate) V199SparkMotionPolicy.glow(t) else .83f
-    val accent = if (expression == V199SparkExpression.ALERT)
-        Color(0xFFFFD18B) else Color(0xFFBEB0FF)
+    // Director's Cut REC-red; no new orange/gold/purple identity.
+    val accent = RecRed
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize().testTag(
@@ -76,7 +82,7 @@ internal fun V199ReminderSpark(
                 center = middle,
                 radius = radius,
             )
-            if (expression == V199SparkExpression.ALERT) {
+            if (expression == V199SparkExpression.ALERT && playbackActive) {
                 // Partial arcs sit outside Spark's face. They never obscure the eyes.
                 val arcRadius = radius * (.90f + .055f * glow)
                 val box = Size(arcRadius * 2f, arcRadius * 2f)
@@ -98,8 +104,9 @@ internal fun V199ReminderSpark(
                     radius = 2.2.dp.toPx(),
                     center = Offset(size.width * .84f, size.height * .23f),
                 )
-            } else {
-                // Visual speech energy, intentionally not tied to TTS amplitude.
+            } else if (expression == V199SparkExpression.SPEAK && playbackActive) {
+                // Actual TTS speaking event activates stylized bars. Their
+                // rhythm is decorative, NOT a measured output loudness signal.
                 val barWidth = 2.6.dp.toPx()
                 val baseX = size.width * .835f
                 val baseY = size.height * .52f
@@ -117,11 +124,11 @@ internal fun V199ReminderSpark(
             }
         }
         // Keep original Spark proportions/identity: no redrawing or distorting.
-        CinePulseGuide(
-            state = if (expression == V199SparkExpression.ALERT)
-                CinePulseState.POINT else CinePulseState.PRESENT,
+        FC13SparkPose(
+            mood = if (expression == V199SparkExpression.ALERT)
+                FC13SparkNotificationMood.ALERT else FC13SparkNotificationMood.SPEAK,
+            size = FC13SparkPoseSize.FULL,
             modifier = Modifier
-                .size(width = 92.dp, height = 103.dp)
                 .graphicsLayer {
                     translationY = if (animate) V199SparkMotionPolicy.liftDp(expression, t).dp.toPx() else 0f
                     rotationZ = if (animate) V199SparkMotionPolicy.tiltDegrees(expression, t) else 0f

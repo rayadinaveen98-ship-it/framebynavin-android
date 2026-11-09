@@ -96,6 +96,7 @@ internal class PersonalCloudSyncManager(context: Context) {
                 check(sha256(remote.payload) == remote.payloadSha256) {
                     "Personal cloud checksum mismatch; nothing was overwritten"
                 }
+                PersonalCloudLegacyRemoteGate.requireLegacyOnly(remote.payload)
                 transfer.preview(remote.payload) // verify inner reminders/history checksum too
             }
             // An existing Personal workspace must never silently upload to a
@@ -138,6 +139,12 @@ internal class PersonalCloudSyncManager(context: Context) {
         account.withFreshSession { session ->
             val local = prepareLocal()
             val remote = api.fetchPersonalSyncHead(session)
+            if (remote != null) {
+                check(sha256(remote.payload) == remote.payloadSha256) {
+                    "Personal cloud checksum mismatch; nothing was overwritten"
+                }
+                PersonalCloudLegacyRemoteGate.requireLegacyOnly(remote.payload)
+            }
             push(session, local, remote?.revision)
         }
     }
@@ -172,6 +179,7 @@ internal class PersonalCloudSyncManager(context: Context) {
         check(sha256(cloud.payload) == cloud.payloadSha256) {
             "Personal cloud checksum mismatch; local reminders were not replaced"
         }
+        PersonalCloudLegacyRemoteGate.requireLegacyOnly(cloud.payload)
         val preview = transfer.preview(cloud.payload)
         // Final pre-restore gate: an uncovered local challenge must never be
         // omitted from what appears to be a full Personal cloud restore.
@@ -204,6 +212,7 @@ internal class PersonalCloudSyncManager(context: Context) {
         check(sha256(cloud.payload) == cloud.payloadSha256) {
             "Personal cloud checksum mismatch; nothing was replaced"
         }
+        PersonalCloudLegacyRemoteGate.requireLegacyOnly(cloud.payload)
         val preview = transfer.preview(cloud.payload)
         return PersonalCloudResult.Conflict(local.count, preview.reminderCount, cloud.revision)
     }
@@ -221,6 +230,8 @@ internal class PersonalCloudSyncManager(context: Context) {
                     "Personal cloud access was denied."
                 else if (error is PersonalCloudIncompleteChallengeCoverage)
                     error.message ?: "Single-activity challenge progress is not included in cloud sync."
+                else if (error is PersonalCloudNewerBackupRequiresReview)
+                    error.message ?: "Newer Personal cloud records require owner review."
                 else if (error is PersonalLinkProtectionException)
                     error.message ?: "Personal cloud replacement would remove linked reminders."
                 else "Personal Reminders were NOT confirmed synced. Check connection and try again.",

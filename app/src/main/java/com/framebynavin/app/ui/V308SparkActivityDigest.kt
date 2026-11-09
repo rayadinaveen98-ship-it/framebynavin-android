@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.ui.theme.*
+import com.framebynavin.app.reminders.FC13SparkNotificationMood
 import java.security.MessageDigest
 
 /**
@@ -81,7 +82,13 @@ internal fun V308SparkActivityDigest(
         Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Icon(Icons.Outlined.NotificationsActive, null, tint = MutedGold)
+                FC13SparkPose(
+                    mood = if (actionCount > 0)
+                        FC13SparkNotificationMood.THINK
+                    else FC13SparkNotificationMood.SUCCESS,
+                    size = FC13SparkPoseSize.COMPACT,
+                    modifier = Modifier.testTag("fc13-spark-digest-expression"),
+                )
                 Column(Modifier.weight(1f)) {
                     Text("YOUR ACTIVITY", color = ProjectorIvory,
                         fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -108,6 +115,16 @@ internal fun V308SparkActivityDigest(
                     Row(Modifier.padding(11.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FC13SparkPose(
+                            mood = when {
+                                item.bucket == V306ActivityBucket.HISTORY ->
+                                    FC13SparkNotificationMood.SUCCESS
+                                item.deliveryProblem -> FC13SparkNotificationMood.ALERT
+                                else -> FC13SparkNotificationMood.THINK
+                            },
+                            size = FC13SparkPoseSize.COMPACT,
+                            modifier = Modifier.testTag("fc13-spark-digest-row-pose"),
+                        )
                         Column(Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(V308SparkActivityPolicy.displayedTitle(item),
@@ -128,7 +145,7 @@ internal fun V308SparkActivityDigest(
                                     tint = MutedText)
                             }
                         } else {
-                            Icon(Icons.Outlined.ChevronRight, null, tint = MutedGold)
+                            Icon(Icons.Outlined.ChevronRight, null, tint = RecRed)
                         }
                     }
                 }
@@ -136,7 +153,7 @@ internal fun V308SparkActivityDigest(
             TextButton(
                 onClick = onOpenActivity,
                 modifier = Modifier.fillMaxWidth().testTag("v308-spark-see-all"),
-            ) { Text("SEE ALL ACTIVITY", color = MutedGold, fontSize = 11.sp) }
+            ) { Text("SEE ALL ACTIVITY", color = RecRed, fontSize = 11.sp) }
         }
     }
 }

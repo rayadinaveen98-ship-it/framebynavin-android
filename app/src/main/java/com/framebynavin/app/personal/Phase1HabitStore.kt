@@ -81,6 +81,45 @@ internal class Phase1HabitStore(context: Context) {
     suspend fun confirmToday(id: String, at: Instant): List<Phase1HabitChallenge> =
         updateProgress(id) { it.confirmToday(at) }
 
+    /** Durable owner snooze; Android scheduling is reconciled after this commit. */
+    suspend fun snoozeToday(
+        id: String,
+        at: Instant,
+        minutes: Int,
+    ): List<Phase1HabitChallenge> =
+        updateProgress(id) { it.snoozeToday(at, minutes) }
+
+    /** Flexible-only past-day receipt; confirmedAt stays the REAL current time. */
+    suspend fun confirmSelectedDay(
+        id: String, day: LocalDate, at: Instant,
+    ): List<Phase1HabitChallenge> = updateProgress(id) { it.confirmDay(day, at) }
+
+    /** A journal note NEVER creates a completion receipt or changes its time. */
+    suspend fun saveDayNote(
+        id: String, day: LocalDate, note: String,
+    ): List<Phase1HabitChallenge> = updateProgress(id) { it.noteForDay(day, note) }
+
+    suspend fun changeCompletionMode(
+        id: String, newMode: Phase1HabitCompletionMode,
+    ): List<Phase1HabitChallenge> = updateProgress(id) { before ->
+        before.copy(completionMode = newMode).checked()
+    }
+
+    suspend fun updateLinks(
+        id: String, spaceId: String?, groupId: String?,
+        validSpaceIds: Set<String>, validGroupIds: Set<String>,
+    ): List<Phase1HabitChallenge> {
+        require(spaceId == null || spaceId in validSpaceIds) {
+            "The selected Space is no longer available"
+        }
+        require(groupId == null || groupId in validGroupIds) {
+            "The selected reminder Group is no longer available"
+        }
+        return updateProgress(id) {
+            it.copy(linkedSpaceId = spaceId, linkedGroupId = groupId).checked()
+        }
+    }
+
     suspend fun undoDay(id: String, day: LocalDate): List<Phase1HabitChallenge> =
         updateProgress(id) { it.undoDay(day) }
 

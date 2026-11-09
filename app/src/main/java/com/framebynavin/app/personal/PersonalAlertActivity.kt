@@ -37,11 +37,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.framebynavin.app.ui.FC13SparkPose
+import com.framebynavin.app.ui.FC13SparkPoseSize
+import com.framebynavin.app.reminders.FC13SparkNotificationMood
+import com.framebynavin.app.reminders.V268FullScreenReminderAccess
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
+import com.framebynavin.app.ui.theme.CinemaBlack
+import com.framebynavin.app.ui.theme.RecRed
 import java.lang.Math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,6 +61,26 @@ import kotlinx.coroutines.withContext
 internal class PersonalAlertActivity : ComponentActivity() {
     private var keyguardShowing by mutableStateOf(false)
 
+    // Never trust an intent Boolean alone to raise a window over the keyguard.
+    // The live, acknowledged ALARM token must be read from Personal DataStore.
+    private var fullScreenOpeningRequested = false
+    private var verifiedFullScreenOccurrence = false
+
+    private fun refreshAlarmWindow() {
+        // Recheck special access whenever focus/lifecycle or the live lease changes.
+        val allowed = fullScreenOpeningRequested && verifiedFullScreenOccurrence &&
+            V268FullScreenReminderAccess.allowed(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(allowed)
+            setTurnScreenOn(allowed)
+        } else {
+            @Suppress("DEPRECATION")
+            val flags = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            if (allowed) window.addFlags(flags) else window.clearFlags(flags)
+        }
+    }
+
     private fun refreshLockState() {
         keyguardShowing = getSystemService(Context.KEYGUARD_SERVICE)
             .let { it as? KeyguardManager }?.isKeyguardLocked == true
@@ -61,11 +88,13 @@ internal class PersonalAlertActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        refreshAlarmWindow()
         refreshLockState()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        refreshAlarmWindow()
         refreshLockState()
     }
 
@@ -77,19 +106,12 @@ internal class PersonalAlertActivity : ComponentActivity() {
         val id = personalId
         val token = personalToken
         if (id.isBlank() || token.isBlank()) { finish(); return }
-        if (intent.getBooleanExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false)) {
-            // Do not set these for VOICE or ordinary Personal notifications.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                setShowWhenLocked(true)
-                setTurnScreenOn(true)
-            } else {
-                @Suppress("DEPRECATION")
-                window.addFlags(
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
-                )
-            }
-        }
+        // The normal owner-tapped notification uses a different immutable
+        // PendingIntent and must not inherit interruptive presentation rights.
+        fullScreenOpeningRequested =
+            intent.action == PersonalFullScreenPolicy.FSI_OPEN_ACTION &&
+            intent.getBooleanExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false)
+        refreshAlarmWindow() // fail closed until the persisted token is verified
         refreshLockState()
         PersonalAlertSurfaceRegistry.attach(this, id, token)
         setContent {
@@ -112,9 +134,24 @@ internal class PersonalAlertActivity : ComponentActivity() {
                         when (PersonalAlertPresentationPolicy.state(item, id, token)) {
                             PersonalAlertPresentationState.READY -> {
                                 reminder = item
+                                // No full-screen alarm for a Voice, Quiet,
+                                // automatic retry or stale/unposted token.
+                                verifiedFullScreenOccurrence = item != null &&
+                                    item.pendingOccurrenceMillis > 0L &&
+                                    item.presentedToken == token &&
+                                    PersonalFullScreenPolicy.eligible(
+                                        alert = item.alert,
+                                        followUp = false,
+                                        fullScreenPermissionAllowed =
+                                            V268FullScreenReminderAccess.allowed(this@PersonalAlertActivity),
+                                        automaticRetry = item.autoRetryCount > 0,
+                                    )
+                                refreshAlarmWindow()
                                 return@LaunchedEffect
                             }
                             PersonalAlertPresentationState.INVALID -> {
+                                verifiedFullScreenOccurrence = false
+                                refreshAlarmWindow()
                                 invalid = true
                                 return@LaunchedEffect
                             }
@@ -125,7 +162,48 @@ internal class PersonalAlertActivity : ComponentActivity() {
                             }
                         }
                     }
+                    verifiedFullScreenOccurrence = false
+                    refreshAlarmWindow()
                     invalid = true
+                }
+                // The reminder can be Done, paused, deleted, snoozed or replaced
+                // from another surface while this alert is still visible.
+                // Observe the existing authoritative DataStore, not a second
+                // activity-local lease. Retire the over-keyguard window at once
+                // when its originally posted token is no longer active.
+                LaunchedEffect(id, token, reminder != null) {
+                    if (reminder == null) return@LaunchedEffect
+                    try {
+                        PersonalReminderStore(applicationContext).remindersFlow.collect { all ->
+                            val latest = all.firstOrNull { it.id == id }
+                            if (PersonalAlertPresentationPolicy.state(
+                                    latest, id, token,
+                                ) != PersonalAlertPresentationState.READY) {
+                                verifiedFullScreenOccurrence = false
+                                refreshAlarmWindow()
+                                reminder = null
+                                invalid = true
+                                finish()
+                                return@collect
+                            }
+                            if (latest != reminder) {
+                                reminder = latest
+                                if (latest == null || latest.alert != PersonalAlert.ALARM ||
+                                    latest.autoRetryCount > 0) {
+                                    verifiedFullScreenOccurrence = false
+                                    refreshAlarmWindow()
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Damaged/unreadable current data is never treated as
+                        // an active alarm or reason to keep a lock-screen window.
+                        verifiedFullScreenOccurrence = false
+                        refreshAlarmWindow()
+                        reminder = null
+                        invalid = true
+                        finish()
+                    }
                 }
                 fun respond(action: String) {
                     val current = reminder ?: return
@@ -189,10 +267,14 @@ internal fun V2233PersonalAlertScreen(
     onDismiss: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val midnight = Color(0xFF080D20)
-    val violet = Color(0xFF9B68FF)
-    val blue = Color(0xFF30B8FF)
-    val coral = Color(0xFFFF6C95)
+    // Director's Cut: honor the app's existing REC-red visual language.
+    val midnight = CinemaBlack
+    val violet = RecRed
+    val blue = RecRed
+    val coral = RecRed
+    val livePlayback by FC13PersonalPlaybackVisualState.receipts.collectAsState()
+    val playbackStage = if (locked || reminder == null) FC13PlaybackStage.SILENT
+        else livePlayback.stageFor(reminder.id, reminder.pendingToken)
     Surface(color = midnight, modifier = Modifier.fillMaxSize()
         .testTag("v2233-personal-alert-screen")) {
         Column(
@@ -208,6 +290,11 @@ internal fun V2233PersonalAlertScreen(
             if (locked) {
                 // Android's public notification version already redacts titles.
                 // Preserve the same privacy in the actual over-keyguard activity.
+                FC13SparkPose(
+                    mood = FC13SparkNotificationMood.ALERT,
+                    size = FC13SparkPoseSize.MEDIUM,
+                    modifier = Modifier.testTag("fc13-spark-locked-alarm"),
+                )
                 V2233PersonalParticleWave(PersonalAlert.ALARM)
                 Text("PERSONAL ALARM", color = blue,
                     fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
@@ -233,7 +320,26 @@ internal fun V2233PersonalAlertScreen(
             }
             // The art is a particle wave itself, with the symbol emerging from
             // the same luminous palette. No reused creator task icon/sticker.
-            V2233PersonalParticleWave(reminder.alert)
+            FC13SparkPose(
+                mood = when (reminder.alert) {
+                    PersonalAlert.ALARM -> FC13SparkNotificationMood.ALERT
+                    PersonalAlert.VOICE -> FC13SparkNotificationMood.SPEAK
+                    PersonalAlert.NOTIFICATION -> FC13SparkNotificationMood.CALM
+                },
+                size = FC13SparkPoseSize.FULL,
+                modifier = Modifier.testTag("fc13-spark-full-reminder"),
+            )
+            V2233PersonalParticleWave(
+                reminder.alert, playbackActive = playbackStage != FC13PlaybackStage.SILENT,
+            )
+            if (playbackStage != FC13PlaybackStage.SILENT) {
+                Text(
+                    if (playbackStage == FC13PlaybackStage.ALARM_RINGING)
+                        "ALARM SOUND PLAYING" else "VOICE SPEAKING",
+                    color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("fc13-personal-live-playback"),
+                )
+            }
             Text(if (reminder.alert == PersonalAlert.ALARM) "YOUR ALARM"
                 else if (reminder.alert == PersonalAlert.VOICE) "VOICE REMINDER"
                 else "YOUR REMINDER",
@@ -285,6 +391,9 @@ internal fun V2233PersonalAlertScreen(
  * reminder actions and screen routing are completely unchanged.
  */
 @Composable
-internal fun V2233PersonalParticleWave(alert: PersonalAlert) {
-    V2272PersonalParticleWave(alert)
+internal fun V2233PersonalParticleWave(
+    alert: PersonalAlert,
+    playbackActive: Boolean = false,
+) {
+    V2272PersonalParticleWave(alert, playbackActive = playbackActive)
 }

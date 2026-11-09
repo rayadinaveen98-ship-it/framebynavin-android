@@ -19,6 +19,7 @@ import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.ProjectPulseEngine
 import com.framebynavin.app.data.TaskPriority
+import com.framebynavin.app.data.ReminderMode
 import java.util.Locale
 
 object ReminderNotifications {
@@ -97,7 +98,7 @@ object ReminderNotifications {
         runCatching { ReminderAcknowledgementStore(context).begin(task, token, "NOTIFICATION") }
         val manager = context.getSystemService(NotificationManager::class.java)
         val builder = NotificationCompat.Builder(context, if (quiet) QUIET_CHANNEL_ID else ReminderConstants.CHANNEL_ID)
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle(task.title)
             .setContentText(notificationText(task))
             .setStyle(
@@ -114,6 +115,18 @@ object ReminderNotifications {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context, task.id))
+        FC13SparkNotificationIdentity.decoratePrivate(
+            builder,
+            context,
+            when {
+                quiet || isFollowUp -> FC13SparkNotificationMood.CALM
+                stageCheckIn -> FC13SparkNotificationMood.THINK
+                task.reminderMode == ReminderMode.VOICE -> FC13SparkNotificationMood.SPEAK
+                task.reminderMode == ReminderMode.ALARM -> FC13SparkNotificationMood.ALERT
+                task.reminderMode == ReminderMode.SMART -> FC13SparkNotificationMood.THINK
+                else -> FC13SparkNotificationMood.CALM
+            },
+        )
 
         if (stageCheckIn) {
             builder

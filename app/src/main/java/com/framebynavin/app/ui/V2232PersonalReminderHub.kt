@@ -91,6 +91,9 @@ internal fun V2232PersonalReminderHub(
     var editorGroupsError by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<PersonalReminder?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
+    var fullScreenSettingsMessage by remember { mutableStateOf<String?>(null) }
+    var exactAlarmSettingsMessage by remember { mutableStateOf<String?>(null) }
+    var channelSettingsMessage by remember { mutableStateOf<String?>(null) }
     var rebuildInstallConfirm by remember { mutableStateOf(false) }
     var rebuildInstallStatus by remember { mutableStateOf<String?>(null) }
     // Recompute local calendar labels while this screen is visible; the next
@@ -100,6 +103,7 @@ internal fun V2232PersonalReminderHub(
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
+    var targetChallengeSpaceId by remember { mutableStateOf<String?>(null) }
     var challengesOpen by rememberSaveable { mutableStateOf(false) }
     var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
@@ -218,9 +222,20 @@ internal fun V2232PersonalReminderHub(
     val notificationsReady = remember(permissionRevision, context) {
         PersonalReminderNotifications.canPost(context)
     }
+    val highImportanceChannelReady = remember(permissionRevision, context) {
+        PersonalReminderNotifications.hasHighImportanceChannel(context)
+    }
     val preciseReady = remember(permissionRevision, context) {
         val am = context.getSystemService(AlarmManager::class.java)
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms()
+    }
+    // Android 14+ special access is independent of POST_NOTIFICATIONS.
+    // Refresh on return from Settings; do not assume an alarm can open full-screen.
+    val fullScreenReady = remember(permissionRevision, context) {
+        com.framebynavin.app.reminders.V268FullScreenReminderAccess.allowed(context)
+    }
+    val hasActivePersonalAlarm = reminders.any {
+        !it.paused && it.alert == PersonalAlert.ALARM
     }
 
     CreatorAdaptiveFullScreen(onDismissRequest = onClose) {
@@ -275,7 +290,7 @@ internal fun V2232PersonalReminderHub(
             selected = BacklotReminderWorkspace.PERSONAL,
             onOpenPersonal = {},
             onOpenCreator = onCreator,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp)
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
                 .testTag("v2232-personal-space-switcher"),
         )
         if (personalPageName == "TODAY") {
@@ -428,12 +443,144 @@ internal fun V2232PersonalReminderHub(
                         }
                     }
                 }
+            }
+            if (hasActivePersonalAlarm && !preciseReady) {
+                Surface(
+                    color = CinemaSurface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, CinemaLine),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-personal-exact-alarm-access"),
+                ) {
+                    Column(
+                        Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Text("Exact alarm timing is restricted",
+                            color = ProjectorIvory, fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold)
+                        Text(
+                            "Android may deliver a Personal alarm late when exact-alarm " +
+                                "access is off. Your saved reminder and notification " +
+                                "actions remain available.",
+                            color = MutedText, fontSize = 12.sp,
+                        )
+                        TextButton(
+                            onClick = {
+                                exactAlarmSettingsMessage = null
+                                val opened = runCatching {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                                .setData(android.net.Uri.parse(
+                                                    "package:${context.packageName}",
+                                                )),
+                                        )
+                                    } else {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                                .setData(android.net.Uri.parse(
+                                                    "package:${context.packageName}",
+                                                )),
+                                        )
+                                    }
+                                }
+                                if (opened.isFailure) {
+                                    exactAlarmSettingsMessage =
+                                        "Exact-alarm settings unavailable. Check Android " +
+                                            "Settings > Apps > Backlot > Alarms & reminders."
+                                }
+                            },
+                            modifier = Modifier.testTag("fc13-open-exact-alarm-settings"),
+                        ) { Text("REVIEW ALARM TIMING", color = RecRed) }
+                        exactAlarmSettingsMessage?.let { message ->
+                            Text(message, color = RecRed, fontSize = 11.sp)
+                        }
+                    }
+                }
             } else if (!preciseReady) {
                 Text("Exact timing is unavailable; Android may deliver personal alerts later.",
                     color = MutedText, fontSize = 11.sp)
             }
-            // The standalone Personal media/ringing services are intentionally
-            // not enabled: a selected Voice or Alarm is clearly labeled fallback.
+            if (hasActivePersonalAlarm && notificationsReady &&
+                !highImportanceChannelReady) {
+                Surface(
+                    color = CinemaSurface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, RecRed.copy(alpha = .42f)),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-personal-low-importance-channel"),
+                ) {
+                    Column(
+                        Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Text("Personal alert priority is reduced",
+                            color = ProjectorIvory, fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold)
+                        Text(
+                            "Android's Personal reminder channel is not set to High. " +
+                                "A heads-up or full-screen alert cannot be guaranteed; " +
+                                "your saved reminders are unchanged.",
+                            color = MutedText, fontSize = 12.sp,
+                        )
+                        TextButton(
+                            onClick = {
+                                channelSettingsMessage = null
+                                if (!PersonalReminderNotifications.openAlertChannelSettings(context)) {
+                                    channelSettingsMessage =
+                                        "Personal channel settings unavailable. Open " +
+                                            "Android Settings > Apps > Backlot > Notifications."
+                                }
+                            },
+                            modifier = Modifier.testTag("fc13-open-personal-alert-channel"),
+                        ) { Text("REVIEW NOTIFICATION PRIORITY", color = RecRed) }
+                        channelSettingsMessage?.let { message ->
+                            Text(message, color = RecRed, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                hasActivePersonalAlarm && !fullScreenReady) {
+                Surface(
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-personal-fullscreen-fallback"),
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Full-screen alarm access is off", color = ProjectorIvory,
+                            fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Your alarm remains a high-priority, tappable notification with Done and Snooze. " +
+                                "Android may show a heads-up alert instead of opening Backlot.",
+                            color = MutedText, fontSize = 12.sp,
+                        )
+                        TextButton(onClick = {
+                            fullScreenSettingsMessage = null
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                        data = android.net.Uri.parse("package:${context.packageName}")
+                                    }
+                                )
+                            }.onFailure {
+                                fullScreenSettingsMessage =
+                                    "Full-screen settings unavailable. Open Android app settings for Backlot."
+                            }
+                        }, modifier = Modifier.testTag("fc13-open-fullscreen-settings")) {
+                            Text("REVIEW ANDROID ACCESS", color = RecRed)
+                        }
+                        fullScreenSettingsMessage?.let { message ->
+                            Text(message, color = RecRed, fontSize = 11.sp,
+                                modifier = Modifier.testTag("fc13-fullscreen-settings-error"))
+                        }
+                    }
+                }
+            }
+            // Existing notification and token-backed actions remain the fallback.
             Text("Voice and Alarm attempt short audio playback when Android permits; notifications and response buttons stay available.",
                 color = MutedText, fontSize = 10.sp,
                 modifier = Modifier.testTag("v2232-personal-fallback-notice"))
@@ -486,6 +633,64 @@ internal fun V2232PersonalReminderHub(
                                     color = ProjectorIvory, fontSize = 12.sp)
                             }
                         }
+                    } else if (hasActivePersonalAlarm && !preciseReady) {
+                        Surface(
+                            onClick = { personalPageName = "SETTINGS" },
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, RecRed.copy(alpha = .42f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-exact-timing-fallback"),
+                        ) {
+                            Row(
+                                Modifier.padding(11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Outlined.Schedule, null,
+                                    tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Exact alarm timing is restricted · Review settings",
+                                    color = ProjectorIvory, fontSize = 12.sp)
+                            }
+                        }
+                    } else if (hasActivePersonalAlarm && !highImportanceChannelReady) {
+                        Surface(
+                            onClick = { personalPageName = "SETTINGS" },
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, RecRed.copy(alpha = .42f)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-low-priority-fallback"),
+                        ) {
+                            Row(
+                                Modifier.padding(11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Outlined.NotificationsActive, null,
+                                    tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Personal alert priority reduced · Review settings",
+                                    color = ProjectorIvory, fontSize = 12.sp)
+                            }
+                        }
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                        hasActivePersonalAlarm && !fullScreenReady) {
+                        Surface(
+                            onClick = { personalPageName = "SETTINGS" },
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, CinemaLine),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-alarm-heads-up-fallback"),
+                        ) {
+                            Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.NotificationsActive, null,
+                                    tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Alarm will use notification fallback · Review settings",
+                                    color = ProjectorIvory, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             if (loadError != null) {
@@ -516,16 +721,31 @@ internal fun V2232PersonalReminderHub(
                 Text("YOUR REMINDERS · ${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
                     color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
+                BacklotReminderHubMetrics(
+                    metrics = listOf(
+                        BacklotReminderHubMetric(
+                            "NEEDS",
+                            reminders.count {
+                                PersonalAgendaPolicy.section(it, agendaNowMillis) ==
+                                    PersonalAgendaSection.NEEDS_ATTENTION
+                            },
+                            urgent = true,
+                        ),
+                        BacklotReminderHubMetric("ACTIVE", reminders.count { !it.paused }),
+                        BacklotReminderHubMetric("PAUSED", reminders.count { it.paused }),
+                    ),
+                    modifier = Modifier.testTag("fc13-personal-hub-metrics"),
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                         .testTag("v285-agenda-scope-selector"),
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
                     V285AgendaScope.entries.forEach { scope ->
-                        FilterChip(
+                        BacklotReminderHubFilterChip(
+                            label = scope.label,
                             selected = agendaScopeName == scope.name,
                             onClick = { agendaScopeName = scope.name },
-                            label = { Text(scope.label, fontSize = 11.sp) },
                             modifier = Modifier.testTag("v285-agenda-scope-" + scope.name),
                         )
                     }
@@ -544,16 +764,12 @@ internal fun V2232PersonalReminderHub(
                         "other upcoming or paused reminders.", color = MutedText, fontSize = 12.sp)
                 }
                 agendaGroups.forEach { group ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .testTag("v2282-personal-section-${group.section.name}"),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(group.section.label, color = if (group.section == PersonalAgendaSection.NEEDS_ATTENTION)
-                            RecRed else MutedText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text("${group.items.size}", color = MutedText, fontSize = 11.sp)
-                    }
+                    BacklotReminderHubSectionHeading(
+                        label = group.section.label,
+                        count = group.items.size,
+                        urgent = group.section == PersonalAgendaSection.NEEDS_ATTENTION,
+                        modifier = Modifier.testTag("v2282-personal-section-${group.section.name}"),
+                    )
                     group.items.forEach { item ->
                         V2232PersonalItem(
                             reminder = item,
@@ -599,12 +815,23 @@ internal fun V2232PersonalReminderHub(
     }
 
     if (challengesOpen) {
-        Phase1HabitLocalStoreReview(onClose = { challengesOpen = false })
+        Phase1HabitLocalStoreReview(
+            onClose = { challengesOpen = false },
+            onOpenLinkedSpace = { spaceId ->
+                targetChallengeSpaceId = spaceId
+                challengesOpen = false
+                spacesOpen = true
+            },
+        )
     }
 
     if (spacesOpen) {
         V289PersonalSpacesScreen(
-            onClose = { spacesOpen = false },
+            onClose = {
+                spacesOpen = false
+                targetChallengeSpaceId = null
+            },
+            initialSpaceId = targetChallengeSpaceId,
             onEditReminder = { id ->
                 reminders.firstOrNull { it.id == id }?.let { reminder ->
                     editing = reminder
@@ -749,17 +976,10 @@ private fun V2232PersonalItem(
     val actionReady = V288PersonalTodayPolicy.canRespond(reminder)
     val needsAttention = PersonalAgendaPolicy.section(reminder, nowMillis) ==
         PersonalAgendaSection.NEEDS_ATTENTION
-    Surface(
-        color = CinemaSurface,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (needsAttention) RecRed.copy(alpha = .55f)
-            else CinemaLine),
-        modifier = Modifier.fillMaxWidth().testTag("v2232-personal-item"),
+    BacklotReminderHubItemCard(
+        urgent = needsAttention,
+        modifier = Modifier.testTag("v2232-personal-item"),
     ) {
-        Column(
-            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 V288PersonalReminderIcon(reminder)
                 Spacer(Modifier.width(12.dp))
@@ -789,17 +1009,20 @@ private fun V2232PersonalItem(
                 }
             }
             if (actionReady) {
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    OutlinedButton(
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BacklotReminderHubRowAction(
                         enabled = !busy,
                         onClick = { onRespond(PersonalDeliveryContract.ACTION_DONE) },
-                        modifier = Modifier.testTag("v288-row-done"),
-                    ) { Text("DONE", fontSize = 11.sp) }
-                    OutlinedButton(
+                        modifier = Modifier.weight(1f).testTag("v288-row-done"),
+                    ) { Text("DONE", fontSize = 11.sp, maxLines = 1) }
+                    BacklotReminderHubRowAction(
                         enabled = !busy,
                         onClick = { onRespond(PersonalDeliveryContract.ACTION_SNOOZE) },
-                        modifier = Modifier.testTag("v288-row-snooze"),
-                    ) { Text("SNOOZE ${reminder.snoozeMinutes}m", fontSize = 11.sp) }
+                        modifier = Modifier.weight(1f).testTag("v288-row-snooze"),
+                    ) { Text("SNOOZE ${reminder.snoozeMinutes}m", fontSize = 11.sp, maxLines = 1) }
                 }
             }
             if (expanded) {
@@ -833,7 +1056,6 @@ private fun V2232PersonalItem(
                     }
                 }
             }
-        }
     }
 }
 
@@ -920,6 +1142,10 @@ internal fun V2232PersonalEditor(
     // Persist their disclosure during rotations, never alter reminder data.
     var suggestionsOpen by rememberSaveable(existing?.id) {
         mutableStateOf(false)
+    }
+    // Notes are optional; keep the first step compact. Never clear typed notes on collapse.
+    var notesOpen by rememberSaveable(existing?.id) {
+        mutableStateOf(existing != null)
     }
     val composerScroll = remember(composerStep) { ScrollState(0) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1068,11 +1294,31 @@ internal fun V2232PersonalEditor(
                         label = { Text("What to remember?") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-title"),
                     )
-                    OutlinedTextField(
-                        value = notes, onValueChange = { notes = it.take(2000) },
-                        label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    TextButton(
+                        onClick = { notesOpen = !notesOpen },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-personal-toggle-notes"),
+                    ) {
+                        Icon(Icons.Outlined.Notes, null, tint = RecRed, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (notesOpen) "Hide notes" else if (notes.isNotBlank()) "Edit notes"
+                            else "Add notes (optional)",
+                            color = RecRed, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = notesOpen,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        OutlinedTextField(
+                            value = notes, onValueChange = { notes = it.take(2000) },
+                            label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-notes-field"),
+                        )
+                    }
                     }
                     }
                     AnimatedVisibility(

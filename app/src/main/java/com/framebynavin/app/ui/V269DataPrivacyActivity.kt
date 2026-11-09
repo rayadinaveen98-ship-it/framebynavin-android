@@ -52,9 +52,10 @@ class V269DataPrivacyActivity : ComponentActivity() {
 
 internal object V269DataPrivacyPolicy {
     const val CREATOR_SCOPE = "Creator exports cover supported projects and app-owned recordings. Keep original project files and external media separately."
-    const val PERSONAL_SCOPE = "Personal Reminders use a separate backup. The exported JSON contains reminder names and notes and is not encrypted."
-    const val CLOUD_SCOPE = "Unified Cloud Sync saves Creator records and Personal Reminders (including completion history) in separate account-private records. Device-only alarm tokens, original Best Frames, and custom music files do not sync. Android permissions must be granted per phone. Signing out does not erase cloud or phone data."
-    const val DELETION_STATUS = "Full Backlot account deletion is not available in this preview. No deletion request can be submitted here. Signing out or deleting a Creator backup is not the same as deleting an account."
+    const val PERSONAL_SCOPE = "Personal Reminders have a separate, unencrypted JSON export. It does not provide a complete Backlot backup or prove recovery of all 21-day challenges, Spaces and original photos."
+    const val CLOUD_SCOPE = "Current Sync Now is a LIMITED Creator + Personal records sync, not universal backup. It does not cover all 21-day challenge progress, Spaces, Reminder Groups, private photos, original Best Frames or device-only music. Personal cloud operations are blocked when a single-activity challenge could be lost. Permissions must be configured per device; signing out deletes neither local nor cloud data."
+    const val UNIVERSAL_STATUS = "Encrypted local Creator + Personal source copies can be created and verified here. Owner-reviewed cloud operations require the new protected Trust backend; availability and errors are checked before writing. A complete cross-domain Restore Backup is still blocked until safe recovery and rollback are implemented and verified."
+    const val DELETION_STATUS = "Full Backlot account deletion is NOT available yet. No delete-account request has been sent. Signing out or deleting an individual Creator copy is not deleting your Backlot account."
     const val NO_DELETION_SENT = "No account deletion request was sent."
 }
 
@@ -164,6 +165,33 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                         Spacer(Modifier.width(8.dp))
                         Text("SIGN OUT (KEEP LOCAL DATA)")
                     }
+                }
+            }
+
+            // FC13 Trust safety: show actual availability, never a fake cloud
+            // success/deletion control while the verified backend is unfinished.
+            V269PrivacyCard("Universal Backup & Restore") {
+                Text(
+                    V269DataPrivacyPolicy.UNIVERSAL_STATUS,
+                    color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                    modifier = Modifier.testTag("fc13-universal-backup-coverage"),
+                )
+                if (session != null) {
+                    Button(
+                        onClick = {
+                            context.startActivity(
+                                Intent(context, TrustUniversalBackupActivity::class.java),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-open-universal-backup"),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    ) { Text("OPEN ENCRYPTED BACKUP MANAGER") }
+                } else {
+                    Text(
+                        "Connect your Backlot account in Cloud Sync to use owner-bound backups.",
+                        color = MutedText, fontSize = 11.sp,
+                    )
                 }
             }
 

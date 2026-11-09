@@ -6,14 +6,23 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.framebynavin.app.personal.Phase1HabitAlertKind
 import com.framebynavin.app.personal.Phase1HabitChallenge
+import com.framebynavin.app.personal.Phase1HabitCompletionMode
+import com.framebynavin.app.personal.Phase1HabitDayStatus
 import com.framebynavin.app.personal.Phase1HabitStore
+import com.framebynavin.app.personal.V298ReminderGroup
+import com.framebynavin.app.personal.V298ReminderGroupStore
+import com.framebynavin.app.personal.spaces.V289SpaceEntity
+import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.Phase1HabitAlarmScheduler
+import com.framebynavin.app.personal.Phase1HabitNotification
+import com.framebynavin.app.personal.Phase1HabitVoiceService
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -37,9 +46,13 @@ import kotlinx.coroutines.launch
  * NOT claim that voice/alarm/quiet notifications work yet.
  */
 @Composable
-internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
+internal fun Phase1HabitLocalStoreReview(
+    onClose: () -> Unit,
+    onOpenLinkedSpace: (String) -> Unit = {},
+) {
     val context = LocalContext.current
     val store = remember(context) { Phase1HabitStore(context) }
+    val groupStore = remember(context) { V298ReminderGroupStore(context) }
     val coroutineScope = rememberCoroutineScope()
     var records by remember { mutableStateOf<List<Phase1HabitChallenge>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
@@ -55,6 +68,16 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
     // Alert delivery is not connected: default Off, refuse an unmet promise.
     var alertKind by remember { mutableStateOf<Phase1HabitAlertKind?>(null) }
     var alertTime by remember { mutableStateOf(LocalTime.of(7, 30)) }
+    var completionMode by remember { mutableStateOf(Phase1HabitCompletionMode.STRICT) }
+    var detailDay by remember { mutableStateOf<LocalDate?>(null) }
+    var detailNote by remember { mutableStateOf("") }
+    var linkDialog by remember { mutableStateOf(false) }
+    var linkSpaceId by remember { mutableStateOf<String?>(null) }
+    var linkGroupId by remember { mutableStateOf<String?>(null) }
+    var availableGroups by remember { mutableStateOf<List<V298ReminderGroup>>(emptyList()) }
+    var availableSpaces by remember { mutableStateOf<List<V289SpaceEntity>>(emptyList()) }
+    var linkCatalogError by remember { mutableStateOf<String?>(null) }
+    var linkCatalogReady by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf(false) }
     var now by remember { mutableStateOf(Instant.now()) }
 
@@ -77,6 +100,30 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
         }
     }
     val selected = records.firstOrNull { it.id == chosenId } ?: records.lastOrNull()
+
+    LaunchedEffect(linkDialog) {
+        if (!linkDialog) return@LaunchedEffect
+        linkCatalogReady = false
+        linkCatalogError = null
+        try {
+            val loadedGroups = groupStore.load()
+            val file = context.getDatabasePath(V289SpacesDatabase.FILE_NAME)
+            val loadedSpaces = if (!file.exists()) emptyList()
+            else {
+                require(file.isFile) { "Spaces database is unavailable" }
+                val db = V289SpacesDatabase.open(context)
+                try {
+                    db.spaces().loadSpaces().filter { it.archivedAtMillis == null }
+                } finally { db.close() }
+            }
+            availableGroups = loadedGroups
+            availableSpaces = loadedSpaces
+            linkCatalogReady = true
+        } catch (_: Exception) {
+            linkCatalogError = "Could not verify Spaces or Groups. Existing links were not changed."
+            linkCatalogReady = true
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = BacklotBackground) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -105,7 +152,7 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                     ) {
                         records.forEach { item ->
                             OutlinedButton(
-                                onClick = { chosenId = item.id; message = null },
+                                onClick = { chosenId = item.id; detailDay = null; message = null },
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp, if (selected.id == item.id) BacklotAccent else BacklotBorder),
                             ) { Text(item.activity, color = BacklotPrimaryText, maxLines = 1) }
@@ -123,6 +170,8 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                         time = alertTime,
                         onTime = { alertTime = it },
                         error = validationError,
+                        completionMode = completionMode,
+                        onCompletionMode = { completionMode = it },
                         onStart = {
                             val clean = title.trim()
                             when {
@@ -136,6 +185,7 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                                         zoneId = zone.id,
                                         alertTime = if (alertKind == null) null else alertTime,
                                         alertKind = alertKind,
+                                        completionMode = completionMode,
                                     ).checked()
                                     saving = true
                                     coroutineScope.launch {
@@ -169,6 +219,24 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                     DashboardHabitReview(
                         habit = selected,
                         now = now,
+                        onDaySelected = { day ->
+                            detailDay = day
+                            detailNote = selected.dayNotes[day].orEmpty()
+                        },
+                        linkedSpaceLabel = selected.linkedSpaceId?.let { id ->
+                            availableSpaces.firstOrNull { it.id == id }?.title ?: "Linked Space"
+                        },
+                        linkedGroupLabel = selected.linkedGroupId?.let { id ->
+                            availableGroups.firstOrNull { it.id == id }?.name ?: "Linked Group"
+                        },
+                        onManageLinks = {
+                            linkSpaceId = selected.linkedSpaceId
+                            linkGroupId = selected.linkedGroupId
+                            linkDialog = true
+                        },
+                        onOpenLinkedSpace = selected.linkedSpaceId?.let { id ->
+                            { onOpenLinkedSpace(id) }
+                        },
                         onDone = {
                             if (!saving) {
                                 saving = true
@@ -208,6 +276,41 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                                 }
                             }
                         },
+                        onSnooze = {
+                            if (!saving && selected.canSnooze(Instant.now())) {
+                                saving = true
+                                coroutineScope.launch {
+                                    try {
+                                        val requestedAt = Instant.now()
+                                        val localDay = LocalDate.ofInstant(
+                                            requestedAt, ZoneId.of(selected.zoneId))
+                                        val previousDue = selected.snoozedUntil
+                                            ?.takeIf { !it.isAfter(requestedAt) }
+                                            ?: localDay.atTime(
+                                                requireNotNull(selected.alertTime),
+                                            ).atZone(ZoneId.of(selected.zoneId)).toInstant()
+                                        records = store.snoozeToday(
+                                            selected.id, requestedAt, 10,
+                                        )
+                                        Phase1HabitVoiceService.stopMatching(
+                                            selected.id, previousDue.toEpochMilli())
+                                        val trouble = runCatching {
+                                            Phase1HabitAlarmScheduler(context).reconcile()
+                                        }.exceptionOrNull()
+                                        if (trouble == null) {
+                                            Phase1HabitNotification.cancelPosted(
+                                                context, selected, previousDue.toEpochMilli(),
+                                            )
+                                            message = null
+                                        } else {
+                                            message = "10-minute snooze saved. Android delivery needs attention."
+                                        }
+                                    } catch (_: Exception) {
+                                        message = "Snooze could not be confirmed. Existing Done receipts were retained."
+                                    } finally { saving = false }
+                                }
+                            }
+                        },
                         onPause = {
                             if (!saving) {
                                 saving = true
@@ -231,6 +334,201 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                     )
                 }
             }
+        }
+    }
+    val currentChallenge = records.firstOrNull { it.id == chosenId } ?: records.lastOrNull()
+    if (linkDialog && currentChallenge != null) {
+        val target = currentChallenge
+        AlertDialog(
+            onDismissRequest = { if (!saving) linkDialog = false },
+            title = { Text("Link 21-day challenge") },
+            text = {
+                Column(Modifier.heightIn(max = 410.dp)
+                    .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Optional links to your existing Spaces and Reminder Groups. " +
+                        "Nothing is created, scheduled, or marked Done.",
+                        color = BacklotSecondaryText)
+                    if (!linkCatalogReady) {
+                        CircularProgressIndicator(color = BacklotAccent)
+                    } else if (linkCatalogError != null) {
+                        Text(linkCatalogError.orEmpty(), color = BacklotError)
+                    } else {
+                        Text("SPACE", fontWeight = FontWeight.Bold, color = BacklotPrimaryText)
+                        FilterChip(
+                            selected = linkSpaceId == null,
+                            onClick = { linkSpaceId = null },
+                            label = { Text("None") },
+                        )
+                        availableSpaces.forEach { space ->
+                            FilterChip(
+                                selected = linkSpaceId == space.id,
+                                onClick = { linkSpaceId = space.id },
+                                label = { Text(space.title) },
+                            )
+                        }
+                        if (availableSpaces.isEmpty())
+                            Text("No active Spaces saved yet.", color = BacklotSecondaryText)
+                        Text("REMINDER GROUP", fontWeight = FontWeight.Bold,
+                            color = BacklotPrimaryText)
+                        FilterChip(
+                            selected = linkGroupId == null,
+                            onClick = { linkGroupId = null },
+                            label = { Text("None") },
+                        )
+                        availableGroups.forEach { group ->
+                            FilterChip(
+                                selected = linkGroupId == group.id,
+                                onClick = { linkGroupId = group.id },
+                                label = { Text(group.name) },
+                            )
+                        }
+                        if (availableGroups.isEmpty())
+                            Text("No Reminder Groups saved yet.", color = BacklotSecondaryText)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !saving && linkCatalogReady && linkCatalogError == null,
+                    onClick = {
+                        val chosenSpace = linkSpaceId
+                        val chosenGroup = linkGroupId
+                        saving = true
+                        coroutineScope.launch {
+                            try {
+                                // A stale picker must never silently store an
+                                // ID that was deleted after the dialog opened.
+                                val freshGroups = groupStore.load().map { it.id }.toSet()
+                                val dbFile = context.getDatabasePath(
+                                    V289SpacesDatabase.FILE_NAME)
+                                val freshSpaces = if (!dbFile.exists()) emptySet()
+                                else {
+                                    require(dbFile.isFile)
+                                    val db = V289SpacesDatabase.open(context)
+                                    try {
+                                        db.spaces().loadSpaces()
+                                            .filter { it.archivedAtMillis == null }
+                                            .map { it.id }.toSet()
+                                    } finally { db.close() }
+                                }
+                                records = store.updateLinks(
+                                    target.id, chosenSpace, chosenGroup,
+                                    freshSpaces, freshGroups,
+                                )
+                                linkDialog = false
+                                message = null
+                            } catch (_: Exception) {
+                                message = "Links were not saved. Please reopen the picker."
+                            } finally { saving = false }
+                        }
+                    },
+                    modifier = Modifier.testTag("fc13-save-challenge-links"),
+                ) { Text("SAVE LINKS") }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !saving,
+                    onClick = { linkDialog = false },
+                ) { Text("CANCEL") }
+            },
+        )
+    }
+    detailDay?.let { day ->
+        if (currentChallenge != null) {
+            val selectedChallenge = currentChallenge
+            val today = LocalDate.ofInstant(now, ZoneId.of(selectedChallenge.zoneId))
+            val receipt = selectedChallenge.confirmations[day]
+            val canBackfill = selectedChallenge.completionMode ==
+                Phase1HabitCompletionMode.FLEXIBLE &&
+                day.isBefore(today) &&
+                receipt == null &&
+                !selectedChallenge.paused
+            AlertDialog(
+                onDismissRequest = { if (!saving) detailDay = null },
+                title = {
+                    Text("Day ${java.time.temporal.ChronoUnit.DAYS.between(
+                        selectedChallenge.startDate, day) + 1} · ${day}")
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            if (receipt != null)
+                                "Confirmed at ${receipt} (actual recorded time)."
+                            else "Not confirmed. Adding a note does not mark this day Done.",
+                            color = BacklotPrimaryText,
+                        )
+                        OutlinedTextField(
+                            value = detailNote,
+                            onValueChange = { detailNote = it.take(1500) },
+                            label = { Text("Day note · optional") },
+                            minLines = 2,
+                            maxLines = 5,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-challenge-day-note"),
+                        )
+                        if (canBackfill) {
+                            Text(
+                                "Flexible catch-up records today's confirmation time for " +
+                                    "this past date. No earlier timestamp is fabricated.",
+                                color = BacklotSecondaryText,
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Column(horizontalAlignment = Alignment.End) {
+                        if (canBackfill) {
+                            TextButton(
+                                enabled = !saving,
+                                onClick = {
+                                    saving = true
+                                    coroutineScope.launch {
+                                        try {
+                                            records = store.confirmSelectedDay(
+                                                selectedChallenge.id, day, Instant.now(),
+                                            )
+                                            detailDay = null
+                                            message = runCatching {
+                                                Phase1HabitAlarmScheduler(context).reconcile()
+                                            }.exceptionOrNull()?.let {
+                                                "Past day confirmed; Android alert scheduling needs attention."
+                                            }
+                                        } catch (_: Exception) {
+                                            message = "Couldn't confirm this past day. Existing progress was kept."
+                                        } finally { saving = false }
+                                    }
+                                },
+                                modifier = Modifier.testTag("fc13-confirm-past-day"),
+                            ) { Text("CONFIRM PAST DAY") }
+                        }
+                        TextButton(
+                            enabled = !saving,
+                            onClick = {
+                                saving = true
+                                coroutineScope.launch {
+                                    try {
+                                        records = store.saveDayNote(
+                                            selectedChallenge.id, day, detailNote,
+                                        )
+                                        detailDay = null
+                                        message = null
+                                    } catch (_: Exception) {
+                                        message = "Day note could not be saved; no Done receipt changed."
+                                    } finally { saving = false }
+                                }
+                            },
+                            modifier = Modifier.testTag("fc13-save-day-note"),
+                        ) { Text("SAVE NOTE") }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !saving,
+                        onClick = { detailDay = null },
+                    ) { Text("CLOSE") }
+                },
+            )
         }
     }
 }

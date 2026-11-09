@@ -24,6 +24,8 @@ import com.framebynavin.app.reminders.V195ReminderGlyph
 import com.framebynavin.app.reminders.V202InfiniteBounce
 import com.framebynavin.app.reminders.V202PremiumParticleGeometry
 import com.framebynavin.app.reminders.V218UnifiedWavePolicy
+import com.framebynavin.app.ui.theme.RecRed
+import kotlin.math.sin
 import kotlin.math.min
 
 /**
@@ -60,6 +62,7 @@ internal fun V2272PersonalParticleWave(
     modifier: Modifier = Modifier,
     motionEnabledOverride: Boolean? = null,
     lowPowerOverride: Boolean? = null,
+    playbackActive: Boolean = false,
 ) {
     val context = LocalContext.current
     val motionEnabled = motionEnabledOverride ?: remember {
@@ -137,6 +140,22 @@ internal fun V2272PersonalParticleWave(
         }
         val formation = V218UnifiedWavePolicy.glyphBlend(time, 0f)
         val t = if (motionEnabled) time else 0.0
+        // The service publishes only actual MediaPlayer-start/TTS-start events.
+        // This wave reacts to the playback STAGE, not to measured sound amplitude.
+        // Respect motion-disabled and low-power settings without extra capture.
+        val playbackMotion = playbackActive && motionEnabled && !lowPower
+        if (playbackMotion) {
+            val breath = (0.5 + 0.5 * sin(t * 6.5)).toFloat()
+            val bloom = radius * (1.15f + .16f * breath)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(RecRed.copy(alpha = .20f + .13f * breath), Color.Transparent),
+                    center = center, radius = bloom,
+                ),
+                center = center, radius = bloom,
+            )
+        }
+        val playbackWaveScale = if (playbackMotion) 1.2f else 1f
         val stride = V2272PersonalWavePolicy.GLYPH_EVERY
         val slots = V2272PersonalWavePolicy.glyphCount(lowPower)
         val small = 1.3.dp.toPx()
@@ -145,8 +164,8 @@ internal fun V2272PersonalParticleWave(
         ambient.forEachIndexed { index, particle ->
             val baseX = V202InfiniteBounce.position(particle.x, particle.velocityX, t)
             val baseY = V202InfiniteBounce.position(particle.y, particle.velocityY, t)
-            val waveX = V218UnifiedWavePolicy.wave(t, baseY, particle.colorPhase) * size.width * .014f
-            val waveY = V218UnifiedWavePolicy.wave(t, baseX, particle.colorPhase + 1.8f) * size.height * .011f
+            val waveX = V218UnifiedWavePolicy.wave(t, baseY, particle.colorPhase) * size.width * .014f * playbackWaveScale
+            val waveY = V218UnifiedWavePolicy.wave(t, baseX, particle.colorPhase + 1.8f) * size.height * .011f * playbackWaveScale
             val originX = baseX * size.width + waveX
             val originY = baseY * size.height + waveY
             val ordinal = if (index % stride == 0) (index / stride * 137) % slots else -1
