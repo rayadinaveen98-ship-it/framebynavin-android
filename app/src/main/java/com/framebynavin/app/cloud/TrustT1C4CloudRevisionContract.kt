@@ -36,11 +36,37 @@ internal enum class TrustCloudPublishStage {
     HEAD_READBACK_CONFIRMED,
 }
 
-internal data class TrustCloudRevisionProgress(
+internal class TrustCloudRevisionProgress private constructor(
     val stage: TrustCloudPublishStage,
     val remoteRevision: Long?,
     val readbackSha256: String?,
 ) {
+    companion object {
+        /** Non-final transport states cannot claim remote durability. */
+        fun pending(stage: TrustCloudPublishStage): TrustCloudRevisionProgress {
+            require(stage != TrustCloudPublishStage.HEAD_READBACK_CONFIRMED) {
+                "A confirmed head needs actual verified remote ciphertext"
+            }
+            return TrustCloudRevisionProgress(stage, null, null)
+        }
+
+        /** Called only after exact next-revision CAS and actual byte readback. */
+        fun fromConfirmedHead(
+            head: TrustCloudRevisionHead,
+            proof: TrustCloudVerifiedReadback,
+        ): TrustCloudRevisionProgress {
+            check(head.objectPath == proof.descriptor.objectPath &&
+                head.encryptedSha256 == proof.descriptor.encryptedSha256 &&
+                head.encryptedBytes == proof.descriptor.encryptedBytes) {
+                "Confirmed remote revision does not match downloaded ciphertext"
+            }
+            return TrustCloudRevisionProgress(
+                TrustCloudPublishStage.HEAD_READBACK_CONFIRMED,
+                head.revision, proof.descriptor.encryptedSha256,
+            )
+        }
+    }
+
     /** A network acknowledgment alone must NEVER be treated as durable. */
     val canClaimDurableRemoteCopy: Boolean
         get() = stage == TrustCloudPublishStage.HEAD_READBACK_CONFIRMED
@@ -162,10 +188,7 @@ internal object TrustT1C4CloudRevisionPolicy {
             claimed.encryptedBytes == descriptor.encryptedBytes) {
             "Remote CAS response did not confirm exact uploaded encrypted bytes"
         }
-        return TrustCloudRevisionProgress(
-            TrustCloudPublishStage.HEAD_READBACK_CONFIRMED,
-            claimed.revision, descriptor.encryptedSha256,
-        )
+        return TrustCloudRevisionProgress.fromConfirmedHead(claimed, proof)
     }
 
     /** Verify the ACTUAL download stream, not a provider's claimed checksum. */
