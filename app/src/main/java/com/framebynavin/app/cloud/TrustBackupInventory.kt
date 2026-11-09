@@ -22,6 +22,7 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     CREATOR_POST_PUBLISH("Creator post-publish checkpoints"),
     CREATOR_MEDIA("Creator photos, voice recordings and external assets"),
     CREATOR_HERO_ORIGINAL_BYTES("Active original Best Frames photo bytes"),
+    CREATOR_VOICE_ORIGINAL_BYTES("Local Voice Idea original recording bytes"),
     PERSONAL_REMINDERS("Personal reminders and recurrence"),
     PERSONAL_DONE_RECEIPTS("Personal reminder completion history"),
     PERSONAL_SINGLE_ACTIVITY("One-activity 21-day challenges"),
@@ -35,6 +36,7 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     PERSONAL_PHOTO_BYTES("Private Space JPEG bytes"),
     NOTIFICATION_PREFERENCES("Notification, alarm and voice preferences"),
     SPARK_PREFERENCES("Spark and companion preferences"),
+    SPARK_IDENTITY_AND_TIPS("Saved companion identity and tip dismissals"),
     HOME_SLIDESHOW_MEDIA("Home slideshow original images"),
     HOME_SLIDESHOW_PLAYBACK("Saved Home slideshow playback preference"),
     DEVICE_ALARM_LEASES("Device-specific alarm leases", portable = false),
@@ -98,6 +100,7 @@ internal object TrustBackupInventoryPolicy {
     ): TrustDomainEvidence {
         require(domain in setOf(
             TrustBackupDomain.CREATOR_HERO_ORIGINAL_BYTES,
+            TrustBackupDomain.CREATOR_VOICE_ORIGINAL_BYTES,
             TrustBackupDomain.HOME_SLIDESHOW_MEDIA,
             TrustBackupDomain.PERSONAL_PHOTO_BYTES,
         )) { "Unapproved media domain" }
