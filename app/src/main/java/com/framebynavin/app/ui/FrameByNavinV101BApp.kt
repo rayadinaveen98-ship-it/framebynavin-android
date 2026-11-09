@@ -436,13 +436,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     Box(Modifier.fillMaxSize().background(CinemaBlack).v137GuideCaptureAndBlur(v137GuideLayer, guidedTourStep != null)) {
         V129ThemeBackdrop(Modifier.matchParentSize())
         if (focusTask != null) {
-            PFocusScreen(
+            CreatorFocusSessionScreen(
                 task = focusTask,
                 onClose = { focusTaskId = null },
-                onStageDone = {
-                    advanceWorkflowWithJourney(focusTask.id)
-                    focusTaskId = null
-                },
             )
         } else {
             when (tab) {
@@ -1537,41 +1533,6 @@ private fun PSettingsScreen(
                     Text("Backlot · Built for Creators", color = Color(0xFFB596F8), fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PFocusScreen(task: CreatorTask, onClose: () -> Unit, onStageDone: () -> Unit) {
-    var seconds by remember(task.id) { mutableIntStateOf(25 * 60) }
-    var running by remember(task.id) { mutableStateOf(true) }
-    val stage = CreatorWorkflowEngine.currentStage(task)
-    LaunchedEffect(running, seconds) {
-        if (running && seconds > 0) { delay(1000); seconds-- }
-    }
-    val min = seconds / 60
-    val sec = seconds % 60
-    val progress = 1f - seconds / (25f * 60f)
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory) }
-                Spacer(Modifier.weight(1f)); Text("FOCUS", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp); Spacer(Modifier.weight(1f)); Spacer(Modifier.width(48.dp))
-            }
-            Spacer(Modifier.weight(1f))
-            Text(stage.label.uppercase(), color = MutedGold, fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(10.dp))
-            Text(task.title, color = ProjectorIvory, fontSize = 28.sp, lineHeight = 32.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(8.dp))
-            Text(stage.action, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(30.dp))
-            Text(String.format(Locale.getDefault(), "%02d:%02d", min, sec), color = ProjectorIvory, fontSize = 58.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(5.dp), color = RecRed, trackColor = CinemaLine)
-            Spacer(Modifier.height(20.dp))
-            OutlinedButton(onClick = { running = !running }, border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) { Icon(if (running) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null, tint = ProjectorIvory); Spacer(Modifier.width(6.dp)); Text(if (running) "PAUSE" else "RESUME", color = ProjectorIvory) }
-            Spacer(Modifier.weight(1f))
-            Button(onClick = onStageDone, modifier = Modifier.fillMaxWidth().height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(16.dp)) { Icon(Icons.Outlined.Check, null); Spacer(Modifier.width(7.dp)); Text("STEP DONE", fontWeight = FontWeight.Black) }
         }
     }
 }
