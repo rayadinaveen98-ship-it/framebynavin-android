@@ -585,6 +585,80 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                                         "verified and temporary files erased.",
                                     color = ProjectorIvory, fontSize = 11.sp,
                                 )
+                                Text(
+                                    "RESTORE ON A FRESH CREATOR DEVICE ONLY. " +
+                                        "This creates an encrypted escrow of your " +
+                                        "current phone first, then restores Creator " +
+                                        "and adds nonconflicting Personal history. " +
+                                        "A crash requires explicit owner recovery.",
+                                    color = RecRed, fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = acknowledgeDeviceLimits,
+                                        onCheckedChange = { acknowledgeDeviceLimits = it },
+                                        enabled = !busy,
+                                    )
+                                    Text(
+                                        "I understand device alarm permission, music " +
+                                            "and external project assets don't transfer " +
+                                            "automatically. I approve an encrypted " +
+                                            "pre-restore copy of this phone.",
+                                        color = MutedText, fontSize = 11.sp,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                OutlinedTextField(
+                                    value = restoreConfirmation,
+                                    onValueChange = { restoreConfirmation = it.take(64) },
+                                    label = { Text("Type RESTORE CREATOR AND PERSONAL") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !busy,
+                                )
+                                Button(
+                                    onClick = {
+                                        val selectedCloud = checkNotNull(downloadedReview)
+                                        val reviewedData = review
+                                        runAction {
+                                            val sourcePassword = passphrase.toCharArray()
+                                            val escrowPassword = passphrase.toCharArray()
+                                            try {
+                                                val result = recovery
+                                                    .restoreOwnerApprovedOnFreshDevice(
+                                                        selectedCloud,
+                                                        reviewedData,
+                                                        sourcePassword,
+                                                        escrowPassword,
+                                                        restoreConfirmation,
+                                                        acknowledgeDeviceLimits,
+                                                    )
+                                                preparedRestore = null
+                                                unifiedReview = null
+                                                "Verified Creator + Personal restore completed. " +
+                                                    "${result.projectCount} projects, " +
+                                                    "${result.ideaCount} ideas and " +
+                                                    "${result.personalAdditions} Personal " +
+                                                    "additions imported. Encrypted original " +
+                                                    "escrow kept for owner recovery."
+                                            } finally {
+                                                sourcePassword.fill('\u0000')
+                                                escrowPassword.fill('\u0000')
+                                                passphrase = ""
+                                                restoreConfirmation = ""
+                                            }
+                                        }
+                                    },
+                                    enabled = !busy && passphrase.length >= 12 &&
+                                        acknowledgeDeviceLimits &&
+                                        restoreConfirmation ==
+                                            "RESTORE CREATOR AND PERSONAL",
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = RecRed,
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                        .testTag("fc13-trust-owner-fresh-device-restore"),
+                                ) { Text("RESTORE REVIEWED BACKUP") }
                             }
                         } else {
                             Text(
@@ -596,10 +670,12 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                         }
                     }
                     Text(
-                        "RESTORE BACKUP remains disabled until a single " +
-                            "Creator + Personal recovery transaction, rollback and " +
-                            "schedule reconciliation are accepted. Preview never " +
-                            "replaces your current phone records.",
+                        "An occupied Creator workspace or conflicting Personal " +
+                            "history cannot be overwritten automatically. " +
+                            "Only an explicitly reviewed fresh-device restoration " +
+                            "can use the native Creator and Personal recovery " +
+                            "journals. Device alarms and custom songs must be " +
+                            "reconfigured after importing.",
                         color = MutedText, fontSize = 11.sp,
                         modifier = Modifier.testTag("fc13-trust-restore-safety-gate"),
                     )
