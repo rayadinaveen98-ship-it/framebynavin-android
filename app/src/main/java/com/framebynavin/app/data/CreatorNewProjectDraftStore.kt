@@ -37,8 +37,6 @@ internal data class CreatorNewProjectFormDraft(
     val autoRetryMinutes: Int,
     val autoRetryMaxAttempts: Int,
 ) {
-    /** Stored only after an actual form edit, not on first opening. */
-    fun hasContent(): Boolean = true
 }
 
 internal class CreatorNewProjectDraftStore(context: Context) {
@@ -121,7 +119,7 @@ internal class CreatorNewProjectDraftStore(context: Context) {
             require(draft.title.length <= 800 && draft.notes.length <= 30_000 &&
                 draft.dueAt > 0 && draft.productionStyles.distinct().size ==
                     draft.productionStyles.size)
-            draft.takeIf { it.hasContent() }
+            draft
         }.getOrNull()
     }
 
