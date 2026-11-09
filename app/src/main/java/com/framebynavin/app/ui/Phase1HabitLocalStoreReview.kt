@@ -21,6 +21,8 @@ import com.framebynavin.app.personal.V298ReminderGroupStore
 import com.framebynavin.app.personal.spaces.V289SpaceEntity
 import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.Phase1HabitAlarmScheduler
+import com.framebynavin.app.personal.Phase1HabitNotification
+import com.framebynavin.app.personal.Phase1HabitVoiceService
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -271,6 +273,41 @@ internal fun Phase1HabitLocalStoreReview(
                                     } finally {
                                         saving = false
                                     }
+                                }
+                            }
+                        },
+                        onSnooze = {
+                            if (!saving && selected.canSnooze(Instant.now())) {
+                                saving = true
+                                coroutineScope.launch {
+                                    try {
+                                        val requestedAt = Instant.now()
+                                        val localDay = LocalDate.ofInstant(
+                                            requestedAt, ZoneId.of(selected.zoneId))
+                                        val previousDue = selected.snoozedUntil
+                                            ?.takeIf { !it.isAfter(requestedAt) }
+                                            ?: localDay.atTime(
+                                                requireNotNull(selected.alertTime),
+                                            ).atZone(ZoneId.of(selected.zoneId)).toInstant()
+                                        records = store.snoozeToday(
+                                            selected.id, requestedAt, 10,
+                                        )
+                                        Phase1HabitVoiceService.stopMatching(
+                                            selected.id, previousDue.toEpochMilli())
+                                        val trouble = runCatching {
+                                            Phase1HabitAlarmScheduler(context).reconcile()
+                                        }.exceptionOrNull()
+                                        if (trouble == null) {
+                                            Phase1HabitNotification.cancelPosted(
+                                                context, selected, previousDue.toEpochMilli(),
+                                            )
+                                            message = null
+                                        } else {
+                                            message = "10-minute snooze saved. Android delivery needs attention."
+                                        }
+                                    } catch (_: Exception) {
+                                        message = "Snooze could not be confirmed. Existing Done receipts were retained."
+                                    } finally { saving = false }
                                 }
                             }
                         },
