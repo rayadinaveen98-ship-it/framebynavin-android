@@ -10,6 +10,7 @@ for spec in \
   "com.framebynavin.app.cloud.TrustT1ALegacyCloudSafetyDeviceTest TRUST-T1A-REMOTE 1" \
   "com.framebynavin.app.cloud.TrustT1BInventoryDeviceTest TRUST-T1B-INVENTORY 1" \
   "com.framebynavin.app.cloud.TrustT1B3VoiceSparkDeviceTest TRUST-T1B3-PREFS 2" \
+  "com.framebynavin.app.cloud.TrustT1B4ReviewDeviceTest TRUST-T1B4-STABLE-READ 1" \
   "com.framebynavin.app.personal.Phase1HabitArchiveCoverageGuardDeviceTest TRUST-T1-ARCHIVE 1"; do
   set -- $spec
   cls="$1"; name="$2"; count="$3"
