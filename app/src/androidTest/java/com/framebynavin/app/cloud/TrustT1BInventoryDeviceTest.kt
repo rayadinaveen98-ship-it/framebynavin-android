@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.data.IdeaVaultStore
+import com.framebynavin.app.data.WeeklyScheduleStore
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.Phase1HabitStore
 import java.util.HashSet
@@ -33,6 +34,14 @@ class TrustT1BInventoryDeviceTest {
         val beforeIdeas = ideas.exportJson()
         val beforePersonal = personal.exportPersonalJson()
         val beforeHabits = habits.exportJson()
+        val weekly = WeeklyScheduleStore(app)
+        val beforeWeekly = weekly.inspectSavedForInventory()
+        val beforeCreatorSettings = app.getSharedPreferences(
+            "creator_os_settings_v1", 0,
+        ).all.toMap()
+        val beforeSlides = app.getSharedPreferences(
+            "best_frames_original_prefs", 0,
+        ).all.toMap()
 
         val inventory = TrustLocalBackupInventoryReader(app).inspectReadOnly()
         assertEquals(inventory.inspected.map { it.domain }.toSet().size,
@@ -44,8 +53,26 @@ class TrustT1BInventoryDeviceTest {
         assertTrue(TrustBackupDomain.PERSONAL_REMINDERS in domains)
         assertTrue(TrustBackupDomain.PERSONAL_SINGLE_ACTIVITY_DONE in domains)
         assertTrue(TrustBackupDomain.PERSONAL_PHOTO_METADATA in domains)
-        assertTrue(TrustBackupDomain.PERSONAL_PHOTO_BYTES in inventory.pendingDomains)
-        assertTrue(TrustBackupDomain.HOME_SLIDESHOW_MEDIA in inventory.pendingDomains)
+        assertTrue(TrustBackupDomain.PERSONAL_PHOTO_BYTES in domains)
+        assertTrue(TrustBackupDomain.CREATOR_HERO_ORIGINAL_BYTES in domains)
+        assertTrue(TrustBackupDomain.HOME_SLIDESHOW_MEDIA in domains)
+        assertTrue(TrustBackupDomain.CREATOR_WORKFLOW_TIMELINE in domains)
+        assertTrue(TrustBackupDomain.CREATOR_PULSE_HISTORY in domains)
+        assertTrue(TrustBackupDomain.CREATOR_POST_PUBLISH in domains)
+        if (beforeWeekly == null) {
+            assertTrue(TrustBackupDomain.CREATOR_WEEKLY_SLOTS in inventory.pendingDomains)
+        } else {
+            assertTrue(TrustBackupDomain.CREATOR_WEEKLY_SLOTS in domains)
+        }
+        assertTrue(TrustBackupDomain.CREATOR_MEDIA in inventory.pendingDomains)
+        val hero = inventory.inspected.single {
+            it.domain == TrustBackupDomain.CREATOR_HERO_ORIGINAL_BYTES
+        }
+        val slideshow = inventory.inspected.single {
+            it.domain == TrustBackupDomain.HOME_SLIDESHOW_MEDIA
+        }
+        assertEquals(hero.sha256, slideshow.sha256)
+        assertEquals(hero.bytes, slideshow.bytes)
         assertFalse(inventory.crossStoreAtomicityVerified)
         assertFalse(inventory.canClaimCompleteBackup)
         assertFalse(inventory.canUploadAsUniversalBackup)
@@ -54,5 +81,15 @@ class TrustT1BInventoryDeviceTest {
         assertEquals(beforeIdeas, ideas.exportJson())
         assertEquals(beforePersonal, personal.exportPersonalJson())
         assertEquals(beforeHabits, habits.exportJson())
+        assertEquals("Inventory may not seed or migrate the weekly plan",
+            beforeWeekly, weekly.inspectSavedForInventory())
+        assertEquals("Inventory must not initialize Creator settings",
+            beforeCreatorSettings, app.getSharedPreferences(
+                "creator_os_settings_v1", 0,
+            ).all.toMap())
+        assertEquals("Inventory must not change slideshow playback or image order",
+            beforeSlides, app.getSharedPreferences(
+                "best_frames_original_prefs", 0,
+            ).all.toMap())
     }
 }

@@ -14,8 +14,14 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     CREATOR_IDEAS("Ideas and text/transcription metadata"),
     CREATOR_FOCUS("Focus sessions"),
     CREATOR_WEEKLY_PLAN("Weekly plan and creator configuration"),
+    CREATOR_WEEKLY_SLOTS("Persisted Creator weekly slots"),
+    CREATOR_SAVED_SETTINGS("Persisted Creator local settings subset"),
     CREATOR_HISTORY("Creator workflow and publishing history"),
+    CREATOR_WORKFLOW_TIMELINE("Creator workflow transition events"),
+    CREATOR_PULSE_HISTORY("Creator pulse history"),
+    CREATOR_POST_PUBLISH("Creator post-publish checkpoints"),
     CREATOR_MEDIA("Creator photos, voice recordings and external assets"),
+    CREATOR_HERO_ORIGINAL_BYTES("Active original Best Frames photo bytes"),
     PERSONAL_REMINDERS("Personal reminders and recurrence"),
     PERSONAL_DONE_RECEIPTS("Personal reminder completion history"),
     PERSONAL_SINGLE_ACTIVITY("One-activity 21-day challenges"),
@@ -30,6 +36,7 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     NOTIFICATION_PREFERENCES("Notification, alarm and voice preferences"),
     SPARK_PREFERENCES("Spark and companion preferences"),
     HOME_SLIDESHOW_MEDIA("Home slideshow original images"),
+    HOME_SLIDESHOW_PLAYBACK("Saved Home slideshow playback preference"),
     DEVICE_ALARM_LEASES("Device-specific alarm leases", portable = false),
     EXTERNAL_OAUTH_SECRETS("External account auth tokens", portable = false),
     ANDROID_PERMISSIONS("Android OS notification/alarm permissions", portable = false),
@@ -80,6 +87,22 @@ internal object TrustBackupInventoryPolicy {
         val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it) }
         return TrustDomainEvidence(domain, records, bytes.size, digest)
+    }
+
+    /** Digest of fully read and size-bounded owned-file bytes, not file metadata. */
+    fun verifiedByteEvidence(
+        domain: TrustBackupDomain,
+        records: Int,
+        byteCount: Long,
+        sha256: String,
+    ): TrustDomainEvidence {
+        require(domain in setOf(
+            TrustBackupDomain.CREATOR_HERO_ORIGINAL_BYTES,
+            TrustBackupDomain.HOME_SLIDESHOW_MEDIA,
+            TrustBackupDomain.PERSONAL_PHOTO_BYTES,
+        )) { "Unapproved media domain" }
+        require(byteCount in 0..Int.MAX_VALUE.toLong()) { "Media proof exceeds size limit" }
+        return TrustDomainEvidence(domain, records, byteCount.toInt(), sha256)
     }
 
     fun assemble(evidence: List<TrustDomainEvidence>): TrustBackupInventory {

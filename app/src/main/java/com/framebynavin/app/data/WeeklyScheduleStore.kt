@@ -75,6 +75,23 @@ class WeeklyScheduleStore(private val context: Context) {
         }
     }
 
+    /**
+     * Trust T1B: inspect only the persisted owner schedule. Unlike loadOrSeed
+     * and exportJson this NEVER creates a default plan or applies migrations.
+     * Null means there is no stored source to attest to, NOT a verified empty
+     * schedule; an orphaned recovery copy is an error, not an empty plan.
+     */
+    suspend fun inspectSavedForInventory(): Pair<String, Int>? {
+        val prefs = context.weeklyScheduleDataStore.data.first()
+        val raw = prefs[slotsKey] ?: run {
+            check(prefs[backupKey] == null) {
+                "Weekly plan primary is missing; recovery copy must be reviewed"
+            }
+            return null
+        }
+        return raw to decode(raw).size
+    }
+
     suspend fun exportJson(): String = encode(loadOrSeed())
 
     suspend fun importJson(raw: String): List<WeeklyScheduleSlot> {
