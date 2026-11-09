@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
+import com.framebynavin.app.ui.theme.RecRed
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
@@ -64,20 +66,31 @@ internal fun V231CinematicWaveBackdrop(
     modifier: Modifier = Modifier,
     playbackActive: Boolean = false,
 ) {
+    // A playback callback can change while this compositor is running.
+    // Integrate velocity rather than multiplying absolute time on stage change:
+    // the waves accelerate naturally without jumping across the viewport.
+    val playbackNow by rememberUpdatedState(playbackActive)
     val elapsedSeconds by produceState(
         initialValue = 0.0,
         key1 = motionEnabled,
         key2 = lowPower,
     ) {
         if (motionEnabled) {
-            var origin = 0L
             var lastFrame = 0L
+            var travelSeconds = 0.0
             val minFrameNs = if (lowPower) 50_000_000L else 33_333_333L
             while (true) {
                 withFrameNanos { frame ->
-                    if (origin == 0L) origin = frame
                     if (lastFrame == 0L || frame - lastFrame >= minFrameNs) {
-                        value = (frame - origin).toDouble() / 1_000_000_000.0
+                        if (lastFrame != 0L) {
+                            // A backgrounded Activity may miss many frames.
+                            // Clamp the resumed delta to avoid giant time jumps.
+                            val delta = ((frame - lastFrame).toDouble() /
+                                1_000_000_000.0).coerceIn(0.0, .075)
+                            val momentum = if (playbackNow && !lowPower) 1.32 else 1.0
+                            travelSeconds += delta * momentum
+                        }
+                        value = travelSeconds
                         lastFrame = frame
                     }
                 }
@@ -92,7 +105,27 @@ internal fun V231CinematicWaveBackdrop(
         val extent = max(size.width, size.height)
         // Stage response from a real MediaPlayer or TTS callback, not output RMS.
         // Lower power and disabled motion retain the original calm backdrop.
-        val accent = if (playbackActive && motionEnabled && !lowPower) 1.22f else 1f
+        val soundInProgress = playbackActive && motionEnabled && !lowPower
+        val accent = if (soundInProgress) 1.22f else 1f
+        if (soundInProgress) {
+            // Live playback STAGE only; smooth decorative bloom, not audio RMS.
+            val breathe = (.5f + .5f * sin(t * 4.1)).toFloat()
+            val audioCenter = Offset(size.width * .50f, size.height * .38f)
+            val bloomRadius = extent * (.43f + .045f * breathe)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(
+                        RecRed.copy(alpha = .105f + .05f * breathe),
+                        RecRed.copy(alpha = .03f),
+                        Color.Transparent,
+                    ),
+                    center = audioCenter,
+                    radius = bloomRadius,
+                ),
+                center = audioCenter,
+                radius = bloomRadius,
+            )
+        }
         val count = if (lowPower) 3 else 5
         for (i in 0 until count) {
             val horizontal = V231CinematicWaveMotion.travel(t * (.095 + i * .021) + .19 * i + .12)
