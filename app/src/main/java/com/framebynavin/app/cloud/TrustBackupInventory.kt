@@ -16,6 +16,8 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     CREATOR_WEEKLY_PLAN("Weekly plan and creator configuration"),
     CREATOR_WEEKLY_SLOTS("Persisted Creator weekly slots"),
     CREATOR_SAVED_SETTINGS("Persisted Creator local settings subset"),
+    CREATOR_ROUTINE_PREFERENCES("Persisted Creator daily and weekly routine choices"),
+    APP_APPEARANCE_PREFERENCES("Saved Backlot theme and launch-sound preferences"),
     CREATOR_HISTORY("Creator workflow and publishing history"),
     CREATOR_WORKFLOW_TIMELINE("Creator workflow transition events"),
     CREATOR_PULSE_HISTORY("Creator pulse history"),
@@ -44,6 +46,7 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     DEVICE_CREATOR_SOUNDTRACK("Device-private Creator music selections", portable = false),
     DEVICE_CUSTOM_MUSIC_DOCUMENT_ACCESS("Android picked-music document permissions and URIs", portable = false),
     EXTERNAL_OAUTH_SECRETS("External account auth tokens", portable = false),
+    DEVICE_AI_SHARING_CONSENT("AI sharing consent must be reauthorized per device", portable = false),
     ANDROID_PERMISSIONS("Android OS notification/alarm permissions", portable = false),
 }
 

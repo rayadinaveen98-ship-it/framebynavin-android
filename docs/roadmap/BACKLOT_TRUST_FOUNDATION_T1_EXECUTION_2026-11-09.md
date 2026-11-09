@@ -146,6 +146,58 @@ preserved; all cloud upload, local restore and deletion actions remain disabled.
 5. Full T1 stage gate + version-signed Android V322→future owner APK
    preservation and phone↔emulator evidence remain release prerequisites.
 
+## T1B4 — Double-read stability proof and stored routine/appearance preferences (SOURCE REVIEW)
+
+New `TrustInventoryReviewReader.inspectTwiceReadOnly()` performs two
+independent, validated Creator+Personal inventory passes and checks the
+Creator restore generation before/after. `TrustInventoryReviewPolicy`
+rejects any changed domain count, UTF-8 byte length, SHA-256, missing/extra
+domain, exclusion or generation. It **independently recalculates** pending and
+nonportable domains from `TrustBackupDomain` so two identical fabricated
+"all backed up" lists still fail closed. A deterministic length-delimited
+UTF-8 fingerprint records the read-only inspection receipt without names,
+notes, paths, raw audio, photos or source content.
+
+**Explicit limitation:** two matching observations do not imply a frozen,
+single global Creator+Personal revision. This is not a T1C snapshot,
+server-backed backup, encryption proof, uploaded archive or safe restore.
+`crossStoreAtomicityVerified`, `canClaimCompleteBackup` and
+`canStartCloudUpload` all remain **false** by construction.
+No app-start background inspection is scheduled; two complete passes are
+potentially expensive and only run from an explicit QA/owner action.
+
+Additional real saved sources (read-only, no lazy initialization):
+- `TrustRoutinePreferencesInventory` reads exactly persisted
+  `creator_automation_preferences_v17` daily-brief/weekly-review/idea-review
+  boolean choices. Missing keys remain missing; unknown/invalid keys fail.
+  Planner runtime deduplication tokens are excluded as device execution state.
+- `TrustAppearancePreferencesInventory` reads saved Director's Cut or other
+  recognized theme enum values and launch-sound choice from
+  `framebynavin_visual_experience`. No call to visual
+  `initialize()`, which can migrate old theme selections on read.
+- `DEVICE_AI_SHARING_CONSENT` is explicitly **nonportable**:
+  `creator_ai_consent_v104` is device-specific and an imported backup may
+  **never** silently re-enable sharing project/private context.
+
+Tests **written but not executed**: six JVM drift/canonicalization/false
+coverage scenarios, an Android15 non-mutating Creator+Personal review, and a
+disposable-emulator routine/appearance validation test. Both native tests
+were added to the single deferred `qa/backlot-trust-t1-stage-*`
+integration gate. No owner APK or new cloud controls.
+
+### Remaining before any T1C "complete backup" operation
+
+- Cover or clearly classify broad notification/Spark state and Creator media
+  not already verified (orphan/retired images, external URIs, pending voice).
+- Stage actual immutable bytes under a documented, lock-safe cross-store
+  snapshot protocol. Two independent read passes are not equivalent.
+- Design and implement account-bound encryption/key recovery, authenticated
+  durable remote upload, revision compare-and-swap, old-good retention and
+  post-upload verification without using legacy reminder-only Sync Now.
+- Owner-approved restore remains T2, not part of inspection.
+- Run the full phase-end JVM/Android regression suite, a signed upgrade proof
+  and real owner acceptance before any release.
+
 ## Remaining owner acceptance and release gates
 
 - Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
