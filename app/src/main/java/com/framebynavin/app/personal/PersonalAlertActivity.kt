@@ -48,6 +48,7 @@ import java.lang.Math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -164,6 +165,45 @@ internal class PersonalAlertActivity : ComponentActivity() {
                     verifiedFullScreenOccurrence = false
                     refreshAlarmWindow()
                     invalid = true
+                }
+                // The reminder can be Done, paused, deleted, snoozed or replaced
+                // from another surface while this alert is still visible.
+                // Observe the existing authoritative DataStore, not a second
+                // activity-local lease. Retire the over-keyguard window at once
+                // when its originally posted token is no longer active.
+                LaunchedEffect(id, token, reminder != null) {
+                    if (reminder == null) return@LaunchedEffect
+                    try {
+                        PersonalReminderStore(applicationContext).remindersFlow.collect { all ->
+                            val latest = all.firstOrNull { it.id == id }
+                            if (PersonalAlertPresentationPolicy.state(
+                                    latest, id, token,
+                                ) != PersonalAlertPresentationState.READY) {
+                                verifiedFullScreenOccurrence = false
+                                refreshAlarmWindow()
+                                reminder = null
+                                invalid = true
+                                finish()
+                                return@collect
+                            }
+                            if (latest != reminder) {
+                                reminder = latest
+                                if (latest == null || latest.alert != PersonalAlert.ALARM ||
+                                    latest.autoRetryCount > 0) {
+                                    verifiedFullScreenOccurrence = false
+                                    refreshAlarmWindow()
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Damaged/unreadable current data is never treated as
+                        // an active alarm or reason to keep a lock-screen window.
+                        verifiedFullScreenOccurrence = false
+                        refreshAlarmWindow()
+                        reminder = null
+                        invalid = true
+                        finish()
+                    }
                 }
                 fun respond(action: String) {
                     val current = reminder ?: return
