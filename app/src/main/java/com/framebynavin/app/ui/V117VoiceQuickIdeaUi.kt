@@ -1,6 +1,9 @@
 package com.framebynavin.app.ui
 
 import android.Manifest
+import android.animation.ValueAnimator
+import android.app.ActivityManager
+import android.os.PowerManager
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -214,26 +217,40 @@ internal fun V117VoiceIdeaInput(
  * Idle is calm; speaking pushes the dots outward and creates a subtle wave.
  */
 @Composable
-private fun FC13ReactiveDotField(
+internal fun FC13ReactiveDotField(
     active: Boolean,
     rmsDb: Float,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    // Shared by Dictate and Spark conversation. The OS animation and device
+    // power settings control presentation only, never microphone/listening.
+    val motionAllowed = remember {
+        ValueAnimator.areAnimatorsEnabled()
+    }
+    val lowPower = remember(context) {
+        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true ||
+            context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
+    }
+    val reactiveMotion = motionAllowed && !lowPower
     val target = if (active) ((rmsDb + 2f) / 12f).coerceIn(0f, 1f) else 0f
     val amplitude by animateFloatAsState(
-        target,
+        if (reactiveMotion) target else 0f,
         spring(dampingRatio = .8f, stiffness = 170f),
         label = "fc13RealMicIntensity",
     )
-    val transition = rememberInfiniteTransition(label = "fc13DotMotion")
-    val motion by transition.animateFloat(
-        0f, 6.2831853f,
-        infiniteRepeatable(
-            tween(if (active) 2400 else 7600, easing = LinearEasing),
-        ),
-        label = "fc13WavePhase",
-    )
+    val motion = if (reactiveMotion) {
+        val transition = rememberInfiniteTransition(label = "fc13DotMotion")
+        val phase by transition.animateFloat(
+            0f, 6.2831853f,
+            infiniteRepeatable(
+                tween(if (active) 2400 else 7600, easing = LinearEasing),
+            ),
+            label = "fc13WavePhase",
+        )
+        phase
+    } else 0f
     Canvas(
         modifier.clickable(
             role = androidx.compose.ui.semantics.Role.Button,
@@ -242,7 +259,7 @@ private fun FC13ReactiveDotField(
     ) {
         val c = center
         val spacing = size.minDimension / 14.5f
-        val intensity = if (active) amplitude else 0f
+        val intensity = if (active && reactiveMotion) amplitude else 0f
         val bloom = spacing * (6.15f + 0.45f * intensity)
         drawCircle(
             brush = Brush.radialGradient(
