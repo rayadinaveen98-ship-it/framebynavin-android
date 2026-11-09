@@ -63,7 +63,7 @@ create policy trust_ciphertext_owner_create_v1 on storage.objects
   for insert to authenticated with check (
     bucket_id = 'backlot-trust-universal-v1' and
     name ~ ('^' || (select auth.uid())::text ||
-      '/revisions/v1-[0-9a-f-]{36}\\.enc$') and
+      '/revisions/v1-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[.]enc$') and
     exists (
       select 1 from public.trust_backup_owner_state_v1 o
       where o.user_id = (select auth.uid()) and o.phase = 'active'
@@ -117,7 +117,7 @@ begin
     raise exception 'Authenticated owner required' using errcode='28000';
   end if;
   if p_new_path !~ ('^' || owner_id::text ||
-      '/revisions/v1-[0-9a-f-]{36}\\.enc$') or
+      '/revisions/v1-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[.]enc$') or
       p_new_sha !~ '^[a-f0-9]{64}$' or
       p_new_bytes not between 1 and 52428800 then
     raise exception 'Invalid encrypted owner backup claim' using errcode='22023';
