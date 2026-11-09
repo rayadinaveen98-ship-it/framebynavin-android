@@ -30,6 +30,7 @@ object CreatorContentCalendarEngine {
         nowMillis: Long = System.currentTimeMillis(),
         daysAhead: Long = 14,
         recentPublicationDays: Long = 7,
+        includeRecordedPublications: Boolean = true,
     ): List<CreatorCalendarItem> {
         val zone = ZoneId.systemDefault()
         val start = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
@@ -64,7 +65,7 @@ object CreatorContentCalendarEngine {
 
         // Only real owner-confirmed publication timestamps qualify. Publishing
         // readiness, due dates and template previews are NEVER publication.
-        val publications = tasks.asSequence()
+        val publications: List<CreatorCalendarItem> = if (includeRecordedPublications) tasks.asSequence()
             // Archived projects can still have real publication history.
             .flatMap { task ->
                 val known = task.workspace.deliverables.asSequence()
@@ -100,7 +101,7 @@ object CreatorContentCalendarEngine {
                         ),
                     )
                 } else emptySequence()
-            }.toList()
+            }.toList() else emptyList()
 
         val weeklyItems = WeeklyScheduleEngine.upcomingOccurrences(weeklySlots, nowMillis, daysAhead)
             .filter { it.publishAtMillis >= nowMillis && !Instant.ofEpochMilli(it.publishAtMillis).atZone(zone).toLocalDate().isAfter(end) }
@@ -113,7 +114,7 @@ object CreatorContentCalendarEngine {
                     contentType = occurrence.slot.contentType,
                     atMillis = occurrence.publishAtMillis,
                     source = CreatorCalendarSource.WEEKLY_PLAN,
-                    stageLabel = "Scheduled",
+                    stageLabel = "Recurring slot preview · not a created project",
                 )
             }
 
