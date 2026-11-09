@@ -37,7 +37,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.framebynavin.app.ui.CinePulseGuide
+import com.framebynavin.app.ui.CinePulseState
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
+import com.framebynavin.app.ui.theme.CinemaBlack
+import com.framebynavin.app.ui.theme.RecRed
 import java.lang.Math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -189,10 +193,11 @@ internal fun V2233PersonalAlertScreen(
     onDismiss: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val midnight = Color(0xFF080D20)
-    val violet = Color(0xFF9B68FF)
-    val blue = Color(0xFF30B8FF)
-    val coral = Color(0xFFFF6C95)
+    // Director's Cut: honor the app's existing REC-red visual language.
+    val midnight = CinemaBlack
+    val violet = RecRed
+    val blue = RecRed
+    val coral = RecRed
     Surface(color = midnight, modifier = Modifier.fillMaxSize()
         .testTag("v2233-personal-alert-screen")) {
         Column(
@@ -208,6 +213,11 @@ internal fun V2233PersonalAlertScreen(
             if (locked) {
                 // Android's public notification version already redacts titles.
                 // Preserve the same privacy in the actual over-keyguard activity.
+                CinePulseGuide(
+                    state = CinePulseState.POINT,
+                    modifier = Modifier.size(74.dp)
+                        .testTag("fc13-spark-locked-alarm"),
+                )
                 V2233PersonalParticleWave(PersonalAlert.ALARM)
                 Text("PERSONAL ALARM", color = blue,
                     fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
@@ -233,6 +243,15 @@ internal fun V2233PersonalAlertScreen(
             }
             // The art is a particle wave itself, with the symbol emerging from
             // the same luminous palette. No reused creator task icon/sticker.
+            CinePulseGuide(
+                state = when (reminder.alert) {
+                    PersonalAlert.ALARM -> CinePulseState.POINT
+                    PersonalAlert.VOICE -> CinePulseState.PRESENT
+                    PersonalAlert.NOTIFICATION -> CinePulseState.LOOK
+                },
+                modifier = Modifier.size(width = 96.dp, height = 104.dp)
+                    .testTag("fc13-spark-full-reminder"),
+            )
             V2233PersonalParticleWave(reminder.alert)
             Text(if (reminder.alert == PersonalAlert.ALARM) "YOUR ALARM"
                 else if (reminder.alert == PersonalAlert.VOICE) "VOICE REMINDER"
