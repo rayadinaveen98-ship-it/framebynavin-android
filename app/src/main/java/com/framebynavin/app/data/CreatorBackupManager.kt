@@ -155,12 +155,13 @@ class CreatorBackupManager(private val context: Context) {
      */
     internal fun rewritePortablePersonalFrames(raw: String, value: String): String {
         val root = JSONObject(raw)
-        require(root.optInt("schemaVersion", -1) == SCHEMA_VERSION) {
-            "Best Frames portable format requires the current backup schema"
+        val sourceSchema = root.optInt("schemaVersion", -1)
+        require(sourceSchema in 9..SCHEMA_VERSION) {
+            "Best Frames portable format requires v9 or newer backup schema"
         }
         require(root.has("personalFrames")) { "Missing Best Frames backup section" }
         root.put("personalFrames", value)
-        root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION))
+        root.put("payloadSha256", fingerprintSha256(root, sourceSchema))
         return root.toString()
     }
 
