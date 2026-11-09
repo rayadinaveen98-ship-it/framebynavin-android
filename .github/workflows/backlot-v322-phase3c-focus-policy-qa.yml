@@ -31,12 +31,14 @@ jobs:
           test -f app/src/main/java/com/framebynavin/app/personal/PersonalRebuildSchedulePack.kt
           test -f app/src/test/java/com/framebynavin/app/personal/PersonalRebuildSchedulePackTest.kt
           test -f app/src/main/java/com/framebynavin/app/data/CreatorFocusSessionPolicy.kt
+          test -f app/src/main/java/com/framebynavin/app/data/CreatorFocusSessionStore.kt
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorFocusSessionCodecTest.kt
           grep -Fq 'recoveredAfterReboot = true' app/src/main/java/com/framebynavin/app/data/CreatorFocusSessionPolicy.kt
           ! grep -Eq 'advanceWorkflow|startTask|markPublished|publishTask|ReminderScheduler' app/src/main/java/com/framebynavin/app/data/CreatorFocusSessionPolicy.kt
       - name: Compile full app source and test bounded Focus domain and V322 schedule
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.data.CreatorFocusSessionPolicyTest' --tests 'com.framebynavin.app.personal.PersonalRebuildSchedulePackTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.data.CreatorFocusSessionPolicyTest' --tests 'com.framebynavin.app.data.CreatorFocusSessionCodecTest' --tests 'com.framebynavin.app.personal.PersonalRebuildSchedulePackTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Upload test results (not signed owner APK)
         if: always()
         uses: actions/upload-artifact@v4
