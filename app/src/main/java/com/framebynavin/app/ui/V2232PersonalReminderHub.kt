@@ -275,7 +275,7 @@ internal fun V2232PersonalReminderHub(
             selected = BacklotReminderWorkspace.PERSONAL,
             onOpenPersonal = {},
             onOpenCreator = onCreator,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp)
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
                 .testTag("v2232-personal-space-switcher"),
         )
         if (personalPageName == "TODAY") {
@@ -522,10 +522,10 @@ internal fun V2232PersonalReminderHub(
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
                     V285AgendaScope.entries.forEach { scope ->
-                        FilterChip(
+                        BacklotReminderHubFilterChip(
+                            label = scope.label,
                             selected = agendaScopeName == scope.name,
                             onClick = { agendaScopeName = scope.name },
-                            label = { Text(scope.label, fontSize = 11.sp) },
                             modifier = Modifier.testTag("v285-agenda-scope-" + scope.name),
                         )
                     }
@@ -544,16 +544,12 @@ internal fun V2232PersonalReminderHub(
                         "other upcoming or paused reminders.", color = MutedText, fontSize = 12.sp)
                 }
                 agendaGroups.forEach { group ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .testTag("v2282-personal-section-${group.section.name}"),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(group.section.label, color = if (group.section == PersonalAgendaSection.NEEDS_ATTENTION)
-                            RecRed else MutedText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text("${group.items.size}", color = MutedText, fontSize = 11.sp)
-                    }
+                    BacklotReminderHubSectionHeading(
+                        label = group.section.label,
+                        count = group.items.size,
+                        urgent = group.section == PersonalAgendaSection.NEEDS_ATTENTION,
+                        modifier = Modifier.testTag("v2282-personal-section-${group.section.name}"),
+                    )
                     group.items.forEach { item ->
                         V2232PersonalItem(
                             reminder = item,
@@ -921,6 +917,10 @@ internal fun V2232PersonalEditor(
     var suggestionsOpen by rememberSaveable(existing?.id) {
         mutableStateOf(false)
     }
+    // Notes are optional; keep the first step compact. Never clear typed notes on collapse.
+    var notesOpen by rememberSaveable(existing?.id) {
+        mutableStateOf(existing != null)
+    }
     val composerScroll = remember(composerStep) { ScrollState(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedSpaceId by rememberSaveable(existing?.id) { mutableStateOf<String?>(null) }
@@ -1068,11 +1068,31 @@ internal fun V2232PersonalEditor(
                         label = { Text("What to remember?") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-title"),
                     )
-                    OutlinedTextField(
-                        value = notes, onValueChange = { notes = it.take(2000) },
-                        label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    TextButton(
+                        onClick = { notesOpen = !notesOpen },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-personal-toggle-notes"),
+                    ) {
+                        Icon(Icons.Outlined.Notes, null, tint = RecRed, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (notesOpen) "Hide notes" else if (notes.isNotBlank()) "Edit notes"
+                            else "Add notes (optional)",
+                            color = RecRed, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = notesOpen,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        OutlinedTextField(
+                            value = notes, onValueChange = { notes = it.take(2000) },
+                            label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-notes-field"),
+                        )
+                    }
                     }
                     }
                     AnimatedVisibility(
