@@ -48,52 +48,57 @@ class CreatorAutoPlanWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext
         val state = CreatorAutomationStateStore(app)
-        return runCatching {
+        return try {
             state.recordPlannerAttempt()
             CreatorDataGate.readyTransaction(app) {
-        val settings = CreatorOsSettingsStore(app).snapshot()
-        if (!settings.weeklyAutoPlanEnabled) {
-            state.recordPlannerDisabled()
-            return@readyTransaction Result.success()
-        }
-
-        runCatching {
-            val taskStore = TaskStore(app)
-            val slots = WeeklyScheduleStore(app).loadOrSeed()
-            val result = CreatorDataGate.transaction {
-                var planned: CreatorAutoPlanResult? = null
-                taskStore.mutate { current ->
-                    CreatorAutoPlanEngine.merge(
-                        tasks = current,
-                        slots = slots,
-                        defaults = settings,
-                        daysAhead = CreatorAutoPlanEngine.DEFAULT_HORIZON_DAYS,
-                    ).also { planned = it }.tasks
+                val settings = CreatorOsSettingsStore(app).snapshot()
+                if (!settings.weeklyAutoPlanEnabled) {
+                    state.recordPlannerDisabled()
+                    return@readyTransaction Result.success()
                 }
-                checkNotNull(planned)
-            }
-            if (result.created.isNotEmpty()) {
-                val regular = ReminderScheduler(app)
-                val smart = SmartEscalationScheduler(app)
-                val smartConfig = SmartEscalationConfigStore(app)
-                result.created.forEach { task ->
-                    when {
-                        task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled -> {
-                            smartConfig.put(task, SmartEscalationConfigStore.DEFAULT)
-                            smart.schedule(task)
+
+                val taskStore = TaskStore(app)
+                val slots = WeeklyScheduleStore(app).loadOrSeed()
+                val plan = CreatorDataGate.transaction {
+                    var planned: CreatorAutoPlanResult? = null
+                    taskStore.mutate { current ->
+                        CreatorAutoPlanEngine.merge(
+                            tasks = current,
+                            slots = slots,
+                            defaults = settings,
+                            daysAhead = CreatorAutoPlanEngine.DEFAULT_HORIZON_DAYS,
+                        ).also { planned = it }.tasks
+                    }
+                    checkNotNull(planned)
+                }
+                if (plan.created.isNotEmpty()) {
+                    val regular = ReminderScheduler(app)
+                    val smart = SmartEscalationScheduler(app)
+                    val smartConfig = SmartEscalationConfigStore(app)
+                    plan.created.forEach { task ->
+                        when {
+                            task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled -> {
+                                smartConfig.put(task, SmartEscalationConfigStore.DEFAULT)
+                                smart.schedule(task)
+                            }
+                            task.reminderEnabled && task.reminderMode != ReminderMode.NONE ->
+                                regular.schedule(task)
                         }
-                        task.reminderEnabled && task.reminderMode != ReminderMode.NONE -> regular.schedule(task)
                     }
                 }
+
+                // Confirm exactly the number of new project records committed.
+                // This is NOT confirmation of Android alarm delivery or posting.
+                state.recordPlannerRun(plan.created.size)
+                Result.success()
             }
-            state.recordPlannerRun(result.created.size)
-            Result.success()
-        }.getOrElse {
-            runCatching { state.recordPlannerRetry(runAttemptCount + 1) }
-            Result.retry()
-        }
-        }
-        }.getOrElse {
+        } catch (failure: kotlin.coroutines.cancellation.CancellationException) {
+            // A stopped/cancelled worker is not an acknowledged retry or a
+            // confirmed run; WorkManager owns cancellation lifecycle.
+            throw failure
+        } catch (failure: Exception) {
+            // The original, possibly partially completed work remains intact.
+            // The schedule occurrence key is deterministic on future retries.
             runCatching { state.recordPlannerRetry(runAttemptCount + 1) }
             Result.retry()
         }
