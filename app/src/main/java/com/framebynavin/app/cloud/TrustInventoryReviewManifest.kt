@@ -2,11 +2,10 @@ package com.framebynavin.app.cloud
 
 import android.content.Context
 import com.framebynavin.app.data.CreatorDataGate
+import java.nio.ByteBuffer
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * T1B4: a deterministic *inspection receipt* from two independently completed
@@ -74,32 +73,30 @@ internal object TrustInventoryReviewPolicy {
         require(evidence.none { it.domain in pending || it.domain in excluded }) {
             "Overlapping owner backup domains"
         }
-        val json = JSONObject()
-            .put("schemaVersion", 1)
-            .put("purpose", "LOCAL_READ_ONLY_INVENTORY_NOT_A_BACKUP")
-            .put("inspectedAtMillis", inspectedAtMillis)
-            .put("creatorGeneration", creatorGenerationBefore)
-            .put("inspected", JSONArray().apply {
-                evidence.forEach { item ->
-                    put(JSONObject()
-                        .put("domain", item.domain.name)
-                        .put("records", item.records)
-                        .put("bytes", item.bytes)
-                        .put("sha256", item.sha256))
-                }
-            })
-            .put("pendingDomains", JSONArray().apply {
-                pending.forEach { put(it.name) }
-            })
-            .put("excludedDeviceOnlyDomains", JSONArray().apply {
-                excluded.forEach { put(it.name) }
-            })
-            .put("stableAcrossTwoReads", true)
-            .put("crossStoreAtomicityVerified", false)
-            .toString()
+        // Deterministic length-delimited UTF-8, independent of JSONObject
+        // key iteration order or locale. No private source bytes are emitted.
         val digest = MessageDigest.getInstance("SHA-256")
-            .digest(json.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
+        fun put(part: String) {
+            val bytes = part.toByteArray(Charsets.UTF_8)
+            digest.update(ByteBuffer.allocate(4).putInt(bytes.size).array())
+            digest.update(bytes)
+        }
+        put("backlot-trust-local-inventory-v1")
+        put(inspectedAtMillis.toString())
+        put(creatorGenerationBefore.toString())
+        put(evidence.size.toString())
+        evidence.forEach { item ->
+            put(item.domain.name)
+            put(item.records.toString())
+            put(item.bytes.toString())
+            put(item.sha256)
+        }
+        put(pending.size.toString())
+        pending.forEach { put(it.name) }
+        put(excluded.size.toString())
+        excluded.forEach { put(it.name) }
+        put("stable-across-two-reads-not-atomic")
+        val fingerprint = digest.digest().joinToString("") { "%02x".format(it) }
         return TrustInventoryReviewManifest(
             schemaVersion = 1,
             inspectedAtMillis = inspectedAtMillis,
@@ -109,7 +106,7 @@ internal object TrustInventoryReviewPolicy {
             excludedDeviceOnlyDomains = excluded,
             stableAcrossTwoReads = true,
             crossStoreAtomicityVerified = false,
-            sha256 = digest,
+            sha256 = fingerprint,
         )
     }
 }
