@@ -85,6 +85,25 @@ class CreatorEditorDraftStore(context: Context) {
 
     fun clearScript(projectId: String) = remove(scriptKey(projectId))
 
+    /**
+     * Phase 4 project hub: only explicitly RECOVERABLE local editor input is
+     * reported. Never mislabel a draft as a committed project revision.
+     */
+    fun currentDraftEditors(
+        projectId: String,
+        workspaceRevision: Long,
+        scriptRevision: Long?,
+    ): List<String> = buildList {
+        if (loadProject(projectId, workspaceRevision) != null) add("Plan")
+        if (scriptRevision != null &&
+            loadScript(projectId, workspaceRevision, scriptRevision) != null) add("Script")
+        if (loadPublish(projectId, workspaceRevision) != null) add("Publish")
+    }
+
+    fun heldDraftEditors(projectId: String): List<String> =
+        listOf("project", "script", "publish")
+            .filter { hasHeldDraftForEditor(projectId, it) }
+
     fun clearAllForProject(projectId: String) {
         // Never erase a draft written by a newer editor after restore.
         listOf(projectKey(projectId), scriptKey(projectId), publishKey(projectId)).forEach(::remove)
