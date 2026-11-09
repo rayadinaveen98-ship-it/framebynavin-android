@@ -124,7 +124,7 @@ internal fun V195ReminderParticleScene(
         if (activeAudioVisual) {
             // Real playback event unlocks only a restrained REC-red particle
             // bloom. Wave rhythm is decorative, not a microphone/output meter.
-            val breath = (.5f + .5f *
+            val breath = (.5 + .5 *
                 kotlin.math.sin(elapsedSeconds * 4.1)).toFloat()
             val bloom = size.minDimension * (.44f + .025f * breath)
             drawCircle(
