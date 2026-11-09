@@ -16,6 +16,10 @@ import com.framebynavin.app.personal.Phase1HabitChallenge
 import com.framebynavin.app.personal.Phase1HabitCompletionMode
 import com.framebynavin.app.personal.Phase1HabitDayStatus
 import com.framebynavin.app.personal.Phase1HabitStore
+import com.framebynavin.app.personal.V298ReminderGroup
+import com.framebynavin.app.personal.V298ReminderGroupStore
+import com.framebynavin.app.personal.spaces.V289SpaceEntity
+import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 import com.framebynavin.app.personal.Phase1HabitAlarmScheduler
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
@@ -43,6 +47,7 @@ import kotlinx.coroutines.launch
 internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { Phase1HabitStore(context) }
+    val groupStore = remember(context) { V298ReminderGroupStore(context) }
     val coroutineScope = rememberCoroutineScope()
     var records by remember { mutableStateOf<List<Phase1HabitChallenge>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
@@ -61,6 +66,13 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
     var completionMode by remember { mutableStateOf(Phase1HabitCompletionMode.STRICT) }
     var detailDay by remember { mutableStateOf<LocalDate?>(null) }
     var detailNote by remember { mutableStateOf("") }
+    var linkDialog by remember { mutableStateOf(false) }
+    var linkSpaceId by remember { mutableStateOf<String?>(null) }
+    var linkGroupId by remember { mutableStateOf<String?>(null) }
+    var availableGroups by remember { mutableStateOf<List<V298ReminderGroup>>(emptyList()) }
+    var availableSpaces by remember { mutableStateOf<List<V289SpaceEntity>>(emptyList()) }
+    var linkCatalogError by remember { mutableStateOf<String?>(null) }
+    var linkCatalogReady by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf(false) }
     var now by remember { mutableStateOf(Instant.now()) }
 
@@ -83,6 +95,30 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
         }
     }
     val selected = records.firstOrNull { it.id == chosenId } ?: records.lastOrNull()
+
+    LaunchedEffect(linkDialog) {
+        if (!linkDialog) return@LaunchedEffect
+        linkCatalogReady = false
+        linkCatalogError = null
+        try {
+            val loadedGroups = groupStore.load()
+            val file = context.getDatabasePath(V289SpacesDatabase.FILE_NAME)
+            val loadedSpaces = if (!file.exists()) emptyList()
+            else {
+                require(file.isFile) { "Spaces database is unavailable" }
+                val db = V289SpacesDatabase.open(context)
+                try {
+                    db.spaces().loadSpaces().filter { it.archivedAtMillis == null }
+                } finally { db.close() }
+            }
+            availableGroups = loadedGroups
+            availableSpaces = loadedSpaces
+            linkCatalogReady = true
+        } catch (_: Exception) {
+            linkCatalogError = "Could not verify Spaces or Groups. Existing links were not changed."
+            linkCatalogReady = true
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = BacklotBackground) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -181,6 +217,17 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                         onDaySelected = { day ->
                             detailDay = day
                             detailNote = selected.dayNotes[day].orEmpty()
+                        },
+                        linkedSpaceLabel = selected.linkedSpaceId?.let { id ->
+                            availableSpaces.firstOrNull { it.id == id }?.title ?: "Linked Space"
+                        },
+                        linkedGroupLabel = selected.linkedGroupId?.let { id ->
+                            availableGroups.firstOrNull { it.id == id }?.name ?: "Linked Group"
+                        },
+                        onManageLinks = {
+                            linkSpaceId = selected.linkedSpaceId
+                            linkGroupId = selected.linkedGroupId
+                            linkDialog = true
                         },
                         onDone = {
                             if (!saving) {
