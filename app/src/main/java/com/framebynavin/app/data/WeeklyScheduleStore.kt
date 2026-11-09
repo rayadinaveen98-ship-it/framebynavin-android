@@ -75,6 +75,18 @@ class WeeklyScheduleStore(private val context: Context) {
         }
     }
 
+    /** Read persisted weekly slots without seeding defaults or applying migrations. */
+    suspend fun inspectSavedForInventory(): Pair<String, Int>? {
+        val prefs = context.weeklyScheduleDataStore.data.first()
+        val raw = prefs[slotsKey] ?: run {
+            check(prefs[backupKey] == null) {
+                "Weekly plan primary missing; owner must review recovery copy"
+            }
+            return null
+        }
+        return raw to decode(raw).size
+    }
+
     suspend fun exportJson(): String = encode(loadOrSeed())
 
     suspend fun importJson(raw: String): List<WeeklyScheduleSlot> {
