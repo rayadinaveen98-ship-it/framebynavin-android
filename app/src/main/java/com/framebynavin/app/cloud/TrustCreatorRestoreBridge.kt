@@ -1,11 +1,19 @@
 package com.framebynavin.app.cloud
 
 import android.content.Context
+import com.framebynavin.app.data.CreatorBackupManager
+import com.framebynavin.app.data.PortableBackupArchive
+import com.framebynavin.app.data.PortableBackupMedia
+import com.framebynavin.app.data.PortableBestFrame
+import com.framebynavin.app.data.PortableBestFrameMedia
+import com.framebynavin.app.data.PortableCreatorBackupManager
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.IdeaCaptureType
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.data.TaskStore
 import kotlinx.coroutines.flow.first
+import java.io.File
+import org.json.JSONObject
 import org.json.JSONArray
 
 /**
@@ -99,4 +107,112 @@ internal class TrustCreatorRestoreBridge(context: Context) {
                 missingCreatorSources = emptySet(),
             )
         }
+
+    /**
+     * Prepare exactly the existing Creator v10 portable ZIP, from *already
+     * authenticated* owner Trust partitions rather than live Creator data.
+     *
+     * Only an explicit owner-approved restore preparation may call this;
+     * unlike preview, CreatorBackupManager construction may initialize the
+     * legacy onboarding preference. This method still NEVER imports data.
+     * Caller must delete the returned plaintext private temporary ZIP after
+     * the existing Creator restore coordinator consumes or rejects it.
+     */
+    suspend fun preparePortableCandidateAfterOwnerApproval(
+        staged: TrustVerifiedStagedBundle,
+        ownerApprovedPreparation: Boolean,
+    ): File = CreatorDataGate.transaction {
+        require(ownerApprovedPreparation) {
+            "Owner must explicitly approve private Creator restore preparation"
+        }
+        val verified = TrustRestorableSourceReview.inspect(app, staged)
+        check(verified.missingRequiredSources.isEmpty() &&
+            verified.uncoveredPreferenceKeys.isEmpty()) {
+            "Missing Creator/Personal or unknown saved preference sources"
+        }
+        val indexed = staged.parts.associateBy { it.id }
+        check(indexed.size == staged.parts.size) {
+            "Duplicate authenticated Creator source partitions"
+        }
+        fun text(id: String): String {
+            val part = requireNotNull(indexed[id]) {
+                "Encrypted backup is missing Creator source: $id"
+            }
+            require(part.sizeBytes in 0..(24L * 1024 * 1024))
+            return part.file.readText(Charsets.UTF_8)
+        }
+
+        val expectedParts = setOf(
+            "creator/projects", "creator/ideas", "creator/focus",
+            "creator/config/weekly-slots", "creator/history/workflow",
+            "creator/history/pulse", "creator/history/post-publish",
+            "creator/history/rewards", "creator/config/automation",
+            "creator/history/youtube-links", "creator/history/youtube-milestones",
+            "creator/history/youtube-checkpoints",
+        )
+        val settings = TrustCreatorSettingsTranslator.translate(
+            text("creator/config/persisted"),
+        )
+        val ordered = JSONArray(text("creator/best-frame-order"))
+        require(ordered.length() <= 10)
+        val frames = (0 until ordered.length()).map { index ->
+            val media = requireNotNull(indexed[
+                "creator/best-frame-" + index.toString().padStart(4, '0')
+            ]) { "Saved original Best Frame is missing" }
+            PortableBestFrame(
+                name = ordered.getString(index),
+                sha256 = media.sha256,
+                file = media.file,
+            )
+        }
+        val preparedFrames = PortableBestFrameMedia.prepareFromVerifiedSourceFiles(frames)
+        val signed = CreatorBackupManager(app).assembleTrustedSourceEnvelope(
+            raw = expectedParts.associateWith(::text),
+            nativeSettings = settings.creatorSettingsJson,
+            nativeEscalation = settings.smartEscalationJson,
+            preparedFrames = preparedFrames,
+        )
+
+        val voiceManifest = JSONArray(text("creator/voice-index"))
+        val media = (0 until voiceManifest.length()).map { index ->
+            val row = voiceManifest.getJSONObject(index)
+            val expectedId = "creator/voice-" + index.toString().padStart(4, '0')
+            require(row.getString("partId") == expectedId)
+            val source = requireNotNull(indexed[expectedId]) {
+                "Saved Voice Idea original missing from encrypted source"
+            }
+            PortableBackupMedia(
+                ideaId = row.getString("ideaId"),
+                file = source.file,
+            )
+        }
+        // Existing portable importer independently verifies every Voice Idea
+        // mapping and frame hash before it writes or schedules anything.
+        val output = File.createTempFile(
+            "trust-creator-reviewed-", ".fbnbackup", app.cacheDir,
+        )
+        try {
+            output.outputStream().buffered().use { destination ->
+                PortableBackupArchive.write(
+                    backupJson = signed,
+                    media = media,
+                    output = destination,
+                    frames = preparedFrames.frames,
+                )
+            }
+            require(output.length() in 1L..(1024L * 1024 * 1024))
+            output.inputStream().buffered().use {
+                PortableCreatorBackupManager(app).validate(it)
+            }
+            output
+        } catch (failure: Throwable) {
+            if (!output.delete() && output.exists()) {
+                failure.addSuppressed(IllegalStateException(
+                    "Could not erase the unapproved Creator restore candidate",
+                ))
+            }
+            throw failure
+        }
+    }
+
 }
