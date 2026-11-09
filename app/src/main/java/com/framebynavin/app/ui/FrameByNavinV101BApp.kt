@@ -153,6 +153,25 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
         if (result.second == null) {
             result.first?.task?.let { committed ->
+                if (!pending.editedExisting &&
+                    pending.composerDraftGeneration != null &&
+                    pending.composerDraftFingerprint != null
+                ) {
+                    // A queued creation is not durable until this receipt.
+                    // Never clear a newer form or a different restore epoch.
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            CreatorNewProjectDraftStore(context.applicationContext)
+                                .clearIfUnchanged(
+                                    pending.composerDraftGeneration,
+                                    pending.composerDraftFingerprint,
+                                )
+                        }.onFailure {
+                            android.util.Log.w("BacklotComposer",
+                                "Committed project saved; draft cleanup deferred", it)
+                        }
+                    }
+                }
                 savedReminderConfirmation = V203ReminderSetFeedback.message(
                     active = committed.reminderEnabled,
                     nextAtMillis = committed.reminderAtMillis,
@@ -976,9 +995,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 // saving, even though their draft mode is NONE. Track every
                 // successful project write, then inspect the actual committed
                 // reminder and silently skip if alerts are disabled.
+                val composerDraftGeneration = if (task == null) {
+                    CreatorDataGate.generation(context.applicationContext)
+                } else null
                 pendingReminderConfirmation = V203PendingReminderConfirmation(
                     taskId = savedTaskId, editedExisting = task != null,
                     baselineRevision = previousRevision,
+                    composerDraftGeneration = composerDraftGeneration,
+                    composerDraftFingerprint = composerDraftGeneration?.let {
+                        CreatorNewProjectDraftStore(context.applicationContext)
+                            .contentFingerprint(it)
+                    },
                 )
                 finishComposerSession()
                 if (task == null && guidedTourStepName == CreatorGuidedTourStep.PROJECT.name) {
