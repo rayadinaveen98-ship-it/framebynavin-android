@@ -107,6 +107,63 @@ class CreatorBackupManager(private val context: Context) {
     }
 
     /**
+     * Reuse the SAME CreatorBackupManager v10 envelope and checksum for a
+     * future owner-approved Trust import. Inputs are previously authenticated
+     * encrypted source parts, not live stores. This does NOT import data,
+     * install media or bypass the current restore and rollback authorities.
+     */
+    internal fun assembleTrustedSourceEnvelope(
+        raw: Map<String, String>,
+        nativeSettings: String,
+        nativeEscalation: String,
+        preparedFrames: PreparedPortableFrames,
+    ): String {
+        fun section(name: String): String = requireNotNull(raw[name]) {
+            "Authenticated Creator source omitted required domain: $name"
+        }
+        require(raw.keys == setOf(
+            "creator/projects", "creator/ideas", "creator/focus",
+            "creator/config/weekly-slots",
+            "creator/history/workflow", "creator/history/pulse",
+            "creator/history/post-publish", "creator/history/rewards",
+            "creator/config/automation", "creator/history/youtube-links",
+            "creator/history/youtube-milestones",
+            "creator/history/youtube-checkpoints",
+        )) { "Unknown or incomplete canonical Creator Trust payload" }
+        val before = Snapshot(
+            tasksJson = section("creator/projects"),
+            ideasJson = section("creator/ideas"),
+            weeklyJson = section("creator/config/weekly-slots"),
+            settingsJson = nativeSettings,
+            smartConfigJson = nativeEscalation,
+            postPublishJson = section("creator/history/post-publish"),
+            rewardsJson = section("creator/history/rewards"),
+            heroJson = preparedFrames.personalFramesSection,
+            youtubeLinksJson = section("creator/history/youtube-links"),
+            youtubeMilestonesJson = section("creator/history/youtube-milestones"),
+            youtubePublishCheckpointsJson =
+                section("creator/history/youtube-checkpoints"),
+            projectPulseHistoryJson = section("creator/history/pulse"),
+            workflowTimelineJson = section("creator/history/workflow"),
+            automationPrefsJson = section("creator/config/automation"),
+            focusSessionsJson = section("creator/focus"),
+        )
+        val packed = encode(before, System.currentTimeMillis().coerceAtLeast(1L))
+        verifyPortableJsonEnvelope(packed)
+        if (preparedFrames.frames.isEmpty()) {
+            validate(packed)
+        } else {
+            validatePortableCompact(packed, preparedFrames.frames.size)
+            require(PortableBestFrameMedia.verifyCompactPreview(
+                packed, preparedFrames.frames, true,
+            ) == preparedFrames.frames.size) {
+                "Trusted original Best Frames did not match native Creator payload"
+            }
+        }
+        return packed
+    }
+
+    /**
      * Portable ZIP export must never build a giant canonical root JSON only
      * to parse it again. Build the compact envelope from the same locked
      * creator-data snapshot, preserving schema and integrity semantics.
