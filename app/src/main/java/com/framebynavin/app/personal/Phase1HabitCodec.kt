@@ -34,16 +34,6 @@ internal object Phase1HabitCodec {
                 put("alertTime", valid.alertTime?.toString() ?: JSONObject.NULL)
                 put("alertKind", valid.alertKind?.name ?: JSONObject.NULL)
                 put("paused", valid.paused)
-                put("snoozedDay", valid.snoozedDay?.toString() ?: JSONObject.NULL)
-                put("snoozedUntil", valid.snoozedUntil?.toString() ?: JSONObject.NULL)
-                put("completionMode", valid.completionMode.name)
-                put("linkedSpaceId", valid.linkedSpaceId ?: JSONObject.NULL)
-                put("linkedGroupId", valid.linkedGroupId ?: JSONObject.NULL)
-                put("dayNotes", JSONArray().apply {
-                    valid.dayNotes.entries.sortedBy { it.key }.forEach { (day, note) ->
-                        put(JSONObject().put("date", day.toString()).put("text", note))
-                    }
-                })
                 put("confirmations", JSONArray().apply {
                     valid.confirmations.entries.sortedBy { it.key }.forEach { (date, instant) ->
                         put(JSONObject().put("date", date.toString())
@@ -89,16 +79,6 @@ internal object Phase1HabitCodec {
                         "Duplicate daily completion receipt"
                     }
                 }
-                val noteEntries = item.optJSONArray("dayNotes") ?: JSONArray()
-                require(noteEntries.length() <= 21) { "Too many challenge notes" }
-                val notes = LinkedHashMap<LocalDate, String>()
-                for (j in 0 until noteEntries.length()) {
-                    val entry = noteEntries.getJSONObject(j)
-                    require(notes.put(
-                        LocalDate.parse(entry.getString("date")),
-                        entry.getString("text"),
-                    ) == null) { "Duplicate challenge note" }
-                }
                 val challenge = Phase1HabitChallenge(
                     id = item.getString("id"),
                     activity = item.getString("activity"),
@@ -109,22 +89,7 @@ internal object Phase1HabitCodec {
                     alertKind = if (item.isNull("alertKind")) null
                         else Phase1HabitAlertKind.valueOf(item.getString("alertKind")),
                     paused = item.getBoolean("paused"),
-                    // Backward compatible: older owner archives have no snooze keys.
-                    snoozedDay = if (!item.has("snoozedDay") || item.isNull("snoozedDay"))
-                        null else LocalDate.parse(item.getString("snoozedDay")),
-                    snoozedUntil = if (!item.has("snoozedUntil") || item.isNull("snoozedUntil"))
-                        null else Instant.parse(item.getString("snoozedUntil")),
                     confirmations = receipts,
-                    completionMode = Phase1HabitCompletionMode.valueOf(
-                        item.optString("completionMode", Phase1HabitCompletionMode.STRICT.name),
-                    ),
-                    dayNotes = notes,
-                    linkedSpaceId = if (!item.has("linkedSpaceId") ||
-                        item.isNull("linkedSpaceId")) null
-                        else item.getString("linkedSpaceId"),
-                    linkedGroupId = if (!item.has("linkedGroupId") ||
-                        item.isNull("linkedGroupId")) null
-                        else item.getString("linkedGroupId"),
                 ).checked()
                 require(challengeIds.add(challenge.id)) { "Duplicate challenge identity" }
                 add(challenge)
