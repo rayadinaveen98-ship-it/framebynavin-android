@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -21,10 +21,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Build signed personalStable APK
+      - name: Build signed personalStable APK with single Kotlin compiler
         run: |
           set -o pipefail
-          gradle :app:assemblePersonalStable --no-daemon --stacktrace 2>&1 | tee fc13-build.log
+          gradle :app:assemblePersonalStable --no-daemon --max-workers=1             -Pkotlin.compiler.execution.strategy=in-process             "-Dorg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=768m"             --stacktrace 2>&1 | tee fc13-build.log
       - name: Prepare owner APK
         run: |
           set -euo pipefail
