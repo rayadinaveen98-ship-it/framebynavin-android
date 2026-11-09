@@ -81,6 +81,14 @@ internal class Phase1HabitStore(context: Context) {
     suspend fun confirmToday(id: String, at: Instant): List<Phase1HabitChallenge> =
         updateProgress(id) { it.confirmToday(at) }
 
+    /** Durable owner snooze; Android scheduling is reconciled after this commit. */
+    suspend fun snoozeToday(
+        id: String,
+        at: Instant,
+        minutes: Int,
+    ): List<Phase1HabitChallenge> =
+        updateProgress(id) { it.snoozeToday(at, minutes) }
+
     /** Flexible-only past-day receipt; confirmedAt stays the REAL current time. */
     suspend fun confirmSelectedDay(
         id: String, day: LocalDate, at: Instant,
