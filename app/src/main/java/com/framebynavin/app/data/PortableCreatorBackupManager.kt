@@ -227,8 +227,13 @@ class PortableCreatorBackupManager(context: Context) {
     /** Re-sign the imported schema *without* changing its version or legacy fields. */
     private fun fingerprintSupportedSchema(root: JSONObject): String = buildString {
         val schema = root.getInt("schemaVersion")
-        val keys = if (schema >= 9) CURRENT_FINGERPRINT_KEYS
-            else CURRENT_FINGERPRINT_KEYS.filterNot { it == "automationPreferences" }
+        val keys = when {
+            schema >= 10 -> CURRENT_FINGERPRINT_KEYS
+            schema >= 9 -> CURRENT_FINGERPRINT_KEYS.filterNot { it == "creatorFocusSessions" }
+            else -> CURRENT_FINGERPRINT_KEYS.filterNot {
+                it == "creatorFocusSessions" || it == "automationPreferences"
+            }
+        }
         keys.forEach { key ->
             val value = root.optString(key, "")
             append(key.length).append(':').append(key).append(value.length).append(':').append(value)
@@ -262,6 +267,7 @@ class PortableCreatorBackupManager(context: Context) {
             "projectPulseHistory",
             "workflowStageTimeline",
             "automationPreferences",
+            "creatorFocusSessions",
             "manifest",
         )
     }

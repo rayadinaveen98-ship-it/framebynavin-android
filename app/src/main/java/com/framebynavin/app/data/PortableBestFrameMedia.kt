@@ -210,7 +210,7 @@ internal object PortableBestFrameMedia {
             return null
         }
         require(manifestPresent &&
-            root.optInt("schemaVersion", -1) == CreatorBackupManager.SCHEMA_VERSION) {
+            root.optInt("schemaVersion", -1) in 9..CreatorBackupManager.SCHEMA_VERSION) {
             "Best Frames manifest missing or incompatible"
         }
         require(marker.keys().asSequence().toSet() ==
@@ -270,7 +270,7 @@ internal object PortableBestFrameMedia {
             }
             return compactJson // V208/V209 ZIPs and legacy JSON are unchanged.
         }
-        require(manifestPresent && root.optInt("schemaVersion", -1) == CreatorBackupManager.SCHEMA_VERSION) {
+        require(manifestPresent && root.optInt("schemaVersion", -1) in 9..CreatorBackupManager.SCHEMA_VERSION) {
             "Best Frames manifest missing or incompatible with backup"
         }
         require(marker.keys().asSequence().toSet() ==

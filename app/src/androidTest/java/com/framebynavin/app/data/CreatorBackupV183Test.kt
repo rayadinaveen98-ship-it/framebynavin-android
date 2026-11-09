@@ -30,6 +30,11 @@ class CreatorBackupV183Test {
     /** Mirrors CreatorBackupManager.fingerprint() so current-schema mutation tests remain valid. */
     private fun checksum(root: JSONObject, schema: Int): String = sha(buildString {
         val keys = when {
+            schema >= 10 -> legacyKeys + listOf(
+                "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
+                "projectPulseHistory", "workflowStageTimeline", "automationPreferences",
+                "creatorFocusSessions",
+            )
             schema >= 9 -> legacyKeys + listOf(
                 "youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints",
                 "projectPulseHistory", "workflowStageTimeline", "automationPreferences",
@@ -73,6 +78,8 @@ class CreatorBackupV183Test {
         assertTrue(root.has("personalFrames"))
         assertTrue(root.has("youtubeProjectLinks"))
         assertTrue(root.has("youtubeMilestones"))
+        assertTrue(root.has("creatorFocusSessions"))
+        assertTrue(manifest.getJSONArray("included").toString().contains("creatorFocusSessions"))
         assertThrows(IllegalArgumentException::class.java) {
             manager.validate(JSONObject(raw).put("createdAtMillis", root.getLong("createdAtMillis") + 1L).toString())
         }

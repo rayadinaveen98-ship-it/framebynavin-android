@@ -64,6 +64,7 @@ class CreatorBackupManager(private val context: Context) {
         val projectPulseHistoryJson: String? = null,
         val workflowTimelineJson: String? = null,
         val automationPrefsJson: String? = null,
+        val focusSessionsJson: String? = null,
     )
 
     private val appContext = context.applicationContext
@@ -77,6 +78,7 @@ class CreatorBackupManager(private val context: Context) {
     private val automationPreferencesStore = CreatorAutomationPreferencesStore(appContext)
     private val projectPulseHistoryStore = ProjectPulseHistoryStore(appContext)
     private val workflowTimelineStore = CreatorWorkflowTimelineStore(appContext)
+    private val focusStore = CreatorFocusSessionStore(appContext)
     private val regularScheduler = ReminderScheduler(appContext)
     private val smartScheduler = SmartEscalationScheduler(appContext)
     private val smartSessions = SmartSessionStore(appContext)
@@ -153,12 +155,13 @@ class CreatorBackupManager(private val context: Context) {
      */
     internal fun rewritePortablePersonalFrames(raw: String, value: String): String {
         val root = JSONObject(raw)
-        require(root.optInt("schemaVersion", -1) == SCHEMA_VERSION) {
-            "Best Frames portable format requires the current backup schema"
+        val sourceSchema = root.optInt("schemaVersion", -1)
+        require(sourceSchema in 9..SCHEMA_VERSION) {
+            "Best Frames portable format requires v9 or newer backup schema"
         }
         require(root.has("personalFrames")) { "Missing Best Frames backup section" }
         root.put("personalFrames", value)
-        root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION))
+        root.put("payloadSha256", fingerprintSha256(root, sourceSchema))
         return root.toString()
     }
 
@@ -222,8 +225,11 @@ class CreatorBackupManager(private val context: Context) {
         }
         val personalFramesRaw = optionalSection(root, "personalFrames")
         val cloudMediaOmitted = personalFramesRaw == CLOUD_FRAMES_OMITTED
-        require(!cloudMediaOmitted || (allowCloudFrameOmission && schema == SCHEMA_VERSION)) {
-            "Original Best Frames were omitted from this cloud-only snapshot"
+        // Schema v9 introduced the explicit omitted-original-frames cloud marker.
+        // A v10 app must still read legitimate v9 cloud backups (subject to the
+        // separate Focus-data omission guard before any destructive restore).
+        require(!cloudMediaOmitted || (allowCloudFrameOmission && schema in 9..SCHEMA_VERSION)) {
+            "Original Best Frames were omitted from an unsupported cloud-only snapshot"
         }
         val personalFrameCount = if (cloudMediaOmitted) 0 else
             verifiedFrameCount ?: (personalFramesRaw?.let(CreatorHeroArchive::validate) ?: 0)
@@ -249,6 +255,10 @@ class CreatorBackupManager(private val context: Context) {
             require(root.has("workflowStageTimeline")) { "Backup is missing workflow stage timeline" }
         }
         optionalSection(root, "workflowStageTimeline")?.let(workflowTimelineStore::validateJson)
+        if (schema >= 10) {
+            require(root.has("creatorFocusSessions")) { "Backup is missing creator Focus history" }
+            focusStore.validateJson(root.getString("creatorFocusSessions"))
+        }
         if (schema >= 9) {
             require(root.has("automationPreferences")) { "Backup is missing creator automation preferences" }
             automationPreferencesStore.validateJson(root.getString("automationPreferences"))
@@ -299,11 +309,24 @@ class CreatorBackupManager(private val context: Context) {
         )
     }
 
+    /**
+     * An older snapshot did not carry Focus records. Once real Focus data exists,
+     * don't let a v1-v9 Creator restore silently create orphaned/omitted work history.
+     * The check runs before the first destructive operation in every restore path.
+     */
+    private fun rejectLegacyFocusOmission(raw: String) {
+        val schema = JSONObject(raw).getInt("schemaVersion")
+        check(schema >= 10 || !focusStore.hasOwnerData()) {
+            "This backup predates Focus sessions. Export/recover current Focus history before restoring an older Creator backup."
+        }
+    }
+
     /** Restore is serialized with local writes. A durable pre-restore journal survives process death. */
     suspend fun restore(raw: String): BackupPreview = CreatorDataGate.transaction {
         val preview = validate(raw)
         recoverPendingRestoreUnlocked()
         IdeaProjectConversion(appContext).recoverPendingUnlocked()
+        rejectLegacyFocusOmission(raw)
         val before = encode(snapshot(), System.currentTimeMillis())
         val recovery = retainRecovery(before)
         val marker = JSONObject().put("file", recovery.name).put("sha256", sha256(before))
@@ -350,6 +373,7 @@ class CreatorBackupManager(private val context: Context) {
             val preview = validateCloud(raw)
             recoverPendingRestoreUnlocked()
             IdeaProjectConversion(appContext).recoverPendingUnlocked()
+            rejectLegacyFocusOmission(raw)
             val oldFrames = CreatorHeroArchive.captureOriginalOrder(appContext)
             val before = encode(snapshot(includeHero = false), System.currentTimeMillis())
             val recovery = retainRecovery(before)
@@ -403,6 +427,7 @@ class CreatorBackupManager(private val context: Context) {
         val preview = validatePortableCompact(raw, frames.size)
         recoverPendingRestoreUnlocked()
         IdeaProjectConversion(appContext).recoverPendingUnlocked()
+        rejectLegacyFocusOmission(raw)
 
         // Old originals are retained by the Hero archive and recorded by
         // filename+hash; the pre-restore creator JSON need not Base64 them.
@@ -526,6 +551,7 @@ class CreatorBackupManager(private val context: Context) {
         projectPulseHistoryJson = projectPulseHistoryStore.exportJson(),
         workflowTimelineJson = workflowTimelineStore.exportJson(),
         automationPrefsJson = automationPreferencesStore.exportJson(),
+        focusSessionsJson = focusStore.exportPortableJson(),
     )
 
     private fun encode(snapshot: Snapshot, createdAtMillis: Long): String {
@@ -547,6 +573,7 @@ class CreatorBackupManager(private val context: Context) {
             .put("projectPulseHistory", requireNotNull(snapshot.projectPulseHistoryJson))
             .put("workflowStageTimeline", requireNotNull(snapshot.workflowTimelineJson))
             .put("automationPreferences", requireNotNull(snapshot.automationPrefsJson))
+            .put("creatorFocusSessions", requireNotNull(snapshot.focusSessionsJson))
             .put("manifest", backupManifest())
         return root.put("payloadSha256", fingerprintSha256(root, SCHEMA_VERSION)).toString()
     }
@@ -560,6 +587,7 @@ class CreatorBackupManager(private val context: Context) {
         val keys = listOf("format", "schemaVersion", "createdAtMillis", "tasks", "ideas", "weeklySchedule",
             "settings", "smartEscalationConfig", "postPublish", "rewards", "personalFrames")
         val allKeys = when {
+            schema >= 10 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline", "automationPreferences", "creatorFocusSessions")
             schema >= 9 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline", "automationPreferences")
             schema >= 8 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory", "workflowStageTimeline")
             schema >= 7 -> keys + listOf("youtubeProjectLinks", "youtubeMilestones", "youtubePublishCheckpoints", "projectPulseHistory")
@@ -631,6 +659,7 @@ class CreatorBackupManager(private val context: Context) {
 
     private fun decodeSnapshot(raw: String): Snapshot {
         val root = JSONObject(raw)
+        val schema = root.getInt("schemaVersion")
         return Snapshot(
             tasksJson = root.getString("tasks"),
             ideasJson = root.getString("ideas"),
@@ -646,6 +675,9 @@ class CreatorBackupManager(private val context: Context) {
             projectPulseHistoryJson = optionalSection(root, "projectPulseHistory"),
             workflowTimelineJson = optionalSection(root, "workflowStageTimeline"),
             automationPrefsJson = optionalSection(root, "automationPreferences"),
+            // Pre-v10 payload checksums never covered Focus. Ignore any such
+            // untrusted extra key rather than importing unauthenticated session data.
+            focusSessionsJson = if (schema >= 10) optionalSection(root, "creatorFocusSessions") else null,
         )
     }
 
@@ -660,6 +692,7 @@ class CreatorBackupManager(private val context: Context) {
         snapshot.postPublishJson?.let { postPublishStore.importJson(it) }
         snapshot.rewardsJson?.let { rewardStore.importJson(it) }
         snapshot.heroJson?.let { CreatorHeroArchive.import(appContext, it) }
+        snapshot.focusSessionsJson?.let { focusStore.importAfterApprovedRestore(it) }
         snapshot.youtubeLinksJson?.let { importYoutubeLinks(it) }
         snapshot.youtubeMilestonesJson?.let { importYoutubeMilestones(it) }
         snapshot.youtubePublishCheckpointsJson?.let { importYoutubePublishCheckpoints(it) }
@@ -759,7 +792,7 @@ class CreatorBackupManager(private val context: Context) {
 
     companion object {
         const val FORMAT = "FrameByNavinBackup"
-        const val SCHEMA_VERSION = 9
+        const val SCHEMA_VERSION = 10
         private const val CLOUD_FRAMES_OMITTED =
             """{"format":"BacklotCloudOriginalFramesOmitted","version":1}"""
         private val INCLUDED_SECTIONS_V5 = listOf(
@@ -769,11 +802,13 @@ class CreatorBackupManager(private val context: Context) {
         private val INCLUDED_SECTIONS_V6 = INCLUDED_SECTIONS_V5 + "youtubePublishCheckpoints"
         private val INCLUDED_SECTIONS_V7 = INCLUDED_SECTIONS_V6 + "projectPulseHistory"
         private val INCLUDED_SECTIONS_V8 = INCLUDED_SECTIONS_V7 + "workflowStageTimeline"
-        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V8 + "automationPreferences"
+        private val INCLUDED_SECTIONS_V9 = INCLUDED_SECTIONS_V8 + "automationPreferences"
+        private val INCLUDED_SECTIONS = INCLUDED_SECTIONS_V9 + "creatorFocusSessions"
         private val ROOT_KEYS = setOf("format", "schemaVersion", "createdAtMillis", "manifest",
             "payloadSha256") + INCLUDED_SECTIONS
         private fun includedSectionsFor(schema: Int): List<String> = when {
-            schema >= 9 -> INCLUDED_SECTIONS
+            schema >= 10 -> INCLUDED_SECTIONS
+            schema >= 9 -> INCLUDED_SECTIONS_V9
             schema >= 8 -> INCLUDED_SECTIONS_V8
             schema >= 7 -> INCLUDED_SECTIONS_V7
             schema >= 6 -> INCLUDED_SECTIONS_V6
