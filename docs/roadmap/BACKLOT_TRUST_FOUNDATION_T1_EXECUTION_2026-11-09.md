@@ -1,0 +1,54 @@
+# Backlot Trust Foundation T — execution and coverage register (9 November 2026)
+
+**Owner direction:** start the next locked phase after Phase 3; do not skip the remaining Phase 3F integrated Android/owner acceptance checks. This document describes evidence, not an owner-approved release. Implement on isolated review branches. No device data reset, auto restore, or production signing change.
+
+## Sequence
+1. **T1 universal backup:** a single explicit **Back Up** action with a verified, encrypted, owner-scoped complete snapshot and honest coverage manifest. Keep the previous good cloud revision until the next is durably verified.
+2. **T2 reviewed restore:** authenticated snapshot inventory, source account/date, per-domain conflicts, validated bytes, pre-restore recovery escrow, deliberate owner approval, and crash-safe commit. No automatic destructive merge.
+3. **T3 delete cloud backup:** delete only selected remote Backlot copies and metadata after server confirmation, leaving local records intact.
+4. **T4 Backlot account deletion:** separate authenticated deletion flow with verifiable server/local order, partial-failure recovery and correct external-token claims.
+
+## Coverage reality — do NOT label current cloud sync "universal"
+
+| Owner domain | Existing verified/review code path | Current trust gap |
+| --- | --- | --- |
+| Creator tasks, Ideas, scripts | Creator cloud/backup and existing workspace stores | Not unified with Personal encrypted photo archive, history, Focus and owner restoration |
+| Focus 2.0 | Creator backup versioned scope on Phase 3 branches | Needs full inventory/recovery equivalence and a live two-device proof |
+| Personal reminders, Done receipts | `PersonalBackupTransfer.exportForCloud` and v2 history codec | Older cloud path is Personal-only, not a universal archive |
+| 21-day ONE-activity challenges | `Phase1HabitCodec` + `Phase1HabitStore`; encrypted Personal ZIP **v2** source and verification preview | Old `PersonalCloudSyncManager` still hard-blocks local challenge data; no live cross-device challenge restore transaction |
+| Legacy V297 planner | V297 codec + encrypted ZIP | Keep separate from the new one-activity store, including all old progress |
+| Reminder Groups | V298 codec + encrypted ZIP | Not covered by old Personal Sync Now; links must be checked before restore |
+| Spaces, journals, links, private JPEGs | V300 encrypted ZIP with staged AES-GCM photo byte integrity verification | Not covered by old Personal Sync Now; no approved cloud photo revision/restore |
+| Alarm device leases / custom local music URI / Android permissions | Device-specific; stripped from portable reminder export | Explicit exclusions and post-owner-consent reschedule required |
+| Spark and other configuration, notification settings, media, account identity | Mixed stores | Discover every source, manifest and restore policy before declaring universal coverage |
+
+## T1A — legacy remote-downgrade safety: implemented in review branch
+
+The existing legacy Personal sync path **must not overwrite a remotely stored richer v2 cloud bundle**, even when the current phone has zero habits. That would delete the newer cloud bundle's challenges and exact Done timestamps.
+
+- `PersonalCloudLegacyRemoteGate.requireLegacyOnly` decodes and validates the supported remote format, then rejects *any* new v2 bundle with a precise non-success outcome before a write, replacement, reconciliation success, or keep-phone override.
+- Check at **Sync Now**, **Keep This Phone**, **Use Cloud Copy/restore**, and cloud conflict preview boundaries. Hash verification remains mandatory; unsupported and malformed formats fail closed.
+- Preserve the existing guard that refuses **outgoing legacy Personal sync when local one-activity challenges exist**.
+- Tests: old legacy compatibility; valid and corrupt new-format rejection; unchanged exact walking receipt; Android DataStore non-mutation; encrypted v2 ZIP receipt coverage.
+- This does **not** enable remote v2 restore, does not change cloud API endpoints and does not present a "full backup" success UI.
+
+## T1B/T1C — next implementation gates
+
+**T1B inventory and verified snapshot manifest**
+- Enumerate *all* persisted domains from live stores, distinguish zero records from unreadable/missing data and unknown versions; refuse partial "complete" snapshots.
+- Determine cloud ownership/backend object model, account identity, manifest version, timestamp, per-domain byte hashes/counts, encryption key lifecycle, old revision/rollback guarantees, retention and data budget.
+- Include photo bytes and voice/media scope or show explicit unsupported backup exclusions. Single archive/export and Creator backup cannot silently masquerade as one transaction.
+- Use stable snapshot locks, no mutation and strict size limits before producing any remote backup payload.
+
+**T1C explicit Back Up, separate restore**
+- Implement authenticated, encrypted, all-domain server upload and commit; verify object bytes/hash and copy metadata after durable remote acknowledgment; retain previous verified revision.
+- Show accurate only-after-verification status and backup history. Account mismatch, offline, stale CAS and incomplete photo inventory fail without overwriting a good copy.
+- Run device A→device B evidence via phone/emulator, with receipt instants and photo bytes. Never enable live Restore Backup until T2's staged owner-reviewed coordinator passes.
+
+## Remaining owner acceptance and release gates
+
+- Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
+- No silent overwrite, no `pm clear`, no failed archive interpreted as empty.
+- Challenge and Spaces metadata/receipts are privacy-sensitive; no leaking names in logs.
+- `#327` remains OPEN until actual cloud challenge end-to-end coverage succeeds.
+- Source branch and CI are NOT a verified installable APK or an owner-visible Back Up feature.
