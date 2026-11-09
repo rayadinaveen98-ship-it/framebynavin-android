@@ -23,6 +23,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.R
+import java.lang.ref.WeakReference
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -191,7 +192,9 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
                             runCatching {
                                 ContextCompat.startForegroundService(app,
                                     Intent(app, Phase1HabitVoiceService::class.java)
-                                        .putExtra(Phase1HabitNotification.TEXT, record.activity))
+                                        .putExtra(Phase1HabitNotification.TEXT, record.activity)
+                                        .putExtra(Phase1HabitNotification.ID, record.id)
+                                        .putExtra(Phase1HabitNotification.AT, at))
                             }.onFailure {
                                 android.util.Log.w("BacklotHabit", "Voice playback restricted", it)
                             }
@@ -212,10 +215,23 @@ internal class Phase1HabitVoiceService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
     private var generation = 0
+    private var currentChallengeId = ""
+    private var currentScheduledAt = 0L
+
+    override fun onCreate() {
+        super.onCreate()
+        currentService = WeakReference(this)
+    }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val activity = intent?.getStringExtra(Phase1HabitNotification.TEXT)
             ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
+        val id = intent.getStringExtra(Phase1HabitNotification.ID)
+            ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
+        val at = intent.getLongExtra(Phase1HabitNotification.AT, 0L)
+        if (at <= 0L) return START_NOT_STICKY
+        currentChallengeId = id
+        currentScheduledAt = at
         val current = ++generation
         Phase1HabitNotification.ensureChannels(this)
         try {
@@ -263,9 +279,32 @@ internal class Phase1HabitVoiceService : Service() {
     }
     override fun onDestroy() {
         generation++
+        handler.removeCallbacksAndMessages(null)
         engine?.stop()
         engine?.shutdown()
         engine = null
+        currentChallengeId = ""
+        currentScheduledAt = 0L
+        if (currentService?.get() === this) currentService = null
         super.onDestroy()
+    }
+
+    companion object {
+        private var currentService: WeakReference<Phase1HabitVoiceService>? = null
+
+        /** A Snooze action stops ONLY the exact playing 21-day occurrence. */
+        fun stopMatching(challengeId: String, scheduledAt: Long) {
+            currentService?.get()?.let { service ->
+                service.handler.post {
+                    if (service.currentChallengeId == challengeId &&
+                        service.currentScheduledAt == scheduledAt
+                    ) {
+                        service.generation++
+                        service.engine?.stop()
+                        service.stopSelf()
+                    }
+                }
+            }
+        }
     }
 }
