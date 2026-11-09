@@ -407,166 +407,82 @@ internal fun V298ReminderGroupsScreen(
     }
 
     pendingBulkAction?.let { (group, pause) ->
-        AlertDialog(
-            onDismissRequest = { if (!busy) pendingBulkAction = null },
-            title = { Text(if (pause) "Pause linked reminders?" else "Resume linked reminders?") },
-            text = {
-                Text(
-                    "This will ${if (pause) "pause" else "resume"} ${group.reminderIds.size} " +
-                        "linked Personal reminders where necessary. These are the original " +
-                        "reminders, so shared groups also reflect the change. " +
-                        "Existing Done history and reminder records stay intact. " +
-                        "Android alarms will be reconciled after the saved changes.",
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !busy && readError == null,
-                    onClick = {
-                        val id = group.id
-                        val ids = group.reminderIds.toList()
-                        write {
-                            val changed = groupCommands.setAllPaused(id, ids, pause)
-                            actionError = "$changed linked reminders updated."
-                            pendingBulkAction = null
-                        }
-                    },
-                    modifier = Modifier.testTag("fc13-confirm-bulk-group"),
-                ) { Text(if (pause) "PAUSE REMINDERS" else "RESUME REMINDERS") }
-            },
-            dismissButton = {
-                TextButton(
-                    enabled = !busy,
-                    onClick = { pendingBulkAction = null },
-                ) { Text("CANCEL") }
+        V298ConfirmBulkGroupDialog(
+            group = group, pause = pause, busy = busy,
+            enabled = readError == null,
+            onDismiss = { pendingBulkAction = null },
+            onConfirm = {
+                val id = group.id
+                val ids = group.reminderIds.toList()
+                write {
+                    val changed = groupCommands.setAllPaused(id, ids, pause)
+                    actionError = "$changed linked reminders updated."
+                    pendingBulkAction = null
+                }
             },
         )
     }
 
-    if (editVisible) AlertDialog(
-        onDismissRequest = { if (!busy) editVisible = false },
-        title = { Text(if (editId == null) "New reminder group" else "Edit group") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = editName,
-                    onValueChange = { editName = it.take(80) },
-                    label = { Text("Group name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("v298-group-name"),
-                )
-                Text("Icon", color = MutedText, fontSize = 12.sp)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    V298ReminderGroupOptions.iconKeys.forEach { key ->
-                        FilterChip(selected = iconKey == key, onClick = { iconKey = key },
-                            leadingIcon = {
-                                Icon(v298Icon(key), contentDescription = null,
-                                    modifier = Modifier.size(16.dp))
-                            },
-                            label = { Text(key.lowercase().replaceFirstChar {
-                                it.uppercase()
-                            }, fontSize = 11.sp) })
-                    }
-                }
-                Text("Color", color = MutedText, fontSize = 12.sp)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    V298ReminderGroupOptions.colorKeys.forEach { key ->
-                        FilterChip(selected = colorKey == key, onClick = { colorKey = key },
-                            label = { Text(key.lowercase().replaceFirstChar { it.uppercase() },
-                                color = v298Accent(key), fontSize = 11.sp) })
-                    }
-                }
-                Text("Schedules are managed in Personal reminders.",
-                    color = MutedText, fontSize = 12.sp)
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !busy && readError == null && editName.isNotBlank(),
-                onClick = {
-                    val title = editName.trim()
-                    val icon = iconKey
-                    val color = colorKey
-                    val id = editId
-                    write {
-                        if (id == null) {
-                            val group = V298ReminderGroup(
-                                name = title, iconKey = icon, colorKey = color,
-                            ).checked()
-                            groupsStore.create(group)
-                            selectedId = group.id
-                        } else {
-                            groupsStore.update(id) { group ->
-                                group.renamed(title, System.currentTimeMillis())
-                                    .personalized(icon, color, System.currentTimeMillis())
-                            }
+    if (editVisible) {
+        V298EditGroupDialog(
+            creating = editId == null,
+            name = editName,
+            iconKey = iconKey,
+            colorKey = colorKey,
+            busy = busy,
+            enabled = readError == null,
+            onName = { editName = it.take(80) },
+            onIcon = { iconKey = it },
+            onColor = { colorKey = it },
+            onDismiss = { editVisible = false },
+            onSave = {
+                val title = editName.trim()
+                val icon = iconKey
+                val color = colorKey
+                val id = editId
+                write {
+                    if (id == null) {
+                        val group = V298ReminderGroup(
+                            name = title, iconKey = icon, colorKey = color,
+                        ).checked()
+                        groupsStore.create(group)
+                        selectedId = group.id
+                    } else {
+                        groupsStore.update(id) { group ->
+                            group.renamed(title, System.currentTimeMillis())
+                                .personalized(icon, color, System.currentTimeMillis())
                         }
-                        editVisible = false
                     }
-                },
-                modifier = Modifier.testTag("v298-group-save"),
-            ) { Text("SAVE") }
-        },
-        dismissButton = {
-            TextButton(onClick = { editVisible = false }, enabled = !busy) {
-                Text("CANCEL")
-            }
-        },
-    )
+                    editVisible = false
+                }
+            },
+        )
+    }
 
-    if (linkVisible && selected != null) AlertDialog(
-        onDismissRequest = { if (!busy) linkVisible = false },
-        title = { Text("Link saved reminders") },
-        text = {
-            val available = reminders.filterNot { it.id in selected.reminderIds }
-            val matches = available.filter {
-                it.title.contains(linkSearch.trim(), ignoreCase = true)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = linkSearch,
-                    onValueChange = { linkSearch = it.take(80) },
-                    singleLine = true,
-                    label = { Text("Search reminders") },
-                    modifier = Modifier.fillMaxWidth().testTag("v298-link-search"),
-                )
-                if (matches.isEmpty()) {
-                    Text(if (available.isEmpty()) "All saved reminders are already linked."
-                        else "No matching reminders.",
-                        color = MutedText, fontSize = 12.sp)
-                } else {
-                    Text("${matches.size} matches", color = MutedText, fontSize = 12.sp)
-                    LazyColumn(Modifier.heightIn(max = 290.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(matches, key = { it.id }) { reminder ->
-                            TextButton(
-                                enabled = !busy && readError == null,
-                                onClick = {
-                                    val id = selected.id
-                                    val reminderId = reminder.id
-                                    write {
-                                        groupsStore.update(id) { group ->
-                                            group.linkExisting(reminderId,
-                                                reminders.mapTo(HashSet()) { it.id },
-                                                System.currentTimeMillis())
-                                        }
-                                        linkVisible = false
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth().testTag("v298-link-choice"),
-                            ) { Text(reminder.title, maxLines = 2) }
-                        }
+    if (linkVisible && selected != null) {
+        V298LinkExistingReminderDialog(
+            group = selected,
+            reminders = reminders,
+            search = linkSearch,
+            busy = busy,
+            enabled = readError == null,
+            onSearch = { linkSearch = it.take(80) },
+            onDismiss = { linkVisible = false },
+            onChoose = { reminderId ->
+                val groupId = selected.id
+                write {
+                    groupsStore.update(groupId) { group ->
+                        group.linkExisting(
+                            reminderId,
+                            reminders.mapTo(HashSet()) { it.id },
+                            System.currentTimeMillis(),
+                        )
                     }
+                    linkVisible = false
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { linkVisible = false }, enabled = !busy) { Text("CLOSE") }
-        },
-    )
+            },
+        )
+    }
 
     if (deleteVisible && selected != null) AlertDialog(
         onDismissRequest = { if (!busy) deleteVisible = false },
@@ -625,4 +541,179 @@ internal fun V298ReminderGroupsScreen(
             },
         )
     }
+}
+
+/** Dialogs are intentionally separate Compose functions to limit FIR control-flow analysis. */
+@Composable
+private fun V298ConfirmBulkGroupDialog(
+    group: V298ReminderGroup,
+    pause: Boolean,
+    busy: Boolean,
+    enabled: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(if (pause) "Pause linked reminders?" else "Resume linked reminders?") },
+        text = {
+            Text(
+                "This will ${if (pause) "pause" else "resume"} ${group.reminderIds.size} " +
+                    "linked Personal reminders where necessary. These are the original " +
+                    "reminders, so shared groups also reflect the change. " +
+                    "Existing Done history and reminder records stay intact. " +
+                    "Android alarms will be reconciled after the saved changes.",
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy && enabled,
+                onClick = onConfirm,
+                modifier = Modifier.testTag("fc13-confirm-bulk-group"),
+            ) { Text(if (pause) "PAUSE REMINDERS" else "RESUME REMINDERS") }
+        },
+        dismissButton = {
+            TextButton(enabled = !busy, onClick = onDismiss) { Text("CANCEL") }
+        },
+    )
+}
+
+@Composable
+private fun V298EditGroupDialog(
+    creating: Boolean,
+    name: String,
+    iconKey: String,
+    colorKey: String,
+    busy: Boolean,
+    enabled: Boolean,
+    onName: (String) -> Unit,
+    onIcon: (String) -> Unit,
+    onColor: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(if (creating) "New reminder group" else "Edit group") },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onName,
+                    label = { Text("Group name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("v298-group-name"),
+                )
+                Text("Icon", color = MutedText, fontSize = 12.sp)
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    V298ReminderGroupOptions.iconKeys.forEach { key ->
+                        FilterChip(
+                            selected = iconKey == key,
+                            onClick = { onIcon(key) },
+                            leadingIcon = {
+                                Icon(
+                                    v298Icon(key), contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            },
+                            label = {
+                                Text(key.lowercase().replaceFirstChar { it.uppercase() },
+                                    fontSize = 11.sp)
+                            },
+                        )
+                    }
+                }
+                Text("Color", color = MutedText, fontSize = 12.sp)
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    V298ReminderGroupOptions.colorKeys.forEach { key ->
+                        FilterChip(
+                            selected = colorKey == key,
+                            onClick = { onColor(key) },
+                            label = {
+                                Text(key.lowercase().replaceFirstChar { it.uppercase() },
+                                    color = v298Accent(key), fontSize = 11.sp)
+                            },
+                        )
+                    }
+                }
+                Text("Schedules are managed in Personal reminders.",
+                    color = MutedText, fontSize = 12.sp)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy && enabled && name.isNotBlank(),
+                onClick = onSave,
+                modifier = Modifier.testTag("v298-group-save"),
+            ) { Text("SAVE") }
+        },
+        dismissButton = {
+            TextButton(enabled = !busy, onClick = onDismiss) { Text("CANCEL") }
+        },
+    )
+}
+
+@Composable
+private fun V298LinkExistingReminderDialog(
+    group: V298ReminderGroup,
+    reminders: List<PersonalReminder>,
+    search: String,
+    busy: Boolean,
+    enabled: Boolean,
+    onSearch: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onChoose: (String) -> Unit,
+) {
+    val available = reminders.filterNot { it.id in group.reminderIds }
+    val matches = available.filter {
+        it.title.contains(search.trim(), ignoreCase = true)
+    }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Link saved reminders") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = onSearch,
+                    singleLine = true,
+                    label = { Text("Search reminders") },
+                    modifier = Modifier.fillMaxWidth().testTag("v298-link-search"),
+                )
+                if (matches.isEmpty()) {
+                    Text(
+                        if (available.isEmpty()) "All saved reminders are already linked."
+                        else "No matching reminders.",
+                        color = MutedText, fontSize = 12.sp,
+                    )
+                } else {
+                    Text("${matches.size} matches", color = MutedText, fontSize = 12.sp)
+                    LazyColumn(
+                        Modifier.heightIn(max = 290.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(matches, key = { it.id }) { reminder ->
+                            TextButton(
+                                enabled = !busy && enabled,
+                                onClick = { onChoose(reminder.id) },
+                                modifier = Modifier.fillMaxWidth().testTag("v298-link-choice"),
+                            ) { Text(reminder.title, maxLines = 2) }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, enabled = !busy) { Text("CLOSE") }
+        },
+    )
 }
