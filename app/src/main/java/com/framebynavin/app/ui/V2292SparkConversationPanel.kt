@@ -127,7 +127,7 @@ internal fun V2292SparkConversationPanel(
                 ) {
                     if (voice.listening) {
                         FC13ReactiveDotField(
-                            active = voice.microphoneSpeechActive,
+                            active = voice.listening,
                             rmsDb = voice.microphoneRmsDb,
                             onTap = ::requestMic,
                             modifier = Modifier.size(104.dp)
