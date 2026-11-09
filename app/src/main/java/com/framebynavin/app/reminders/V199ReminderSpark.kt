@@ -22,8 +22,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
-import com.framebynavin.app.ui.CinePulseGuide
-import com.framebynavin.app.ui.CinePulseState
+import com.framebynavin.app.ui.FC13SparkPose
+import com.framebynavin.app.ui.FC13SparkPoseSize
+import com.framebynavin.app.ui.theme.RecRed
 import kotlin.math.min
 
 /**
@@ -55,8 +56,8 @@ internal fun V199ReminderSpark(
     )
     val t = if (animate) phase else 0f
     val glow = if (animate) V199SparkMotionPolicy.glow(t) else .83f
-    val accent = if (expression == V199SparkExpression.ALERT)
-        Color(0xFFFFD18B) else Color(0xFFBEB0FF)
+    // Director's Cut REC-red; no new orange/gold/purple identity.
+    val accent = RecRed
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize().testTag(
@@ -119,11 +120,11 @@ internal fun V199ReminderSpark(
             }
         }
         // Keep original Spark proportions/identity: no redrawing or distorting.
-        CinePulseGuide(
-            state = if (expression == V199SparkExpression.ALERT)
-                CinePulseState.POINT else CinePulseState.PRESENT,
+        FC13SparkPose(
+            mood = if (expression == V199SparkExpression.ALERT)
+                FC13SparkNotificationMood.ALERT else FC13SparkNotificationMood.SPEAK,
+            size = FC13SparkPoseSize.FULL,
             modifier = Modifier
-                .size(width = 92.dp, height = 103.dp)
                 .graphicsLayer {
                     translationY = if (animate) V199SparkMotionPolicy.liftDp(expression, t).dp.toPx() else 0f
                     rotationZ = if (animate) V199SparkMotionPolicy.tiltDegrees(expression, t) else 0f
