@@ -111,7 +111,7 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                     ) {
                         records.forEach { item ->
                             OutlinedButton(
-                                onClick = { chosenId = item.id; message = null },
+                                onClick = { chosenId = item.id; detailDay = null; message = null },
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp, if (selected.id == item.id) BacklotAccent else BacklotBorder),
                             ) { Text(item.activity, color = BacklotPrimaryText, maxLines = 1) }
@@ -244,6 +244,104 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                     )
                 }
             }
+        }
+    }
+    val currentChallenge = records.firstOrNull { it.id == chosenId } ?: records.lastOrNull()
+    detailDay?.let { day ->
+        if (currentChallenge != null) {
+            val selectedChallenge = currentChallenge
+            val today = LocalDate.ofInstant(now, ZoneId.of(selectedChallenge.zoneId))
+            val receipt = selectedChallenge.confirmations[day]
+            val canBackfill = selectedChallenge.completionMode ==
+                Phase1HabitCompletionMode.FLEXIBLE &&
+                day.isBefore(today) &&
+                receipt == null &&
+                !selectedChallenge.paused
+            AlertDialog(
+                onDismissRequest = { if (!saving) detailDay = null },
+                title = {
+                    Text("Day ${java.time.temporal.ChronoUnit.DAYS.between(
+                        selectedChallenge.startDate, day) + 1} · ${day}")
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            if (receipt != null)
+                                "Confirmed at ${receipt} (actual recorded time)."
+                            else "Not confirmed. Adding a note does not mark this day Done.",
+                            color = BacklotPrimaryText,
+                        )
+                        OutlinedTextField(
+                            value = detailNote,
+                            onValueChange = { detailNote = it.take(1500) },
+                            label = { Text("Day note · optional") },
+                            minLines = 2,
+                            maxLines = 5,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-challenge-day-note"),
+                        )
+                        if (canBackfill) {
+                            Text(
+                                "Flexible catch-up records today's confirmation time for " +
+                                    "this past date. No earlier timestamp is fabricated.",
+                                color = BacklotSecondaryText,
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Column(horizontalAlignment = Alignment.End) {
+                        if (canBackfill) {
+                            TextButton(
+                                enabled = !saving,
+                                onClick = {
+                                    saving = true
+                                    coroutineScope.launch {
+                                        try {
+                                            records = store.confirmSelectedDay(
+                                                selectedChallenge.id, day, Instant.now(),
+                                            )
+                                            detailDay = null
+                                            message = runCatching {
+                                                Phase1HabitAlarmScheduler(context).reconcile()
+                                            }.exceptionOrNull()?.let {
+                                                "Past day confirmed; Android alert scheduling needs attention."
+                                            }
+                                        } catch (_: Exception) {
+                                            message = "Couldn't confirm this past day. Existing progress was kept."
+                                        } finally { saving = false }
+                                    }
+                                },
+                                modifier = Modifier.testTag("fc13-confirm-past-day"),
+                            ) { Text("CONFIRM PAST DAY") }
+                        }
+                        TextButton(
+                            enabled = !saving,
+                            onClick = {
+                                saving = true
+                                coroutineScope.launch {
+                                    try {
+                                        records = store.saveDayNote(
+                                            selectedChallenge.id, day, detailNote,
+                                        )
+                                        detailDay = null
+                                        message = null
+                                    } catch (_: Exception) {
+                                        message = "Day note could not be saved; no Done receipt changed."
+                                    } finally { saving = false }
+                                }
+                            },
+                            modifier = Modifier.testTag("fc13-save-day-note"),
+                        ) { Text("SAVE NOTE") }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !saving,
+                        onClick = { detailDay = null },
+                    ) { Text("CLOSE") }
+                },
+            )
         }
     }
 }
