@@ -164,18 +164,86 @@ class CreatorAutomationPreferencesStore(context: Context) {
     }
 }
 
-class CreatorAutomationStateStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+/** Evidence of a worker attempt, not evidence of published content or alarms. */
+data class CreatorPlannerRunSnapshot(
+    val lastAttemptAtMillis: Long,
+    val lastConfirmedAtMillis: Long,
+    val lastCreatedCount: Int,
+    val retryAtMillis: Long,
+    val retryAttempt: Int,
+    val state: String,
+) {
+    val hasUnconfirmedAttempt: Boolean get() =
+        state == "RUNNING" || state == "RETRY_PENDING"
+}
 
-    fun recordPlannerRun(createdCount: Int, atMillis: Long = System.currentTimeMillis()) {
-        prefs.edit()
-            .putLong(KEY_LAST_PLANNER_AT, atMillis)
-            .putInt(KEY_LAST_PLANNER_CREATED, createdCount.coerceAtLeast(0))
-            .apply()
+class CreatorAutomationStateStore(context: Context) {
+    private val app = context.applicationContext
+    private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    /** All local evidence is fenced after Creator restore/account data changes. */
+    private fun isCurrent(): Boolean =
+        prefs.getLong(KEY_GENERATION, -1L) == CreatorDataGate.generation(app)
+
+    fun plannerSnapshot(): CreatorPlannerRunSnapshot {
+        if (!isCurrent()) return CreatorPlannerRunSnapshot(0L, 0L, 0, 0L, 0, "NOT_RUN")
+        return CreatorPlannerRunSnapshot(
+            lastAttemptAtMillis = prefs.getLong(KEY_ATTEMPT, 0L),
+            lastConfirmedAtMillis = prefs.getLong(KEY_LAST_PLANNER_AT, 0L),
+            lastCreatedCount = prefs.getInt(KEY_LAST_PLANNER_CREATED, 0),
+            retryAtMillis = prefs.getLong(KEY_RETRY_AT, 0L),
+            retryAttempt = prefs.getInt(KEY_RETRY_ATTEMPT, 0),
+            state = prefs.getString(KEY_STATUS, "NOT_RUN").orEmpty(),
+        )
     }
 
-    fun lastPlannerAtMillis(): Long = prefs.getLong(KEY_LAST_PLANNER_AT, 0L)
-    fun lastPlannerCreatedCount(): Int = prefs.getInt(KEY_LAST_PLANNER_CREATED, 0)
+    fun recordPlannerAttempt(atMillis: Long = System.currentTimeMillis()) {
+        commitState("RUNNING", atMillis, 0)
+    }
+
+    fun recordPlannerRetry(
+        attemptNumber: Int,
+        atMillis: Long = System.currentTimeMillis(),
+    ) {
+        commitState("RETRY_PENDING", atMillis, attemptNumber.coerceAtLeast(1))
+    }
+
+    fun recordPlannerDisabled(atMillis: Long = System.currentTimeMillis()) {
+        commitState("SKIPPED_DISABLED", atMillis, 0)
+    }
+
+    private fun commitState(status: String, time: Long, retryNumber: Int) {
+        val generation = CreatorDataGate.generation(app)
+        val edit = prefs.edit()
+            .putLong(KEY_GENERATION, generation)
+            .putString(KEY_STATUS, status)
+        if (status == "RUNNING") {
+            edit.putLong(KEY_ATTEMPT, time).putLong(KEY_RETRY_AT, 0L)
+                .putInt(KEY_RETRY_ATTEMPT, 0)
+        } else if (status == "RETRY_PENDING") {
+            edit.putLong(KEY_RETRY_AT, time).putInt(KEY_RETRY_ATTEMPT, retryNumber)
+        } else {
+            edit.putLong(KEY_ATTEMPT, time).putLong(KEY_RETRY_AT, 0L)
+                .putInt(KEY_RETRY_ATTEMPT, 0)
+        }
+        check(edit.commit()) { "Creator automation run status could not be persisted" }
+    }
+
+    fun recordPlannerRun(createdCount: Int, atMillis: Long = System.currentTimeMillis()) {
+        val generation = CreatorDataGate.generation(app)
+        check(prefs.edit()
+            .putLong(KEY_GENERATION, generation)
+            .putString(KEY_STATUS, "CONFIRMED")
+            .putLong(KEY_LAST_PLANNER_AT, atMillis)
+            .putInt(KEY_LAST_PLANNER_CREATED, createdCount.coerceAtLeast(0))
+            .putLong(KEY_RETRY_AT, 0L)
+            .putInt(KEY_RETRY_ATTEMPT, 0)
+            .commit()
+        ) { "Creator automation confirmation could not be persisted" }
+    }
+
+    fun lastPlannerAtMillis(): Long = plannerSnapshot().lastConfirmedAtMillis
+    fun lastPlannerCreatedCount(): Int = plannerSnapshot().lastCreatedCount
 
     fun routineToken(routine: CreatorRoutine): String = prefs.getString("routine_${routine.name}", "").orEmpty()
     fun markRoutine(routine: CreatorRoutine, token: String) {
@@ -186,6 +254,11 @@ class CreatorAutomationStateStore(context: Context) {
         private const val PREFS = "creator_automation_state_v17"
         private const val KEY_LAST_PLANNER_AT = "planner_last_at"
         private const val KEY_LAST_PLANNER_CREATED = "planner_last_created"
+        private const val KEY_ATTEMPT = "planner_attempt_at"
+        private const val KEY_RETRY_AT = "planner_retry_at"
+        private const val KEY_RETRY_ATTEMPT = "planner_retry_attempt"
+        private const val KEY_STATUS = "planner_run_state"
+        private const val KEY_GENERATION = "planner_restore_generation"
     }
 }
 
