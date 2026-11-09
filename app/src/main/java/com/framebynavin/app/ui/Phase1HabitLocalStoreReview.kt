@@ -6,12 +6,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.framebynavin.app.personal.Phase1HabitAlertKind
 import com.framebynavin.app.personal.Phase1HabitChallenge
+import com.framebynavin.app.personal.Phase1HabitCompletionMode
+import com.framebynavin.app.personal.Phase1HabitDayStatus
 import com.framebynavin.app.personal.Phase1HabitStore
 import com.framebynavin.app.personal.Phase1HabitAlarmScheduler
 import com.framebynavin.app.ui.theme.*
@@ -55,6 +58,9 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
     // Alert delivery is not connected: default Off, refuse an unmet promise.
     var alertKind by remember { mutableStateOf<Phase1HabitAlertKind?>(null) }
     var alertTime by remember { mutableStateOf(LocalTime.of(7, 30)) }
+    var completionMode by remember { mutableStateOf(Phase1HabitCompletionMode.STRICT) }
+    var detailDay by remember { mutableStateOf<LocalDate?>(null) }
+    var detailNote by remember { mutableStateOf("") }
     var validationError by remember { mutableStateOf(false) }
     var now by remember { mutableStateOf(Instant.now()) }
 
@@ -123,6 +129,8 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                         time = alertTime,
                         onTime = { alertTime = it },
                         error = validationError,
+                        completionMode = completionMode,
+                        onCompletionMode = { completionMode = it },
                         onStart = {
                             val clean = title.trim()
                             when {
@@ -136,6 +144,7 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                                         zoneId = zone.id,
                                         alertTime = if (alertKind == null) null else alertTime,
                                         alertKind = alertKind,
+                                        completionMode = completionMode,
                                     ).checked()
                                     saving = true
                                     coroutineScope.launch {
@@ -169,6 +178,10 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                     DashboardHabitReview(
                         habit = selected,
                         now = now,
+                        onDaySelected = { day ->
+                            detailDay = day
+                            detailNote = selected.dayNotes[day].orEmpty()
+                        },
                         onDone = {
                             if (!saving) {
                                 saving = true
