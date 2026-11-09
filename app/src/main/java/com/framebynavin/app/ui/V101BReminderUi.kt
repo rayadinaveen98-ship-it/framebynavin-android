@@ -214,6 +214,7 @@ internal fun PProjectComposer(
         mutableStateOf(false)
     }
     var newDraftWriteError by remember(task?.id) { mutableStateOf(false) }
+    var persistedNewFormSignature by remember(task?.id) { mutableStateOf<String?>(null) }
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
     val defaultPlatform = remember(defaults.creatorProfile) { CreatorPlatformRegistry.primaryPlatform(defaults.creatorProfile) }
     val initialDna = remember(task?.id, task?.contentDna, defaults.creatorProfile, defaultPlatform) {
@@ -402,6 +403,7 @@ internal fun PProjectComposer(
                 runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
             }
             newDraftWriteError = result.isFailure
+            if (result.isSuccess) persistedNewFormSignature = draftSignature
         }
     }
     var confirmDiscard by rememberSaveable(task?.id) { mutableStateOf(false) }
@@ -423,6 +425,13 @@ internal fun PProjectComposer(
     if (task == null) {
         V20NewProjectWizard(
             startWithQuickCreate = startWithQuickCreate,
+            draftStatusLabel = when {
+                newDraftWriteError -> "Draft save failed · current form still open"
+                persistedNewFormSignature == draftSignature && changedNewForm ->
+                    "Draft saved on this phone · project not created"
+                changedNewForm -> "Unsaved changes · saving local draft"
+                else -> "New project · not saved yet"
+            },
             profile = defaults.creatorProfile,
             title = title,
             onTitleChange = { title = it },
@@ -497,6 +506,7 @@ internal fun PProjectComposer(
                 // The parent removes this exact journal only after durable
                 // receipt confirms the project is saved.
                 runCatching { newDraftStore.save(draftGeneration, newFormSnapshot) }
+                    .onSuccess { persistedNewFormSignature = draftSignature }
                     .onFailure {
                         android.util.Log.w("BacklotComposer",
                             "Local draft save failed before project creation", it)
