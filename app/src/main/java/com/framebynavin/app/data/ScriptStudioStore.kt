@@ -32,6 +32,31 @@ class ScriptStudioStore(private val context: Context) {
             all[projectId] ?: CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
         }
 
+    /**
+     * Trust T1C2: call ONLY while holding CreatorDataGate.transaction.
+     * Avoid TaskStore.load() (it seeds history), and do not take
+     * scriptStudioMutex here: existing normal load() takes that mutex before
+     * TaskStore.load(), so taking it under CreatorDataGate could invert locks.
+     * DataStore supplies a consistent immutable preference snapshot on read.
+     */
+    internal suspend fun loadForTrustReadOnly(
+        projectId: String,
+        legacyHook: String = "",
+        legacyScript: String = "",
+    ): CreatorScriptStudio {
+        val project = TaskStore(context).tasksFlow.first().firstOrNull { it.id == projectId }
+        if (project == null || project.archivedAtMillis < 0L) {
+            return CreatorScriptStudio(projectId = projectId)
+        }
+        val prefs = context.scriptStudioDataStore.data.first()
+        val raw = prefs[primaryKey]
+        if (raw.isNullOrBlank()) {
+            return CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
+        }
+        return decodeAll(raw)[projectId] ?:
+            CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
+    }
+
     suspend fun save(
         projectId: String,
         expectedRevision: Long,

@@ -229,6 +229,45 @@ cloud, verify a signed CloudSession or restore records.
 - T1 final QA and owner test, T2 reviewed restore and T3/T4 deletion remain
   strictly pending.
 
+## T1C2 — frozen real owner source bytes under both existing locks (CODE ONLY)
+
+[Exact source/coverage/recovery specification](
+  ./BACKLOT_TRUST_T1C2_FROZEN_SOURCE_CAPTURE_2026-11-09.md).
+
+Internal \`TrustT1C2OwnerSourceCapture\` now holds the Creator mutation gate
+then the Personal stable-snapshot gate while producing **physical app-private
+copies**, with per-file SHA-256, rehash and size checks. It includes Creator
+projects/legacy Script Studio (via two new non-seeding read-only exporters),
+Idea Vault, Focus history, actual Personal reminders and Done history,
+legacy and 21-day challenges with **exact confirmed timestamps**, Groups,
+Space metadata/journals/links, every referenced original Space JPEG,
+active original Best Frames and verified local Voice Idea recordings.
+Unexpected/orphan Voice Idea bytes prevent claiming a successful capture.
+
+Personal reminders use the existing portable sanitizer: device alarm leases,
+custom music URIs and nonportable music permission state are stripped
+without changing completion history. Creator and portable Personal baseline
+documents are reread and compared before releasing the temporary copies.
+Missing originals, symlinks, suspicious paths and unexpected checksums
+abort and clean the partial snapshot.
+
+The output is deliberately \`TrustFrozenSourceFiles\` with
+\`canClaimCompleteBackup = false\` and \`canUploadAsUniversalBackup = false\`.
+This is NOT a global atomic revision, complete data coverage, encrypted
+durable owner backup, verified account binding, cloud upload or restoration.
+Independent preference writers and missing Creator families still require
+coverage, and app-private temporary **plaintext** staging needs
+interrupted-process/power-loss cleanup before a user-facing feature exists.
+
+Five JVM source-freezer fixture tests + one Android15 native real-source
+freeze→T1C1 encryption→readback test are authored but **NOT executed**.
+The latter was added to the existing *single phase-end T1 QA gate*, not a
+full emulator invocation for each source commit.
+
+T1C3 durable encrypted local coordinator and T1C4 immutable authenticated
+cloud CAS/readback remain pending. No existing owner's data, account,
+installed APK or cloud snapshot was changed by this source-only commit.
+
 ## Remaining owner acceptance and release gates
 
 - Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
