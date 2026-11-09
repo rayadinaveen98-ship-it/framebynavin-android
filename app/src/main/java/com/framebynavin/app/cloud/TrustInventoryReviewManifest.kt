@@ -68,8 +68,16 @@ internal object TrustInventoryReviewPolicy {
         require(evidence.map { it.domain }.distinct().size == evidence.size) {
             "Duplicate owner data domain"
         }
-        val pending = first.pendingDomains.sortedBy { it.ordinal }
-        val excluded = first.exclusions.sortedBy { it.ordinal }
+        // Do not trust a caller-provided pending/exclusion list, even if both
+        // reads return the same fabricated "all covered" list. Re-derive from
+        // the schema, including future enum additions, and fail closed.
+        val derived = TrustBackupInventoryPolicy.assemble(evidence)
+        require(first.pendingDomains == derived.pendingDomains &&
+            first.exclusions == derived.exclusions) {
+            "Inventory coverage omitted one or more owner data domains"
+        }
+        val pending = derived.pendingDomains.sortedBy { it.ordinal }
+        val excluded = derived.exclusions.sortedBy { it.ordinal }
         require(evidence.none { it.domain in pending || it.domain in excluded }) {
             "Overlapping owner backup domains"
         }
