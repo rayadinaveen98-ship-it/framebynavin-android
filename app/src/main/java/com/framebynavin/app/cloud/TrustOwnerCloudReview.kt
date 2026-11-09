@@ -234,6 +234,152 @@ internal class TrustOwnerCloudReview(
         }
     }
 
+    internal data class PreparedUnifiedSource(
+        val ownerId: String,
+        val remoteRevision: Long,
+        val creatorPortableBytes: Long,
+        val personalEncryptedBytes: Long,
+        val existingCreatorRecords: Int,
+        val personalProposedAdditions: Int,
+    ) {
+        // The prepared ZIPs are deliberately destroyed before returning.
+        // Source checks do not commit, schedule or replace any owner data.
+        val committed: Boolean get() = false
+    }
+
+    /**
+     * Owner-approved, non-mutating RESTORE PREPARATION using the two EXISTING
+     * native import formats. Both candidates are independently verified before
+     * the source is considered well-formed, then erased from disposable private
+     * cache even if conversion fails. An occupied Creator workspace and any
+     * Personal ID collision are rejected: the legacy Creator importer replaces
+     * rather than safely merges those records.
+     */
+    suspend fun prepareUnifiedRestoreSource(
+        selected: SourceCoverageReview,
+        reviewedDiff: UnifiedRestoreReview,
+        trustPassphrase: CharArray,
+        personalZipPassphrase: CharArray,
+        exactConfirmation: String,
+    ): PreparedUnifiedSource {
+        require(exactConfirmation == "PREPARE VERIFIED RESTORE") {
+            "The owner must explicitly approve private restore preparation"
+        }
+        require(trustPassphrase.size in 12..512 &&
+            personalZipPassphrase.size in 12..512 &&
+            uuid.matches(selected.encryptedLocalReviewId)) {
+            "Both encrypted source passphrases and a verified owner review are required"
+        }
+        check(reviewedDiff.ownerId == selected.ownerId &&
+            reviewedDiff.remoteRevision == selected.remoteRevision &&
+            reviewedDiff.uncoveredPreferenceKeys.isEmpty() &&
+            !reviewedDiff.creator.hasExistingOwnerWork &&
+            reviewedDiff.creator.projectIdConflicts == 0 &&
+            reviewedDiff.creator.ideaIdConflicts == 0 &&
+            reviewedDiff.personal.conflicts == 0 &&
+            reviewedDiff.creator.missingCreatorSources.isEmpty()
+        ) {
+            "This device has conflicting Creator/Personal data or missing source " +
+                "coverage. Nothing will be replaced"
+        }
+        return accounts.withFreshSession { session ->
+            check(session.userId == selected.ownerId &&
+                transport.phase(session) == "active") {
+                "Owner signed out, switched accounts or cloud deletion is pending"
+            }
+            val head = checkNotNull(transport.head(session)) {
+                "The reviewed encrypted cloud backup no longer exists"
+            }
+            check(head.revision == selected.remoteRevision &&
+                head.encryptedBytes == selected.encryptedBytes) {
+                "Another device advanced the encrypted backup revision"
+            }
+            val file = File(
+                ensurePrivateRoot(),
+                "review-" + selected.encryptedLocalReviewId + ".enc",
+            )
+            check(file.isFile && !Files.isSymbolicLink(file.toPath()))
+            val descriptor = TrustCloudCiphertextDescriptor(
+                session.userId, head.objectPath, head.encryptedSha256,
+                head.encryptedBytes,
+            )
+            withContext(Dispatchers.IO) {
+                TrustCloudVerifiedReadback.verify(
+                    file.inputStream().buffered(), descriptor,
+                )
+                file.inputStream().buffered().use { encrypted ->
+                    TrustEncryptedStagingCodec.stageAndVerify(
+                        session.userId, trustPassphrase, encrypted, app.cacheDir,
+                    ).use { staged ->
+                        val coverage = TrustRestorableSourceReview.inspect(app, staged)
+                        check(coverage.missingRequiredSources.isEmpty() &&
+                            coverage.uncoveredPreferenceKeys.isEmpty()) {
+                            "Cannot convert a partial source to a usable restore"
+                        }
+                        val creatorBridge = TrustCreatorRestoreBridge(app)
+                        val personalBridge = TrustPersonalRestoreBridge(app)
+                        val currentCreator = creatorBridge.preview(staged)
+                        val currentPersonal = personalBridge.previewAdditions(staged)
+                        check(currentCreator == reviewedDiff.creator &&
+                            currentPersonal == reviewedDiff.personal) {
+                            "Owner data changed after restore conflict review"
+                        }
+                        var creatorFile: File? = null
+                        var personalFile: File? = null
+                        try {
+                            creatorFile = creatorBridge
+                                .preparePortableCandidateAfterOwnerApproval(
+                                    staged, ownerApprovedPreparation = true,
+                                )
+                            personalFile = personalBridge.prepareEncryptedV2Candidate(
+                                staged, personalZipPassphrase,
+                            )
+                            check(creatorFile.isFile &&
+                                creatorFile.length() in 1L..(1024L * 1024 * 1024) &&
+                                personalFile.isFile &&
+                                personalFile.length() in 1L..(1024L * 1024 * 1024)
+                            ) {
+                                "One native Backlot restore candidate is missing"
+                            }
+                            // Recheck the current phone and remote head after
+                            // preparation, before returning any success report.
+                            check(creatorBridge.preview(staged) == reviewedDiff.creator &&
+                                personalBridge.previewAdditions(staged) ==
+                                    reviewedDiff.personal) {
+                                "Device data changed during restore preparation"
+                            }
+                            PreparedUnifiedSource(
+                                ownerId = session.userId,
+                                remoteRevision = head.revision,
+                                creatorPortableBytes = creatorFile.length(),
+                                personalEncryptedBytes = personalFile.length(),
+                                existingCreatorRecords =
+                                    currentCreator.existingProjects +
+                                        currentCreator.existingIdeas,
+                                personalProposedAdditions =
+                                    currentPersonal.proposedAdditions,
+                            )
+                        } finally {
+                            // Files contain unencrypted native Creator JSON or
+                            // a separate Personal ZIP. Never retain them after
+                            // owner preview, even when conversion throws.
+                            listOfNotNull(creatorFile, personalFile).forEach { candidate ->
+                                check(candidate.delete() || !candidate.exists()) {
+                                    "Sensitive private restore staging requires cleanup"
+                                }
+                            }
+                        }
+                    }
+                }
+            }.also {
+                check(transport.phase(session) == "active")
+                TrustT1C4CloudRevisionPolicy.requireUnchanged(
+                    head, transport.head(session), session.userId,
+                )
+            }
+        }
+    }
+
     /** Existing callers asking only for Personal receive the same shared review. */
     suspend fun previewPersonalRestore(
         selected: SourceCoverageReview,
