@@ -4,7 +4,7 @@
 set -euo pipefail
 mkdir -p output/v324-owner
 old="output/v322/Backlot-v322-Rebuild-Schedule.apk"
-next="output/v324-owner/Backlot-V324-Focus-Owner-Review.apk"
+next="output/v324-owner/Backlot-V324-Phase3-Owner-Review.apk"
 testapk="app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk"
 test -s "$old" && test -s "$next" && test -s "$testapk"
 adb wait-for-device
