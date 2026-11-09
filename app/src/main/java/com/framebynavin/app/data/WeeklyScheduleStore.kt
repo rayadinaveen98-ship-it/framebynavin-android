@@ -101,6 +101,9 @@ class WeeklyScheduleStore(private val context: Context) {
                     .put("cadence", slot.cadence.name)
                     .put("reminderMode", slot.reminderMode.name)
                     .put("priority", slot.priority.name)
+                    .put("estimatedMinutes", slot.estimatedMinutes.also {
+                        require(it in 0..720) { "Weekly workload estimate must be 0–720 minutes" }
+                    })
             )
         }
         return array.toString()
