@@ -46,6 +46,11 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
             val focus = CreatorFocusSessionStore(app)
             val taskJson = tasks.exportJson()
             val ideaJson = ideas.exportJson()
+            val voiceOriginals = TrustVoiceIdeaInventory.inspect(
+                app.filesDir, ideas.load(),
+            )
+            val savedSparkPrefs = TrustSparkPreferenceInventory.inspect(app)
+            val savedEscalation = TrustCreatorEscalationInventory.inspect(app)
             val focusJson = focus.exportPortableJson()
             val focusLedger = CreatorFocusSessionCodec.decode(focusJson)
             val weeklyStore = WeeklyScheduleStore(app)
@@ -119,6 +124,9 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
                 },
                 savedSettings,
                 slideshowPlayback,
+                voiceOriginals,
+                savedSparkPrefs,
+                savedEscalation,
             )
         }
 
@@ -218,9 +226,10 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
             ),
             originalPhotoProof,
         )
-        // Proves ACTIVE Best Frames and every inventoried private Space JPEG,
-        // but NOT voice recordings, retired frames, all notification/Spark
-        // settings, or a single atomic cross-store backup revision.
+        // Proves active Best Frames and inventoried Space originals. Voice
+        // originals and saved Spark identity/tips are included ONLY when all
+        // their local source checks pass; broader Creator media, notifications,
+        // other Spark state and cross-store atomicity remain unproven.
         TrustBackupInventoryPolicy.assemble(evidence)
     }
 }

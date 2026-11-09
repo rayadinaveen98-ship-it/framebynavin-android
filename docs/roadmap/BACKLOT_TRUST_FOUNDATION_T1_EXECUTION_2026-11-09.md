@@ -90,6 +90,62 @@ large-file inventory consistency across process death, and a versioned
 owner-scoped full domain manifest. T1C still needs encryption, durable cloud
 commit, backup history, prior-good retention and device-A/B evidence.
 
+## T1B3 — Voice Idea originals and Spark/reminder preference subsets (SOURCE ONLY)
+
+This isolated increment is **implemented in code but has not yet run the
+T1 stage-end test gate**. The earlier Creator/Personal read-only inventory is
+preserved; all cloud upload, local restore and deletion actions remain disabled.
+
+- **Local Voice Ideas:** `TrustVoiceIdeaInventory` checks every record marked
+  `IdeaCaptureType.VOICE`, canonical direct child under `files/voice_ideas`,
+  valid finalized filename, bounded original bytes (32 MiB/file,
+  256 MiB total), and real file SHA-256. Two independent byte reads detect
+  truncated/replaced originals. If the Idea has a content-addressed
+  `storage://creator-voice-ideas/...` reference, its SHA must match the
+  observed local recording. Cloud metadata alone never proves availability.
+  If a Voice Idea lacks local bytes, contains an unfinished take, has an
+  unreferenced finalized file or references an external/document path, the
+  category stays **PENDING**. No orphan cleanup and no local file mutation.
+  This proves inspected local bytes only; no encrypted archive/upload yet.
+- **Spark identity and tips:** `TrustSparkPreferenceInventory` reads
+  `backlot_character_identity_v151` (including historical Frame/Navi/Cute)
+  plus `backlot_companion_suggestions_v2212` preferences. It strictly
+  validates dismissal JSON without invoking guide initialization/migration.
+  Only count/length/SHA leave the reader; absence means PENDING.
+  Spark conversation/transient voice/notification state remains a separate
+  unproven part of `SPARK_PREFERENCES`.
+- **Creator reminder escalation:** `TrustCreatorEscalationInventory` reads
+  `smart_escalation_config_v102` without calling its migrating `get()`.
+  Every saved notification→voice→alarm timing is validated as a bounded
+  integer. Corruption or unsupported keys fail closed rather than being
+  silently replaced with defaults. Full `NOTIFICATION_PREFERENCES` remains
+  PENDING until every Personal/Creator source is inventoried.
+- **Deliberate nonportable exclusions:** `CreatorMusicLocalStore` is
+  device-only by design. App-private custom Android SAF document URIs,
+  picked music permissions and OS exact alarm/notification grants must
+  be reselected or reauthorized on a second phone. Their content is never
+  represented by a fake portable music backup.
+- **Tests authored and queued, not executed:** six pure JVM Voice Idea
+  byte/orphan/path cases; Android15 Spark preference integrity and Smart
+  escalation migration-avoidance cases; both registered in the one
+  `qa/backlot-trust-t1-stage-*` stage-gate workflow.
+
+### Unresolved owner-backup dependencies (T1B completion and T1C)
+
+1. Enumerate and safely handle remaining mixed data: Creator publishing/AI
+   settings not yet covered in whole, Spark conversation state, notification
+   preferences, orphan/retired Best Frames and other active voice/media paths.
+2. Design final *single* encrypted payload manifest with exact source-revision
+   capture across distinct CreatorDataGate and Personal Space/SQLite locks;
+   hashes from earlier inventory reads are not a frozen cross-store revision.
+3. T1C requires immutable encrypted owner-scoped server uploads, atomic
+   last-known-good revision retention, post-upload readback checksum, durable
+   backup history and honest UI. It must not reuse legacy reminder-only Sync Now.
+4. T2 still requires a separate owner-approved multi-domain recovery journal
+   and staged restore. No auto-restore based solely on a green inventory.
+5. Full T1 stage gate + version-signed Android V322→future owner APK
+   preservation and phone↔emulator evidence remain release prerequisites.
+
 ## Remaining owner acceptance and release gates
 
 - Phase 3F signed V322→V324 upgrade Android11/15 + device visual acceptance remains separate.
