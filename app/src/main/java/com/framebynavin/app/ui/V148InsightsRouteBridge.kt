@@ -3,13 +3,18 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
 import com.framebynavin.app.youtube.YouTubeAnalyticsStore
 import com.framebynavin.app.youtube.YouTubeInsightEngine
@@ -43,7 +48,20 @@ internal fun v148ResolveRequestedVideoId(
 internal fun V148HomeTopPerformersSection(onOpenInsights: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val store = remember(context) { YouTubeAnalyticsStore(context) }
-    val snapshot = remember(store) {
+    // 3E: a newly accepted Insights sync / account disconnect may change cached
+    // video truth without changing this Home composable's identity. Reread the
+    // same owner-scoped cache when returning to Home. No network, writes or
+    // fabricated zero metrics; absent/disconnected data hides the section.
+    val owner = LocalLifecycleOwner.current
+    var visibleCacheEpoch by remember { mutableIntStateOf(0) }
+    DisposableEffect(owner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) visibleCacheEpoch += 1
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    val snapshot = remember(store, visibleCacheEpoch) {
         freshestYouTubeSnapshot(
             listOf(
                 store.load(7),
