@@ -54,7 +54,7 @@ internal object V269DataPrivacyPolicy {
     const val CREATOR_SCOPE = "Creator exports cover supported projects and app-owned recordings. Keep original project files and external media separately."
     const val PERSONAL_SCOPE = "Personal Reminders have a separate, unencrypted JSON export. It does not provide a complete Backlot backup or prove recovery of all 21-day challenges, Spaces and original photos."
     const val CLOUD_SCOPE = "Current Sync Now is a LIMITED Creator + Personal records sync, not universal backup. It does not cover all 21-day challenge progress, Spaces, Reminder Groups, private photos, original Best Frames or device-only music. Personal cloud operations are blocked when a single-activity challenge could be lost. Permissions must be configured per device; signing out deletes neither local nor cloud data."
-    const val UNIVERSAL_STATUS = "Universal encrypted Back Up, owner-reviewed Restore Backup, and Delete Cloud Backup are NOT enabled yet. Existing separate export tools can be used, but no complete cloud recovery or server deletion is verified here."
+    const val UNIVERSAL_STATUS = "Encrypted local Creator + Personal source copies can be created and verified here. Owner-reviewed cloud operations require the new protected Trust backend; availability and errors are checked before writing. A complete cross-domain Restore Backup is still blocked until safe recovery and rollback are implemented and verified."
     const val DELETION_STATUS = "Full Backlot account deletion is NOT available yet. No delete-account request has been sent. Signing out or deleting an individual Creator copy is not deleting your Backlot account."
     const val NO_DELETION_SENT = "No account deletion request was sent."
 }
@@ -174,8 +174,25 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                 Text(
                     V269DataPrivacyPolicy.UNIVERSAL_STATUS,
                     color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
-                    modifier = Modifier.testTag("fc13-universal-backup-unavailable"),
+                    modifier = Modifier.testTag("fc13-universal-backup-coverage"),
                 )
+                if (session != null) {
+                    Button(
+                        onClick = {
+                            context.startActivity(
+                                Intent(context, TrustUniversalBackupActivity::class.java),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-open-universal-backup"),
+                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
+                    ) { Text("OPEN ENCRYPTED BACKUP MANAGER") }
+                } else {
+                    Text(
+                        "Connect your Backlot account in Cloud Sync to use owner-bound backups.",
+                        color = MutedText, fontSize = 11.sp,
+                    )
+                }
             }
 
             V269PrivacyCard("Delete Backlot account") {
