@@ -88,6 +88,14 @@ internal object Phase1HabitNotification {
             .setData(Uri.parse("backlot-habit://open/" + Uri.encode(challenge.id)))
         val pi = PendingIntent.getActivity(context, challenge.id.hashCode(), open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // Only the small white Spark silhouette may appear in the PUBLIC
+        // lock-screen version; activity name, action and large pose stay private.
+        val publicVersion = NotificationCompat.Builder(context, channel(kind))
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
+            .setContentTitle("Backlot reminder")
+            .setContentText("Unlock to view today's activity")
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
         val builder = NotificationCompat.Builder(context, channel(kind))
             .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle("Today's 21-day activity")
@@ -95,6 +103,7 @@ internal object Phase1HabitNotification {
             .setContentIntent(pi)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(if (kind == Phase1HabitAlertKind.QUIET)
                 NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
