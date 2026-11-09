@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.data.TaskStore
+import com.framebynavin.app.personal.PersonalBackupTransfer
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.personal.Phase1HabitStore
 import java.io.File
@@ -29,10 +30,13 @@ class TrustT1C2OwnerCaptureDeviceTest {
         val beforeProjects = TaskStore(app).exportJsonForTrustReadOnly()
         val beforeIdeas = IdeaVaultStore(app).exportJson()
         val beforePersonal = PersonalReminderStore(app).exportPersonalJson()
+        val beforePortablePersonal = PersonalBackupTransfer(app).exportForCloud()
         val before21Day = Phase1HabitStore(app).exportJson()
 
         val frozen = TrustT1C2OwnerSourceCapture(app).freezePartialReadOnly()
-        val stagedFile = File(app.cacheDir, "ci-trust-t1c2-encrypted.tmp")
+        val stagedFile = File.createTempFile(
+            "ci-trust-t1c2-encrypted-", ".bundle", app.cacheDir,
+        )
         val passphrase = "ci-owner-payload-strong-passphrase".toCharArray()
         try {
             assertFalse(frozen.canClaimCompleteBackup)
@@ -49,6 +53,8 @@ class TrustT1C2OwnerCaptureDeviceTest {
                 indexed.getValue("creator/projects").file.readBytes())
             assertArrayEquals(beforeIdeas.toByteArray(),
                 indexed.getValue("creator/ideas").file.readBytes())
+            assertArrayEquals(beforePortablePersonal.toByteArray(),
+                indexed.getValue("personal/reminders-history").file.readBytes())
             assertArrayEquals(before21Day.toByteArray(),
                 indexed.getValue("personal/single-activity-receipts").file.readBytes())
 
