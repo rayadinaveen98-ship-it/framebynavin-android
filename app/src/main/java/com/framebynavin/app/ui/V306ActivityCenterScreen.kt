@@ -30,6 +30,7 @@ import com.framebynavin.app.personal.PersonalCompletionEvent
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.reminders.ReminderAcknowledgementStore
 import com.framebynavin.app.reminders.ReminderOccurrenceStore
+import com.framebynavin.app.reminders.FC13SparkNotificationMood
 import com.framebynavin.app.ui.theme.*
 import java.text.DateFormat
 import java.util.Date
@@ -196,9 +197,12 @@ internal fun V306ActivityCenterScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        CinePulseGuide(
-                            state = CinePulseState.POINT,
-                            modifier = Modifier.size(width = 49.dp, height = 58.dp),
+                        FC13SparkPose(
+                            mood = if (sparkNext.deliveryProblem)
+                                FC13SparkNotificationMood.ALERT
+                            else FC13SparkNotificationMood.THINK,
+                            size = FC13SparkPoseSize.COMPACT,
+                            modifier = Modifier.testTag("fc13-spark-activity-next"),
                         )
                         Column(Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(3.dp)) {
