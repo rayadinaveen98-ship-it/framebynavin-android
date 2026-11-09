@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.CreatorFocusLedger
 import com.framebynavin.app.data.CreatorFocusSession
 import com.framebynavin.app.data.CreatorFocusSessionPolicy
@@ -72,6 +73,9 @@ internal fun CreatorFocusSessionScreen(task: CreatorTask, onClose: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val store = remember(context) { CreatorFocusSessionStore(context) }
+    // A Creator restore increments this epoch before replacing local records.
+    // Reject stale UI writes instead of overwriting newly restored Focus receipts.
+    val openGeneration = remember(context) { CreatorDataGate.generation(context) }
     val stage = CreatorWorkflowEngine.currentStage(task)
     val bootCount = remember(context) {
         runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1) }
@@ -86,13 +90,17 @@ internal fun CreatorFocusSessionScreen(task: CreatorTask, onClose: () -> Unit) {
 
     fun readLedger() {
         runCatching {
+            CreatorDataGate.checkGeneration(context, openGeneration)
             val existing = store.load()
             val active = existing.active
             if (active != null && active.state == CreatorFocusState.RUNNING) {
-                store.update(active.id) {
-                    CreatorFocusSessionPolicy.recover(it, SystemClock.elapsedRealtime(), bootCount)
+                CreatorDataGate.withGeneration(context, openGeneration) {
+                    store.update(active.id) {
+                        CreatorFocusSessionPolicy.recover(it, SystemClock.elapsedRealtime(), bootCount)
+                    }
                 }
             }
+            CreatorDataGate.checkGeneration(context, openGeneration)
             store.load()
         }.onSuccess { ledger = it; error = null }
             .onFailure { error = it.message ?: "Could not read Focus session data" }
@@ -101,7 +109,9 @@ internal fun CreatorFocusSessionScreen(task: CreatorTask, onClose: () -> Unit) {
     fun updateSession(action: (CreatorFocusSession) -> CreatorFocusSession) {
         val session = ledger?.active ?: return
         runCatching {
-            val next = store.update(session.id, action)
+            val next = CreatorDataGate.withGeneration(context, openGeneration) {
+                store.update(session.id, action)
+            }
             currentElapsed = SystemClock.elapsedRealtime()
             next
         }.onSuccess { ledger = it; error = null; discardConfirmation = false }
@@ -112,8 +122,10 @@ internal fun CreatorFocusSessionScreen(task: CreatorTask, onClose: () -> Unit) {
         val current = ledger?.active ?: return
         if (current.state != CreatorFocusState.RUNNING) return
         runCatching {
-            store.update(current.id) {
-                CreatorFocusSessionPolicy.checkpoint(it, SystemClock.elapsedRealtime(), bootCount)
+            CreatorDataGate.withGeneration(context, openGeneration) {
+                store.update(current.id) {
+                    CreatorFocusSessionPolicy.checkpoint(it, SystemClock.elapsedRealtime(), bootCount)
+                }
             }
         }.onSuccess { ledger = it }
             .onFailure { error = it.message ?: "Could not save Focus checkpoint" }
@@ -153,10 +165,12 @@ internal fun CreatorFocusSessionScreen(task: CreatorTask, onClose: () -> Unit) {
     val active = ledger?.active
     val activeHere = active != null && active.projectId == task.id
     val activeElsewhere = active != null && !activeHere
-    val remaining = if (active != null) {
-        CreatorFocusSessionPolicy.remainingMillis(active, currentElapsed, bootCount)
-    } else selectedMinutes * 60_000L
-    val target = active?.targetMillis ?: selectedMinutes * 60_000L
+    val remaining = when {
+        active != null -> CreatorFocusSessionPolicy.remainingMillis(active, currentElapsed, bootCount)
+        completedSummary != null -> (completedSummary!!.targetMillis - completedSummary!!.accruedActiveMillis).coerceAtLeast(0L)
+        else -> selectedMinutes * 60_000L
+    }
+    val target = active?.targetMillis ?: completedSummary?.targetMillis ?: selectedMinutes * 60_000L
     val elapsed = target - remaining
     val seconds = (remaining + 999L) / 1000L
     val clockText = String.format(Locale.getDefault(), "%02d:%02d", seconds / 60L, seconds % 60L)
@@ -246,9 +260,11 @@ internal fun CreatorFocusSessionScreen(task: CreatorTask, onClose: () -> Unit) {
                                         runCatching {
                                             val created = CreatorFocusSessionPolicy.create(task.id, stage.id,
                                                 selectedMinutes, System.currentTimeMillis())
-                                            store.create(created)
-                                            store.update(created.id) {
-                                                CreatorFocusSessionPolicy.start(it, SystemClock.elapsedRealtime(), bootCount)
+                                            CreatorDataGate.withGeneration(context, openGeneration) {
+                                                store.create(created)
+                                                store.update(created.id) {
+                                                    CreatorFocusSessionPolicy.start(it, SystemClock.elapsedRealtime(), bootCount)
+                                                }
                                             }
                                         }.onSuccess { ledger = it; error = null }
                                             .onFailure { error = it.message ?: "Unable to start Focus" }
@@ -293,9 +309,11 @@ internal fun CreatorFocusSessionScreen(task: CreatorTask, onClose: () -> Unit) {
                                 runCatching {
                                     val finished = CreatorFocusSessionPolicy.finish(finishing,
                                         SystemClock.elapsedRealtime(), bootCount, System.currentTimeMillis())
-                                    store.update(finishing.id) { old ->
-                                        CreatorFocusSessionPolicy.finish(old,
-                                            SystemClock.elapsedRealtime(), bootCount, finished.endedAtWallMillis)
+                                    CreatorDataGate.withGeneration(context, openGeneration) {
+                                        store.update(finishing.id) { old ->
+                                            CreatorFocusSessionPolicy.finish(old,
+                                                SystemClock.elapsedRealtime(), bootCount, finished.endedAtWallMillis)
+                                        }
                                     }
                                     finished
                                 }.onSuccess {
