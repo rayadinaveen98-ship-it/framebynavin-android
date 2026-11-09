@@ -169,7 +169,7 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
         if (intent?.action != Phase1HabitNotification.ACTION) return
         val id = intent.getStringExtra(Phase1HabitNotification.ID)
             ?.takeIf { it.isNotBlank() } ?: return
-        val at = intent.getLongExtra(Phase1HabitNotification.AT, 0L)
+        val at = request.getLongExtra(Phase1HabitNotification.AT, 0L)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -224,9 +224,10 @@ internal class Phase1HabitVoiceService : Service() {
     }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val activity = intent?.getStringExtra(Phase1HabitNotification.TEXT)
+        val request = intent ?: return START_NOT_STICKY
+        val activity = request.getStringExtra(Phase1HabitNotification.TEXT)
             ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
-        val id = intent.getStringExtra(Phase1HabitNotification.ID)
+        val id = request.getStringExtra(Phase1HabitNotification.ID)
             ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
         val at = intent.getLongExtra(Phase1HabitNotification.AT, 0L)
         if (at <= 0L) return START_NOT_STICKY
