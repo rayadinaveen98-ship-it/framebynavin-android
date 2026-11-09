@@ -129,13 +129,18 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
                 sha256(verifiedFile) == digest) {
                 "Promoted private encrypted owner copy failed final readback"
             }
-            Receipt(
+            val receipt = Receipt(
                 ownerUserId, id, bytes, digest,
                 verifiedSource.sourcePartsValidated,
                 verifiedSource.counts.values.sum(),
                 System.currentTimeMillis().coerceAtLeast(1L),
                 verifiedSource.uncoveredPreferenceKeys,
             )
+            // An encrypted copy must survive app restarts as a discoverable
+            // owner artifact. A failed catalog write retains the ciphertext
+            // for explicit owner recovery; no older copy is removed.
+            TrustOwnerCopyCatalog.persist(root, receipt)
+            receipt
         } catch (failure: Throwable) {
             // Only the current pending attempt is removable. A promoted
             // archive must be retained for owner review rather than silently
@@ -165,6 +170,11 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
             require(uuidPattern.matches(receipt.copyId) &&
                 passphrase.size in 12..512)
             prepareFolders()
+            val persisted = TrustOwnerCopyCatalog.inspect(root, receipt.ownerId)
+                .receipts.singleOrNull { it.copyId == receipt.copyId }
+            check(persisted == receipt) {
+                "This encrypted owner copy receipt was not persisted or was changed"
+            }
             val file = File(verified, "copy-${receipt.copyId}.enc")
             check(file.isFile && !Files.isSymbolicLink(file.toPath()) &&
                 file.length() == receipt.encryptedBytes &&
@@ -182,6 +192,19 @@ internal class TrustOwnerEncryptedLocalCopy(context: Context) {
                 }
             }
         }
+        }
+
+    /**
+     * Reopen existing encrypted copies after Backlot restarts without reading
+     * any owner notes, voice recordings, reminders or plaintext media.
+     * Every entry still requires a password and disk checksum for inspection.
+     */
+    suspend fun availableCopiesForSignedInOwner(): TrustOwnerCopyCatalog.Inventory =
+        accounts.withFreshSession { session ->
+            TrustT1C3OperationGate.withExclusive(app) {
+                prepareFolders()
+                TrustOwnerCopyCatalog.inspect(root, session.userId)
+            }
         }
 
     private fun prepareFolders() {
