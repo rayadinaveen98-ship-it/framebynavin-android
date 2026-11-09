@@ -40,6 +40,8 @@ internal enum class TrustBackupDomain(val label: String, val portable: Boolean =
     HOME_SLIDESHOW_MEDIA("Home slideshow original images"),
     HOME_SLIDESHOW_PLAYBACK("Saved Home slideshow playback preference"),
     DEVICE_ALARM_LEASES("Device-specific alarm leases", portable = false),
+    DEVICE_CREATOR_SOUNDTRACK("Device-private Creator music selections", portable = false),
+    DEVICE_CUSTOM_MUSIC_DOCUMENT_ACCESS("Android picked-music document permissions and URIs", portable = false),
     EXTERNAL_OAUTH_SECRETS("External account auth tokens", portable = false),
     ANDROID_PERMISSIONS("Android OS notification/alarm permissions", portable = false),
 }
