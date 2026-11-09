@@ -61,6 +61,7 @@ class VoiceReminderService : Service() {
 
         val previous = currentTask
         val previousToken = currentToken
+        FC13CreatorPlaybackVisualState.clear(previous?.id.orEmpty(), previousToken)
         val sameOccurrence = previous?.id == task.id && previousToken == token
         val forceRestart = intent.getBooleanExtra(EXTRA_FORCE_RESTART, false)
 
@@ -147,6 +148,14 @@ class VoiceReminderService : Service() {
                 override fun onStart(utteranceId: String?) {
                     if (isCurrent(task.id, token) && generation == speechGeneration) {
                         runCatching { ReminderAcknowledgementStore(applicationContext).markVoiceSpeaking(task.id, token) }
+                        // The real TTS callback may run off Main.
+                        handler.post {
+                            if (isCurrent(task.id, token) &&
+                                generation == speechGeneration &&
+                                utteranceId != null && currentUtteranceId == utteranceId
+                            ) FC13CreatorPlaybackVisualState.show(
+                                task.id, token, FC13CreatorAudioStage.VOICE_SPEAKING)
+                        }
                     }
                 }
 
@@ -155,6 +164,7 @@ class VoiceReminderService : Service() {
                         if (!isCurrent(task.id, token) || generation != speechGeneration) return@post
                         if (utteranceId.isNullOrBlank() || currentUtteranceId != utteranceId) return@post
                         currentUtteranceId = null
+                        FC13CreatorPlaybackVisualState.clear(task.id, token)
                         music.setSpeaking(false)
                         val completedIndex = utteranceIndex(utteranceId)
                         val nextIndex = completedIndex + 1
@@ -362,6 +372,7 @@ class VoiceReminderService : Service() {
     private fun stopVoiceService(taskId: String? = null, token: String? = null) {
         if (taskId != null &&
             (currentTask?.id != taskId || (token != null && currentToken != token))) return
+        FC13CreatorPlaybackVisualState.clear(currentTask?.id.orEmpty(), currentToken)
         currentTask = null
         currentToken = ""
         currentCreatorName = "Creator"
@@ -380,6 +391,7 @@ class VoiceReminderService : Service() {
     }
 
     override fun onDestroy() {
+        FC13CreatorPlaybackVisualState.clear(currentTask?.id.orEmpty(), currentToken)
         currentTask = null
         currentToken = ""
         currentCreatorName = "Creator"
