@@ -3,6 +3,8 @@ package com.framebynavin.app.ui
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -24,6 +26,7 @@ import com.framebynavin.app.cloud.TrustCloudBackupDeletionCoordinator
 import com.framebynavin.app.cloud.TrustOwnerCloudPublisher
 import com.framebynavin.app.cloud.TrustOwnerCloudReview
 import com.framebynavin.app.cloud.TrustOwnerEncryptedLocalCopy
+import com.framebynavin.app.cloud.TrustOwnerDocumentTransfer
 import com.framebynavin.app.cloud.TrustRestorableSourceReview
 import com.framebynavin.app.cloud.TrustUnifiedRestoreJournal
 import com.framebynavin.app.cloud.TrustUnifiedRestoreCoordinator
@@ -63,6 +66,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     val recovery = remember(context) {
         TrustUnifiedRestoreCoordinator(context.applicationContext)
     }
+    val documentTransfer = remember(context) {
+        TrustOwnerDocumentTransfer(context.applicationContext)
+    }
     val owner = account.localState().session?.userId
 
     var passphrase by remember { mutableStateOf("") }
@@ -70,6 +76,9 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var saved by remember { mutableStateOf<List<TrustOwnerEncryptedLocalCopy.Receipt>>(emptyList()) }
     var selected by remember { mutableStateOf<TrustOwnerEncryptedLocalCopy.Receipt?>(null) }
+    var pendingExportReceipt by remember {
+        mutableStateOf<TrustOwnerEncryptedLocalCopy.Receipt?>(null)
+    }
     var localReview by remember { mutableStateOf<TrustRestorableSourceReview.Result?>(null) }
     var publishReview by remember { mutableStateOf<TrustOwnerCloudPublisher.Review?>(null) }
     var publishConfirmation by remember { mutableStateOf("") }
@@ -93,6 +102,7 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
     // Never retain an authenticated confirmation after switching accounts.
     LaunchedEffect(owner) {
         selected = null
+        pendingExportReceipt = null
         localReview = null
         publishReview = null
         remoteReview = null
@@ -149,6 +159,56 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                         message = "Owner recovery journal needs manual review. " +
                             "Do not begin another restore."
                     }
+            }
+        }
+    }
+
+    val exportDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        val receipt = pendingExportReceipt
+        pendingExportReceipt = null
+        if (uri != null && receipt != null) {
+            runAction {
+                val password = passphrase.toCharArray()
+                try {
+                    val confirmation = documentTransfer.exportOwnerApproved(
+                        receipt, password, uri,
+                    )
+                    "Encrypted document exported and read back successfully: " +
+                        "${confirmation.encryptedBytes / 1024} KiB. " +
+                        "It contains ciphertext only, not a cloud upload."
+                } finally {
+                    password.fill('\u0000')
+                    passphrase = ""
+                }
+            }
+        }
+    }
+    val importDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            runAction {
+                val password = passphrase.toCharArray()
+                try {
+                    val receipt = documentTransfer.importOwnerApproved(
+                        password, uri,
+                    )
+                    val latest = local.availableCopiesForSignedInOwner()
+                    saved = latest.receipts
+                    orphaned = latest.orphanedEncryptedFiles
+                    selected = receipt
+                    localReview = null
+                    publishReview = null
+                    downloadedReview = null
+                    unifiedReview = null
+                    "Selected encrypted file verified and saved as a private " +
+                        "owner copy. No Creator or Personal records were replaced."
+                } finally {
+                    password.fill('\u0000')
+                    passphrase = ""
+                }
             }
         }
     }
@@ -303,6 +363,36 @@ internal fun TrustUniversalBackupScreen(onClose: () -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                             .testTag("fc13-trust-create-encrypted"),
                     ) { Text("CREATE PRIVATE ENCRYPTED COPY") }
+                }
+
+                TrustUiSection("Transfer an encrypted backup between phones") {
+                    Text(
+                        "Uses Android's file picker. Only password-protected " +
+                            "ciphertext is transferred. This works for large backups " +
+                            "even when the cloud's 50 MB per-object limit is exceeded. " +
+                            "Import adds a verified private copy; it does not " +
+                            "automatically restore or overwrite reminders.",
+                        color = MutedText, fontSize = 12.sp,
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            pendingExportReceipt = selected
+                            exportDocument.launch(
+                                "Backlot-encrypted-${selected?.copyId?.take(8) ?: "owner"}.enc",
+                            )
+                        },
+                        enabled = !busy && selected != null && passphrase.length >= 12,
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-trust-export-encrypted-document"),
+                    ) { Text("EXPORT SELECTED ENCRYPTED COPY") }
+                    OutlinedButton(
+                        onClick = {
+                            importDocument.launch(arrayOf("*/*"))
+                        },
+                        enabled = !busy && passphrase.length >= 12,
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-trust-import-encrypted-document"),
+                    ) { Text("IMPORT OWNER ENCRYPTED FILE") }
                 }
 
                 TrustUiSection("Saved encrypted copies") {
