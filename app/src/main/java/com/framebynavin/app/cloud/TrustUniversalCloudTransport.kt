@@ -137,21 +137,24 @@ internal class TrustUniversalCloudTransport {
             "Cloud review requires an unused, private destination"
         }
         check(destination.createNewFile()) { "Encrypted owner review target already exists" }
-        val conn = connection(
-            session, "GET",
-            "/storage/v1/object/authenticated/$bucket/" + descriptor.objectPath,
-            contentType = null,
-        )
+        var conn: HttpURLConnection? = null
         try {
-            expectSuccess(conn)
-            check(conn.contentLengthLong <= 0 ||
-                conn.contentLengthLong == descriptor.encryptedBytes) {
+            val connection = connection(
+                session, "GET",
+                "/storage/v1/object/authenticated/$bucket/" + descriptor.objectPath,
+                contentType = null,
+            )
+            conn = connection
+            expectSuccess(connection)
+            check(connection.contentLengthLong <= 0 ||
+                connection.contentLengthLong == descriptor.encryptedBytes) {
                 "Remote object length changed before downloading"
             }
             val digest = MessageDigest.getInstance("SHA-256")
             var copied = 0L
-            conn.inputStream.buffered().use { source ->
-                destination.outputStream().buffered().use { sink ->
+            connection.inputStream.buffered().use { source ->
+                java.io.FileOutputStream(destination).use { disk ->
+                    val sink = disk.buffered()
                     val buffer = ByteArray(32 * 1024)
                     var zeroReads = 0
                     while (true) {
@@ -171,6 +174,8 @@ internal class TrustUniversalCloudTransport {
                         digest.update(buffer, 0, count)
                         copied += count
                     }
+                    sink.flush()
+                    disk.fd.sync()
                 }
             }
             check(copied == descriptor.encryptedBytes &&
@@ -193,7 +198,7 @@ internal class TrustUniversalCloudTransport {
             }
             throw failure
         } finally {
-            conn.disconnect()
+            conn?.disconnect()
         }
     }
 
