@@ -9,6 +9,7 @@ import com.framebynavin.app.data.IdeaCaptureType
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.data.PortableBestFrameMedia
 import com.framebynavin.app.data.TaskStore
+import com.framebynavin.app.personal.PersonalBackupTransfer
 import com.framebynavin.app.personal.PersonalCompletionBackupCodec
 import com.framebynavin.app.personal.Phase1HabitCodec
 import com.framebynavin.app.personal.StabilizationPersonalMutationGate
@@ -73,6 +74,18 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                         }
                         val components = personal.components
                         val reminders = PersonalCompletionBackupCodec.decode(components.personal)
+                        // Device alarm leases, custom music/document URIs and
+                        // exact alarm permissions are not portable. Reuse the
+                        // existing reminder exporter that removes device-only
+                        // fields while keeping Done history unchanged.
+                        val portableReminders = PersonalBackupTransfer(app).exportForCloud()
+                        val portable = PersonalCompletionBackupCodec.decode(portableReminders)
+                        check(
+                            portable.reminders.map { it.id } == reminders.reminders.map { it.id } &&
+                            portable.completions == reminders.completions
+                        ) {
+                            "Personal reminders changed while creating a portable owner copy"
+                        }
                         val challenges = Phase1HabitCodec.decode(
                             checkNotNull(components.singleActivityChallenges) {
                                 "21-day challenge Done receipts cannot be omitted"
@@ -87,7 +100,7 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                         // Each source is independently immutable after copying.
                         // These are five real v2 Personal domains, not an old
                         // Personal-only cloud envelope or fabricated blanks.
-                        freezer.addJson("personal/reminders-history", components.personal,
+                        freezer.addJson("personal/reminders-history", portableReminders,
                             reminders.reminders.size + reminders.completions.size)
                         freezer.addJson("personal/legacy-challenges", components.challenges,
                             legacy.size)
@@ -149,6 +162,15 @@ internal class TrustT1C2OwnerSourceCapture(context: Context) {
                             )
                         }
 
+                        // Detect unrelated producers that bypass a lock but
+                        // change primary Creator or Personal serialization
+                        // before all original files have been frozen.
+                        check(tasks.exportJsonForTrustReadOnly() == projectsJson &&
+                            ideaStore.exportJson() == ideasJson &&
+                            PersonalBackupTransfer(app).exportForCloud() == portableReminders
+                        ) {
+                            "Owner records changed during the immutable source capture"
+                        }
                         check(CreatorDataGate.generation(app) == generation) {
                             "Creator restore changed the owner source generation"
                         }
