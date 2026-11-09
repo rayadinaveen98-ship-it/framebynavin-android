@@ -60,6 +60,26 @@ import kotlinx.coroutines.withContext
 internal class PersonalAlertActivity : ComponentActivity() {
     private var keyguardShowing by mutableStateOf(false)
 
+    // Never trust an intent Boolean alone to raise a window over the keyguard.
+    // The live, acknowledged ALARM token must be read from Personal DataStore.
+    private var fullScreenOpeningRequested = false
+    private var verifiedFullScreenOccurrence = false
+
+    private fun refreshAlarmWindow() {
+        // Recheck special access whenever focus/lifecycle or the live lease changes.
+        val allowed = fullScreenOpeningRequested && verifiedFullScreenOccurrence &&
+            V268FullScreenReminderAccess.allowed(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(allowed)
+            setTurnScreenOn(allowed)
+        } else {
+            @Suppress("DEPRECATION")
+            val flags = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            if (allowed) window.addFlags(flags) else window.clearFlags(flags)
+        }
+    }
+
     private fun refreshLockState() {
         keyguardShowing = getSystemService(Context.KEYGUARD_SERVICE)
             .let { it as? KeyguardManager }?.isKeyguardLocked == true
@@ -67,11 +87,13 @@ internal class PersonalAlertActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        refreshAlarmWindow()
         refreshLockState()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        refreshAlarmWindow()
         refreshLockState()
     }
 
@@ -83,22 +105,12 @@ internal class PersonalAlertActivity : ComponentActivity() {
         val id = personalId
         val token = personalToken
         if (id.isBlank() || token.isBlank()) { finish(); return }
-        if (intent.getBooleanExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false) &&
-            V268FullScreenReminderAccess.allowed(this)) {
-            // Recheck Android 14+ special access at OPEN time too: the owner may
-            // have revoked it since this immutable notification was posted.
-            // Voice, follow-ups and ordinary notifications never request over-keyguard UI.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                setShowWhenLocked(true)
-                setTurnScreenOn(true)
-            } else {
-                @Suppress("DEPRECATION")
-                window.addFlags(
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
-                )
-            }
-        }
+        // The normal owner-tapped notification uses a different immutable
+        // PendingIntent and must not inherit interruptive presentation rights.
+        fullScreenOpeningRequested =
+            intent.action == PersonalFullScreenPolicy.FSI_OPEN_ACTION &&
+            intent.getBooleanExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false)
+        refreshAlarmWindow() // fail closed until the persisted token is verified
         refreshLockState()
         PersonalAlertSurfaceRegistry.attach(this, id, token)
         setContent {
@@ -121,9 +133,24 @@ internal class PersonalAlertActivity : ComponentActivity() {
                         when (PersonalAlertPresentationPolicy.state(item, id, token)) {
                             PersonalAlertPresentationState.READY -> {
                                 reminder = item
+                                // No full-screen alarm for a Voice, Quiet,
+                                // automatic retry or stale/unposted token.
+                                verifiedFullScreenOccurrence = item != null &&
+                                    item.pendingOccurrenceMillis > 0L &&
+                                    item.presentedToken == token &&
+                                    PersonalFullScreenPolicy.eligible(
+                                        alert = item.alert,
+                                        followUp = false,
+                                        fullScreenPermissionAllowed =
+                                            V268FullScreenReminderAccess.allowed(this@PersonalAlertActivity),
+                                        automaticRetry = item.autoRetryCount > 0,
+                                    )
+                                refreshAlarmWindow()
                                 return@LaunchedEffect
                             }
                             PersonalAlertPresentationState.INVALID -> {
+                                verifiedFullScreenOccurrence = false
+                                refreshAlarmWindow()
                                 invalid = true
                                 return@LaunchedEffect
                             }
@@ -134,6 +161,8 @@ internal class PersonalAlertActivity : ComponentActivity() {
                             }
                         }
                     }
+                    verifiedFullScreenOccurrence = false
+                    refreshAlarmWindow()
                     invalid = true
                 }
                 fun respond(action: String) {
