@@ -27,6 +27,15 @@ import com.framebynavin.app.ui.theme.*
  * V196.2 Content Workspace: one truthful project step, four equal tools, optional stage detail.
  * The editor callbacks and source-of-truth engines remain unchanged.
  */
+/** FC13 navigation reuses the same Plan/Script/Publish saved data. */
+private enum class FC13WorkspaceZone(val label: String) {
+    OVERVIEW("Overview"),
+    PLAN("Plan"),
+    CONTENT("Content"),
+    PRODUCTION("Production"),
+    ACTIVITY("Activity"),
+}
+
 @Composable
 internal fun V19ContentWorkspaceAlpha6Hub(
     task: CreatorTask,
@@ -58,6 +67,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val scriptBeats = workspace.scriptStudio?.beats?.size ?: 0
     val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
     var showStages by rememberSaveable(task.id) { mutableStateOf(false) }
+    var selectedZone by rememberSaveable(task.id) {
+        mutableStateOf(FC13WorkspaceZone.OVERVIEW)
+    }
     // Read-only prompts derived from canonical saved project content.
     val focusHints = V2285WorkspaceFocusPolicy.hints(task)
 
@@ -105,6 +117,33 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 )
                 Spacer(Modifier.height(12.dp))
 
+                ScrollableTabRow(
+                    selectedTabIndex = FC13WorkspaceZone.entries.indexOf(selectedZone),
+                    containerColor = CinemaSurface,
+                    contentColor = ProjectorIvory,
+                    edgePadding = 0.dp,
+                    divider = { HorizontalDivider(color = CinemaLine) },
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-five-zone-navigation"),
+                ) {
+                    FC13WorkspaceZone.entries.forEach { zone ->
+                        Tab(
+                            selected = selectedZone == zone,
+                            onClick = { selectedZone = zone },
+                            text = {
+                                Text(zone.label, color = if (zone == selectedZone)
+                                    ProjectorIvory else MutedText,
+                                    fontSize = 12.sp, fontWeight = if (zone == selectedZone)
+                                        FontWeight.Bold else FontWeight.Medium)
+                            },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                                .testTag("fc13-zone-${zone.name.lowercase()}"),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+
+                if (selectedZone == FC13WorkspaceZone.OVERVIEW) {
                 Surface(
                     modifier = Modifier.fillMaxWidth()
                         .testTag("phase4-workspace-saved-status"),
