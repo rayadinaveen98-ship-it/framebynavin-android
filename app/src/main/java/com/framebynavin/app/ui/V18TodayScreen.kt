@@ -90,6 +90,7 @@ internal fun PTodayScreen(
     onOpenIdeaVault: () -> Unit = {},
     onOpenInsights: () -> Unit = {},
     onOpenProject: (String) -> Unit = {},
+    onContinueWork: (String) -> Unit = onOpenProject,
     onOpenProgressJourney: () -> Unit = {},
     bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
     homeSlideshowRequestNonce: Long = 0L,
@@ -198,7 +199,7 @@ internal fun PTodayScreen(
                 // Starting WORKING or completing a stage remains an explicit Project action.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { onOpenProject(selected.id) },
+                        onClick = { onContinueWork(selected.id) },
                         modifier = Modifier.weight(1.35f).height(50.dp).testTag("phase3-home-continue"),
                         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         shape = RoundedCornerShape(15.dp),
