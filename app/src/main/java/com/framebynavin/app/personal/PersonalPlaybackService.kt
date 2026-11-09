@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import com.framebynavin.app.R
 import com.framebynavin.app.reminders.ReminderBackingMusic
 import com.framebynavin.app.reminders.ReminderMusicChoice
+import com.framebynavin.app.reminders.FC13SparkNotificationIdentity
 import java.lang.ref.WeakReference
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -144,7 +145,7 @@ internal class PersonalPlaybackService : Service() {
             }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.backlot_v198_notification_monochrome)
+            .setSmallIcon(FC13SparkNotificationIdentity.STATUS_BAR_ICON)
             .setContentTitle("Personal reminder")
             .setContentText("Reminder sound in progress")
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
