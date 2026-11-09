@@ -29,6 +29,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -252,10 +254,14 @@ internal fun FC13ReactiveDotField(
         phase
     } else 0f
     Canvas(
-        modifier.clickable(
-            role = androidx.compose.ui.semantics.Role.Button,
-            onClick = onTap,
-        ),
+        modifier
+            .semantics {
+                contentDescription = if (active) "Stop voice listening" else "Start voice listening"
+            }
+            .clickable(
+                role = androidx.compose.ui.semantics.Role.Button,
+                onClick = onTap,
+            ),
     ) {
         val c = center
         val spacing = size.minDimension / 14.5f
