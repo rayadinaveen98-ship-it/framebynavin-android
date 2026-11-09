@@ -9,6 +9,7 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 for spec in \
   "com.framebynavin.app.cloud.TrustT1ALegacyCloudSafetyDeviceTest TRUST-T1A-REMOTE 1" \
   "com.framebynavin.app.cloud.TrustT1BInventoryDeviceTest TRUST-T1B-INVENTORY 1" \
+  "com.framebynavin.app.cloud.TrustT1B3VoiceSparkDeviceTest TRUST-T1B3-SPARK 1" \
   "com.framebynavin.app.personal.Phase1HabitArchiveCoverageGuardDeviceTest TRUST-T1-ARCHIVE 1"; do
   set -- $spec
   cls="$1"; name="$2"; count="$3"
@@ -24,5 +25,5 @@ for spec in \
   grep -Fq "OK ($count test)" "output/trust-t1-stage/$name.txt" ||
     grep -Fq "OK ($count tests)" "output/trust-t1-stage/$name.txt"
 done
-echo "PASS: read-only Personal remote gate + local domain inventory + v2 archive receipts" \
+echo "PASS: remote gate + voice/Spark inventory + v2 archive receipts" \
   > output/trust-t1-stage/T1-RESULTS.txt
