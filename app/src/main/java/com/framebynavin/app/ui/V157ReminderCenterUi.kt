@@ -612,12 +612,9 @@ private fun V157ReminderGroup(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (canSnooze) {
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                            BacklotReminderHubRowAction(
+                                modifier = Modifier.weight(1f),
                                 onClick = { onSnooze?.invoke(task, snoozeMinutes) },
-                                border = BorderStroke(1.dp, CinemaLine),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Outlined.Snooze, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -625,12 +622,9 @@ private fun V157ReminderGroup(
                             }
                         }
                         if (canReschedule) {
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                            BacklotReminderHubRowAction(
+                                modifier = Modifier.weight(1f),
                                 onClick = { onReschedule?.invoke(task) },
-                                border = BorderStroke(1.dp, CinemaLine),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -655,7 +649,6 @@ private fun V157ReminderGroup(
                         Text("SET UP NEXT REMINDER", color = RecRed, fontSize = 11.sp)
                     }
                 }
-            }
         }
     }
 }
