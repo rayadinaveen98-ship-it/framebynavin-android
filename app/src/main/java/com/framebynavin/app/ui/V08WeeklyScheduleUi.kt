@@ -571,7 +571,7 @@ private fun V08SlotEditor(
                     ))
                 },
                 enabled = title.isNotBlank() &&
-                    (estimateText.isBlank() || estimateText.toIntOrNull() in 0..720),
+                    (estimateText.isBlank() || estimateText.toIntOrNull()?.let { it in 0..720 } == true),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
             ) { Text("SAVE") }
         },
