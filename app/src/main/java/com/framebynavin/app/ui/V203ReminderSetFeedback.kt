@@ -4,6 +4,9 @@ internal data class V203PendingReminderConfirmation(
     val taskId: String,
     val editedExisting: Boolean,
     val baselineRevision: Long,
+    /** New-project source only. Null for edits or legacy call sites. */
+    val composerDraftGeneration: Long? = null,
+    val composerDraftFingerprint: String? = null,
 )
 
 internal object V203ReminderSetFeedback {

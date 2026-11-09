@@ -69,6 +69,48 @@ object CreatorProjectTemplates {
     )
 
     val contentTemplates: List<CreatorContentTemplate> = listOf(
+        // Phase 4: general-purpose, editable starting points. No prompts or
+        // checklists are mandatory, and applying them never completes work.
+        CreatorContentTemplate(
+            id = "creator_analysis",
+            name = "Analysis",
+            checklist = listOf(
+                "Choose the central question", "Collect and verify references",
+                "Map the argument", "Write the opening", "Draft the script",
+                "Record voice or footage", "Edit and review", "Prepare metadata",
+                "Publish with confirmation", "Record one learning",
+            ),
+            deliverables = listOf(
+                CreatorDeliverableTemplate("YouTube", "Long video"),
+            ),
+        ),
+        CreatorContentTemplate(
+            id = "commentary_education",
+            name = "Commentary / Education",
+            checklist = listOf(
+                "Define what viewers should learn", "Verify facts and sources",
+                "Outline the explanation", "Create script or lesson notes",
+                "Record", "Edit", "Check clarity and citations",
+                "Prepare title and description", "Publish with confirmation",
+            ),
+            deliverables = listOf(
+                CreatorDeliverableTemplate("YouTube", "Long video"),
+            ),
+        ),
+        CreatorContentTemplate(
+            id = "short_reel_launch",
+            name = "Short / Reel",
+            checklist = listOf(
+                "Choose one clear idea", "Create a strong opening",
+                "Write a short script", "Record or assemble visuals",
+                "Edit a vertical version", "Add captions and cover",
+                "Check audio and credits", "Publish with confirmation",
+            ),
+            deliverables = listOf(
+                CreatorDeliverableTemplate("YouTube", "Short"),
+                CreatorDeliverableTemplate("Instagram", "Reel"),
+            ),
+        ),
         CreatorContentTemplate(
             id = "youtube_long",
             name = "YouTube Long",

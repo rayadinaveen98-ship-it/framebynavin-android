@@ -197,6 +197,29 @@ internal fun PProjectComposer(
     dismissRequestToken: Int = 0,
 ) {
     val context = LocalContext.current
+    val newDraftStore = remember(context) { CreatorNewProjectDraftStore(context.applicationContext) }
+    val draftGeneration = remember(task?.id) {
+        CreatorDataGate.generation(context.applicationContext)
+    }
+    val recoverableNewDraft = remember(task?.id, draftGeneration) {
+        if (task == null) newDraftStore.load(draftGeneration) else null
+    }
+    var askToResumeNewDraft by rememberSaveable(task?.id) {
+        mutableStateOf(task == null && recoverableNewDraft != null)
+    }
+    var resolvedNewDraft by rememberSaveable(task?.id) {
+        mutableStateOf(task != null || recoverableNewDraft == null)
+    }
+    var suppressNewDraftWrite by rememberSaveable(task?.id) {
+        mutableStateOf(false)
+    }
+    // Immediate atomic suppression: the Compose state update might not
+    // recompose before the wizard is disposed after Discard.
+    val rejectLateAutosaves = remember(task?.id) {
+        java.util.concurrent.atomic.AtomicBoolean(false)
+    }
+    var newDraftWriteError by remember(task?.id) { mutableStateOf(false) }
+    var persistedNewFormSignature by remember(task?.id) { mutableStateOf<String?>(null) }
     val defaults = remember { CreatorOsSettingsStore(context.applicationContext).snapshot() }
     val defaultPlatform = remember(defaults.creatorProfile) { CreatorPlatformRegistry.primaryPlatform(defaults.creatorProfile) }
     val initialDna = remember(task?.id, task?.contentDna, defaults.creatorProfile, defaultPlatform) {
@@ -339,11 +362,65 @@ internal fun PProjectComposer(
             title, creatorModeId, archetypeId, productionStyles.sorted().joinToString("\\u001f"),
             platform, contentType, dueAt.toString(), attentionPlan.name,
             deliveryPreference.name, customReminderAt.toString(), priority.name, notes,
-            soundUri, voice.name, repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(), snoozeMinutes.toString(),
+            soundUri, voiceMusicMode.name, voiceMusicUri, voice.name,
+            repeatCount.toString(), repeatGap.toString(), alarmTimeout.toString(), snoozeMinutes.toString(),
             autoRetryEnabled.toString(), autoRetryMinutes.toString(), autoRetryMaxAttempts.toString(),
         )
     )
     val originalDraftSignature = rememberSaveable(task?.id) { draftSignature }
+    // A NEW form is recoverable local input, not a created project. Persist
+    // only actual edits; do not seed a blank draft or overwrite a draft from
+    // another Creator restore generation.
+    val newFormSnapshot = CreatorNewProjectFormDraft(
+        title = title, creatorModeId = creatorModeId, archetypeId = archetypeId,
+        productionStyles = savedStyleList.toList(), platform = platform,
+        contentType = contentType, dueAt = dueAt, attentionPlan = attentionPlan,
+        deliveryPreference = deliveryPreference,
+        customReminderAt = customReminderAt, priority = priority,
+        notes = notes, soundUri = soundUri, voiceMusicMode = voiceMusicMode,
+        voiceMusicUri = voiceMusicUri, voice = voice, repeatCount = repeatCount,
+        repeatGap = repeatGap, alarmTimeout = alarmTimeout,
+        snoozeMinutes = snoozeMinutes, autoRetryEnabled = autoRetryEnabled,
+        autoRetryMinutes = autoRetryMinutes,
+        autoRetryMaxAttempts = autoRetryMaxAttempts,
+    )
+    val changedNewForm = V172ProjectDraftPolicy.changed(originalDraftSignature, draftSignature)
+    val currentFormForExit by rememberUpdatedState(newFormSnapshot)
+    val canWriteOnExit by rememberUpdatedState(
+        task == null && resolvedNewDraft && changedNewForm && !suppressNewDraftWrite
+    )
+    DisposableEffect(task?.id, draftGeneration) {
+        onDispose {
+            // Closing the Activity or detouring to Settings preserves the
+            // latest keystroke, even if debounce has not yet elapsed.
+            if (canWriteOnExit && !rejectLateAutosaves.get()) runCatching {
+                synchronized(newDraftStore) {
+                    if (!rejectLateAutosaves.get()) {
+                        newDraftStore.save(draftGeneration, currentFormForExit)
+                    }
+                }
+            }.onFailure {
+                android.util.Log.w("BacklotComposer",
+                    "Could not preserve local draft during exit", it)
+            }
+        }
+    }
+    LaunchedEffect(newFormSnapshot, changedNewForm, resolvedNewDraft, suppressNewDraftWrite) {
+        if (task == null && changedNewForm && resolvedNewDraft && !suppressNewDraftWrite) {
+            kotlinx.coroutines.delay(180)
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    synchronized(newDraftStore) {
+                        if (!rejectLateAutosaves.get()) {
+                            newDraftStore.save(draftGeneration, newFormSnapshot)
+                        }
+                    }
+                }
+            }
+            newDraftWriteError = result.isFailure
+            if (result.isSuccess) persistedNewFormSignature = draftSignature
+        }
+    }
     var confirmDiscard by rememberSaveable(task?.id) { mutableStateOf(false) }
     var handledDismissToken by rememberSaveable(task?.id) { mutableIntStateOf(dismissRequestToken) }
     fun requestExit() {
@@ -363,6 +440,13 @@ internal fun PProjectComposer(
     if (task == null) {
         V20NewProjectWizard(
             startWithQuickCreate = startWithQuickCreate,
+            draftStatusLabel = when {
+                newDraftWriteError -> "Draft save failed · current form still open"
+                persistedNewFormSignature == draftSignature && changedNewForm ->
+                    "Draft saved on this phone · project not created"
+                changedNewForm -> "Unsaved changes · saving local draft"
+                else -> "New project · not saved yet"
+            },
             profile = defaults.creatorProfile,
             title = title,
             onTitleChange = { title = it },
@@ -433,6 +517,20 @@ internal fun PProjectComposer(
             onOpenSettings = onOpenSettings,
             onDismiss = { requestExit() },
             onCreate = {
+                // Snapshot every field before the parent queues a project write.
+                // The parent removes this exact journal only after durable
+                // receipt confirms the project is saved.
+                runCatching {
+                    synchronized(newDraftStore) {
+                        if (!rejectLateAutosaves.get()) {
+                            newDraftStore.save(draftGeneration, newFormSnapshot)
+                        }
+                    }
+                }.onSuccess { persistedNewFormSignature = draftSignature }
+                    .onFailure {
+                        android.util.Log.w("BacklotComposer",
+                            "Local draft save failed before project creation", it)
+                    }
                 onSave(
                     PProjectDraft(
                         title = title.trim(),
@@ -468,8 +566,107 @@ internal fun PProjectComposer(
                 )
             },
         )
+        if (askToResumeNewDraft && recoverableNewDraft != null) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Resume unfinished project?") },
+                text = {
+                    Text(
+                        "A local project draft was saved on this phone. Resume it or start fresh. " +
+                            "This is not a created project or a cloud backup.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val d = recoverableNewDraft
+                        title = d.title
+                        creatorModeId = d.creatorModeId
+                        archetypeId = d.archetypeId
+                        savedStyleList = ArrayList(d.productionStyles)
+                        platform = d.platform
+                        contentType = d.contentType
+                        dueAt = d.dueAt
+                        attentionPlan = d.attentionPlan
+                        deliveryPreference = d.deliveryPreference
+                        customReminderAt = d.customReminderAt
+                        priority = d.priority
+                        notes = d.notes
+                        soundUri = d.soundUri
+                        voiceMusicMode = d.voiceMusicMode
+                        voiceMusicUri = d.voiceMusicUri
+                        voice = d.voice
+                        repeatCount = d.repeatCount
+                        repeatGap = d.repeatGap
+                        alarmTimeout = d.alarmTimeout
+                        snoozeMinutes = d.snoozeMinutes
+                        autoRetryEnabled = d.autoRetryEnabled
+                        autoRetryMinutes = d.autoRetryMinutes
+                        autoRetryMaxAttempts = d.autoRetryMaxAttempts
+                        resolvedNewDraft = true
+                        askToResumeNewDraft = false
+                    }) { Text("RESUME DRAFT") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        runCatching { newDraftStore.clear(draftGeneration) }
+                            .onSuccess {
+                                resolvedNewDraft = true
+                                askToResumeNewDraft = false
+                            }
+                            .onFailure {
+                                newDraftWriteError = true
+                            }
+                    }) { Text("START FRESH") }
+                },
+            )
+        }
         if (confirmDiscard) {
-            V172ConfirmDiscardDialog(onKeep = { confirmDiscard = false }, onDiscard = onDismiss)
+            AlertDialog(
+                onDismissRequest = { confirmDiscard = false },
+                title = { Text("Leave unfinished project?") },
+                text = {
+                    Text("Save a recoverable draft on this phone, keep editing, or explicitly discard it.")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        runCatching {
+                            synchronized(newDraftStore) {
+                                newDraftStore.save(draftGeneration, newFormSnapshot)
+                                rejectLateAutosaves.set(true)
+                            }
+                        }.onSuccess {
+                            suppressNewDraftWrite = true
+                            onDismiss()
+                        }
+                            .onFailure { newDraftWriteError = true }
+                    }) { Text("SAVE DRAFT & EXIT") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDiscard = false }) { Text("KEEP EDITING") }
+                    TextButton(onClick = {
+                        runCatching {
+                            synchronized(newDraftStore) {
+                                rejectLateAutosaves.set(true)
+                                newDraftStore.clear(draftGeneration)
+                            }
+                        }.onSuccess {
+                            suppressNewDraftWrite = true
+                            onDismiss()
+                        }
+                            .onFailure { newDraftWriteError = true }
+                    }) { Text("DISCARD") }
+                },
+            )
+        }
+        if (newDraftWriteError) {
+            AlertDialog(
+                onDismissRequest = { newDraftWriteError = false },
+                title = { Text("Local draft needs attention") },
+                text = { Text("Backlot could not save or clear this project draft. Your current form remains open. Try again.") },
+                confirmButton = {
+                    TextButton(onClick = { newDraftWriteError = false }) { Text("CONTINUE") }
+                },
+            )
         }
         return
     }
