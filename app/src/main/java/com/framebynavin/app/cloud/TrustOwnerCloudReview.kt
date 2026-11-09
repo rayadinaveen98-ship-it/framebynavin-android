@@ -322,6 +322,80 @@ internal class TrustOwnerCloudReview(
         }
     }
 
+    /**
+     * Owner re-authentication of the exact ciphertext used by an INTERRUPTED
+     * unified recovery. Creator data may already have been imported, so an
+     * ordinary new-restore conflict preview would be inappropriate here.
+     *
+     * The persisted native journal, signed-in owner, SHA and source revision
+     * are verified BEFORE any caller may resume the unfinished native stage.
+     */
+    internal suspend fun <T> withPendingReviewedRestoreSource(
+        selected: SourceCoverageReview,
+        checkpoint: TrustUnifiedRestoreJournal.Checkpoint,
+        passphrase: CharArray,
+        action: suspend (
+            verified: TrustVerifiedStagedBundle,
+            actualHead: TrustCloudRevisionHead,
+        ) -> T,
+    ): T {
+        require(passphrase.size in 12..512 &&
+            selected.ownerId == checkpoint.ownerId &&
+            selected.remoteRevision == checkpoint.remoteRevision &&
+            selected.encryptedLocalReviewId == checkpoint.reviewedSourceId &&
+            uuid.matches(selected.encryptedLocalReviewId)) {
+            "Interrupted restore source does not match its owner journal"
+        }
+        check(checkpoint.stage.ordinal >=
+            TrustUnifiedRestoreJournal.Stage.CREATOR_COMMITTED.ordinal &&
+            TrustUnifiedRestoreJournal.inspect(app) == checkpoint) {
+            "Creator must have committed before Personal recovery can resume"
+        }
+        return accounts.withFreshSession { session ->
+            check(session.userId == checkpoint.ownerId &&
+                transport.phase(session) == "active") {
+                "Owner identity or cloud backup deletion state changed"
+            }
+            val head = checkNotNull(transport.head(session))
+            check(head.revision == checkpoint.remoteRevision &&
+                head.encryptedSha256 == checkpoint.encryptedSourceSha256 &&
+                head.encryptedBytes == selected.encryptedBytes) {
+                "Interrupted restore references a cloud backup that changed"
+            }
+            val file = File(
+                ensurePrivateRoot(),
+                "review-" + checkpoint.reviewedSourceId + ".enc",
+            )
+            check(file.isFile && !Files.isSymbolicLink(file.toPath()))
+            val descriptor = TrustCloudCiphertextDescriptor(
+                session.userId, head.objectPath,
+                head.encryptedSha256, head.encryptedBytes,
+            )
+            withContext(Dispatchers.IO) {
+                TrustCloudVerifiedReadback.verify(
+                    file.inputStream().buffered(), descriptor,
+                )
+                file.inputStream().buffered().use { encrypted ->
+                    TrustEncryptedStagingCodec.stageAndVerify(
+                        session.userId, passphrase, encrypted, app.cacheDir,
+                    ).use { staged ->
+                        val coverage = TrustRestorableSourceReview.inspect(app, staged)
+                        check(coverage.missingRequiredSources.isEmpty() &&
+                            coverage.uncoveredPreferenceKeys.isEmpty()) {
+                            "An incomplete source cannot resume a live restore"
+                        }
+                        val result = action(staged, head)
+                        check(transport.phase(session) == "active")
+                        TrustT1C4CloudRevisionPolicy.requireUnchanged(
+                            head, transport.head(session), session.userId,
+                        )
+                        result
+                    }
+                }
+            }
+        }
+    }
+
     internal data class PreparedUnifiedSource(
         val ownerId: String,
         val remoteRevision: Long,
