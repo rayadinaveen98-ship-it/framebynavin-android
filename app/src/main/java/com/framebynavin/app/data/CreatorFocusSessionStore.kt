@@ -107,13 +107,52 @@ internal class CreatorFocusSessionStore(context: Context) {
 
     fun exportJson(): String = synchronized(lock) { CreatorFocusSessionCodec.encode(loadLocked()) }
 
+    /**
+     * Portable Creator backups must not carry a device-local monotonic clock anchor.
+     * Pause exported copies at their last durable active-time checkpoint; never infer
+     * any time from another phone's uptime or device wall clock.
+     * This changes only the exported copy, never pauses the local live session.
+     */
+    fun exportPortableJson(): String = synchronized(lock) {
+        val saved = loadLocked()
+        val safeActive = saved.active?.let { active ->
+            if (active.state == CreatorFocusState.RUNNING) {
+                active.copy(
+                    state = CreatorFocusState.PAUSED,
+                    segmentStartedElapsedMillis = -1L,
+                    segmentBootCount = -1,
+                    recoveredAfterReboot = true,
+                ).checked()
+            } else active
+        }
+        CreatorFocusSessionCodec.encode(saved.copy(active = safeActive))
+    }
+
+    /** Before restoring any older backup with no Focus section, prevent silent data loss. */
+    fun hasOwnerData(): Boolean = synchronized(lock) {
+        val saved = loadLocked()
+        saved.active != null || saved.history.isNotEmpty()
+    }
+
     fun validateJson(raw: String): CreatorFocusLedger = CreatorFocusSessionCodec.decode(raw)
 
     /** Explicit owner-approved restore only. Never merges two live sessions. */
     fun importAfterApprovedRestore(raw: String): CreatorFocusLedger = synchronized(lock) {
         val checked = validateJson(raw)
-        saveLocked(checked)
-        checked
+        // Never trust a portable running anchor from another device/boot. Even if
+        // it matches by coincidence, count only durably recorded active time.
+        val safe = checked.copy(active = checked.active?.let { current ->
+            if (current.state == CreatorFocusState.RUNNING) {
+                current.copy(
+                    state = CreatorFocusState.PAUSED,
+                    segmentStartedElapsedMillis = -1L,
+                    segmentBootCount = -1,
+                    recoveredAfterReboot = true,
+                ).checked()
+            } else current
+        }).checked()
+        saveLocked(safe)
+        safe
     }
 
     fun create(session: CreatorFocusSession): CreatorFocusLedger = change { ledger ->
