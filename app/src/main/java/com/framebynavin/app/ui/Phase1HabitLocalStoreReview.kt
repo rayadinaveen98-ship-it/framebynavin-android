@@ -44,7 +44,10 @@ import kotlinx.coroutines.launch
  * NOT claim that voice/alarm/quiet notifications work yet.
  */
 @Composable
-internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
+internal fun Phase1HabitLocalStoreReview(
+    onClose: () -> Unit,
+    onOpenLinkedSpace: (String) -> Unit = {},
+) {
     val context = LocalContext.current
     val store = remember(context) { Phase1HabitStore(context) }
     val groupStore = remember(context) { V298ReminderGroupStore(context) }
@@ -228,6 +231,9 @@ internal fun Phase1HabitLocalStoreReview(onClose: () -> Unit) {
                             linkSpaceId = selected.linkedSpaceId
                             linkGroupId = selected.linkedGroupId
                             linkDialog = true
+                        },
+                        onOpenLinkedSpace = selected.linkedSpaceId?.let { id ->
+                            { onOpenLinkedSpace(id) }
                         },
                         onDone = {
                             if (!saving) {
