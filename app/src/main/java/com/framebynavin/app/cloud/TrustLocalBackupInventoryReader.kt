@@ -2,6 +2,10 @@ package com.framebynavin.app.cloud
 
 import android.content.Context
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorPostPublishStore
+import com.framebynavin.app.data.CreatorWorkflowTimelineStore
+import com.framebynavin.app.data.ProjectPulseHistoryStore
+import com.framebynavin.app.data.WeeklyScheduleStore
 import com.framebynavin.app.data.CreatorHeroArchive
 import com.framebynavin.app.data.PortableBestFrameMedia
 import com.framebynavin.app.personal.StabilizationPersonalMutationGate
@@ -44,6 +48,16 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
             val ideaJson = ideas.exportJson()
             val focusJson = focus.exportPortableJson()
             val focusLedger = CreatorFocusSessionCodec.decode(focusJson)
+            val weeklyStore = WeeklyScheduleStore(app)
+            // Null is an unseeded plan, not a verified empty backup.
+            // This bypasses loadOrSeed so inventory never edits the schedule.
+            val persistedWeekly = weeklyStore.inspectSavedForInventory()
+            val transitions = CreatorWorkflowTimelineStore(app)
+            val transitionJson = transitions.exportJson()
+            val pulses = ProjectPulseHistoryStore(app)
+            val pulseJson = pulses.exportJson()
+            val publishing = CreatorPostPublishStore(app)
+            val publishingJson = publishing.exportJson()
             // Active Best Frames ARE the saved Home slideshow collection.
             // Voice recordings and rollback-only frame files remain separate
             // pending categories; do not pretend they are included.
@@ -83,7 +97,23 @@ internal class TrustLocalBackupInventoryReader(context: Context) {
                 // originals; reuse the VERIFIED bytes rather than a second
                 // read or an invented independent collection.
                 bestFramesProof.copy(domain = TrustBackupDomain.HOME_SLIDESHOW_MEDIA),
-            )
+                TrustBackupInventoryPolicy.evidence(
+                    TrustBackupDomain.CREATOR_WORKFLOW_TIMELINE,
+                    transitionJson, transitions.validateJson(transitionJson),
+                ),
+                TrustBackupInventoryPolicy.evidence(
+                    TrustBackupDomain.CREATOR_PULSE_HISTORY,
+                    pulseJson, pulses.validateJson(pulseJson),
+                ),
+                TrustBackupInventoryPolicy.evidence(
+                    TrustBackupDomain.CREATOR_POST_PUBLISH,
+                    publishingJson, publishing.validateJson(publishingJson),
+                ),
+            ) + listOfNotNull(persistedWeekly?.let { (raw, count) ->
+                TrustBackupInventoryPolicy.evidence(
+                    TrustBackupDomain.CREATOR_WEEKLY_SLOTS, raw, count,
+                )
+            })
         }
 
         // Stable Personal lock and photo integrity preflight; any corrupt store,
