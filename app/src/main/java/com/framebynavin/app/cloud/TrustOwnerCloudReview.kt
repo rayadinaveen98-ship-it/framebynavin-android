@@ -583,17 +583,20 @@ internal class TrustOwnerCloudReview(
                         var creatorFile: File? = null
                         var personalFile: File? = null
                         try {
-                            creatorFile = creatorBridge
+                            val creatorCandidate = creatorBridge
                                 .preparePortableCandidateAfterOwnerApproval(
                                     staged, ownerApprovedPreparation = true,
                                 )
-                            personalFile = personalBridge.prepareEncryptedV2Candidate(
-                                staged, personalZipPassphrase,
-                            )
-                            check(creatorFile.isFile &&
-                                creatorFile.length() in 1L..(1024L * 1024 * 1024) &&
-                                personalFile.isFile &&
-                                personalFile.length() in 1L..(1024L * 1024 * 1024)
+                            creatorFile = creatorCandidate
+                            val personalCandidate =
+                                personalBridge.prepareEncryptedV2Candidate(
+                                    staged, personalZipPassphrase,
+                                )
+                            personalFile = personalCandidate
+                            check(creatorCandidate.isFile &&
+                                creatorCandidate.length() in 1L..(1024L * 1024 * 1024) &&
+                                personalCandidate.isFile &&
+                                personalCandidate.length() in 1L..(1024L * 1024 * 1024)
                             ) {
                                 "One native Backlot restore candidate is missing"
                             }
@@ -607,8 +610,8 @@ internal class TrustOwnerCloudReview(
                             PreparedUnifiedSource(
                                 ownerId = session.userId,
                                 remoteRevision = head.revision,
-                                creatorPortableBytes = creatorFile.length(),
-                                personalEncryptedBytes = personalFile.length(),
+                                creatorPortableBytes = creatorCandidate.length(),
+                                personalEncryptedBytes = personalCandidate.length(),
                                 existingCreatorRecords =
                                     currentCreator.existingProjects +
                                         currentCreator.existingIdeas,
