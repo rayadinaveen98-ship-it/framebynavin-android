@@ -19,7 +19,7 @@ import kotlin.math.roundToInt
 internal enum class FC13SparkNotificationMood { ALERT, SPEAK, CALM }
 
 internal object FC13SparkNotificationIdentity {
-    const val STATUS_BAR_ICON = R.drawable.backlot_v198_notification_monochrome
+    val STATUS_BAR_ICON: Int = R.drawable.backlot_v198_notification_monochrome
 
     /** Never replace the mandatory small icon; decoding failure retains it. */
     fun decoratePrivate(
