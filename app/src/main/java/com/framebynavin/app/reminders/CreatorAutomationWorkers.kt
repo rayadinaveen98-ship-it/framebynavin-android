@@ -92,7 +92,7 @@ class CreatorAutoPlanWorker(
                 state.recordPlannerRun(plan.created.size)
                 Result.success()
             }
-        } catch (failure: kotlin.coroutines.cancellation.CancellationException) {
+        } catch (failure: java.util.concurrent.CancellationException) {
             // A stopped/cancelled worker is not an acknowledged retry or a
             // confirmed run; WorkManager owns cancellation lifecycle.
             throw failure
