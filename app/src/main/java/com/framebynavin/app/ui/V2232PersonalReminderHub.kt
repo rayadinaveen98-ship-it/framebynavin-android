@@ -222,6 +222,14 @@ internal fun V2232PersonalReminderHub(
         val am = context.getSystemService(AlarmManager::class.java)
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms()
     }
+    // Android 14+ special access is independent of POST_NOTIFICATIONS.
+    // Refresh on return from Settings; do not assume an alarm can open full-screen.
+    val fullScreenReady = remember(permissionRevision, context) {
+        com.framebynavin.app.reminders.V268FullScreenReminderAccess.allowed(context)
+    }
+    val hasActivePersonalAlarm = reminders.any {
+        !it.paused && it.alert == PersonalAlert.ALARM
+    }
 
     CreatorAdaptiveFullScreen(onDismissRequest = onClose) {
         Row(
@@ -432,8 +440,40 @@ internal fun V2232PersonalReminderHub(
                 Text("Exact timing is unavailable; Android may deliver personal alerts later.",
                     color = MutedText, fontSize = 11.sp)
             }
-            // The standalone Personal media/ringing services are intentionally
-            // not enabled: a selected Voice or Alarm is clearly labeled fallback.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                hasActivePersonalAlarm && !fullScreenReady) {
+                Surface(
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("fc13-personal-fullscreen-fallback"),
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Full-screen alarm access is off", color = ProjectorIvory,
+                            fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Your alarm remains a high-priority, tappable notification with Done and Snooze. " +
+                                "Android may show a heads-up alert instead of opening Backlot.",
+                            color = MutedText, fontSize = 12.sp,
+                        )
+                        TextButton(onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                        data = android.net.Uri.parse("package:${context.packageName}")
+                                    }
+                                )
+                            }.onFailure {
+                                infoMessage = "Full-screen settings unavailable. Open Android app settings for Backlot."
+                            }
+                        }, modifier = Modifier.testTag("fc13-open-fullscreen-settings")) {
+                            Text("REVIEW ANDROID ACCESS", color = RecRed)
+                        }
+                    }
+                }
+            }
+            // Existing notification and token-backed actions remain the fallback.
             Text("Voice and Alarm attempt short audio playback when Android permits; notifications and response buttons stay available.",
                 color = MutedText, fontSize = 10.sp,
                 modifier = Modifier.testTag("v2232-personal-fallback-notice"))
@@ -483,6 +523,24 @@ internal fun V2232PersonalReminderHub(
                                     modifier = Modifier.size(19.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text("Notifications blocked · Open Personal settings",
+                                    color = ProjectorIvory, fontSize = 12.sp)
+                            }
+                        }
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                        hasActivePersonalAlarm && !fullScreenReady) {
+                        Surface(
+                            onClick = { personalPageName = "SETTINGS" },
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, CinemaLine),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-alarm-heads-up-fallback"),
+                        ) {
+                            Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.NotificationsActive, null,
+                                    tint = RecRed, modifier = Modifier.size(19.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Alarm will use notification fallback · Review settings",
                                     color = ProjectorIvory, fontSize = 12.sp)
                             }
                         }
