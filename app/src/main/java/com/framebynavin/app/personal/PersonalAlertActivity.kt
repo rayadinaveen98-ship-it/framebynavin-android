@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.ui.CinePulseGuide
 import com.framebynavin.app.ui.CinePulseState
+import com.framebynavin.app.reminders.V268FullScreenReminderAccess
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.ui.theme.CinemaBlack
 import com.framebynavin.app.ui.theme.RecRed
@@ -81,8 +82,11 @@ internal class PersonalAlertActivity : ComponentActivity() {
         val id = personalId
         val token = personalToken
         if (id.isBlank() || token.isBlank()) { finish(); return }
-        if (intent.getBooleanExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false)) {
-            // Do not set these for VOICE or ordinary Personal notifications.
+        if (intent.getBooleanExtra(PersonalFullScreenPolicy.EXTRA_ALARM_VISUAL, false) &&
+            V268FullScreenReminderAccess.allowed(this)) {
+            // Recheck Android 14+ special access at OPEN time too: the owner may
+            // have revoked it since this immutable notification was posted.
+            // Voice, follow-ups and ordinary notifications never request over-keyguard UI.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 setShowWhenLocked(true)
                 setTurnScreenOn(true)
