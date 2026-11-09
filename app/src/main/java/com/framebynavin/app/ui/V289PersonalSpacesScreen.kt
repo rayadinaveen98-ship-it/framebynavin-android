@@ -58,6 +58,7 @@ internal fun V289PersonalSpacesScreen(
     onClose: () -> Unit,
     databaseForTesting: V289SpacesDatabase? = null,
     onEditReminder: (String) -> Unit = {},
+    initialSpaceId: String? = null,
 ) {
     val context = LocalContext.current.applicationContext
     val database = remember(context, databaseForTesting) {
@@ -98,7 +99,11 @@ internal fun V289PersonalSpacesScreen(
     }
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
-    var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    // A linked 21-day challenge opens the same existing Space journal.
+    // No Space is created and no selected ID is persisted on navigation.
+    var selectedSpaceId by remember(initialSpaceId) {
+        mutableStateOf(initialSpaceId)
+    }
     var newNoteText by remember(selectedSpaceId) { mutableStateOf("") }
     var allNotesVisible by remember(selectedSpaceId) { mutableStateOf(false) }
     var spaceActionsOpen by remember(selectedSpaceId) { mutableStateOf(false) }
