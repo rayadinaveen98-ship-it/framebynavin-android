@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.cloud.CreatorCloudSyncWorker
+import com.framebynavin.app.cloud.TrustT1C3StartupRecovery
 import com.framebynavin.app.data.CreatorBackupManager
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.reminders.CreatorAutoPlanWorker
@@ -87,6 +88,12 @@ class MainActivity : ComponentActivity() {
         startupError = null
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
+                // Isolated abandoned encryption stage cleanup; never touch a saved backup.
+                runCatching {
+                    TrustT1C3StartupRecovery.recoverOnMainActivityStartup(applicationContext)
+                }.onFailure {
+                    android.util.Log.w("BacklotTrust", "Encrypted staging cleanup needs review")
+                }
                 CreatorBackupManager(applicationContext).recoverPendingRestore()
                 VoiceIdeaRecorder.cleanupAbandonedWorkingFiles(applicationContext)
                 ReminderNotifications.ensureChannel(applicationContext)
