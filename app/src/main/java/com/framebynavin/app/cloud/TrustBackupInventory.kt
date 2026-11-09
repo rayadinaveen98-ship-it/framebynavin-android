@@ -58,8 +58,11 @@ internal data class TrustBackupInventory(
      */
     val crossStoreAtomicityVerified: Boolean = false,
 ) {
+    // A metadata-only inspection can NEVER authorize a complete-backup claim,
+    // even if future callers accidentally mark every domain as observed. T1C
+    // must prove source atomicity, byte capture, encryption and durable restore.
     val canClaimCompleteBackup: Boolean
-        get() = pendingDomains.isEmpty() && crossStoreAtomicityVerified
+        get() = false
     val canUploadAsUniversalBackup: Boolean
         get() = false // T1C must separately implement encrypted owner-scoped upload.
 }
