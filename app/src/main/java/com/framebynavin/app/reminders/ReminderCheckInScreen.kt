@@ -164,7 +164,8 @@ internal fun ReminderCheckInScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                V329ReminderMotionScene(
+                V330ReminderPrototypeScene(
+                    domain = V329ReminderDomain.CREATOR,
                     channel = visualChannel,
                     appearance = appearance,
                     onReveal = { revealed = true },
