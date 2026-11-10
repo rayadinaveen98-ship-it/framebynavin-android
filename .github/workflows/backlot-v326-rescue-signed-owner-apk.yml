@@ -1,0 +1,85 @@
+name: Backlot V326-Rescue Lean Owner APK - Proven V324 Base
+
+on:
+  push:
+    branches:
+      - release/backlot-v326-rescue-proven-base-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Monitor JVM memory and Kotlin compilation progress
+        shell: bash
+        run: |
+          cat > monitor-compiler.sh <<'SH'
+          #!/usr/bin/env bash
+          while sleep 180; do
+            echo "===== $(date -u +%FT%TZ) compiler memory ====="
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm,args --sort=-rss | cut -c 1-180 | head -n 9
+            for pid in $(pgrep -f 'org.gradle.launcher.daemon.bootstrap.GradleDaemon' || true); do
+              echo "===== Gradle JVM $pid ====="
+              timeout 15s jcmd "$pid" GC.heap_info 2>&1 || true
+              timeout 15s jcmd "$pid" Thread.print -l > "v326-rescue-gradle-thread-dump-${pid}.txt" 2>&1 || true
+            done
+          done
+          SH
+          chmod +x monitor-compiler.sh
+          nohup ./monitor-compiler.sh > v326-rescue-compiler-monitor.log 2>&1 &
+      - name: Compile and package signed personalStable APK
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=TERM --kill-after=30s 2400s \
+            gradle :app:assemblePersonalStable -PbacklotSignedOwnerTest=true \
+            -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee v326-rescue-build.log
+      - name: Verify package, signing, and SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          apk="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$apk"
+          cp "$apk" output/Backlot-V326-Rescue-Lean-Owner-Preview.apk
+          sha256sum output/Backlot-V326-Rescue-Lean-Owner-Preview.apk > output/SHA256SUMS.txt
+          signer=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -x "$signer"
+          "$signer" verify --verbose --print-certs output/Backlot-V326-Rescue-Lean-Owner-Preview.apk | tee output/SIGNING-VERIFY.txt
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          test -x "$aapt"
+          "$aapt" dump badging output/Backlot-V326-Rescue-Lean-Owner-Preview.apk | head -n 7 | tee output/APK-IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='326'" output/APK-IDENTITY.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V326-Rescue-Lean-Owner-Signed-APK
+          path: output/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload compiler evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V326-Rescue-Build-Diagnostics
+          path: |
+            v326-rescue-build.log
+            v326-rescue-compiler-monitor.log
+            v326-rescue-gradle-thread-dump-*.txt
+          if-no-files-found: ignore
+          retention-days: 3
