@@ -78,6 +78,50 @@ private fun Choice(label: String, active: Boolean, onClick: () -> Unit) {
     }
 }
 
+/**
+ * Fresh state from the approved review prototype. No bundled habit, title,
+ * schedule, or sample completion is inserted into the real Personal store.
+ */
+@Composable
+internal fun EmptyHabitReview(onCreate: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        AccentLabel("PERSONAL / CHALLENGES")
+        Text(
+            "21-Day Challenge",
+            color = BacklotPrimaryText, fontSize = 27.sp,
+            lineHeight = 32.sp, fontWeight = FontWeight.Bold,
+        )
+        Hint("One repeatable action. Twenty-one calendar days. Your own progress.")
+        ReviewPanel(featured = true) {
+            Text(
+                "No challenges yet",
+                color = BacklotPrimaryText, fontSize = 19.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Hint("A fresh start. No preset walking routine, personal schedule, " +
+                "or sample completion has been added.")
+            Button(
+                onClick = onCreate,
+                modifier = Modifier.fillMaxWidth().height(50.dp)
+                    .testTag("habit-empty-create"),
+                shape = RoundedCornerShape(13.dp),
+            ) { Text("Create my first challenge", fontWeight = FontWeight.Bold) }
+        }
+        ReviewPanel {
+            Text("Make it achievable", color = BacklotPrimaryText,
+                fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Hint("Choose just one action you can repeat daily. Mark Done only " +
+                "after doing it; check any date for notes or an actual confirmation.")
+            Hint("Daily alerts are optional. Start with Off and decide later " +
+                "if you want Android reminders.")
+        }
+    }
+}
+
 @Composable
 internal fun CreateHabitReview(
     title: String, onTitle: (String) -> Unit,

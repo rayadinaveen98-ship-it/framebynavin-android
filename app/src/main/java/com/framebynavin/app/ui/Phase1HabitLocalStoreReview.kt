@@ -170,7 +170,33 @@ internal fun Phase1HabitLocalStoreReview(
                         }
                     }
                 }
-                if (creating || selected == null) {
+                if (!creating && selected != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("MY CHALLENGES", color = BacklotSecondaryText,
+                            style = MaterialTheme.typography.labelSmall)
+                        TextButton(
+                            onClick = {
+                                creating = true
+                                title = ""
+                                validationError = false
+                                message = null
+                                startDate = LocalDate.now(zone)
+                                alertKind = null
+                                completionMode = Phase1HabitCompletionMode.STRICT
+                            },
+                            enabled = !saving,
+                            modifier = Modifier.testTag("habit-create-another"),
+                        ) { Text("+ NEW", color = BacklotAccent) }
+                    }
+                }
+                if (!creating && selected == null) {
+                    EmptyHabitReview(onCreate = { creating = true })
+                } else if (creating) {
                     CreateHabitReview(
                         title = title,
                         onTitle = { title = it.take(200); validationError = false; message = null },
