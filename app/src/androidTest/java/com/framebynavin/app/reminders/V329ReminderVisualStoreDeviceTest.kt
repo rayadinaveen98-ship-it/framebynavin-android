@@ -24,7 +24,7 @@ class V329ReminderVisualStoreDeviceTest {
             val reloaded = V329ReminderVisualStore(context)
             keys.forEachIndexed { i, (domain, channel) ->
                 assertEquals(styles[i], reloaded.get(domain, channel).world)
-                assertEquals(.2f + i * .1f, reloaded.get(domain, channel).intensity)
+                assertEquals(.2f + i * .1f, reloaded.get(domain, channel).intensity, .0001f)
             }
         } finally {
             backups.forEach { (key, config) -> store.set(key.first, key.second, config) }
