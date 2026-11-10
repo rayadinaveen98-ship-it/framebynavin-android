@@ -27,9 +27,9 @@ class V329ReminderVisualPolicyTest {
             world = V329ReminderWorld.OBSIDIAN,
             intensity = -2f, density = 9f, speed = -1f,
         ).normalized()
-        assertEquals(.15f, safe.intensity)
-        assertEquals(1f, safe.density)
-        assertEquals(.15f, safe.speed)
+        assertEquals(.15f, safe.intensity, .0001f)
+        assertEquals(1f, safe.density, .0001f)
+        assertEquals(.15f, safe.speed, .0001f)
         assertTrue(safe.world == V329ReminderWorld.OBSIDIAN)
     }
 }
