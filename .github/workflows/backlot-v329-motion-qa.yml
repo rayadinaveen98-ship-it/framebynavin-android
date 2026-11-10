@@ -68,7 +68,7 @@ jobs:
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee output/v329/SIGNATURE.txt
           EXPECTED=$(keytool -exportcert -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev | sha256sum | cut -d ' ' -f 1)
-          ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' output/v329/SIGNATURE.txt)
+          ACTUAL=$(sed -n -E 's/^(V2 Signer|Signer #1): certificate SHA-256 digest: //p' output/v329/SIGNATURE.txt | head -n 1)
           test "$ACTUAL" = "$EXPECTED"
           printf '%s\n' "$GITHUB_SHA" > output/v329/COMMIT.txt
           cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v329/Backlot-V329-Motion-Owner-Preview.apk
