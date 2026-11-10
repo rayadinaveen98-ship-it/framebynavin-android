@@ -52,7 +52,7 @@ jobs:
       - name: Verify visual presentation policy
         run: |
           set -euo pipefail
-          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.reminders.V329ReminderVisualPolicyTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          gradle :app:testPersonalStableUnitTest --tests 'com.framebynavin.app.reminders.V329ReminderVisualPolicyTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Compile owner-upgrade compatible V329 preview
         run: |
           set -euo pipefail
