@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s candidate/Backlot-V327-Lean-Owner-Preview.apk
-          (cd candidate && sha256sum -c SHA256SUMS.txt)
+          sed 's|output/||' candidate/SHA256SUMS.txt | (cd candidate && sha256sum -c -)
           echo "0dc2a2932afdfd1709f3e7203ec018dee14a8b0222a9dbfca4f2b44339ee4c5c  candidate/Backlot-V327-Lean-Owner-Preview.apk" | sha256sum -c -
           grep -Fq "versionCode='327'" candidate/APK-IDENTITY.txt
           test -s candidate/SIGNING-VERIFY.txt
