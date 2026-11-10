@@ -1,5 +1,6 @@
 package com.framebynavin.app.personal
 
+import android.animation.ValueAnimator
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.Build
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,6 +39,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.framebynavin.app.reminders.V329ReminderChannel
+import com.framebynavin.app.reminders.V329ReminderDomain
+import com.framebynavin.app.reminders.V329ReminderMotionScene
+import com.framebynavin.app.reminders.V329ReminderVisualStore
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.lang.Math.PI
 import kotlin.math.cos
@@ -149,17 +155,40 @@ internal class PersonalAlertActivity : ComponentActivity() {
                         }
                     }
                 }
-                V2233PersonalAlertScreen(
-                    reminder = reminder,
-                    invalid = invalid,
-                    busy = saving,
-                    error = error,
-                    locked = keyguardShowing,
-                    onDone = { respond(PersonalDeliveryContract.ACTION_DONE) },
-                    onSnooze = { respond(PersonalDeliveryContract.ACTION_SNOOZE) },
-                    onDismiss = { respond(PersonalDeliveryContract.ACTION_DISMISS) },
-                    onClose = { finish() },
-                )
+                // V329 adds a decorative gate only for active, unlocked Voice/Alarm
+                // alerts. Locked privacy, notification-only alerts, all actions,
+                // tokens, and the existing Personal screen stay as implemented.
+                val visualStore = remember { V329ReminderVisualStore(applicationContext) }
+                val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
+                var entryRevealed by rememberSaveable(id, token) {
+                    mutableStateOf(!motionEnabled)
+                }
+                val visualChannel = when (reminder?.alert) {
+                    PersonalAlert.ALARM -> V329ReminderChannel.ALARM
+                    PersonalAlert.VOICE -> V329ReminderChannel.VOICE
+                    else -> null
+                }
+                if (!keyguardShowing && !invalid && reminder != null &&
+                    visualChannel != null && !entryRevealed) {
+                    V329ReminderMotionScene(
+                        channel = visualChannel,
+                        appearance = visualStore.get(V329ReminderDomain.PERSONAL, visualChannel),
+                        onReveal = { entryRevealed = true },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    V2233PersonalAlertScreen(
+                        reminder = reminder,
+                        invalid = invalid,
+                        busy = saving,
+                        error = error,
+                        locked = keyguardShowing,
+                        onDone = { respond(PersonalDeliveryContract.ACTION_DONE) },
+                        onSnooze = { respond(PersonalDeliveryContract.ACTION_SNOOZE) },
+                        onDismiss = { respond(PersonalDeliveryContract.ACTION_DISMISS) },
+                        onClose = { finish() },
+                    )
+                }
             }
         }
     }
