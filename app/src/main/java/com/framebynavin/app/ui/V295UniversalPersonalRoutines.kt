@@ -34,6 +34,7 @@ internal fun V295UniversalPersonalRoutines(
     onCreateReminder: () -> Unit,
     onEditReminder: (PersonalReminder) -> Unit,
     onOpenSpaces: () -> Unit,
+    onOpenChallenges: () -> Unit,
     onOpenGroups: () -> Unit,
 ) {
     val active = reminders.filter { !it.paused }
@@ -101,6 +102,11 @@ internal fun V295UniversalPersonalRoutines(
                     }
                 }
             }
+            OutlinedButton(
+                enabled = enabled,
+                onClick = onOpenChallenges,
+                modifier = Modifier.fillMaxWidth().testTag("v328-routines-open-challenges"),
+            ) { Text("MY 21-DAY CHALLENGES") }
             OutlinedButton(
                 enabled = enabled,
                 onClick = onOpenGroups,

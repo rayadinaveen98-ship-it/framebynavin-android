@@ -22,6 +22,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
+import java.lang.ref.WeakReference
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -44,6 +45,8 @@ internal object Phase1HabitOccurrencePolicy {
 
 internal object Phase1HabitNotification {
     const val ACTION = "com.framebynavin.app.personal.HABIT_FIRE"
+    const val ACTION_SNOOZE = "com.framebynavin.app.personal.HABIT_SNOOZE"
+    const val SNOOZE_MINUTES = "backlot.habit.snooze_minutes"
     const val ID = "backlot.habit.id"
     const val AT = "backlot.habit.at"
     const val TEXT = "backlot.habit.activity"
@@ -71,25 +74,63 @@ internal object Phase1HabitNotification {
         if (manager.getNotificationChannel(VOICE) == null) manager.createNotificationChannel(
             NotificationChannel(VOICE, "21-day challenge voice", NotificationManager.IMPORTANCE_HIGH))
     }
-    fun build(context: Context, challenge: Phase1HabitChallenge): Notification {
+    fun build(
+        context: Context,
+        challenge: Phase1HabitChallenge,
+        scheduledAt: Long = 0L,
+    ): Notification {
         val kind = requireNotNull(challenge.alertKind)
         val open = Intent(context, MainActivity::class.java)
             .setAction(PersonalDeliveryContract.ACTION_OPEN_PERSONAL)
             .setData(Uri.parse("backlot-habit://open/" + Uri.encode(challenge.id)))
         val pi = PendingIntent.getActivity(context, challenge.id.hashCode(), open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Builder(context, channel(kind))
+        // Only the small white Spark silhouette may appear in the PUBLIC
+        // lock-screen version; activity name, action and large pose stay private.
+        val publicVersion = NotificationCompat.Builder(context, channel(kind))
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Backlot reminder")
+            .setContentText("Unlock to view today's activity")
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
+        val builder = NotificationCompat.Builder(context, channel(kind))
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("Today's 21-day activity")
             .setContentText(challenge.activity)
             .setContentIntent(pi)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(if (kind == Phase1HabitAlertKind.QUIET)
                 NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setSilent(kind == Phase1HabitAlertKind.QUIET)
-            .build()
+        // Only the exact, posted occurrence can be snoozed from the OS notice.
+        // Completing a challenge is never inferred from an alert interaction.
+        if (scheduledAt > 0L) {
+            val snooze = PendingIntent.getBroadcast(
+                context,
+                challenge.id.hashCode() xor 0x2140,
+                Intent(context, Phase1HabitSnoozeReceiver::class.java)
+                    .setAction(ACTION_SNOOZE)
+                    .setData(Uri.parse("backlot-habit://snooze/" +
+                        Uri.encode(challenge.id) + "/" + scheduledAt))
+                    .putExtra(ID, challenge.id)
+                    .putExtra(AT, scheduledAt)
+                    .putExtra(SNOOZE_MINUTES, 10),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.addAction(0, "SNOOZE 10m", snooze)
+        }
+        return builder.build()
+    }
+
+    fun cancelPosted(context: Context, challenge: Phase1HabitChallenge, at: Long) {
+        val day = LocalDate.ofInstant(Instant.ofEpochMilli(at), ZoneId.of(challenge.zoneId))
+        context.getSystemService(NotificationManager::class.java).cancel(
+            "backlot:habit:" + challenge.id + ":" + day,
+            challenge.id.hashCode(),
+        )
     }
 }
 
@@ -154,12 +195,14 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
                             ZoneId.of(record.zoneId))
                         app.getSystemService(NotificationManager::class.java).notify(
                             "backlot:habit:" + record.id + ":" + day,
-                            record.id.hashCode(), Phase1HabitNotification.build(app, record))
+                            record.id.hashCode(), Phase1HabitNotification.build(app, record, at))
                         if (record.alertKind == Phase1HabitAlertKind.VOICE) {
                             runCatching {
                                 ContextCompat.startForegroundService(app,
                                     Intent(app, Phase1HabitVoiceService::class.java)
-                                        .putExtra(Phase1HabitNotification.TEXT, record.activity))
+                                        .putExtra(Phase1HabitNotification.TEXT, record.activity)
+                                        .putExtra(Phase1HabitNotification.ID, record.id)
+                                        .putExtra(Phase1HabitNotification.AT, at))
                             }.onFailure {
                                 android.util.Log.w("BacklotHabit", "Voice playback restricted", it)
                             }
@@ -180,10 +223,24 @@ internal class Phase1HabitVoiceService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
     private var generation = 0
+    private var currentChallengeId = ""
+    private var currentScheduledAt = 0L
+
+    override fun onCreate() {
+        super.onCreate()
+        currentService = WeakReference(this)
+    }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val activity = intent?.getStringExtra(Phase1HabitNotification.TEXT)
+        val request = intent ?: return START_NOT_STICKY
+        val activity = request.getStringExtra(Phase1HabitNotification.TEXT)
             ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
+        val id = request.getStringExtra(Phase1HabitNotification.ID)
+            ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
+        val at = request.getLongExtra(Phase1HabitNotification.AT, 0L)
+        if (at <= 0L) return START_NOT_STICKY
+        currentChallengeId = id
+        currentScheduledAt = at
         val current = ++generation
         Phase1HabitNotification.ensureChannels(this)
         try {
@@ -231,9 +288,32 @@ internal class Phase1HabitVoiceService : Service() {
     }
     override fun onDestroy() {
         generation++
+        handler.removeCallbacksAndMessages(null)
         engine?.stop()
         engine?.shutdown()
         engine = null
+        currentChallengeId = ""
+        currentScheduledAt = 0L
+        if (currentService?.get() === this) currentService = null
         super.onDestroy()
+    }
+
+    companion object {
+        private var currentService: WeakReference<Phase1HabitVoiceService>? = null
+
+        /** A Snooze action stops ONLY the exact playing 21-day occurrence. */
+        fun stopMatching(challengeId: String, scheduledAt: Long) {
+            currentService?.get()?.let { service ->
+                service.handler.post {
+                    if (service.currentChallengeId == challengeId &&
+                        service.currentScheduledAt == scheduledAt
+                    ) {
+                        service.generation++
+                        service.engine?.stop()
+                        service.stopSelf()
+                    }
+                }
+            }
+        }
     }
 }

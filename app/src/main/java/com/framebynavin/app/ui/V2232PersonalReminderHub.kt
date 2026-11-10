@@ -98,6 +98,8 @@ internal fun V2232PersonalReminderHub(
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
+    var challengesOpen by rememberSaveable { mutableStateOf(false) }
+    var targetChallengeSpaceId by remember { mutableStateOf<String?>(null) }
     var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
     val personalPageScroll = remember(personalPageName) { ScrollState(0) }
@@ -314,6 +316,7 @@ internal fun V2232PersonalReminderHub(
                         editorOpen = true
                     },
                     onOpenSpaces = { spacesOpen = true },
+                    onOpenChallenges = { challengesOpen = true },
                     onOpenGroups = { reminderGroupsOpen = true },
                 )
             }
@@ -560,9 +563,24 @@ internal fun V2232PersonalReminderHub(
         )
     }
 
+    if (challengesOpen) {
+        Phase1HabitLocalStoreReview(
+            onClose = { challengesOpen = false },
+            onOpenLinkedSpace = { spaceId ->
+                targetChallengeSpaceId = spaceId
+                challengesOpen = false
+                spacesOpen = true
+            },
+        )
+    }
+
     if (spacesOpen) {
         V289PersonalSpacesScreen(
-            onClose = { spacesOpen = false },
+            onClose = {
+                spacesOpen = false
+                targetChallengeSpaceId = null
+            },
+            initialSpaceId = targetChallengeSpaceId,
             onEditReminder = { id ->
                 reminders.firstOrNull { it.id == id }?.let { reminder ->
                     editing = reminder
