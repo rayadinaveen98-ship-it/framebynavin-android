@@ -124,7 +124,7 @@ internal fun V329ReminderMotionScene(
     val tapLight = impulse.value
 
     Box(modifier.fillMaxSize().testTag("v329-motion-entry")) {
-        Canvas(Modifier.fillMaxSize().then(touch).testTag("v329-motion-canvas")) {
+        Canvas(Modifier.fillMaxSize().then(touch).testTag("v1952-ambient-particles")) {
             val w = size.width
             val h = size.height
             val short = min(w, h)
