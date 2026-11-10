@@ -122,6 +122,13 @@ internal fun ReminderCheckInScreen(
     val lowPower = remember(context) {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
+    // Visual appearance is independent of reminder delivery, audio and actions.
+    val visualStore = remember(context) { V329ReminderVisualStore(context) }
+    val visualChannel = if (kind == ReminderCheckInKind.ALARM)
+        V329ReminderChannel.ALARM else V329ReminderChannel.VOICE
+    val appearance = remember(visualChannel) {
+        visualStore.get(V329ReminderDomain.CREATOR, visualChannel)
+    }
     // The user, not an intro timer, chooses when to reveal controls.
     // When OS animations are disabled, accessible controls appear immediately.
     var revealed by rememberSaveable(kind, title) {
@@ -141,9 +148,9 @@ internal fun ReminderCheckInScreen(
             .fillMaxSize()
             .background(BacklotBackground),
     ) {
-        // Intro is UNCHANGED: clock/mic silhouette still forms from real particles.
-        // After the user's tap, crossfade to diffuse moving color waves only;
-        // no particles remain behind action buttons.
+        // V329: the user's chosen visual world builds the clock/mic from real particles.
+        // Single tap reacts; only double tap reveals unchanged controls. The
+        // existing post-reveal screen and V231 backdrop remain intact.
         Crossfade(
             targetState = revealed,
             animationSpec = tween(durationMillis = if (motionEnabled) 480 else 0),
@@ -157,13 +164,13 @@ internal fun ReminderCheckInScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                V195ReminderParticleScene(
-                    kind = kind,
-                    revealed = false,
-                    lowPower = lowPower,
+                V329ReminderMotionScene(
+                    channel = visualChannel,
+                    appearance = appearance,
                     onReveal = { revealed = true },
                     modifier = Modifier.fillMaxSize(),
-                    motionEnabled = motionEnabled,
+                    motionOverride = motionEnabled,
+                    lowPowerOverride = lowPower,
                 )
             }
         }
