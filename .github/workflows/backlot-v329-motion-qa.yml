@@ -6,10 +6,37 @@ on:
       - feature/backlot-v329-custom-reminder-motion-five-styles-20261110
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
+  cancel-redundant-v329:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Cancel explicitly superseded V329 runs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            for (const run_id of [42876203003, 42876094511]) {
+              const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id });
+              if (run.head_branch !== 'feature/backlot-v329-custom-reminder-motion-five-styles-20261110' ||
+                  run.path !== '.github/workflows/backlot-v329-motion-qa.yml') {
+                throw new Error(`Refusing to cancel unexpected run ${run_id}`);
+              }
+              if (run.status !== 'completed') {
+                await github.rest.actions.cancelWorkflowRun({ ...context.repo, run_id });
+                core.info(`Cancellation requested for ${run_id}`);
+              } else {
+                core.info(`${run_id} already completed: ${run.conclusion}`);
+              }
+            }
   compile-motion:
     runs-on: ubuntu-24.04
     timeout-minutes: 80
@@ -34,6 +61,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output/v329
+          APK=app/build/outputs/apk/personalStable/app-personalStable.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee output/v329/SIGNATURE.txt
+          EXPECTED=$(keytool -exportcert -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev | sha256sum | cut -d ' ' -f 1)
+          ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' output/v329/SIGNATURE.txt)
+          test "$ACTUAL" = "$EXPECTED"
+          printf '%s\n' "$GITHUB_SHA" > output/v329/COMMIT.txt
           cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v329/Backlot-V329-Motion-Owner-Preview.apk
           sha256sum output/v329/Backlot-V329-Motion-Owner-Preview.apk > output/v329/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
