@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.reminders.V329ReminderChannel
 import com.framebynavin.app.reminders.V329ReminderDomain
-import com.framebynavin.app.reminders.V329ReminderMotionScene
+import com.framebynavin.app.reminders.V330ReminderPrototypeScene
 import com.framebynavin.app.reminders.V329ReminderVisualStore
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.lang.Math.PI
@@ -170,7 +170,8 @@ internal class PersonalAlertActivity : ComponentActivity() {
                 }
                 if (!keyguardShowing && !invalid && reminder != null &&
                     visualChannel != null && !entryRevealed) {
-                    V329ReminderMotionScene(
+                    V330ReminderPrototypeScene(
+                        domain = V329ReminderDomain.PERSONAL,
                         channel = visualChannel,
                         appearance = visualStore.get(V329ReminderDomain.PERSONAL, visualChannel),
                         onReveal = { entryRevealed = true },
