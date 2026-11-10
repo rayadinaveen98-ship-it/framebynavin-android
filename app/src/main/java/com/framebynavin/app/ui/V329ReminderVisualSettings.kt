@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.reminders.V329ReminderAppearance
 import com.framebynavin.app.reminders.V329ReminderChannel
 import com.framebynavin.app.reminders.V329ReminderDomain
-import com.framebynavin.app.reminders.V329ReminderMotionScene
+import com.framebynavin.app.reminders.V330ReminderPrototypeScene
 import com.framebynavin.app.reminders.V329ReminderVisualStore
 import com.framebynavin.app.reminders.V329ReminderWorld
 
@@ -111,7 +111,8 @@ internal fun V329ReminderVisualSettings(domain: V329ReminderDomain) {
                 modifier = Modifier.fillMaxWidth().height(230.dp)
                     .testTag("v329-live-preview"),
             ) {
-                V329ReminderMotionScene(
+                V330ReminderPrototypeScene(
+                    domain = domain,
                     channel = channel,
                     appearance = appearance,
                     onReveal = {},
