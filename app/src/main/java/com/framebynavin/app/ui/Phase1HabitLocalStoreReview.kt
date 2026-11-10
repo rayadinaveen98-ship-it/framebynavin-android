@@ -248,7 +248,7 @@ internal fun Phase1HabitLocalStoreReview(
                         previewOnly = false,
                         liveErrorMessage = message,
                     )
-                } else {
+                } else if (selected != null) {
                     if (message != null) {
                         Text(message.orEmpty(), color = BacklotError,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
