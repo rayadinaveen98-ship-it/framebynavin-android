@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
+import com.framebynavin.app.reminders.V329ReminderDomain
 import com.framebynavin.app.reminders.QuietHoursPolicy
 import com.framebynavin.app.reminders.V205NudgePausePolicy
 import com.framebynavin.app.reminders.VoicePersonaEngine
@@ -134,6 +135,8 @@ internal fun V144SettingsHub(
 
             V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
                 V127AppearanceSettings(showGuidePicker = false)
+                Spacer(Modifier.height(18.dp))
+                V329ReminderVisualSettings(V329ReminderDomain.CREATOR)
             }
 
             V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {
