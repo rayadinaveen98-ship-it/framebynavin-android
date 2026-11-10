@@ -154,6 +154,7 @@ internal fun V330ReminderPrototypeScene(
                         null,
                     )
                 },
+                onReset = null,
                 onRelease = { released ->
                     if (currentWeb === released) currentWeb = null
                     released.stopLoading()
