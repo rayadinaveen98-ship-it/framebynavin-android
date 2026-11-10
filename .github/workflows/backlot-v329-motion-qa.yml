@@ -1,0 +1,44 @@
+name: Backlot V329 - Five Reminder Motion Styles QA
+
+on:
+  push:
+    branches:
+      - feature/backlot-v329-custom-reminder-motion-five-styles-20261110
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-motion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify visual presentation policy
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.reminders.V329ReminderVisualPolicyTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Compile owner-upgrade compatible V329 preview
+        run: |
+          set -euo pipefail
+          gradle :app:assemblePersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Stage signed owner-preview artifact and checksum
+        run: |
+          set -euo pipefail
+          mkdir -p output/v329
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/v329/Backlot-V329-Motion-Owner-Preview.apk
+          sha256sum output/v329/Backlot-V329-Motion-Owner-Preview.apk > output/v329/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V329-Five-Reminder-Motion-Owner-Preview
+          path: output/v329/
+          retention-days: 30
+          if-no-files-found: error
