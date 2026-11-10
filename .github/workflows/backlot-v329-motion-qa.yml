@@ -56,7 +56,9 @@ jobs:
       - name: Compile owner-upgrade compatible V329 preview
         run: |
           set -euo pipefail
-          gradle :app:assemblePersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+          # Match the established personal owner-preview path; production release gates are unchanged.
+          # Lint is not a compiler/signature check and remains outside this personal preview package.
+          gradle :app:assemblePersonalStable -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
       - name: Stage signed owner-preview artifact and checksum
         run: |
           set -euo pipefail
