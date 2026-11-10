@@ -91,8 +91,6 @@ internal fun V2232PersonalReminderHub(
     var editorGroupsError by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<PersonalReminder?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
-    var rebuildInstallConfirm by remember { mutableStateOf(false) }
-    var rebuildInstallStatus by remember { mutableStateOf<String?>(null) }
     // Recompute local calendar labels while this screen is visible; the next
     // occurrence journal and Android alarms remain authoritative.
     var agendaNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -100,7 +98,6 @@ internal fun V2232PersonalReminderHub(
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
-    var challengesOpen by rememberSaveable { mutableStateOf(false) }
     var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
     val personalPageScroll = remember(personalPageName) { ScrollState(0) }
@@ -317,43 +314,8 @@ internal fun V2232PersonalReminderHub(
                         editorOpen = true
                     },
                     onOpenSpaces = { spacesOpen = true },
-                    onOpenChallenges = { challengesOpen = true },
                     onOpenGroups = { reminderGroupsOpen = true },
                 )
-                Surface(
-                    color = CinemaSurface,
-                    shape = RoundedCornerShape(15.dp),
-                    border = BorderStroke(1.dp, CinemaLine),
-                    modifier = Modifier.fillMaxWidth().testTag("rebuild-routine-install-card"),
-                ) {
-                    Column(
-                        Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(7.dp),
-                    ) {
-                        Text("My 21-day rebuild schedule", color = ProjectorIvory,
-                            fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text(
-                            "16 gentle recurring reminders: morning and evening care, walks, " +
-                                "focus time, a four-day app-work slot and rotating hobbies. " +
-                                "Includes one walking challenge. Nothing installs without your confirmation.",
-                            color = MutedText, fontSize = 12.sp,
-                        )
-                        TextButton(
-                            enabled = !busy,
-                            onClick = { rebuildInstallConfirm = true },
-                            modifier = Modifier.testTag("rebuild-routine-install-button"),
-                        ) {
-                            Icon(Icons.Outlined.AddCircleOutline, null, tint = RecRed)
-                            Spacer(Modifier.width(6.dp))
-                            Text("REVIEW & INSTALL", color = RecRed,
-                                fontWeight = FontWeight.SemiBold)
-                        }
-                        rebuildInstallStatus?.let { status ->
-                            Text(status, color = ProjectorIvory, fontSize = 12.sp,
-                                modifier = Modifier.testTag("rebuild-routine-install-result"))
-                        }
-                    }
-                }
             }
             V288PersonalSettingsHeading(
                 "Follow-ups", "Control quiet nudges for unanswered reminders")
@@ -598,10 +560,6 @@ internal fun V2232PersonalReminderHub(
         )
     }
 
-    if (challengesOpen) {
-        Phase1HabitLocalStoreReview(onClose = { challengesOpen = false })
-    }
-
     if (spacesOpen) {
         V289PersonalSpacesScreen(
             onClose = { spacesOpen = false },
@@ -669,44 +627,6 @@ internal fun V2232PersonalReminderHub(
             onSaveWithLinks = ::saveDraft,
             onDismiss = { if (!busy) editorOpen = false },
             onSave = { draft -> saveDraft(draft, V310LinkTargets()) },
-        )
-    }
-    if (rebuildInstallConfirm) {
-        AlertDialog(
-            onDismissRequest = { if (!busy) rebuildInstallConfirm = false },
-            title = { Text("Install your rebuild schedule?") },
-            text = {
-                Text(
-                    "Add 16 recurring Personal reminders and one 21-day walking challenge. " +
-                        "Existing reminders, completion receipts, Spaces, projects and account data " +
-                        "will not be deleted or replaced. All entries can be edited or paused later."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !busy,
-                    onClick = {
-                        rebuildInstallConfirm = false
-                        perform {
-                            val result = PersonalRebuildSchedulePack.install(context)
-                            rebuildInstallStatus =
-                                "${result.remindersAdded} new reminders added. " +
-                                    if (result.challengeCreated) "Walking challenge added. "
-                                    else "Walking challenge already exists. "
-                            if (!result.schedulingAccepted || !result.widgetsRefreshed) {
-                                rebuildInstallStatus +=
-                                    "Saved on device; review Android alert permissions or refresh widgets."
-                            }
-                        }
-                    },
-                    modifier = Modifier.testTag("rebuild-routine-confirm"),
-                ) { Text("INSTALL", color = RecRed) }
-            },
-            dismissButton = {
-                TextButton(onClick = { rebuildInstallConfirm = false }) {
-                    Text("CANCEL")
-                }
-            },
         )
     }
     deleteTarget?.let { item ->
@@ -921,6 +841,10 @@ internal fun V2232PersonalEditor(
     var suggestionsOpen by rememberSaveable(existing?.id) {
         mutableStateOf(false)
     }
+    // Notes are optional; keep the first step compact. Never clear typed notes on collapse.
+    var notesOpen by rememberSaveable(existing?.id) {
+        mutableStateOf(existing != null)
+    }
     val composerScroll = remember(composerStep) { ScrollState(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var selectedSpaceId by rememberSaveable(existing?.id) { mutableStateOf<String?>(null) }
@@ -1068,11 +992,31 @@ internal fun V2232PersonalEditor(
                         label = { Text("What to remember?") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-title"),
                     )
-                    OutlinedTextField(
-                        value = notes, onValueChange = { notes = it.take(2000) },
-                        label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    TextButton(
+                        onClick = { notesOpen = !notesOpen },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("fc13-personal-toggle-notes"),
+                    ) {
+                        Icon(Icons.Outlined.Notes, null, tint = RecRed, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (notesOpen) "Hide notes" else if (notes.isNotBlank()) "Edit notes"
+                            else "Add notes (optional)",
+                            color = RecRed, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = notesOpen,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        OutlinedTextField(
+                            value = notes, onValueChange = { notes = it.take(2000) },
+                            label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("fc13-personal-notes-field"),
+                        )
+                    }
                     }
                     }
                     AnimatedVisibility(
@@ -1182,29 +1126,10 @@ internal fun V2232PersonalEditor(
                     if (repeat == PersonalRepeat.EVERY_N_HOURS.name) {
                         val previews = remember(selectedTime, daySelection, everyNHours,
                             everyNDays, hourlyUntil) {
-                            runCatching {
-                                val chosen = Instant.ofEpochMilli(selectedTime).atZone(zone)
-                                val example = PersonalReminder(
-                                    title = title.trim().ifBlank { "Personal reminder" },
-                                    startDate = chosen.toLocalDate(),
-                                    time = chosen.toLocalTime().withSecond(0).withNano(0),
-                                    zoneId = zone,
-                                    repeat = PersonalRepeat.EVERY_N_HOURS,
-                                    weeklyDays = weekDays,
-                                    everyNDays = everyNDays.toInt(),
-                                    everyNHours = everyNHours.toInt(),
-                                    hourlyUntil = LocalTime.parse(hourlyUntil),
-                                ).checked()
-                                buildList {
-                                    var after = System.currentTimeMillis()
-                                    repeat(5) {
-                                        val next = PersonalRecurrence.nextAfter(example, after)
-                                            ?: return@repeat
-                                        add(next)
-                                        after = next
-                                    }
-                                }
-                            }.getOrDefault(emptyList<Long>())
+                            v2232PreviewUpcomingHourly(
+                                selectedTime, zone, title, weekDays,
+                                everyNDays, everyNHours, hourlyUntil,
+                            )
                         }
                         Text("NEXT FIVE REMINDERS", color = MutedText,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -1526,4 +1451,45 @@ private fun v2232PickDateTime(context: Context, currentMillis: Long, onPicked: (
             onPicked(chosen)
         }, initial.get(Calendar.HOUR_OF_DAY), initial.get(Calendar.MINUTE), false).show()
     }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH)).show()
+}
+
+/**
+ * Extracted from the Personal reminder Compose editor.
+ * Keep preview-only recurrence inference out of the editor's already large
+ * data-flow graph; this function neither saves nor schedules anything.
+ */
+private fun v2232PreviewUpcomingHourly(
+    selectedTime: Long,
+    zone: ZoneId,
+    title: String,
+    weekDays: Set<DayOfWeek>,
+    everyNDays: String,
+    everyNHours: String,
+    hourlyUntil: String,
+): List<Long> {
+    return try {
+        val chosen = Instant.ofEpochMilli(selectedTime).atZone(zone)
+        val example = PersonalReminder(
+            title = title.trim().ifBlank { "Personal reminder" },
+            startDate = chosen.toLocalDate(),
+            time = chosen.toLocalTime().withSecond(0).withNano(0),
+            zoneId = zone,
+            repeat = PersonalRepeat.EVERY_N_HOURS,
+            weeklyDays = weekDays,
+            everyNDays = everyNDays.toInt(),
+            everyNHours = everyNHours.toInt(),
+            hourlyUntil = LocalTime.parse(hourlyUntil),
+        ).checked()
+        val items = mutableListOf<Long>()
+        var after = System.currentTimeMillis()
+        repeat(5) {
+            val next = PersonalRecurrence.nextAfter(example, after)
+                ?: return@repeat
+            items.add(next)
+            after = next
+        }
+        items
+    } catch (_: Exception) {
+        emptyList()
+    }
 }
