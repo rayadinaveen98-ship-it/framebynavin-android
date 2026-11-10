@@ -1,9 +1,6 @@
 name: Backlot V327 Lean Owner APK - Proven V324 Base
 
 on:
-  push:
-    branches:
-      - release/backlot-v327-proven-base-no-preloads-20261110
   workflow_dispatch:
 
 permissions:
