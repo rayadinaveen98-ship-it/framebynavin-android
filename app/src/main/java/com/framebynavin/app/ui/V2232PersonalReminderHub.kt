@@ -302,6 +302,7 @@ internal fun V2232PersonalReminderHub(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (personalPageName == "SETTINGS") {
+            V329ReminderVisualSettings(com.framebynavin.app.reminders.V329ReminderDomain.PERSONAL)
             if (loaded && loadError == null) {
                 V295UniversalPersonalRoutines(
                     reminders = reminders,
