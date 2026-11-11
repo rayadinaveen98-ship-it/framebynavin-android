@@ -114,9 +114,10 @@ if(shock>=0){shock+=.035;if(shock>1)shock=-1}}
 function iconDrawingGhost(c){c.save();c.globalAlpha=.13;iconDrawing(c);c.restore()}
 function lightFx(t){const c=ctx,cy=sceneCenterY,x=W*.5;let flare=Math.sin(t*.0017)*.3+.7;if(formation>.75){c.save();c.globalCompositeOperation='screen';const G=c.createRadialGradient(x,cy,60,x,cy,190);G.addColorStop(0,`rgba(255,71,97,${.02*flare})`);G.addColorStop(.7,'rgba(255,71,97,.018)');G.addColorStop(1,'rgba(255,71,97,0)');c.fillStyle=G;c.fillRect(x-190,cy-190,380,380);c.restore()}
 if(shock>=0){let r=shock*W*.95;c.save();c.globalCompositeOperation='screen';c.beginPath();c.arc(shockX,shockY,r,0,Math.PI*2);c.lineWidth=Math.max(.7,4*(1-shock));c.strokeStyle=`rgba(255,103,132,${.85*(1-shock)})`;c.shadowBlur=22;c.shadowColor='#ff3c59';c.stroke();c.restore()}}
+let paintedFrames=0;
 function animate(now){if(!playing)return;frame++;
  if(frame%45===0){const r=canvas.getBoundingClientRect();if(Math.abs(r.width-W)>2||Math.abs(r.height-H)>2)resize()}
- if(frame%(reduced?3:2)!==0){requestAnimationFrame(animate);return}const t=start+(now-start)*(speed/.58);bg(t);drawNodes(t);lightFx(t);requestAnimationFrame(animate)}
+ if(frame%(reduced?3:2)!==0){requestAnimationFrame(animate);return}const t=start+(now-start)*(speed/.58);try{bg(t);drawNodes(t);lightFx(t);paintedFrames++}catch(e){window.BacklotMotionError=String(e);console.error("Motion drawing failed",e);playing=false;return}requestAnimationFrame(animate)}
 
 
 const titles=['Crimson Singularity','Liquid Frequency','Obsidian Bloom','Signal Architecture','Nocturne Constellation'];
@@ -159,7 +160,7 @@ window.BacklotMotion={
  start:touchStart,move:touchMove,end:touchEnd,
  startNormalized:(x,y)=>touchStart(clamp(Number(x),0,1)*W,clamp(Number(y),0,1)*H),
  moveNormalized:(x,y)=>touchMove(clamp(Number(x),0,1)*W,clamp(Number(y),0,1)*H),
- pause:()=>{playing=false},resume:()=>{if(!playing){playing=true;requestAnimationFrame(animate)}},update:(i,d,s)=>{const nextDensity=clamp(Number(d),.15,1);if(Math.abs(nextDensity-density)>.04){density=nextDensity;genNodes()}else{density=nextDensity}intensity=clamp(Number(i),.15,1);speed=clamp(Number(s),.15,1);document.querySelector('.luminosity').style.opacity=String(Math.max(0,(intensity-.15)*.32));canvas.style.filter='brightness('+(0.7+intensity*.416667).toFixed(3)+')'},complete:()=>{start=performance.now()-4500},state:()=>({mode,hub,kind,formation,nodes:nodes.length,centerY:sceneCenterY,viewportWidth:W,viewportHeight:H,ringScale:getComputedStyle(document.documentElement).getPropertyValue('--hero-frame-scale'),active:mouse.active,averageOffset:nodes.reduce((sum,p)=>sum+Math.hypot(p.ox,p.oy),0)/Math.max(1,nodes.length)})};
+ pause:()=>{playing=false},resume:()=>{if(!playing){playing=true;requestAnimationFrame(animate)}},update:(i,d,s)=>{const nextDensity=clamp(Number(d),.15,1);if(Math.abs(nextDensity-density)>.04){density=nextDensity;genNodes()}else{density=nextDensity}intensity=clamp(Number(i),.15,1);speed=clamp(Number(s),.15,1);document.querySelector('.luminosity').style.opacity=String(Math.max(0,(intensity-.15)*.32));canvas.style.filter='brightness('+(0.7+intensity*.416667).toFixed(3)+')'},complete:()=>{start=performance.now()-4500},state:()=>({mode,hub,kind,formation,nodes:nodes.length,paintedFrames,error:window.BacklotMotionError||null,centerY:sceneCenterY,viewportWidth:W,viewportHeight:H,ringScale:getComputedStyle(document.documentElement).getPropertyValue('--hero-frame-scale'),active:mouse.active,averageOffset:nodes.reduce((sum,p)=>sum+Math.hypot(p.ox,p.oy),0)/Math.max(1,nodes.length)})};
 // The standalone preview must accept real touch and mouse gestures.
 // Android forwards the same events from its native double-tap overlay.
 document.addEventListener('pointerdown',e=>{
