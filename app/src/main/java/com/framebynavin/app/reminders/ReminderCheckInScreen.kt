@@ -97,7 +97,6 @@ internal fun ReminderCheckInScreen(
     BackHandler(enabled = true) { }
     val accent = if (kind == ReminderCheckInKind.VOICE) BacklotSecondaryAccent else BacklotAccent
     val scroll = rememberScrollState()
-    val clockLabel = remember { reminderClockLabel(System.currentTimeMillis()) }
     val contextLine = listOf(stageLabel.trim(), dueLabel.trim())
         .filter { it.isNotBlank() }
         .joinToString(" · ")
@@ -193,8 +192,9 @@ internal fun ReminderCheckInScreen(
                 channel = visualChannel,
                 title = title,
                 subtitle = nextAction ?: "Your next move starts now.",
-                timeLabel = V331RevealStyle.timeFromCreatorDueLabel(dueLabel)
-                    .ifBlank { clockLabel },
+                // Show scheduled time only; displaying the current clock here
+                // incorrectly represented it as the reminder's due time.
+                timeLabel = V331RevealStyle.timeFromCreatorDueLabel(dueLabel),
                 chips = listOf(stageLabel, dueLabel).map { it.take(25) },
                 compact = compact,
                 titleTag = "v200-reminder-title",
