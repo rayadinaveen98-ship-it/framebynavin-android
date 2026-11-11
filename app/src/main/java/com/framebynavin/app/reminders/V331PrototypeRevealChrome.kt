@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -121,6 +122,7 @@ internal fun V331PrototypeRevealHero(
     timeLabel: String,
     chips: List<String>,
     compact: Boolean,
+    titleTag: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val accent = V331RevealStyle.accent(domain, channel)
@@ -168,6 +170,7 @@ internal fun V331PrototypeRevealHero(
         Spacer(Modifier.height(if (compact) 18.dp else 23.dp))
         Text(
             text = title,
+            modifier = if (titleTag != null) Modifier.testTag(titleTag) else Modifier,
             color = V331RevealStyle.foreground,
             fontSize = if (compact) 25.sp else 29.sp,
             lineHeight = if (compact) 30.sp else 35.sp,
