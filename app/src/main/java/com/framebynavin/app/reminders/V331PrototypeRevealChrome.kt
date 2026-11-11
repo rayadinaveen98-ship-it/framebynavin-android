@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -153,10 +154,10 @@ internal fun V331PrototypeRevealHero(
             shadowElevation = 18.dp,
         ) {
             androidx.compose.foundation.layout.Box(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                Canvas(Modifier.fillMaxWidth()) {
+                Canvas(Modifier.fillMaxSize()) {
                     val center = Offset(size.width * .55f, size.height * .30f)
                     val r = size.width * 1.05f
                     drawRect(
