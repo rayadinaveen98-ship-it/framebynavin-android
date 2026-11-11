@@ -122,6 +122,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
     var activityCenterOpen by rememberSaveable { mutableStateOf(false) }
+    var creatorActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
@@ -804,9 +805,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 nowMillis = System.currentTimeMillis(),
                 onClose = { activityCenterOpen = false },
                 onOpenCreator = { id ->
+                    // Open the existing Creator reminder response hub with
+                    // this task focused instead of jumping into its editor.
+                    creatorActivityFocusId = id
+                    personalReminderSpace = false
                     activityCenterOpen = false
-                    showReminders = false
-                    openComposer(id)
                 },
                 onOpenPersonal = {
                     activityCenterOpen = false
@@ -822,10 +825,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         } else {
         V131ReminderCenter(
             tasks = vm.tasks,
-            onDismiss = { showReminders = false },
-            onNew = { showReminders = false; openComposer() },
+            onDismiss = { creatorActivityFocusId = null; showReminders = false },
+            onNew = { creatorActivityFocusId = null; showReminders = false; openComposer() },
             onEdit = { id -> showReminders = false; openComposer(id) },
             onDeleteReminders = vm::cancelReminders,
+            initialFocusTaskId = creatorActivityFocusId,
             onOpenReminderSettings = { showReminders = false; overlay = POverlay.SETTINGS },
             onSnoozeReminder = { task, minutes ->
                 vm.snoozeReminderFromCenter(task.id, ReminderActionSafety.fingerprint(task), minutes)
