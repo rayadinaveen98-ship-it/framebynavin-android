@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -45,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurfaceRaised
 import com.framebynavin.app.ui.theme.MutedGold
@@ -218,7 +221,12 @@ internal fun V2214HomeCompanion(
     val identity = V144GuidePrefs.currentGuide
     V2221CompanionPortrait(
         guide = identity,
-        hasSuggestion = (decision != null && !quietThisVisit) || sparkTop.isNotEmpty(),
+        // An action badge is NOT an unread notification. Recent historical
+        // records are never a reason to display an attention dot.
+        hasActionableActivity = sparkTop.any {
+            it.bucket == V306ActivityBucket.NEEDS_ACTION
+        },
+        hasSuggestion = decision != null && !quietThisVisit,
         onClick = { talkingToSpark = false; sheetOpen = true },
         modifier = modifier,
     )
@@ -360,8 +368,13 @@ internal fun V2214HomeCompanion(
     }
 }
 
-/** Compact 48dp Spark / companion entry, same diameter as the adjoining
- * slideshow +. Existing suggestion badge, sheet, guide art and navigation stay intact.
+/** Home header uses the same outlined notification icon language as Backlot
+ * navigation and the Activity Center. The control still opens Spark's existing
+ * sheet; nothing here marks notifications read or changes reminder delivery.
+ *
+ * Attention dots indicate a CURRENT actionable reminder surfaced in Spark.
+ * A different, subdued dot means an optional companion suggestion. Historical
+ * activity (including posted notifications) never implies an unread count.
  */
 @Composable
 internal fun V2221CompanionPortrait(
@@ -369,24 +382,51 @@ internal fun V2221CompanionPortrait(
     hasSuggestion: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    hasActionableActivity: Boolean = false,
 ) {
+    val indicator = when {
+        hasActionableActivity -> BacklotAccent
+        hasSuggestion -> MutedGold
+        else -> null
+    }
+    val description = when {
+        hasActionableActivity ->
+            "Open ${guide.displayName} and activity. A reminder needs attention."
+        hasSuggestion ->
+            "Open ${guide.displayName} and activity. A suggestion is available."
+        else -> "Open ${guide.displayName} and notification activity"
+    }
     Surface(
         onClick = onClick,
         modifier = modifier.size(48.dp)
             .testTag("v2221-companion-avatar")
-            .semantics { contentDescription = "Open ${guide.displayName} companion" },
+            .semantics { contentDescription = description },
         shape = CircleShape,
         color = CinemaSurfaceRaised,
-        border = BorderStroke(if (hasSuggestion) 1.7.dp else 1.dp,
-            if (hasSuggestion) MutedGold else CinemaLine),
+        border = BorderStroke(1.dp, CinemaLine),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = Icons.Outlined.AutoAwesome,
+                imageVector = if (hasActionableActivity)
+                    Icons.Outlined.NotificationsActive
+                else Icons.Outlined.NotificationsNone,
                 contentDescription = null,
-                tint = if (hasSuggestion) MutedGold else ProjectorIvory,
-                modifier = Modifier.size(22.dp),
+                tint = if (hasActionableActivity) BacklotAccent else ProjectorIvory,
+                modifier = Modifier.size(21.dp),
             )
+            if (indicator != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 9.dp, end = 9.dp)
+                        .size(7.dp)
+                        .background(indicator, CircleShape)
+                        .testTag(
+                            if (hasActionableActivity) "v334-actionable-activity-indicator"
+                            else "v334-spark-suggestion-indicator"
+                        ),
+                )
+            }
         }
     }
 }
