@@ -1,5 +1,6 @@
 package com.framebynavin.app.ui
 
+import android.animation.ValueAnimator
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +45,7 @@ import com.framebynavin.app.reminders.V329ReminderWorld
 @Composable
 internal fun V329ReminderVisualSettings(domain: V329ReminderDomain) {
     val context = LocalContext.current
+    val deviceWidthDp = LocalConfiguration.current.screenWidthDp
     val store = remember(context) { V329ReminderVisualStore(context) }
     var selectedChannel by rememberSaveable(domain.name) {
         mutableStateOf(V329ReminderChannel.ALARM.name)
@@ -108,7 +111,7 @@ internal fun V329ReminderVisualSettings(domain: V329ReminderDomain) {
             Surface(
                 color = Color(0xFF050408),
                 shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth().height(230.dp)
+                modifier = Modifier.fillMaxWidth().height(if (deviceWidthDp >= 600) 306.dp else 270.dp)
                     .testTag("v329-live-preview"),
             ) {
                 V330ReminderPrototypeScene(
@@ -119,6 +122,10 @@ internal fun V329ReminderVisualSettings(domain: V329ReminderDomain) {
                     modifier = Modifier.fillMaxWidth(),
                     interactive = false,
                 )
+            }
+            if (!ValueAnimator.areAnimatorsEnabled()) {
+                Text("Android system animations are disabled. Reminder entry effects will be skipped by the accessibility setting.",
+                    color = Color(0xFFFFB4C0), fontSize = 12.sp, lineHeight = 17.sp)
             }
             Text("Live preview · The real reminder opens after a double-tap.",
                 color = Color(0xFFB3A5AE), fontSize = 11.sp)
