@@ -47,6 +47,7 @@ internal fun V306ActivityCenterScreen(
     onClose: () -> Unit,
     onOpenCreator: (String) -> Unit,
     onOpenPersonal: () -> Unit,
+    onOpenPersonalItem: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current.applicationContext
     val creatorJournal = remember(context) { ReminderAcknowledgementStore(context) }
@@ -182,6 +183,7 @@ internal fun V306ActivityCenterScreen(
                     onClick = {
                         if (sparkNext.domain == V306ActivityDomain.CREATOR)
                             onOpenCreator(sparkNext.targetId)
+                        else if (onOpenPersonalItem != null) onOpenPersonalItem(sparkNext.targetId)
                         else onOpenPersonal()
                     },
                     color = BacklotSurfaceSelected,
@@ -263,6 +265,7 @@ internal fun V306ActivityCenterScreen(
                         onClick = {
                             if (activity.domain == V306ActivityDomain.CREATOR)
                                 onOpenCreator(activity.targetId)
+                            else if (onOpenPersonalItem != null) onOpenPersonalItem(activity.targetId)
                             else onOpenPersonal()
                         },
                         modifier = Modifier.fillMaxWidth()
