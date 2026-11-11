@@ -423,7 +423,10 @@ internal fun V18HeroGreetingBar(
     onPhotoClick: () -> Unit,
     companionAvatar: @Composable () -> Unit = {},
 ) {
-    val wrapActions = LocalConfiguration.current.screenWidthDp < 360 ||
+    // V335: the Home header now has an independent activity bell, optional
+    // Spark icon and Gallery button. Wrap on ordinary compact phones rather
+    // than squeezing the greeting or shrinking the 48dp touch targets.
+    val wrapActions = LocalConfiguration.current.screenWidthDp < 440 ||
         LocalDensity.current.fontScale >= 1.55f
     if (wrapActions) {
         Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
