@@ -174,4 +174,50 @@ class V306ActivityCenterPolicyTest {
         assertEquals(80, V306ActivityCenterPolicy.filter(
             feed, V306ActivityFilter.HISTORY).size)
     }
+
+    @Test fun overduePersonalLeaseIsReviewableButNeverLabeledFailedDelivery() {
+        val unconfirmed = personal().copy(
+            pendingOccurrenceMillis = 100L,
+            pendingFireAtMillis = 100L,
+            pendingToken = "lease-unconfirmed",
+        )
+        val feed = V306ActivityCenterPolicy.build(
+            emptyList(), listOf(unconfirmed), emptyList(),
+            nowMillis = 100L + 6L * 60_000L,
+        )
+        assertEquals(1, feed.size)
+        assertEquals(V306ActivityBucket.NEEDS_ACTION, feed.single().bucket)
+        assertEquals(V306ActivityDomain.PERSONAL, feed.single().domain)
+        assertFalse(feed.single().deliveryProblem)
+        assertTrue(feed.single().detail.contains("not confirmed"))
+    }
+
+    @Test fun upcomingPersonalLeaseDoesNotBecomeFakeAction() {
+        val upcoming = personal().copy(
+            pendingOccurrenceMillis = 1_000_000L,
+            pendingFireAtMillis = 1_000_000L,
+            pendingToken = "lease-future",
+        )
+        val feed = V306ActivityCenterPolicy.build(
+            emptyList(), listOf(upcoming), emptyList(),
+            nowMillis = 100L,
+        )
+        assertTrue(feed.isEmpty())
+    }
+
+    @Test fun presentedPersonalLeaseAppearsOnceAndKeepsVerifiedResponseRoute() {
+        val presented = personal().copy(
+            pendingOccurrenceMillis = 100L,
+            pendingFireAtMillis = 100L,
+            pendingToken = "lease-presented",
+            presentedToken = "lease-presented",
+            presentedAtMillis = 140L,
+        )
+        val feed = V306ActivityCenterPolicy.build(
+            emptyList(), listOf(presented), emptyList(),
+            nowMillis = 100L + 10L * 60_000L,
+        )
+        assertEquals(1, feed.size)
+        assertTrue(feed.single().id.startsWith("personal:action:"))
+    }
 }
