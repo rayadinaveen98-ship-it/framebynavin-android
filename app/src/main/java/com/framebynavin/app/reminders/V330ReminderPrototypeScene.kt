@@ -4,10 +4,13 @@ import android.animation.ValueAnimator
 import android.app.ActivityManager
 import android.content.Context
 import android.os.PowerManager
+import android.os.SystemClock
 import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -167,15 +170,47 @@ internal fun V330ReminderPrototypeScene(
             // energizes the scene; a double tap reaches pre-existing controls.
             Box(
                 Modifier.fillMaxSize()
+                    // The original adapter only reported a single tap *after*
+                    // release. That prevented continuous particle displacement.
+                    // Forward down / drag / up at a capped frame rate, while
+                    // keeping native Compose in charge of the reveal gesture.
+                    .pointerInput(identity) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            currentWeb?.evaluateJavascript(
+                                "window.BacklotMotion?.start(" +
+                                    "${(down.position.x / scale).roundToInt()}," +
+                                    "${(down.position.y / scale).roundToInt()})",
+                                null,
+                            )
+                            var lastForwardedAt = 0L
+                            var active = true
+                            while (active) {
+                                val pointer = awaitPointerEvent().changes
+                                    .firstOrNull { it.id == down.id }
+                                if (pointer == null || !pointer.pressed) {
+                                    currentWeb?.evaluateJavascript(
+                                        "window.BacklotMotion?.end()", null,
+                                    )
+                                    active = false
+                                } else {
+                                    val at = SystemClock.uptimeMillis()
+                                    if (at - lastForwardedAt >= 32L) {
+                                        currentWeb?.evaluateJavascript(
+                                            "window.BacklotMotion?.move(" +
+                                                "${(pointer.position.x / scale).roundToInt()}," +
+                                                "${(pointer.position.y / scale).roundToInt()})",
+                                            null,
+                                        )
+                                        lastForwardedAt = at
+                                    }
+                                }
+                            }
+                        }
+                    }
                     .pointerInput(identity) {
                         detectTapGestures(
-                            onTap = { offset ->
-                                val x = (offset.x / scale).roundToInt()
-                                val y = (offset.y / scale).roundToInt()
-                                currentWeb?.evaluateJavascript(
-                                    "window.BacklotMotion?.tap($x,$y)", null,
-                                )
-                            },
+                            onTap = { /* First touch already energized the particles. */ },
                             onDoubleTap = { revealNow() },
                         )
                     }
