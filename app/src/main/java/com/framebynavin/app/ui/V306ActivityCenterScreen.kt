@@ -61,6 +61,7 @@ internal fun V306ActivityCenterScreen(
     var personalFailure by remember { mutableStateOf(false) }
     var receiptFailure by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
+    var activityNowMillis by remember { mutableLongStateOf(nowMillis) }
     var selectedName by rememberSaveable { mutableStateOf(V306ActivityFilter.NEEDS_ACTION.name) }
 
     LaunchedEffect(personalStore) {
@@ -86,7 +87,7 @@ internal fun V306ActivityCenterScreen(
 
     // Refetch the Creator acknowledgement journal on entry, every existing hub
     // refresh tick, and explicit refresh. No stored data is written by this read.
-    val creatorEvidence = remember(tasks, nowMillis, refresh) {
+    val creatorEvidence = remember(tasks, activityNowMillis, refresh) {
         runCatching {
             tasks.map { task ->
                 val history = creatorJournal.recent(task.id)
@@ -100,12 +101,15 @@ internal fun V306ActivityCenterScreen(
             }
         }.getOrNull()
     }
-    val feed = remember(creatorEvidence, personal, confirmedDone, personalReady, receiptsReady) {
+    val feed = remember(
+        creatorEvidence, personal, confirmedDone, personalReady, receiptsReady,
+        activityNowMillis, refresh,
+    ) {
         V306ActivityCenterPolicy.build(
             creators = creatorEvidence.orEmpty(),
             personal = if (personalReady) personal else emptyList(),
             confirmedDone = if (receiptsReady && personalReady) confirmedDone else emptyList(),
-            nowMillis = nowMillis,
+            nowMillis = activityNowMillis,
         )
     }
     val filter = V306ActivityFilter.entries.firstOrNull { it.name == selectedName }
@@ -140,8 +144,10 @@ internal fun V306ActivityCenterScreen(
                     Text("Notification Center", color = BacklotPrimaryText,
                         fontSize = 20.sp, fontWeight = FontWeight.Black)
                 }
-                IconButton(onClick = { refresh++ },
-                    modifier = Modifier.testTag("v306-activity-refresh")) {
+                IconButton(onClick = {
+                    activityNowMillis = System.currentTimeMillis()
+                    refresh++
+                }, modifier = Modifier.testTag("v306-activity-refresh")) {
                     Icon(Icons.Outlined.Refresh, "Refresh activity", tint = ProjectorIvory)
                 }
             }
