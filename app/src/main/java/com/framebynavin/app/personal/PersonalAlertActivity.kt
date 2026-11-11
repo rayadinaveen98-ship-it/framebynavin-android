@@ -228,12 +228,13 @@ internal fun V2233PersonalAlertScreen(
     val coral = Color(0xFFFF6C95)
     Surface(color = midnight, modifier = Modifier.fillMaxSize()
         .testTag("v2233-personal-alert-screen")) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         if (!locked && reminder != null && reminder.alert != PersonalAlert.NOTIFICATION) {
             V331RevealBackdrop(Modifier.fillMaxSize())
         }
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            Modifier.fillMaxHeight().widthIn(max = 500.dp).fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .systemBarsPadding().padding(horizontal = 22.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(13.dp),
