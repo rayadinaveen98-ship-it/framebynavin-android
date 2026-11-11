@@ -197,7 +197,7 @@ internal fun ReminderCheckInScreen(
                     .ifBlank { clockLabel },
                 chips = listOf(stageLabel, dueLabel).map { it.take(25) },
                 compact = compact,
-                modifier = Modifier.testTag("v200-reminder-title"),
+                titleTag = "v200-reminder-title",
             )
             Spacer(Modifier.height(if (compact) 21.dp else 56.dp))
 
