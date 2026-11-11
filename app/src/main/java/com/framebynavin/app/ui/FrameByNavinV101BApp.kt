@@ -123,6 +123,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showReminders by rememberSaveable { mutableStateOf(false) }
     var activityCenterOpen by rememberSaveable { mutableStateOf(false) }
     var creatorActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
+    var personalActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
@@ -812,15 +813,25 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     activityCenterOpen = false
                 },
                 onOpenPersonal = {
+                    personalActivityFocusId = null
+                    activityCenterOpen = false
+                    personalReminderSpace = true
+                },
+                onOpenPersonalItem = { id ->
+                    personalActivityFocusId = id
                     activityCenterOpen = false
                     personalReminderSpace = true
                 },
             )
         } else if (personalReminderSpace) {
             V2232PersonalReminderHub(
-                onClose = { showReminders = false },
+                onClose = {
+                    personalActivityFocusId = null
+                    showReminders = false
+                },
                 onCreator = { personalReminderSpace = false },
                 onOpenActivity = { activityCenterOpen = true },
+                initialFocusReminderId = personalActivityFocusId,
             )
         } else {
         V131ReminderCenter(
@@ -865,7 +876,14 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         .putExtra(com.framebynavin.app.reminders.ReminderConstants.EXTRA_OCCURRENCE_ID, token)
                 )
             },
-            onPersonal = { personalReminderSpace = true },
+            onPersonal = {
+                personalActivityFocusId = null
+                personalReminderSpace = true
+            },
+            onPersonalItem = { id ->
+                personalActivityFocusId = id
+                personalReminderSpace = true
+            },
         )
         }
     }
