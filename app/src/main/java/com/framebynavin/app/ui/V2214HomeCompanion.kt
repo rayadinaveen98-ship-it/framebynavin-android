@@ -219,6 +219,7 @@ internal fun V2214HomeCompanion(
                 creators = creator,
                 personal = if (personalReady) personalRecords else emptyList(),
                 confirmedDone = if (personalReady && receiptReady) personalReceipts else emptyList(),
+                nowMillis = nowMillis,
             )
         }.getOrDefault(emptyList())
     }
