@@ -157,12 +157,7 @@ internal fun ReminderCheckInScreen(
             label = "v231-reminder-backdrop-transition",
         ) { showingActions ->
             if (showingActions) {
-                V231CinematicWaveBackdrop(
-                    kind = kind,
-                    lowPower = lowPower,
-                    motionEnabled = motionEnabled,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                V331RevealBackdrop(Modifier.fillMaxSize())
             } else {
                 V330ReminderPrototypeScene(
                     domain = V329ReminderDomain.CREATOR,
@@ -190,179 +185,96 @@ internal fun ReminderCheckInScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            // V331 restores the approved prototype's centered icon plaque,
+            // title, large reminder time and quiet metadata chips. Real task
+            // values only; no fake prototype reminder content.
+            V331PrototypeRevealHero(
+                domain = V329ReminderDomain.CREATOR,
+                channel = visualChannel,
+                title = title,
+                subtitle = nextAction ?: "Your next move starts now.",
+                timeLabel = V331RevealStyle.timeFromCreatorDueLabel(dueLabel)
+                    .ifBlank { clockLabel },
+                chips = listOf(stageLabel, dueLabel).map { it.take(25) },
+                compact = compact,
+                modifier = Modifier.testTag("v200-reminder-title"),
+            )
+            Spacer(Modifier.height(if (compact) 21.dp else 56.dp))
+
+
+            // Same callbacks, same actions and existing UI test tags.
+            // Only their positioning/appearance follows the V1 prototype:
+            // Snooze to the left and the dominant action to the right.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = when {
-                        stageCheckIn -> "STAGE CHECK-IN"
-                        kind == ReminderCheckInKind.VOICE -> "VOICE"
-                        else -> "ALARM"
-                    },
-                    color = accent,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.3.sp,
-                )
-                Text(
-                    text = clockLabel,
-                    color = BacklotSecondaryText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-
-            Spacer(Modifier.height(if (compact) 7.dp else 18.dp))
-
-            V199ReminderSpark(
-                kind = kind,
-                motionEnabled = motionEnabled,
-                lowPower = lowPower,
-                modifier = Modifier
-                    .size(if (compact) 104.dp else 126.dp)
-                    .testTag(if (kind == ReminderCheckInKind.VOICE) "v195-voice-guide" else "v195-alarm-guide"),
-            )
-            Spacer(Modifier.height(if (compact) 8.dp else 13.dp))
-
-            Text(
-                text = title,
-                color = BacklotPrimaryText,
-                fontSize = if (compact) 22.sp else 24.sp,
-                lineHeight = if (compact) 27.sp else 30.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().testTag("v200-reminder-title"),
-            )
-            if (contextLine.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = contextLine,
-                    color = BacklotSecondaryText,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (nextAction != null) {
-                Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
-                Text(
-                    text = nextAction,
-                    color = BacklotPrimaryText.copy(alpha = .85f),
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Spacer(Modifier.height(if (compact) 18.dp else 26.dp))
-
-            // ONE dominant answer; Stage Done takes priority only for check-ins.
-            Button(
-                onClick = if (stageCheckIn) onStageDone else onWorking,
-                interactionSource = primaryPress,
-                modifier = Modifier.fillMaxWidth().height(54.dp)
-                    .v201PressFeedback(primaryPress, motionEnabled, prominent = true)
-                    .testTag("v200-primary-reminder-action"),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (stageCheckIn) BacklotSuccess else accent,
-                    contentColor = Color(0xFF15151E),
-                ),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(
-                    if (stageCheckIn) Icons.Outlined.Check else Icons.Outlined.Work,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.size(9.dp))
-                Text(
-                    if (stageCheckIn) "STEP DONE" else "I'M WORKING",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+                OutlinedButton(
+                    onClick = onSnooze,
+                    interactionSource = snoozePress,
+                    modifier = Modifier.weight(1f).height(56.dp)
+                        .v201PressFeedback(snoozePress, motionEnabled),
+                    border = BorderStroke(1.dp, V331RevealStyle.line),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        containerColor = V331RevealStyle.surface,
+                    ),
+                    shape = RoundedCornerShape(17.dp),
+                ) {
+                    Text("SNOOZE ${snoozeMinutes}M",
+                        color = V331RevealStyle.foreground,
+                        fontSize = if (compact) 11.sp else 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1)
+                }
+                Button(
+                    onClick = if (stageCheckIn) onStageDone else onWorking,
+                    interactionSource = primaryPress,
+                    modifier = Modifier.weight(1f).height(56.dp)
+                        .v201PressFeedback(primaryPress, motionEnabled, prominent = true)
+                        .testTag("v200-primary-reminder-action"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (stageCheckIn)
+                            BacklotSuccess else V331RevealStyle.red,
+                        contentColor = V331RevealStyle.foreground,
+                    ),
+                    shape = RoundedCornerShape(17.dp),
+                ) {
+                    Text(
+                        if (stageCheckIn) "STEP DONE" else "I'M WORKING",
+                        fontSize = if (compact) 11.sp else 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                }
             }
             if (stageCheckIn) {
                 Spacer(Modifier.height(9.dp))
                 OutlinedButton(
                     onClick = onWorking,
                     interactionSource = workingPress,
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().height(49.dp)
                         .v201PressFeedback(workingPress, motionEnabled),
-                    border = BorderStroke(1.dp, accent.copy(alpha = .72f)),
-                    shape = RoundedCornerShape(15.dp),
+                    border = BorderStroke(1.dp, V331RevealStyle.line),
+                    shape = RoundedCornerShape(16.dp),
                 ) {
-                    Icon(Icons.Outlined.Work, null, tint = accent, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text("I'M WORKING", color = BacklotPrimaryText,
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            Spacer(Modifier.height(9.dp))
-            if (wideActions) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedButton(
-                        onClick = onSnooze,
-                        interactionSource = snoozePress,
-                        modifier = Modifier.weight(1f).height(50.dp)
-                            .v201PressFeedback(snoozePress, motionEnabled),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        shape = RoundedCornerShape(15.dp),
-                    ) {
-                        Icon(Icons.Outlined.Snooze, null, tint = BacklotPrimaryText,
-                            modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(7.dp))
-                        Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
-                            fontSize = 12.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
-                    }
-                    TextButton(
-                        onClick = { moreOpen = !moreOpen },
-                        interactionSource = morePress,
-                        modifier = Modifier.height(50.dp)
-                            .v201PressFeedback(morePress, motionEnabled),
-                    ) {
-                        Text(if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
-                            color = BacklotPrimaryText, fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    }
-                }
-            } else {
-                OutlinedButton(
-                    onClick = onSnooze,
-                    interactionSource = snoozePress,
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
-                        .v201PressFeedback(snoozePress, motionEnabled),
-                    border = BorderStroke(1.dp, BacklotBorder),
-                    shape = RoundedCornerShape(15.dp),
-                ) {
-                    Icon(Icons.Outlined.Snooze, null, tint = BacklotPrimaryText,
-                        modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                    Text("I'M WORKING", color = V331RevealStyle.foreground,
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
-                TextButton(
-                    onClick = { moreOpen = !moreOpen },
-                    interactionSource = morePress,
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
-                        .v201PressFeedback(morePress, motionEnabled),
-                ) {
-                    Text(if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
-                        color = BacklotPrimaryText, fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold)
-                }
+            }
+            Spacer(Modifier.height(5.dp))
+            TextButton(
+                onClick = { moreOpen = !moreOpen },
+                interactionSource = morePress,
+                modifier = Modifier.fillMaxWidth().height(47.dp)
+                    .v201PressFeedback(morePress, motionEnabled),
+            ) {
+                Text(
+                    if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
+                    color = V331RevealStyle.secondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
 
             AnimatedVisibility(
