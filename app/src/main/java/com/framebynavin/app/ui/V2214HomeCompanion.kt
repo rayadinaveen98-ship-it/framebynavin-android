@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsNone
@@ -157,9 +158,16 @@ internal fun V2214HomeCompanion(
         }.getOrNull() // Fail closed when evidence/preferences cannot be read.
     }
 
-    // The actual settings preference owns visibility; off means no avatar,
-    // sheet or unnecessary suggested-action affordance on Home.
-    if (!enabled || !store.enabled()) return
+    // Spark can be hidden without hiding the independent Notification Center.
+    // Disabling companion suggestions must not suppress the ability to open
+    // recorded reminder activity or inspect delivery problems.
+    val sparkVisible = enabled && store.enabled()
+    LaunchedEffect(sparkVisible) {
+        if (!sparkVisible) {
+            talkingToSpark = false
+            sheetOpen = false
+        }
+    }
 
     // V308: share the canonical V306 evidence policy; read-only. A companion
     // preview must never create a new reminder or infer a notification was read.
@@ -220,19 +228,31 @@ internal fun V2214HomeCompanion(
     val sparkTop = V308SparkActivityPolicy.top(activityFeed, dismissedActivityIds)
 
     val identity = V144GuidePrefs.currentGuide
-    V2221CompanionPortrait(
-        guide = identity,
-        // An action badge is NOT an unread notification. Recent historical
-        // records are never a reason to display an attention dot.
-        hasActionableActivity = sparkTop.any {
-            it.bucket == V306ActivityBucket.NEEDS_ACTION
-        },
-        hasSuggestion = decision != null && !quietThisVisit,
-        onClick = { talkingToSpark = false; sheetOpen = true },
+    val actionCount = activityFeed.count {
+        it.bucket == V306ActivityBucket.NEEDS_ACTION
+    }
+    Row(
         modifier = modifier,
-    )
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        V335HomeNotificationButton(
+            needsAction = actionCount > 0,
+            onClick = onOpenActivity,
+        )
+        if (sparkVisible) {
+            V2221CompanionPortrait(
+                guide = identity,
+                // Spark is a separate, optional surface. Only a genuine
+                // suggestion affects its gold indicator. No unread semantics.
+                hasActionableActivity = false,
+                hasSuggestion = decision != null && !quietThisVisit,
+                onClick = { talkingToSpark = false; sheetOpen = true },
+            )
+        }
+    }
 
-    if (sheetOpen) {
+    if (sparkVisible && sheetOpen) {
         ModalBottomSheet(
             onDismissRequest = { talkingToSpark = false; sheetOpen = false },
             containerColor = CinemaSurfaceRaised,
@@ -369,13 +389,9 @@ internal fun V2214HomeCompanion(
     }
 }
 
-/** Home header uses the same outlined notification icon language as Backlot
- * navigation and the Activity Center. The control still opens Spark's existing
- * sheet; nothing here marks notifications read or changes reminder delivery.
- *
- * Attention dots indicate a CURRENT actionable reminder surfaced in Spark.
- * A different, subdued dot means an optional companion suggestion. Historical
- * activity (including posted notifications) never implies an unread count.
+/** Dedicated outlined Spark companion icon; no longer doubles as the inbox.
+ * The icon uses Backlot's shared outlined Material family and 48dp target.
+ * The existing Spark bottom sheet, suggestions, privacy and chat stay intact.
  */
 @Composable
 internal fun V2221CompanionPortrait(
@@ -411,9 +427,7 @@ internal fun V2221CompanionPortrait(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = if (hasActionableActivity)
-                    Icons.Outlined.NotificationsActive
-                else Icons.Outlined.NotificationsNone,
+                imageVector = Icons.Outlined.AutoAwesome,
                 contentDescription = null,
                 tint = if (hasActionableActivity) BacklotAccent else ProjectorIvory,
                 modifier = Modifier.size(21.dp),
@@ -429,6 +443,54 @@ internal fun V2221CompanionPortrait(
                             if (hasActionableActivity) "v334-actionable-activity-indicator"
                             else "v334-spark-suggestion-indicator"
                         ),
+                )
+            }
+        }
+    }
+}
+
+
+/** Always-available recorded reminder activity, independent of Spark preference.
+ * A red dot means an outstanding ACTION (not an unread notification).
+ * No status is inferred from posting a notification, and tapping never
+ * acknowledges or modifies any reminder.
+ */
+@Composable
+internal fun V335HomeNotificationButton(
+    needsAction: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(48.dp)
+            .testTag("v335-home-notification-entry")
+            .semantics {
+                contentDescription = "Open Notification Center"
+                stateDescription = if (needsAction)
+                    "One or more reminders need action"
+                else "No recorded action requiring a response"
+            },
+        shape = CircleShape,
+        color = CinemaSurfaceRaised,
+        border = BorderStroke(1.dp, CinemaLine),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = if (needsAction)
+                    Icons.Outlined.NotificationsActive
+                else Icons.Outlined.NotificationsNone,
+                contentDescription = null,
+                tint = if (needsAction) BacklotAccent else ProjectorIvory,
+                modifier = Modifier.size(21.dp),
+            )
+            if (needsAction) {
+                Box(
+                    Modifier.align(Alignment.TopEnd)
+                        .padding(top = 9.dp, end = 9.dp)
+                        .size(7.dp)
+                        .background(BacklotAccent, CircleShape)
+                        .testTag("v335-action-required-dot"),
                 )
             }
         }
