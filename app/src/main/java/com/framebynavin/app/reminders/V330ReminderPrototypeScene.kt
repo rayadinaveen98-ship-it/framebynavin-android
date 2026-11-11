@@ -148,7 +148,7 @@ internal fun V330ReminderPrototypeScene(
                                     if (currentWeb === checkedView) {
                                         checkedView.evaluateJavascript(
                                             "(function(){try{var s=window.BacklotMotion?.state?.();" +
-                                                "return !!(s&&s.nodes>=180&&s.viewportWidth>=120&&s.viewportHeight>=120)}" +
+                                                "return !!(s&&s.nodes>=180&&s.paintedFrames>=2&&!s.error&&s.viewportWidth>=120&&s.viewportHeight>=120)}" +
                                                 "catch(e){return false}})()",
                                         ) { result ->
                                             if (result.trim() != "true" && currentWeb === checkedView) {
