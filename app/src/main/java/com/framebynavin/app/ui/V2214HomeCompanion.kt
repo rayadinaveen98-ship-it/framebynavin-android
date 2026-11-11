@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -389,18 +390,21 @@ internal fun V2221CompanionPortrait(
         hasSuggestion -> MutedGold
         else -> null
     }
-    val description = when {
-        hasActionableActivity ->
-            "Open ${guide.displayName} and activity. A reminder needs attention."
-        hasSuggestion ->
-            "Open ${guide.displayName} and activity. A suggestion is available."
-        else -> "Open ${guide.displayName} and notification activity"
+    val state = when {
+        hasActionableActivity -> "A reminder needs attention"
+        hasSuggestion -> "A Spark suggestion is available"
+        else -> "No current attention indicator"
     }
     Surface(
         onClick = onClick,
         modifier = modifier.size(48.dp)
             .testTag("v2221-companion-avatar")
-            .semantics { contentDescription = description },
+            .semantics {
+                // Keep established accessibility navigation intact; the badge's
+                // meaning is conveyed separately without claiming anything was read.
+                contentDescription = "Open ${guide.displayName} companion"
+                stateDescription = state
+            },
         shape = CircleShape,
         color = CinemaSurfaceRaised,
         border = BorderStroke(1.dp, CinemaLine),
