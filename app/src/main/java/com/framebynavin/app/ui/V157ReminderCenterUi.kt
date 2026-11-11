@@ -63,6 +63,7 @@ internal fun V157ReminderCenterUi(
     snoozeMinutes: Int,
     onAcknowledge: ((CreatorTask, String, String) -> Unit)? = null,
     onPersonal: () -> Unit = {},
+    onPersonalItem: ((String) -> Unit)? = null,
     initialFocusTaskId: String? = null,
 ) {
     val context = LocalContext.current
@@ -206,6 +207,10 @@ internal fun V157ReminderCenterUi(
                 hubFilter = V219ReminderHubFilter.ALL
             },
             onOpenPersonal = { activityOpen = false; onPersonal() },
+            onOpenPersonalItem = { id ->
+                activityOpen = false
+                if (onPersonalItem != null) onPersonalItem(id) else onPersonal()
+            },
         )
         return
     }
