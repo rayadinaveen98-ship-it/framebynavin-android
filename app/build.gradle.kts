@@ -64,8 +64,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 334
-        versionName = "2.28.4-unified-home-activity-icon-preview"
+        versionCode = 335
+        versionName = "2.28.5-independent-notification-center-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
