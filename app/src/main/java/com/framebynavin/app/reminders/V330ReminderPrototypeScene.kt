@@ -143,14 +143,15 @@ internal fun V330ReminderPrototypeScene(
 
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
-                                view?.postDelayed({
-                                    if (currentWeb === view) {
-                                        view.evaluateJavascript(
+                                val checkedView = view ?: return
+                                checkedView.postDelayed({
+                                    if (currentWeb === checkedView) {
+                                        checkedView.evaluateJavascript(
                                             "(function(){try{var s=window.BacklotMotion?.state?.();" +
                                                 "return !!(s&&s.nodes>=180&&s.viewportWidth>=120&&s.viewportHeight>=120)}" +
                                                 "catch(e){return false}})()",
                                         ) { result ->
-                                            if (result.trim() != "true" && currentWeb === view) {
+                                            if (result.trim() != "true" && currentWeb === checkedView) {
                                                 Log.e("BacklotMotion", "Canvas did not initialize; using safe fallback")
                                                 rendererFailed = true
                                             }
