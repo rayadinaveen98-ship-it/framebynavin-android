@@ -95,21 +95,31 @@ internal fun V157ReminderCenterUi(
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     var activityOpen by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    // A Notification Center item leads to the real response hub and its
-    // existing fingerprint/token-validated actions, NOT the project editor.
-    // Entering normally leaves the user's search alone.
+    // A Notification Center deep link always selects the exact task ID,
+    // never a title search that could collide with another Creator project.
+    var focusedTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(initialFocusTaskId) {
         if (!initialFocusTaskId.isNullOrBlank()) {
-            searchQuery = tasks.firstOrNull { it.id == initialFocusTaskId }?.title.orEmpty()
+            focusedTaskId = initialFocusTaskId
+            searchQuery = ""
             hubFilter = V219ReminderHubFilter.ALL
+            historyOpen = false
+            selected = emptySet()
         }
     }
-    // Compute visible groups from real Center data; no synthetic reminders.
-    val matchingGroups = V219ReminderSearchPolicy.filter(grouped, searchQuery)
+    val searchMatching = V219ReminderSearchPolicy.filter(grouped, searchQuery)
+    val matchingGroups = if (focusedTaskId == null) searchMatching
+        else searchMatching.mapValues { (_, groupTasks) ->
+            groupTasks.filter { it.id == focusedTaskId }
+        }
     val visibleSelectionIds = V219ReminderSearchPolicy.visibleIds(matchingGroups, hubFilter)
-    val responseTasks = if (searchQuery.isBlank()) tasks else {
-        val words = V219ReminderSearchPolicy.terms(searchQuery)
-        tasks.filter { V219ReminderSearchPolicy.matches(it, words) }
+    val responseTasks = when {
+        focusedTaskId != null -> tasks.filter { it.id == focusedTaskId }
+        searchQuery.isBlank() -> tasks
+        else -> {
+            val words = V219ReminderSearchPolicy.terms(searchQuery)
+            tasks.filter { V219ReminderSearchPolicy.matches(it, words) }
+        }
     }
     val selectionMode = selected.isNotEmpty()
     // Recheck Android grants when the user returns from permission Settings.
@@ -145,6 +155,7 @@ internal fun V157ReminderCenterUi(
             tasks = responseTasks,
             nowMillis = now,
             snoozeMinutes = snoozeMinutes,
+            expandForTaskId = focusedTaskId,
             onOpenActivityCenter = { activityOpen = true },
             onOpenProject = onEdit,
             onAcknowledge = onAcknowledge,
@@ -203,8 +214,11 @@ internal fun V157ReminderCenterUi(
             onClose = { activityOpen = false },
             onOpenCreator = { id ->
                 activityOpen = false
-                searchQuery = tasks.firstOrNull { it.id == id }?.title.orEmpty()
+                focusedTaskId = id
+                searchQuery = ""
+                historyOpen = false
                 hubFilter = V219ReminderHubFilter.ALL
+                selected = emptySet()
             },
             onOpenPersonal = { activityOpen = false; onPersonal() },
             onOpenPersonalItem = { id ->
@@ -265,6 +279,32 @@ internal fun V157ReminderCenterUi(
                         .padding(horizontal = 18.dp)
                         .padding(bottom = 45.dp),
                 ) {
+                    // A Notification Center link stays tied to its original
+                    // task even when multiple projects have identical titles.
+                    if (focusedTaskId != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .testTag("v335-focused-creator-task"),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text("FROM NOTIFICATION CENTER", color = RecRed,
+                                fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            TextButton(onClick = {
+                                focusedTaskId = null
+                                searchQuery = ""
+                                selected = emptySet()
+                            }) { Text("SHOW ALL", color = ProjectorIvory) }
+                        }
+                        if (tasks.none { it.id == focusedTaskId }) {
+                            Text(
+                                "This project is no longer available. Its recorded " +
+                                    "activity may remain in History.",
+                                color = MutedText, fontSize = 12.sp,
+                                modifier = Modifier.testTag("v335-missing-creator-task"),
+                            )
+                        }
+                    }
                     // A first-run empty inbox should not be a dashboard of three
                     // zero tiles. Keep the full counters once a reminder exists.
                     if (activeIds.isNotEmpty()) {
@@ -293,6 +333,7 @@ internal fun V157ReminderCenterUi(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { updated ->
+                            focusedTaskId = null
                             searchQuery = updated.take(160)
                             // Never leave destructive bulk selections hidden by a search.
                             selected = emptySet()
@@ -302,7 +343,11 @@ internal fun V157ReminderCenterUi(
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(
-                                    onClick = { searchQuery = ""; selected = emptySet() },
+                                    onClick = {
+                                        focusedTaskId = null
+                                        searchQuery = ""
+                                        selected = emptySet()
+                                    },
                                     modifier = Modifier.testTag("v219-search-clear"),
                                 ) {
                                     Icon(Icons.Outlined.Close, contentDescription = "Clear reminder search")
