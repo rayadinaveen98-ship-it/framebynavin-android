@@ -54,32 +54,22 @@ internal fun V195ReminderParticleScene(
     }
     // V222: higher-chroma pigment while preserving the original unified particle
     // trajectories, clock/mic shape, reveal mechanics and accessible actions.
+    // Same Director's Cut pigment as the revealed Canvas surface. Keep
+    // V195's previously working particle trajectories and one-tap reveal.
     val palette = remember(kind) {
-        if (kind == ReminderCheckInKind.ALARM) listOf(
-            Color(0xFFFFE16B), Color(0xFFFFB437), Color(0xFFFF6B3E), Color(0xFFFF497B),
-            Color(0xFFFF35BD), Color(0xFFDA52FF), Color(0xFF9460FF), Color(0xFFFF8660),
-        ) else listOf(
-            Color(0xFF4CF5FF), Color(0xFF319EFF), Color(0xFF6475FF), Color(0xFFAB69FF),
-            Color(0xFFE65DFF), Color(0xFFFF52C6), Color(0xFF28F5D9), Color(0xFF6DC7FF),
+        listOf(
+            Color(0xFFFFE2D4), Color(0xFFFF8A91), Color(0xFFE94A45),
+            Color(0xFFFF647F), Color(0xFFD2AE67), Color(0xFFFFB8A5),
+            Color(0xFFB52B48), Color(0xFFFFC28C),
         )
     }
     val atmosphere = remember(kind) {
         Brush.verticalGradient(
-            if (kind == ReminderCheckInKind.ALARM) listOf(
-                Color(0xFF2A1231), Color(0xFF2A153B), Color(0xFF142341),
-            ) else listOf(
-                Color(0xFF0F2148), Color(0xFF211A54), Color(0xFF0C3544),
-            )
+            listOf(Color(0xFF080408), Color(0xFF25070F), Color(0xFF10050A))
         )
     }
-    val centralGlow = remember(kind) {
-        if (kind == ReminderCheckInKind.ALARM)
-            Color(0xFFFF5988) else Color(0xFF4D8BFF)
-    }
-    val rimGlow = remember(kind) {
-        if (kind == ReminderCheckInKind.ALARM)
-            Color(0xFFFFB43B) else Color(0xFF38EBE4)
-    }
+    val centralGlow = remember(kind) { Color(0xFFE94A45) }
+    val rimGlow = remember(kind) { Color(0xFFD2AE67) }
     val revealProgress by animateFloatAsState(
         targetValue = if (revealed) 1f else 0f,
         animationSpec = tween(durationMillis = if (motionEnabled) 560 else 0),
