@@ -297,7 +297,7 @@ internal fun V2233PersonalAlertScreen(
                         "Snooze ${reminder.snoozeMinutes}m",
                     ),
                     compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 720,
-                    modifier = Modifier.testTag("v2233-personal-alert-title"),
+                    titleTag = "v2233-personal-alert-title",
                 )
             }
             if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
