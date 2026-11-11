@@ -3,6 +3,8 @@ package com.framebynavin.app.ui
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.personal.PersonalCompletionEvent
 import com.framebynavin.app.personal.PersonalReminder
+import com.framebynavin.app.personal.PersonalDeliveryHealthPolicy
+import com.framebynavin.app.personal.PersonalDeliveryHealthState
 import com.framebynavin.app.personal.V288PersonalTodayPolicy
 import com.framebynavin.app.reminders.ReminderAckRecord
 import com.framebynavin.app.reminders.ReminderAckState
@@ -45,6 +47,7 @@ internal object V306ActivityCenterPolicy {
         creators: List<V306CreatorEvidence>,
         personal: List<PersonalReminder>,
         confirmedDone: List<PersonalCompletionEvent>,
+        nowMillis: Long = 0L,
     ): List<V306ActivityItem> {
         val actions = ArrayList<V306ActivityItem>()
         val history = ArrayList<V306ActivityItem>()
@@ -102,7 +105,8 @@ internal object V306ActivityCenterPolicy {
 
         val personalById = personal.associateBy { it.id }
         personal.forEach { reminder ->
-            if (V288PersonalTodayPolicy.canRespond(reminder)) {
+            val canRespond = V288PersonalTodayPolicy.canRespond(reminder)
+            if (canRespond) {
                 actions.add(
                     V306ActivityItem(
                         id = "personal:action:${reminder.id}:${reminder.pendingOccurrenceMillis}",
@@ -114,6 +118,31 @@ internal object V306ActivityCenterPolicy {
                         targetId = reminder.id,
                     )
                 )
+            } else if (nowMillis > 0L && !reminder.paused) {
+                val status = PersonalDeliveryHealthPolicy.status(reminder, nowMillis)
+                if (status.state in setOf(
+                        PersonalDeliveryHealthState.LATE_UNCONFIRMED,
+                        PersonalDeliveryHealthState.EARLIER_MISSED,
+                    )
+                ) {
+                    // A late lease is NOT proof that Android failed. Expose
+                    // the verified missing evidence, without faking delivery,
+                    // acknowledging the reminder or offering premature Done.
+                    actions.add(
+                        V306ActivityItem(
+                            id = "personal:review:${reminder.id}:${reminder.pendingOccurrenceMillis}",
+                            domain = V306ActivityDomain.PERSONAL,
+                            bucket = V306ActivityBucket.NEEDS_ACTION,
+                            title = reminder.title,
+                            detail = status.label,
+                            atMillis = if (status.state ==
+                                PersonalDeliveryHealthState.LATE_UNCONFIRMED)
+                                reminder.pendingFireAtMillis else reminder.lastMissedOccurrenceMillis,
+                            targetId = reminder.id,
+                            deliveryProblem = false,
+                        )
+                    )
+                }
             }
         }
         confirmedDone.distinctBy { it.stableKey }.forEach { event ->
