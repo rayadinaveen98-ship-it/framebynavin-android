@@ -105,6 +105,7 @@ internal fun V306ActivityCenterScreen(
             creators = creatorEvidence.orEmpty(),
             personal = if (personalReady) personal else emptyList(),
             confirmedDone = if (receiptsReady && personalReady) confirmedDone else emptyList(),
+            nowMillis = nowMillis,
         )
     }
     val filter = V306ActivityFilter.entries.firstOrNull { it.name == selectedName }
