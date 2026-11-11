@@ -59,7 +59,7 @@ class V306ActivityCenterUiTest {
         rule.waitUntil(15_000) {
             rule.onAllNodesWithTag("v306-activity-center").fetchSemanticsNodes().isNotEmpty()
         }
-        rule.onNodeWithText("Your real reminder activity").assertExists()
+        rule.onNodeWithText("Notification Center").assertExists()
         rule.onNodeWithTag("v306-filter-needs_action").assertExists()
         rule.onNodeWithTag("v306-filter-all").assertExists()
         rule.onNodeWithTag("v306-filter-history").assertExists()
