@@ -317,6 +317,7 @@ internal fun V131ReminderCenter(
     snoozeMinutes: Int = 10,
     onAcknowledgeReminder: ((CreatorTask, String, String) -> Unit)? = null,
     onPersonal: () -> Unit = {},
+    initialFocusTaskId: String? = null,
 ) {
     V157ReminderCenterUi(
         tasks = tasks,
@@ -331,6 +332,7 @@ internal fun V131ReminderCenter(
         snoozeMinutes = snoozeMinutes,
         onAcknowledge = onAcknowledgeReminder,
         onPersonal = onPersonal,
+        initialFocusTaskId = initialFocusTaskId,
     )
 }
 
