@@ -64,6 +64,7 @@ internal fun V2232PersonalReminderHub(
     onClose: () -> Unit,
     onCreator: () -> Unit,
     onOpenActivity: () -> Unit = {},
+    initialFocusReminderId: String? = null,
 ) {
     val context = LocalContext.current
     val store = remember(context) { PersonalReminderStore(context) }
@@ -97,6 +98,16 @@ internal fun V2232PersonalReminderHub(
     // Reduce alarm-list fatigue: show the day first, but never hide action-needed items.
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
+    var activityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
+    // Activity Center deep links only focus a real Personal reminder row;
+    // they do not mark it viewed, snoozed or completed.
+    LaunchedEffect(initialFocusReminderId) {
+        if (!initialFocusReminderId.isNullOrBlank()) {
+            activityFocusId = initialFocusReminderId
+            personalPageName = "TODAY"
+            agendaScopeName = V285AgendaScope.ALL.name
+        }
+    }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
     var challengesOpen by rememberSaveable { mutableStateOf(false) }
     var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
@@ -494,9 +505,24 @@ internal fun V2232PersonalReminderHub(
                         )
                     }
                 }
-                val agendaGroups = remember(reminders, agendaNowMillis, agendaScopeName) {
+                if (activityFocusId != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().testTag("v335-focused-personal-row"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("REMINDER FROM ACTIVITY", color = RecRed,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { activityFocusId = null }) {
+                            Text("SHOW ALL", color = ProjectorIvory)
+                        }
+                    }
+                }
+                val filteredForActivity = if (activityFocusId == null) reminders
+                    else reminders.filter { it.id == activityFocusId }
+                val agendaGroups = remember(filteredForActivity, agendaNowMillis, agendaScopeName) {
                     V285PersonalAgendaFilter.groups(
-                        reminders, agendaNowMillis, V285AgendaScope.valueOf(agendaScopeName)
+                        filteredForActivity, agendaNowMillis, V285AgendaScope.valueOf(agendaScopeName)
                     )
                 }
                 val visibleCount = agendaGroups.sumOf { it.items.size }
@@ -523,6 +549,7 @@ internal fun V2232PersonalReminderHub(
                             reminder = item,
                             nowMillis = agendaNowMillis,
                             busy = busy,
+                            expandedInitially = item.id == activityFocusId,
                             onEdit = { editing = item; editorOpen = true },
                             onPause = { perform { commands.setPaused(item.id, !item.paused) } },
                             onDelete = { deleteTarget = item },
@@ -666,6 +693,7 @@ private fun V2232PersonalItem(
     reminder: PersonalReminder,
     nowMillis: Long,
     busy: Boolean,
+    expandedInitially: Boolean = false,
     onEdit: () -> Unit,
     onPause: () -> Unit,
     onDelete: () -> Unit,
@@ -677,7 +705,8 @@ private fun V2232PersonalItem(
         Instant.ofEpochMilli(it).atZone(reminder.zoneId)
             .format(DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a", Locale.getDefault()))
     } ?: "No upcoming occurrence"
-    var expanded by rememberSaveable(reminder.id) { mutableStateOf(false) }
+    var expanded by rememberSaveable(reminder.id) { mutableStateOf(expandedInitially) }
+    LaunchedEffect(expandedInitially) { if (expandedInitially) expanded = true }
     val actionReady = V288PersonalTodayPolicy.canRespond(reminder)
     val needsAttention = PersonalAgendaPolicy.section(reminder, nowMillis) ==
         PersonalAgendaSection.NEEDS_ATTENTION
