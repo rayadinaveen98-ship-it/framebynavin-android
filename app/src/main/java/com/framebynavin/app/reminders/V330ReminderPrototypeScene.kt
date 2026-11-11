@@ -5,7 +5,11 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.Log
 import android.view.View
+import android.webkit.ConsoleMessage
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -25,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -34,7 +37,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import kotlin.math.roundToInt
 
 /**
  * Backlot V330 — direct, offline rendering of the approved Motion Lab V2 art.
@@ -60,7 +62,6 @@ internal fun V330ReminderPrototypeScene(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val scale = LocalDensity.current.density
     val revealNow by rememberUpdatedState(onReveal)
     val motionEnabled = motionOverride ?: remember { ValueAnimator.areAnimatorsEnabled() }
     val eco = lowPowerOverride ?: remember(context) {
@@ -68,12 +69,14 @@ internal fun V330ReminderPrototypeScene(
             context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
     }
     val safe = appearance.normalized()
+    val identity = "${domain.name}_${channel.name}_${safe.world.name}_${interactive}_${eco}"
+    var rendererFailed by remember(identity) { mutableStateOf(false) }
     // On devices lacking a working WebView provider, preserve the usable
     // legacy particle scene and unchanged reminder actions.
     val providerReady = remember {
         runCatching { WebView.getCurrentWebViewPackage() != null }.getOrDefault(false)
     }
-    if (!providerReady) {
+    if (!providerReady || rendererFailed) {
         V329ReminderMotionScene(
             channel = channel,
             appearance = safe,
@@ -89,7 +92,6 @@ internal fun V330ReminderPrototypeScene(
     val html = remember(context) {
         context.assets.open("backlot_v330_motion.html").bufferedReader().use { it.readText() }
     }
-    val identity = "${domain.name}_${channel.name}_${safe.world.name}_${interactive}_${eco}"
     var currentWeb by remember { mutableStateOf<WebView?>(null) }
 
     DisposableEffect(currentWeb, lifecycleOwner) {
@@ -114,7 +116,8 @@ internal fun V330ReminderPrototypeScene(
                 factory = { viewContext ->
                     WebView(viewContext).apply {
                         setBackgroundColor(android.graphics.Color.rgb(5, 4, 7))
-                        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                        // Do not force hardware layers. WebView's default renderer
+                        // selects hardware/software compositing for the actual device.
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = false
                         settings.allowFileAccess = false
@@ -124,11 +127,46 @@ internal fun V330ReminderPrototypeScene(
                         isHorizontalScrollBarEnabled = false
                         isVerticalScrollBarEnabled = false
                         isFocusable = false
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                                    Log.e("BacklotMotion", "JS ${message.message()} line ${message.lineNumber()}")
+                                }
+                                return true
+                            }
+                        }
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(
                                 view: WebView?,
                                 request: WebResourceRequest?,
                             ): Boolean = true
+
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                view?.postDelayed({
+                                    if (currentWeb === view) {
+                                        view.evaluateJavascript(
+                                            "(function(){try{var s=window.BacklotMotion?.state?.();" +
+                                                "return !!(s&&s.nodes>=180&&s.viewportWidth>=120&&s.viewportHeight>=120)}" +
+                                                "catch(e){return false}})()",
+                                        ) { result ->
+                                            if (result.trim() != "true" && currentWeb === view) {
+                                                Log.e("BacklotMotion", "Canvas did not initialize; using safe fallback")
+                                                rendererFailed = true
+                                            }
+                                        }
+                                    }
+                                }, 1250L)
+                            }
+
+                            override fun onRenderProcessGone(
+                                view: WebView,
+                                detail: RenderProcessGoneDetail,
+                            ): Boolean {
+                                Log.e("BacklotMotion", "WebView renderer exited; using safe fallback")
+                                rendererFailed = true
+                                return true
+                            }
                         }
                         val query = "?mode=${safe.world.ordinal}" +
                             "&hub=${domain.name.lowercase()}" +
@@ -142,10 +180,23 @@ internal fun V330ReminderPrototypeScene(
                             "const params=new URLSearchParams(location.search);",
                             "const params=new URLSearchParams('$query');",
                         )
-                        loadDataWithBaseURL(
-                            "https://appassets.androidplatform.net/backlot/v330/",
-                            page, "text/html", "UTF-8", null,
-                        )
+                        // AndroidView factory executes BEFORE its final measure.
+                        // Load the animation only after the view has real dimensions;
+                        // the HTML also uses ResizeObserver on subsequent rotations.
+                        addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+                            override fun onLayoutChange(
+                                v: View, left: Int, top: Int, right: Int, bottom: Int,
+                                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int,
+                            ) {
+                                if (right - left >= 120 && bottom - top >= 120) {
+                                    v.removeOnLayoutChangeListener(this)
+                                    loadDataWithBaseURL(
+                                        "https://appassets.androidplatform.net/backlot/v332/",
+                                        page, "text/html", "UTF-8", null,
+                                    )
+                                }
+                            }
+                        })
                         currentWeb = this
                     }
                 },
@@ -160,8 +211,8 @@ internal fun V330ReminderPrototypeScene(
                 onReset = null,
                 onRelease = { released ->
                     if (currentWeb === released) currentWeb = null
-                    released.stopLoading()
-                    released.destroy()
+                    runCatching { released.stopLoading() }
+                    runCatching { released.destroy() }
                 },
             )
         }
@@ -178,9 +229,9 @@ internal fun V330ReminderPrototypeScene(
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             currentWeb?.evaluateJavascript(
-                                "window.BacklotMotion?.start(" +
-                                    "${(down.position.x / scale).roundToInt()}," +
-                                    "${(down.position.y / scale).roundToInt()})",
+                                "window.BacklotMotion?.startNormalized(" +
+                                    "${(down.position.x / size.width.coerceAtLeast(1)).coerceIn(0f, 1f)}," +
+                                    "${(down.position.y / size.height.coerceAtLeast(1)).coerceIn(0f, 1f)})",
                                 null,
                             )
                             var lastForwardedAt = 0L
@@ -197,9 +248,9 @@ internal fun V330ReminderPrototypeScene(
                                     val at = SystemClock.uptimeMillis()
                                     if (at - lastForwardedAt >= 32L) {
                                         currentWeb?.evaluateJavascript(
-                                            "window.BacklotMotion?.move(" +
-                                                "${(pointer.position.x / scale).roundToInt()}," +
-                                                "${(pointer.position.y / scale).roundToInt()})",
+                                            "window.BacklotMotion?.moveNormalized(" +
+                                                "${(pointer.position.x / size.width.coerceAtLeast(1)).coerceIn(0f, 1f)}," +
+                                                "${(pointer.position.y / size.height.coerceAtLeast(1)).coerceIn(0f, 1f)})",
                                             null,
                                         )
                                         lastForwardedAt = at
