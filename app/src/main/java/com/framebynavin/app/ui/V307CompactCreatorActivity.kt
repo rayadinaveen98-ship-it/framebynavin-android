@@ -60,6 +60,7 @@ internal fun V307CompactCreatorActivity(
     onOpenActivityCenter: () -> Unit,
     onOpenProject: (String) -> Unit,
     onAcknowledge: ((CreatorTask, String, String) -> Unit)?,
+    expandForTaskId: String? = null,
 ) {
     val context = LocalContext.current.applicationContext
     val journal = remember(context) { ReminderAcknowledgementStore(context) }
@@ -81,6 +82,12 @@ internal fun V307CompactCreatorActivity(
     }
     val state = V307CreatorActivityPolicy.from(evidence.orEmpty())
     var expanded by remember { mutableStateOf(false) }
+    // Notification Center entry shows the existing response controls without
+    // making the user find another "Respond now" expander. Showing controls
+    // does not acknowledge a notification or mutate reminder state.
+    LaunchedEffect(expandForTaskId) {
+        if (!expandForTaskId.isNullOrBlank()) expanded = true
+    }
     if (evidence == null) {
         Text(
             "Reminder activity couldn't be loaded. Your records haven't changed.",
