@@ -63,6 +63,7 @@ internal fun V157ReminderCenterUi(
     snoozeMinutes: Int,
     onAcknowledge: ((CreatorTask, String, String) -> Unit)? = null,
     onPersonal: () -> Unit = {},
+    initialFocusTaskId: String? = null,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -93,6 +94,15 @@ internal fun V157ReminderCenterUi(
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     var activityOpen by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    // A Notification Center item leads to the real response hub and its
+    // existing fingerprint/token-validated actions, NOT the project editor.
+    // Entering normally leaves the user's search alone.
+    LaunchedEffect(initialFocusTaskId) {
+        if (!initialFocusTaskId.isNullOrBlank()) {
+            searchQuery = tasks.firstOrNull { it.id == initialFocusTaskId }?.title.orEmpty()
+            hubFilter = V219ReminderHubFilter.ALL
+        }
+    }
     // Compute visible groups from real Center data; no synthetic reminders.
     val matchingGroups = V219ReminderSearchPolicy.filter(grouped, searchQuery)
     val visibleSelectionIds = V219ReminderSearchPolicy.visibleIds(matchingGroups, hubFilter)
@@ -190,7 +200,11 @@ internal fun V157ReminderCenterUi(
             tasks = tasks,
             nowMillis = now,
             onClose = { activityOpen = false },
-            onOpenCreator = { id -> activityOpen = false; onEdit(id) },
+            onOpenCreator = { id ->
+                activityOpen = false
+                searchQuery = tasks.firstOrNull { it.id == id }?.title.orEmpty()
+                hubFilter = V219ReminderHubFilter.ALL
+            },
             onOpenPersonal = { activityOpen = false; onPersonal() },
         )
         return
