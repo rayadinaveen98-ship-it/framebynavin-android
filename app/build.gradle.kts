@@ -64,8 +64,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 328
-        versionName = "2.27.8-21day-approved-owner-preview"
+        versionCode = 333
+        versionName = "2.28.3-classic-reminders-restored-preview"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
