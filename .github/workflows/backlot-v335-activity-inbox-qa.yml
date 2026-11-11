@@ -101,10 +101,10 @@ jobs:
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8'
 
-  android-home-ui:
+  compile-matched-android-tests:
     needs: build-owner-apk
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -114,18 +114,89 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Compile instrumentation against matching signed owner variant WITHOUT an emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 4500s \
+            gradle :app:assemblePersonalStableAndroidTest \
+              -PbacklotSignedOwnerTest=true \
+              --no-daemon --no-parallel --max-workers=1 \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' \
+              --console=plain --stacktrace 2>&1 | tee v335-android-test-compile.log
+      - name: Verify test APK and upload
+        run: |
+          set -euo pipefail
+          mkdir -p output/v335-instrumentation
+          src=app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
+          test -s "$src"
+          cp "$src" output/v335-instrumentation/app-personalStable-androidTest.apk
+          (cd output/v335-instrumentation && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V335-Android-Test-APK
+          path: output/v335-instrumentation/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload instrumentation compiler log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V335-Android-Test-Compiler-Log
+          path: v335-android-test-compile.log
+          if-no-files-found: warn
+
+  android-home-ui:
+    needs: [build-owner-apk, compile-matched-android-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V335-Independent-Activity-Center-Signed-APK
+          path: output/v335-app
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V335-Android-Test-APK
+          path: output/v335-instrumentation
+      - name: Verify signed APKs arrived intact
+        run: |
+          set -euo pipefail
+          (cd output/v335-app && sha256sum -c SHA256SUMS.txt)
+          (cd output/v335-instrumentation && sha256sum -c SHA256SUMS.txt)
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Check bell, optional Spark, and truthful activity indicator on Android
+      - name: Check independent notification bell and optional Spark on Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          ram-size: 3072M
+          ram-size: 2048M
+          disable-animations: true
+          emulator-boot-timeout: 900
           script: |
-            gradle :app:connectedDebugAndroidTest '-Pandroid.testInstrumentationRunnerArguments.class=com.framebynavin.app.ui.V335HomeNotificationEntryUiTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8'
+            set -euo pipefail
+            adb install -r output/v335-app/Backlot-V335-Independent-Activity-Center.apk
+            adb install -r output/v335-instrumentation/app-personalStable-androidTest.apk
+            adb shell am instrument -w -r \
+              -e class com.framebynavin.app.ui.V335HomeNotificationEntryUiTest \
+              -e hardeningTestEnvironment ci-emulator \
+              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner | tee v335-home-notifications.log
+            if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' v335-home-notifications.log; then
+              exit 1
+            fi
+            grep -Eq '^OK \(3 tests\)' v335-home-notifications.log
+      - name: Upload device results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V335-Home-Android-Test-Log
+          path: v335-home-notifications.log
+          if-no-files-found: warn
+          retention-days: 30
