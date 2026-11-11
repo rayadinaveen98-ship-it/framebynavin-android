@@ -39,6 +39,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.framebynavin.app.reminders.V331PrototypeRevealHero
+import com.framebynavin.app.reminders.V331RevealBackdrop
+import com.framebynavin.app.reminders.V331RevealStyle
 import com.framebynavin.app.reminders.V329ReminderChannel
 import com.framebynavin.app.reminders.V329ReminderDomain
 import com.framebynavin.app.reminders.V330ReminderPrototypeScene
@@ -225,15 +228,21 @@ internal fun V2233PersonalAlertScreen(
     val coral = Color(0xFFFF6C95)
     Surface(color = midnight, modifier = Modifier.fillMaxSize()
         .testTag("v2233-personal-alert-screen")) {
+        Box(Modifier.fillMaxSize()) {
+        if (!locked && reminder != null && reminder.alert != PersonalAlert.NOTIFICATION) {
+            V331RevealBackdrop(Modifier.fillMaxSize())
+        }
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
                 .systemBarsPadding().padding(horizontal = 22.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Text("BACKLOT  /  PERSONAL", color = blue,
-                fontSize = 11.sp, fontWeight = FontWeight.Black,
-                modifier = Modifier.align(Alignment.Start))
+            if (locked || reminder == null || reminder.alert == PersonalAlert.NOTIFICATION) {
+                Text("BACKLOT  /  PERSONAL", color = blue,
+                    fontSize = 11.sp, fontWeight = FontWeight.Black,
+                    modifier = Modifier.align(Alignment.Start))
+            }
             Spacer(Modifier.height(4.dp))
             if (locked) {
                 // Android's public notification version already redacts titles.
@@ -261,16 +270,36 @@ internal fun V2233PersonalAlertScreen(
                 }
                 return@Column
             }
-            // The art is a particle wave itself, with the symbol emerging from
-            // the same luminous palette. No reused creator task icon/sticker.
-            V2233PersonalParticleWave(reminder.alert)
-            Text(if (reminder.alert == PersonalAlert.ALARM) "YOUR ALARM"
-                else if (reminder.alert == PersonalAlert.VOICE) "VOICE REMINDER"
-                else "YOUR REMINDER",
-                color = blue, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
-            Text(reminder.title, color = Color.White, fontSize = 26.sp,
-                fontWeight = FontWeight.Bold, lineHeight = 33.sp,
-                textAlign = TextAlign.Center, modifier = Modifier.testTag("v2233-personal-alert-title"))
+            if (reminder.alert == PersonalAlert.NOTIFICATION) {
+                // Notification-only presentation is outside the four approved
+                // Voice/Alarm scopes and remains the existing Android layout.
+                V2233PersonalParticleWave(reminder.alert)
+                Text("YOUR REMINDER", color = blue, fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp)
+                Text(reminder.title, color = Color.White, fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold, lineHeight = 33.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("v2233-personal-alert-title"))
+            } else {
+                val channel = if (reminder.alert == PersonalAlert.ALARM)
+                    V329ReminderChannel.ALARM else V329ReminderChannel.VOICE
+                V331PrototypeRevealHero(
+                    domain = V329ReminderDomain.PERSONAL,
+                    channel = channel,
+                    title = reminder.title,
+                    subtitle = if (channel == V329ReminderChannel.VOICE)
+                        "A gentle spoken nudge for your day."
+                        else "A moment set aside for yourself.",
+                    timeLabel = V331RevealStyle.timeLabel(reminder.pendingOccurrenceMillis),
+                    chips = listOf(
+                        if (channel == V329ReminderChannel.VOICE)
+                            "Speak ${reminder.voiceRepeatCount} times" else "Alarm sound",
+                        "Snooze ${reminder.snoozeMinutes}m",
+                    ),
+                    compact = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 720,
+                    modifier = Modifier.testTag("v2233-personal-alert-title"),
+                )
+            }
             if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
                 reminder.notes.isNotBlank()) {
                 Text(reminder.notes, color = Color(0xFFDBE4F2), fontSize = 14.sp,
@@ -286,26 +315,64 @@ internal fun V2233PersonalAlertScreen(
                 color = Color(0xFFB6C3DB), fontSize = 12.sp, textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(14.dp))
-            Button(
-                onClick = onDone, enabled = !busy,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
-                    .testTag("v2233-personal-done"),
-                colors = ButtonDefaults.buttonColors(containerColor = violet),
-                shape = RoundedCornerShape(16.dp),
-            ) { Text("DONE", color = Color.White, fontWeight = FontWeight.Bold) }
-            OutlinedButton(
-                onClick = onSnooze, enabled = !busy,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
-                    .testTag("v2233-personal-snooze"),
-                border = BorderStroke(1.dp, blue.copy(alpha = .75f)),
-                shape = RoundedCornerShape(16.dp),
-            ) { Text("SNOOZE ${reminder.snoozeMinutes} MINUTES", color = Color.White) }
+            if (reminder.alert == PersonalAlert.NOTIFICATION) {
+                Button(
+                    onClick = onDone, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
+                        .testTag("v2233-personal-done"),
+                    colors = ButtonDefaults.buttonColors(containerColor = violet),
+                    shape = RoundedCornerShape(16.dp),
+                ) { Text("DONE", color = Color.White, fontWeight = FontWeight.Bold) }
+                OutlinedButton(
+                    onClick = onSnooze, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
+                        .testTag("v2233-personal-snooze"),
+                    border = BorderStroke(1.dp, blue.copy(alpha = .75f)),
+                    shape = RoundedCornerShape(16.dp),
+                ) { Text("SNOOZE ${reminder.snoozeMinutes} MINUTES", color = Color.White) }
+            } else {
+                // Exact prototype hierarchy: Snooze left, Done right. Their
+                // callbacks and test identifiers are identical to V2233.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = onSnooze, enabled = !busy,
+                        modifier = Modifier.weight(1f).heightIn(min = 56.dp)
+                            .testTag("v2233-personal-snooze"),
+                        border = BorderStroke(1.dp, V331RevealStyle.line),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = V331RevealStyle.surface,
+                        ),
+                        shape = RoundedCornerShape(17.dp),
+                    ) {
+                        Text("SNOOZE ${reminder.snoozeMinutes}M",
+                            color = V331RevealStyle.foreground, fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp, maxLines = 1)
+                    }
+                    Button(
+                        onClick = onDone, enabled = !busy,
+                        modifier = Modifier.weight(1f).heightIn(min = 56.dp)
+                            .testTag("v2233-personal-done"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = V331RevealStyle.red,
+                        ),
+                        shape = RoundedCornerShape(17.dp),
+                    ) {
+                        Text("MARK DONE", color = Color.White, fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+            }
             TextButton(
                 onClick = onDismiss, enabled = !busy,
                 modifier = Modifier.testTag("v2233-personal-dismiss"),
             ) { Text("DISMISS WITHOUT COMPLETING", color = coral) }
             if (error != null) Text(error, color = coral, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
+        }
         }
     }
 }
