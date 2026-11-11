@@ -112,6 +112,9 @@ internal fun V306ActivityCenterScreen(
     val visible = V306ActivityCenterPolicy.filter(feed, filter)
     val actionCount = feed.count { it.bucket == V306ActivityBucket.NEEDS_ACTION }
     val historyCount = feed.count { it.bucket == V306ActivityBucket.HISTORY }
+    val activeDeliveryProblems = feed.count {
+        it.deliveryProblem && it.bucket == V306ActivityBucket.NEEDS_ACTION
+    }
     // Source-only Spark guidance: never infer that an unavailable store is empty.
     val evidenceComplete = creatorEvidence != null && personalReady && receiptsReady &&
         !personalFailure && !receiptFailure
@@ -161,6 +164,38 @@ internal fun V306ActivityCenterScreen(
                         label = { Text(label) },
                         modifier = Modifier.testTag("v306-filter-${option.name.lowercase()}"),
                     )
+                }
+            }
+            if (activeDeliveryProblems > 0) {
+                Surface(
+                    onClick = { selectedName = V306ActivityFilter.NEEDS_ACTION.name },
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .testTag("v335-delivery-problem-summary"),
+                    shape = RoundedCornerShape(14.dp),
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, RecRed.copy(alpha = .55f)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(13.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Outlined.NotificationsActive, null,
+                            tint = RecRed, modifier = Modifier.size(20.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("$activeDeliveryProblems CREATOR DELIVERY " +
+                                if (activeDeliveryProblems == 1) "ISSUE" else "ISSUES",
+                                color = ProjectorIvory,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Android did not confirm delivery. Review the original " +
+                                "reminder and its permission settings.",
+                                color = MutedText, fontSize = 11.sp)
+                        }
+                        Icon(Icons.Outlined.ChevronRight,
+                            contentDescription = "Review failed reminder deliveries",
+                            tint = RecRed)
+                    }
                 }
             }
             if (!personalReady && !personalFailure || !receiptsReady && !receiptFailure) {
@@ -283,7 +318,11 @@ internal fun V306ActivityCenterScreen(
                             Column(modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    if (activity.domain == V306ActivityDomain.CREATOR) "CREATOR" else "PERSONAL",
+                                    (if (activity.domain == V306ActivityDomain.CREATOR)
+                                        "CREATOR" else "PERSONAL") + "  ·  " +
+                                        (if (activity.deliveryProblem) "DELIVERY ISSUE"
+                                         else if (activity.bucket == V306ActivityBucket.NEEDS_ACTION)
+                                             "NEEDS ACTION" else "HISTORY"),
                                     color = BacklotSecondaryText, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                                 )
                                 Text(activity.title, color = ProjectorIvory, fontSize = 14.sp,
