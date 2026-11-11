@@ -156,8 +156,20 @@ internal fun V331PrototypeRevealHero(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                // The prototype's rounded icon plaque, not the old Spark
-                // illustration or an unrelated solid Android icon card.
+                Canvas(Modifier.fillMaxWidth()) {
+                    val center = Offset(size.width * .55f, size.height * .30f)
+                    val r = size.width * 1.05f
+                    drawRect(
+                        Brush.radialGradient(
+                            0f to Color(0x8CFF4566),
+                            .55f to Color(0x333A1021),
+                            1f to Color(0xFF32101B),
+                            center = center,
+                            radius = r,
+                        ),
+                    )
+                }
+                // The prototype's luminous rounded icon plaque; real glyph.
                 Icon(
                     imageVector = if (channel == V329ReminderChannel.ALARM)
                         Icons.Outlined.Alarm else Icons.Outlined.Mic,
@@ -224,6 +236,8 @@ internal fun V331PrototypeRevealHero(
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 validChips.forEach { chip ->
                     Surface(
+                        modifier = if (validChips.size == 2) Modifier.weight(1f)
+                            else Modifier,
                         color = V331RevealStyle.surface,
                         border = BorderStroke(1.dp, V331RevealStyle.line),
                         shape = RoundedCornerShape(32.dp),
