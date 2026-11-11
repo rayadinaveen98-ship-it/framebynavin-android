@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -54,6 +55,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,7 +97,7 @@ internal fun ReminderCheckInScreen(
     attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
 ) {
     BackHandler(enabled = true) { }
-    val accent = if (kind == ReminderCheckInKind.VOICE) BacklotSecondaryAccent else BacklotAccent
+    val accent = V336DirectorPalette.hot
     val scroll = rememberScrollState()
     val clockLabel = remember { reminderClockLabel(System.currentTimeMillis()) }
     val contextLine = listOf(stageLabel.trim(), dueLabel.trim())
@@ -150,8 +152,7 @@ internal fun ReminderCheckInScreen(
             label = "v231-reminder-backdrop-transition",
         ) { showingActions ->
             if (showingActions) {
-                V231CinematicWaveBackdrop(
-                    kind = kind,
+                V336DirectorBackdrop(
                     lowPower = lowPower,
                     motionEnabled = motionEnabled,
                     modifier = Modifier.fillMaxSize(),
@@ -188,41 +189,45 @@ internal fun ReminderCheckInScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = when {
-                        stageCheckIn -> "STAGE CHECK-IN"
-                        kind == ReminderCheckInKind.VOICE -> "VOICE"
-                        else -> "ALARM"
-                    },
-                    color = accent,
+                    "BACKLOT  /  CREATOR REMINDERS",
+                    color = V336DirectorPalette.ivory,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.3.sp,
+                    letterSpacing = 1.5.sp,
                 )
                 Text(
-                    text = clockLabel,
-                    color = BacklotSecondaryText,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    clockLabel, color = V336DirectorPalette.muted,
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                 )
             }
-
-            Spacer(Modifier.height(if (compact) 7.dp else 18.dp))
-
-            V199ReminderSpark(
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = if (kind == ReminderCheckInKind.VOICE) "VOICE" else "ALARM",
+                color = V336DirectorPalette.gold, fontWeight = FontWeight.Bold,
+                fontSize = 10.sp, letterSpacing = 3.sp,
+            )
+            // This is a Native Compose Canvas, not an HTML image or fake UI.
+            V336DirectorSignalArt(
                 kind = kind,
                 motionEnabled = motionEnabled,
                 lowPower = lowPower,
-                modifier = Modifier
-                    .size(if (compact) 104.dp else 126.dp)
-                    .testTag(if (kind == ReminderCheckInKind.VOICE) "v195-voice-guide" else "v195-alarm-guide"),
+                modifier = Modifier.fillMaxWidth()
+                    .height(if (compact) 170.dp else 220.dp)
+                    .testTag(if (kind == ReminderCheckInKind.VOICE)
+                        "v195-voice-guide" else "v195-alarm-guide"),
             )
-            Spacer(Modifier.height(if (compact) 8.dp else 13.dp))
-
+            Spacer(Modifier.height(if (compact) 3.dp else 7.dp))
+            Text(
+                if (stageCheckIn) "CREATOR STAGE CHECK-IN" else "CREATOR REMINDER",
+                color = V336DirectorPalette.hot, fontWeight = FontWeight.Bold,
+                fontSize = 10.sp, letterSpacing = 2.3.sp,
+            )
+            Spacer(Modifier.height(7.dp))
             Text(
                 text = title,
-                color = BacklotPrimaryText,
-                fontSize = if (compact) 22.sp else 24.sp,
-                lineHeight = if (compact) 27.sp else 30.sp,
+                color = V336DirectorPalette.ivory,
+                fontSize = if (compact) 22.sp else 26.sp,
+                lineHeight = if (compact) 28.sp else 34.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 3,
@@ -230,31 +235,46 @@ internal fun ReminderCheckInScreen(
                 modifier = Modifier.fillMaxWidth().testTag("v200-reminder-title"),
             )
             if (contextLine.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = contextLine,
-                    color = BacklotSecondaryText,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("v336-creator-reminder-context"),
+                    color = V336DirectorPalette.panel,
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                ) {
+                    Column(Modifier.padding(horizontal = 17.dp, vertical = 14.dp)) {
+                        Text("SCHEDULED  /  STAGE", color = V336DirectorPalette.hot,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Text(contextLine, color = V336DirectorPalette.ivory,
+                            fontSize = 13.sp, lineHeight = 19.sp, maxLines = 3,
+                            overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
             if (nextAction != null) {
-                Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
-                Text(
-                    text = nextAction,
-                    color = BacklotPrimaryText.copy(alpha = .85f),
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Spacer(Modifier.height(9.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("v336-creator-reminder-next-step"),
+                    color = V336DirectorPalette.panel,
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                ) {
+                    Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
+                        Text("NEXT MOVE", color = V336DirectorPalette.hot,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Text(nextAction, color = V336DirectorPalette.ivory,
+                            fontSize = 13.sp, lineHeight = 19.sp, maxLines = 3,
+                            overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
-
-            Spacer(Modifier.height(if (compact) 18.dp else 26.dp))
+            Spacer(Modifier.height(if (compact) 13.dp else 22.dp))
 
             // ONE dominant answer; Stage Done takes priority only for check-ins.
             Button(
@@ -264,10 +284,11 @@ internal fun ReminderCheckInScreen(
                     .v201PressFeedback(primaryPress, motionEnabled, prominent = true)
                     .testTag("v200-primary-reminder-action"),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (stageCheckIn) BacklotSuccess else accent,
-                    contentColor = Color(0xFF15151E),
+                    containerColor = if (stageCheckIn)
+                        V336DirectorPalette.gold else Color(0xFFE8B88E),
+                    contentColor = V336DirectorPalette.black,
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(26.dp),
             ) {
                 Icon(
                     if (stageCheckIn) Icons.Outlined.Check else Icons.Outlined.Work,
@@ -289,7 +310,7 @@ internal fun ReminderCheckInScreen(
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                         .v201PressFeedback(workingPress, motionEnabled),
                     border = BorderStroke(1.dp, accent.copy(alpha = .72f)),
-                    shape = RoundedCornerShape(15.dp),
+                    shape = RoundedCornerShape(24.dp),
                 ) {
                     Icon(Icons.Outlined.Work, null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
@@ -310,10 +331,10 @@ internal fun ReminderCheckInScreen(
                         interactionSource = snoozePress,
                         modifier = Modifier.weight(1f).height(50.dp)
                             .v201PressFeedback(snoozePress, motionEnabled),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        shape = RoundedCornerShape(15.dp),
+                        border = BorderStroke(1.dp, V336DirectorPalette.gold.copy(alpha = .64f)),
+                        shape = RoundedCornerShape(24.dp),
                     ) {
-                        Icon(Icons.Outlined.Snooze, null, tint = BacklotPrimaryText,
+                        Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(7.dp))
                         Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
@@ -336,10 +357,10 @@ internal fun ReminderCheckInScreen(
                     interactionSource = snoozePress,
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                         .v201PressFeedback(snoozePress, motionEnabled),
-                    border = BorderStroke(1.dp, BacklotBorder),
-                    shape = RoundedCornerShape(15.dp),
+                    border = BorderStroke(1.dp, V336DirectorPalette.gold.copy(alpha = .64f)),
+                    shape = RoundedCornerShape(24.dp),
                 ) {
-                    Icon(Icons.Outlined.Snooze, null, tint = BacklotPrimaryText,
+                    Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
                         modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
                     Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
@@ -373,8 +394,8 @@ internal fun ReminderCheckInScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth().testTag("v200-more-options"),
                     shape = RoundedCornerShape(18.dp),
-                    color = BacklotBackground.copy(alpha = .95f),
-                    border = BorderStroke(1.dp, BacklotBorder),
+                    color = V336DirectorPalette.panel,
+                    border = BorderStroke(1.dp, V336DirectorPalette.line),
                 ) {
                     Column(
                         Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
