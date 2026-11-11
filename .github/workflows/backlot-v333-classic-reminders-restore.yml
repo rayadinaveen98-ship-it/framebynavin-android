@@ -1,0 +1,106 @@
+name: Backlot V333 — Original Reminder Screens Restored
+
+on:
+  push:
+    branches:
+      - fix/backlot-v333-restore-classic-reminder-screens-20261111
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Confirm only original reminder screens and effects are included
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'V231CinematicWaveBackdrop' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          grep -q 'V2233PersonalParticleWave' app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt
+          ! grep -q 'V330ReminderPrototypeScene' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          ! grep -q 'V330ReminderPrototypeScene' app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt
+          ! test -e app/src/main/assets/backlot_v330_motion.html
+          ! test -e app/src/main/java/com/framebynavin/app/reminders/V329ReminderMotionScene.kt
+          ! test -e app/src/main/java/com/framebynavin/app/reminders/V331PrototypeRevealChrome.kt
+          grep -q 'versionCode = 333' app/build.gradle.kts
+      - name: Monitor JVM memory and Kotlin compilation progress
+        shell: bash
+        run: |
+          cat > monitor-compiler.sh <<'SH'
+          #!/usr/bin/env bash
+          while sleep 180; do
+            echo "===== $(date -u +%FT%TZ) compiler memory ====="
+            free -m
+            ps -eo pid,etime,rss,%cpu,comm,args --sort=-rss | cut -c 1-180 | head -n 9
+            for pid in $(pgrep -f 'org.gradle.launcher.daemon.bootstrap.GradleDaemon' || true); do
+              echo "===== Gradle JVM $pid ====="
+              timeout 15s jcmd "$pid" GC.heap_info 2>&1 || true
+              timeout 15s jcmd "$pid" Thread.print -l > "v333-gradle-thread-dump-${pid}.txt" 2>&1 || true
+            done
+          done
+          SH
+          chmod +x monitor-compiler.sh
+          nohup ./monitor-compiler.sh > v333-compiler-monitor.log 2>&1 &
+      - name: Verify original reminder visual and interaction policies
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:testPersonalStableUnitTest --tests 'com.framebynavin.app.reminders.V197ImmersiveParticlePolicyTest' --tests 'com.framebynavin.app.reminders.V200ReminderLayoutPolicyTest' --tests 'com.framebynavin.app.reminders.V218UnifiedWavePolicyTest' --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' --stacktrace
+      - name: Compile and package signed personalStable APK
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=TERM --kill-after=30s 2400s \
+            gradle :app:assemblePersonalStable -PbacklotSignedOwnerTest=true \
+            -x :app:lintVitalPersonalStable --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1200m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee v333-build.log
+      - name: Verify package, signing, and SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          apk="app/build/outputs/apk/personalStable/app-personalStable.apk"
+          test -s "$apk"
+          cp "$apk" output/Backlot-V333-Classic-Reminders-Owner-Preview.apk
+          sha256sum output/Backlot-V333-Classic-Reminders-Owner-Preview.apk > output/SHA256SUMS.txt
+          signer=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          test -x "$signer"
+          "$signer" verify --verbose --print-certs output/Backlot-V333-Classic-Reminders-Owner-Preview.apk | tee output/SIGNING-VERIFY.txt
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          test -x "$aapt"
+          "$aapt" dump badging output/Backlot-V333-Classic-Reminders-Owner-Preview.apk | head -n 7 | tee output/APK-IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='333'" output/APK-IDENTITY.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V333-Classic-Reminders-Owner-Signed-APK
+          path: output/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload compiler evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V333-Build-Diagnostics
+          path: |
+            v333-build.log
+            v333-compiler-monitor.log
+            v333-gradle-thread-dump-*.txt
+          if-no-files-found: ignore
+          retention-days: 3
