@@ -460,6 +460,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         Text(if (assessment?.willFinishProject == true)
                             "APPROVE & FINISH" else "APPROVE STEP")
                     }
+                    else -> TextButton(onClick = { pendingWorkflowApproval = null }) {
+                        Text("CLOSE")
+                    }
                 }
             },
             dismissButton = {
