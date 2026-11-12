@@ -1,6 +1,5 @@
 package com.framebynavin.app.ui
 
-import com.framebynavin.app.data.CreatorPublicationEngine
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.TaskStatus
@@ -8,9 +7,9 @@ import com.framebynavin.app.data.TaskStatus
 /**
  * Phase 3B: Home Continue is navigation only. No project/status/reminder mutations.
  *
- * Do not promise an editor that does not exist. The current workflow has no dedicated
- * recording/editing screen: those stages go to the existing workspace HUB, not Focus
- * or a misleading pseudo-editor.
+ * CW1 shares the stage-to-existing-editor policy with the Workspace hub.
+ * Recording/editing/custom stages without a real editor still open HUB; the
+ * Home button never invents an editor or silently advances workflow.
  */
 internal enum class HomeContinueDestination {
     PROJECT_OVERVIEW,
@@ -25,16 +24,11 @@ internal object HomeContinueRoutingPolicy {
         if (task.status != TaskStatus.WORKING || task.archivedAtMillis > 0L) {
             return HomeContinueDestination.PROJECT_OVERVIEW
         }
-        val stageId = CreatorWorkflowEngine.currentStage(task).id
-        return when (stageId) {
-            "idea", "research", "outline", "angle", "select" -> HomeContinueDestination.PROJECT_PLAN
-            "script" -> HomeContinueDestination.SCRIPT_STUDIO
-            "published" -> if (CreatorPublicationEngine.usesDeliverablePublication(task)) {
-                HomeContinueDestination.PUBLISH_STUDIO
-            } else {
-                HomeContinueDestination.WORKSPACE_HUB
-            }
-            else -> HomeContinueDestination.WORKSPACE_HUB
+        return when (StageWorkspaceRoutingPolicy.destination(task)) {
+            StageWorkspaceDestination.PLAN -> HomeContinueDestination.PROJECT_PLAN
+            StageWorkspaceDestination.SCRIPT -> HomeContinueDestination.SCRIPT_STUDIO
+            StageWorkspaceDestination.PUBLISH -> HomeContinueDestination.PUBLISH_STUDIO
+            StageWorkspaceDestination.HUB -> HomeContinueDestination.WORKSPACE_HUB
         }
     }
 

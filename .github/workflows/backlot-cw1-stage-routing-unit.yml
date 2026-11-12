@@ -1,0 +1,59 @@
+name: Backlot CW1 - Unified Stage Routing Unit Gate
+
+on:
+  push:
+    branches:
+      - feature/backlot-cw1-unified-stage-navigation-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-cw1-stage-routing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  routing-unit-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assert preservation scope and single routing owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'StageWorkspaceRoutingPolicy.destination(task)' app/src/main/java/com/framebynavin/app/ui/HomeContinueRoutingPolicy.kt
+          grep -Fq 'StageWorkspaceRoutingPolicy.destination(currentStage)' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          test -f app/src/test/java/com/framebynavin/app/ui/StageWorkspaceRoutingPolicyTest.kt
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          ! grep -Fq 'workspaceActionForStage(' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+      - name: Compile main and run focused CW1 routing regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 3900s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.ui.StageWorkspaceRoutingPolicyTest' \
+              --tests 'com.framebynavin.app.ui.HomeContinueRoutingPolicyTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee cw1-routing-unit.log
+      - name: Publish focused test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW1-Stage-Routing-Unit-Evidence-NOT-RELEASE
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            cw1-routing-unit.log
+          retention-days: 14
+          if-no-files-found: warn
