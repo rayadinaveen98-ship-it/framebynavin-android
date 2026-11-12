@@ -112,8 +112,9 @@ internal fun CW4OutputCraftDesk(
     } ?: (hook.isNotBlank() || narration.isNotBlank() ||
         visualNotes.isNotBlank() || creatorNotes.isNotBlank())
 
-    val hasUnsavedInputs = changedScript ||
-        versionLabel.isNotBlank() || versionUrl.isNotBlank() || versionNotes.isNotBlank()
+    val cutDraftOpen = versionLabel.isNotBlank() || versionUrl.isNotBlank() ||
+        versionNotes.isNotBlank()
+    val hasUnsavedInputs = changedScript || cutDraftOpen
     if (pendingSwitchId != null) {
         AlertDialog(
             onDismissRequest = { pendingSwitchId = null },
@@ -235,6 +236,7 @@ internal fun CW4OutputCraftDesk(
                             color = MutedText, fontSize = 12.sp)
                         Spacer(Modifier.height(9.dp))
                         OutlinedButton(onClick = onOpenMainScript,
+                            enabled = !cutDraftOpen,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                             Text("OPEN MAIN SCRIPT STUDIO")
                         }
@@ -244,7 +246,7 @@ internal fun CW4OutputCraftDesk(
                         Spacer(Modifier.height(5.dp))
                         Text("Your Reel/Short narration is separate. Editing it never changes the main video.",
                             color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
-                        if (script == null && hook.isBlank() && narration.isBlank() && editable) {
+                        if (script == null && hook.isBlank() && narration.isBlank() && editable && !cutDraftOpen) {
                             Spacer(Modifier.height(7.dp))
                             OutlinedButton(
                                 onClick = {
@@ -263,15 +265,15 @@ internal fun CW4OutputCraftDesk(
                         }
                         Spacer(Modifier.height(10.dp))
                         OutlinedTextField(value = hook, onValueChange = { hook = it },
-                            enabled = editable, modifier = Modifier.fillMaxWidth().testTag("cw4-hook"),
+                            enabled = editable && !cutDraftOpen, modifier = Modifier.fillMaxWidth().testTag("cw4-hook"),
                             label = { Text("Hook / opening") }, minLines = 2)
                         Spacer(Modifier.height(9.dp))
                         OutlinedTextField(value = narration, onValueChange = { narration = it },
-                            enabled = editable, modifier = Modifier.fillMaxWidth().testTag("cw4-narration"),
+                            enabled = editable && !cutDraftOpen, modifier = Modifier.fillMaxWidth().testTag("cw4-narration"),
                             label = { Text("Independent narration") }, minLines = 5, maxLines = 16)
                         Spacer(Modifier.height(9.dp))
                         OutlinedTextField(value = visualNotes, onValueChange = { visualNotes = it },
-                            enabled = editable, modifier = Modifier.fillMaxWidth(),
+                            enabled = editable && !cutDraftOpen, modifier = Modifier.fillMaxWidth(),
                             label = { Text("Visual and crop notes") }, minLines = 2)
                         Spacer(Modifier.height(9.dp))
                         OutlinedTextField(value = creatorNotes, onValueChange = { creatorNotes = it },
@@ -305,9 +307,14 @@ internal fun CW4OutputCraftDesk(
                                 },
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("cw4-save-script"),
                                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                                enabled = changedScript && (hook.isNotBlank() || narration.isNotBlank()),
+                                enabled = changedScript && !cutDraftOpen &&
+                                    (hook.isNotBlank() || narration.isNotBlank()),
                             ) { Text("SAVE DERIVATIVE SCRIPT") }
                         }
+                    }
+                    if (changedScript) {
+                        Text("Save the script before starting a new cut. This keeps your draft safe.",
+                            color = MutedText, fontSize = 11.sp)
                     }
                     Spacer(Modifier.height(26.dp))
                     HorizontalDivider(color = CinemaLine)
@@ -340,7 +347,7 @@ internal fun CW4OutputCraftDesk(
                                     color = MutedText, fontSize = 11.sp,
                                 )
                                 if (editable && version.status != CreatorEditReviewStatus.APPROVED) {
-                                    TextButton(onClick = {
+                                    TextButton(enabled = !hasUnsavedInputs, onClick = {
                                         onReviewEditVersion(
                                             revision, version.id,
                                             if (version.status == CreatorEditReviewStatus.DRAFT)
@@ -364,13 +371,16 @@ internal fun CW4OutputCraftDesk(
                             fontWeight = FontWeight.Bold)
                         OutlinedTextField(value = versionLabel, onValueChange = { versionLabel = it },
                             modifier = Modifier.fillMaxWidth().testTag("cw4-new-cut-label"),
+                            enabled = !changedScript,
                             label = { Text("Version name (e.g., Rough Cut v2)") }, singleLine = true)
                         Spacer(Modifier.height(7.dp))
                         OutlinedTextField(value = versionUrl, onValueChange = { versionUrl = it },
                             modifier = Modifier.fillMaxWidth().testTag("cw4-new-cut-url"),
+                            enabled = !changedScript,
                             label = { Text("HTTPS reference or Android document URI (optional)") },
                             singleLine = true)
                         OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) },
+                            enabled = !changedScript,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                             Text("SELECT FILE FROM THIS DEVICE")
                         }
@@ -378,14 +388,14 @@ internal fun CW4OutputCraftDesk(
                             color = MutedText, fontSize = 11.sp)
                         Spacer(Modifier.height(7.dp))
                         OutlinedTextField(value = versionNotes, onValueChange = { versionNotes = it },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(), enabled = !changedScript,
                             label = { Text("Changes and review notes") }, minLines = 2)
                         Spacer(Modifier.height(10.dp))
                         Button(
                             onClick = { onAddEditVersion(
                                 revision, selected.id, versionLabel, versionUrl, versionNotes
                             ) },
-                            enabled = versionLabel.isNotBlank(),
+                            enabled = versionLabel.isNotBlank() && !changedScript,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("cw4-save-cut"),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         ) { Text("SAVE NEW EDIT VERSION") }
