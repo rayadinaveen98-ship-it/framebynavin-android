@@ -119,7 +119,9 @@ internal fun CW3StageDesk(
     val initial = remember(task.id, template.id, stage.id, revision) {
         journal.load(task.id, revision, template.id, stage.id) ?: persisted
     }
-    val editable = task.status == TaskStatus.WORKING && task.archivedAtMillis == 0L
+    // Planned projects can prepare stage materials before the first workflow step begins.
+    val editable = task.status != TaskStatus.DONE && task.status != TaskStatus.SKIPPED &&
+        task.archivedAtMillis == 0L
     val experience = CW3StageExperiencePolicy.forStage(stage)
     var notes by rememberSaveable(task.id, stage.id, revision) { mutableStateOf(initial.notes) }
     var checklist by remember(task.id, stage.id, revision) { mutableStateOf(initial.checklist) }
