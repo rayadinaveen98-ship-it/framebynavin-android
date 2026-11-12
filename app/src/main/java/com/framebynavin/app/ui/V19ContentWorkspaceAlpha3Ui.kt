@@ -125,6 +125,8 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         scriptStudio = task.workspace.scriptStudio,
         // Stage records remain authoritative even in a recovered Plan draft.
         stageWork = task.workspace.stageWork,
+        outputScripts = task.workspace.outputScripts,
+        editVersions = task.workspace.editVersions,
     )
 
     var draftWarningShown by remember(task.id, originalRevision) { mutableStateOf(false) }
