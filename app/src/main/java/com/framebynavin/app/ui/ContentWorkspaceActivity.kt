@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH }
+private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE }
 
 private data class V211HistoricalPlanFieldRequest(
     val sourceId: String,
@@ -57,6 +57,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         /** One-shot Home navigation hint. Validated again against loaded task/stage. */
         const val EXTRA_HOME_CONTINUE_STAGE_ID = "home_continue_stage_id"
         private const val STATE_EDITOR_MODE = "content_project_editor_mode"
+        private const val STATE_STAGE_ID = "cw3_selected_stage_id"
     }
 
     private val store by lazy { TaskStore(applicationContext) }
@@ -69,6 +70,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var task by mutableStateOf<CreatorTask?>(null)
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
+    private var selectedStageId by mutableStateOf("")
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
     private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
@@ -90,6 +92,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         VisualExperiencePrefs.initialize(applicationContext)
         editorDrafts = CreatorEditorDraftStore(applicationContext)
         window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
+        selectedStageId = savedInstanceState?.getString(STATE_STAGE_ID).orEmpty()
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
         }?.takeUnless { it == Alpha6WorkspaceMode.HUB }
@@ -131,6 +134,17 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
                             onOpenScript = { openScriptStudio(task!!) },
                             onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
+                            onOpenStage = { stageId -> openStage(stageId) },
+                        )
+                        mode == Alpha6WorkspaceMode.STAGE -> CW3StageDesk(
+                            task = task!!,
+                            stage = CreatorWorkflowEngine.templateFor(task!!).stages.firstOrNull {
+                                it.id == selectedStageId
+                            } ?: CreatorWorkflowEngine.currentStage(task!!),
+                            onBack = { confirmEditorClose = true },
+                            onSave = { revision, edited ->
+                                saveStageWork(task!!.id, revision, edited)
+                            },
                         )
                         mode == Alpha6WorkspaceMode.BLUEPRINT -> V20ContentBlueprintDialog(
                             task = task!!,
@@ -334,6 +348,15 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                             Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
                                             Alpha6WorkspaceMode.SCRIPT -> editorDrafts.clearScript(projectId)
                                             Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
+                                            Alpha6WorkspaceMode.STAGE -> {
+                                                val templateId = CreatorWorkflowEngine.templateFor(task!!).id
+                                                runCatching {
+                                                    CreatorStageDraftStore(applicationContext).clear(
+                                                        projectId, templateId, selectedStageId,
+                                                        explicitDiscard = true,
+                                                    )
+                                                }
+                                            }
                                             Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB -> Unit
                                         }
                                     }
@@ -355,6 +378,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_EDITOR_MODE, mode.name)
+        outState.putString(STATE_STAGE_ID, selectedStageId)
         super.onSaveInstanceState(outState)
     }
 
@@ -410,6 +434,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         when (HomeContinueRoutingPolicy.validatedWorkspaceDestination(
                             loaded, intent.getStringExtra(EXTRA_HOME_CONTINUE_STAGE_ID)
                         )) {
+                            HomeContinueDestination.STAGE_DESK -> Alpha6WorkspaceMode.STAGE
                             HomeContinueDestination.PROJECT_PLAN -> Alpha6WorkspaceMode.PROJECT
                             HomeContinueDestination.SCRIPT_STUDIO -> Alpha6WorkspaceMode.SCRIPT
                             HomeContinueDestination.PUBLISH_STUDIO -> Alpha6WorkspaceMode.PUBLISH
@@ -420,6 +445,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         Alpha6WorkspaceMode.HUB
                     }
                     when (destination) {
+                        Alpha6WorkspaceMode.STAGE -> {
+                            val savedId = selectedStageId.takeIf { restore == Alpha6WorkspaceMode.STAGE }
+                            openStage(savedId ?: CreatorWorkflowEngine.currentStage(loaded).id)
+                        }
                         Alpha6WorkspaceMode.BLUEPRINT -> mode = Alpha6WorkspaceMode.BLUEPRINT
                         Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
                         Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
@@ -804,6 +833,60 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     error = it.message ?: "Could not save Script Studio. Existing project data was retained."
                 }
             }
+            } finally {
+                saveGate.end()
+            }
+        }
+    }
+
+    /**
+     * CW3 Stage Desk saves only its exact project + stage identity. No unrelated
+     * workspace editors, workflow progress, reminders, or publication changes.
+     */
+    private fun openStage(stageId: String) {
+        val current = task ?: return
+        val exists = CreatorWorkflowEngine.templateFor(current).stages.any { it.id == stageId }
+        selectedStageId = if (exists) stageId else CreatorWorkflowEngine.currentStage(current).id
+        mode = Alpha6WorkspaceMode.STAGE
+    }
+
+    private fun saveStageWork(
+        projectId: String,
+        expectedWorkspaceRevision: Long,
+        edited: CreatorStageWork,
+    ) {
+        if (!saveGate.tryBegin()) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = runCatching {
+                    val expectedEpoch = loadedGeneration
+                    CreatorDataGate.checkGeneration(applicationContext, expectedEpoch)
+                    require(edited.stageId == selectedStageId) {
+                        "The selected stage changed. Reopen the latest stage before saving."
+                    }
+                    store.saveStageWork(
+                        projectId = projectId,
+                        expectedGeneration = expectedEpoch,
+                        expectedWorkspaceRevision = expectedWorkspaceRevision,
+                        stage = edited,
+                    ) ?: error("The project no longer exists")
+                }
+                withContext(Dispatchers.Main) {
+                    result.onSuccess { saved ->
+                        task = saved
+                        confirmEditorClose = false
+                        mode = Alpha6WorkspaceMode.HUB
+                        runCatching {
+                            CreatorStageDraftStore(applicationContext).clear(
+                                projectId, edited.workflowTemplateId, edited.stageId,
+                            )
+                        }.onFailure {
+                            android.util.Log.w("BacklotWorkspace", "Stage draft cleanup deferred", it)
+                        }
+                    }.onFailure {
+                        error = it.message ?: "Could not save this stage. The prior project data is safe."
+                    }
+                }
             } finally {
                 saveGate.end()
             }
