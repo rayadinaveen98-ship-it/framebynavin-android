@@ -149,6 +149,82 @@ class CW6IntegratedWorkspaceLifecycleAndroidTest {
             loadedReview.workspace.deliverables.first().status)
     }
 
+    @Test fun publishCorrectionReopenAndRepublishNeverEraseHistoricalReleaseOrDerivativeWork() {
+        val review = integratedReview("cw6-publish-" + UUID.randomUUID())
+        val originalMain = review.workspace.deliverables.single { it.id == "main" }
+        val originalReel = review.workspace.deliverables.single { it.id == "reel" }
+
+        val checkedMain = CreatorPublishWorkflow.ensureGate(originalMain).let { prepared ->
+            prepared.copy(
+                status = CreatorDeliverableStatus.READY,
+                publishGate = prepared.publishGate.map {
+                    it.copy(status = CreatorPublishGateStatus.DONE)
+                },
+            )
+        }
+        val live = CreatorPublishWorkflow.publish(
+            checkedMain, 1_700_000_010_000L, "https://example.org/watch/main"
+        )
+        val changed = CreatorPublishWorkflow.recordPublishedUpdate(
+            live.copy(title = "Corrected Why Silence Works"),
+            1_700_000_020_000L, "https://example.org/watch/main",
+            "Corrected the public title",
+        )
+        val afterCorrect = CreatorContentStabilization.syncParentPublication(
+            review, review.workspace.copy(deliverables = listOf(changed, originalReel)),
+        )
+        assertEquals(1_700_000_010_000L, afterCorrect.publishedAtMillis)
+        assertEquals("https://example.org/watch/main", afterCorrect.publishedUrl)
+        assertEquals(2, changed.publicationHistory.size)
+        assertEquals(CreatorDeliverableStatus.PLANNED, originalReel.status)
+        assertEquals(review.workspace.outputScripts, afterCorrect.workspace.outputScripts)
+        assertEquals(review.workspace.editVersions, afterCorrect.workspace.editVersions)
+        assertEquals(review.workspace.stageTransitions, afterCorrect.workspace.stageTransitions)
+
+        val reopened = CreatorPublishWorkflow.reopen(
+            changed, 1_700_000_030_000L, "Original export needs a repair"
+        )
+        val afterReopen = CreatorContentStabilization.syncParentPublication(
+            afterCorrect,
+            afterCorrect.workspace.copy(deliverables = listOf(reopened, originalReel)),
+        )
+        assertEquals(0L, afterReopen.publishedAtMillis)
+        assertEquals("", afterReopen.publishedUrl)
+        assertEquals(CreatorDeliverableStatus.READY, reopened.status)
+        assertEquals(3, reopened.publicationHistory.size)
+        assertEquals(
+            CreatorPublicationEventKind.PUBLISHED,
+            reopened.publicationHistory[0].kind,
+        )
+        assertEquals(
+            CreatorPublicationEventKind.REOPENED,
+            reopened.publicationHistory[2].kind,
+        )
+
+        val liveAgain = CreatorPublishWorkflow.publish(
+            reopened, 1_700_000_040_000L, "https://example.org/watch/final"
+        )
+        val restored = CreatorContentStabilization.syncParentPublication(
+            afterReopen,
+            afterReopen.workspace.copy(deliverables = listOf(liveAgain, originalReel)),
+        )
+        val newRecord = restored.workspace.deliverables.single { it.id == "main" }
+        assertEquals(CreatorDeliverableStatus.PUBLISHED, newRecord.status)
+        assertEquals(4, newRecord.publicationHistory.size)
+        assertEquals(
+            CreatorPublicationEventKind.PUBLISHED,
+            newRecord.publicationHistory.last().kind,
+        )
+        assertEquals(1_700_000_040_000L, restored.publishedAtMillis)
+        assertEquals("https://example.org/watch/final", restored.publishedUrl)
+        assertEquals(review.workspace.outputScripts, restored.workspace.outputScripts)
+        assertEquals(review.workspace.editVersions, restored.workspace.editVersions)
+        assertEquals(review.workspace.stageWork, restored.workspace.stageWork)
+        assertEquals(review.workspace.stageTransitions, restored.workspace.stageTransitions)
+        assertEquals(review.workflowStageIndex, restored.workflowStageIndex)
+        assertEquals(TaskStatus.WORKING, restored.status)
+    }
+
     @Test fun trueBackupRestoreRetainsBothProjectsAndRejectsPreRestoreEpoch() = runBlocking {
         HardeningTestEnvironment.requireCiEmulator()
         val store = TaskStore(context)
