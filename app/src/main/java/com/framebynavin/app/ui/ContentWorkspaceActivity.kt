@@ -760,6 +760,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             stageWork = current.workspace.stageWork,
                             outputScripts = current.workspace.outputScripts,
                             editVersions = current.workspace.editVersions,
+                            stageTransitions = current.workspace.stageTransitions,
                         )
                     normalized = when (editorMode) {
                         Alpha6WorkspaceMode.PROJECT -> CreatorContentStabilization.prepareProjectEditorSave(

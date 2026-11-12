@@ -127,6 +127,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         stageWork = task.workspace.stageWork,
         outputScripts = task.workspace.outputScripts,
         editVersions = task.workspace.editVersions,
+        stageTransitions = task.workspace.stageTransitions,
     )
 
     var draftWarningShown by remember(task.id, originalRevision) { mutableStateOf(false) }

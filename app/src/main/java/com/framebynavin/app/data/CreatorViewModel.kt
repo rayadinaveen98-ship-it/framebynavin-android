@@ -575,16 +575,31 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
         updated
     }
 
+    /**
+     * Retained for old integrations; fails closed without a stage/revision approval.
+     * Modern UI must supply an identity-checked explicit creator confirmation.
+     */
+    @Deprecated("Use advanceWorkflow(id, expectedStageId, expectedWorkspaceRevision) after explicit approval")
     fun advanceTask(id: String) = advanceWorkflow(id)
 
-    fun advanceWorkflow(id: String) {
+    fun advanceWorkflow(
+        id: String,
+        expectedStageId: String? = null,
+        expectedWorkspaceRevision: Long? = null,
+    ) {
         var stageReward: CreatorRewardLedgerEntry? = null
         updateTask(id, transform = { task ->
-            if (task.status == TaskStatus.DONE) return@updateTask task
+            check(!expectedStageId.isNullOrBlank() && expectedWorkspaceRevision != null) {
+                "Confirm the current stage before advancing. Your project was not changed."
+            }
             val now = System.currentTimeMillis()
             val stage = CreatorWorkflowEngine.currentStage(task)
+            // A new stage cannot be inadvertently advanced by a stale button
+            // or a second tap: the loaded stage and workspace revision must match.
+            val advanced = CreatorWorkflowTransitionPolicy.approveAndAdvance(
+                task, expectedStageId, expectedWorkspaceRevision, now,
+            )
             stageReward = CreatorRewardEngine.stageCompleted(id, stage.id, stage.label, now)
-            val advanced = CreatorPublicationEngine.advance(task, now)
             val updated = ProjectPulseEngine.afterWorkflowStageChanged(task, advanced, now)
             if (updated.status == TaskStatus.DONE) {
                 cancelTaskAlerts(task.id)

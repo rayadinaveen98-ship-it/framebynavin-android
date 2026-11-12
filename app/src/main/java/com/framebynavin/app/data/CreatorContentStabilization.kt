@@ -59,6 +59,7 @@ object CreatorContentStabilization {
             stageWork = current.stageWork, // Plan editor cannot replace stage-owned records.
             outputScripts = current.outputScripts, // Only Output Craft can edit these histories.
             editVersions = current.editVersions,
+            stageTransitions = current.stageTransitions, // Only explicit workflow approval writes receipts.
             deliverables = sanitizeDeliverableGraph(protectedDeliverables),
         )
     }

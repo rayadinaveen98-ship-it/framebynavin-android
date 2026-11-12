@@ -1,0 +1,73 @@
+name: Backlot CW5 - Workflow Approval and Publication Safety Gate
+
+on:
+  push:
+    branches:
+      - feature/backlot-cw5-workflow-approval-gates-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-cw5-approvals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  approval-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Preserve explicit publication and stage-approval boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'stageTransitions: List<CreatorStageTransitionReceipt> = emptyList()' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -Fq 'decodeStageTransitions(item.optJSONArray("stageTransitions"))' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -Fq 'stageTransitions = current.workspace.stageTransitions' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'CreatorWorkflowTransitionPolicy.approveAndAdvance(' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -Fq 'CreatorWorkflowTransitionPolicy.approveAndAdvance(' app/src/main/java/com/framebynavin/app/data/ProjectPulse.kt
+          grep -Fq 'pendingWorkflowApproval = CW5PendingStageApproval(' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'isPublicationStage(template.stages[index])' app/src/main/java/com/framebynavin/app/data/CreatorPublicationEngine.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/CreatorStageTransitionPersistenceAndroidTest.kt
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+      - name: Compile Android and run focused CW1-CW5 contract regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.data.CreatorWorkflowTransitionPolicyTest' \
+              --tests 'com.framebynavin.app.data.ProjectPulseAlpha19Test' \
+              --tests 'com.framebynavin.app.data.ProjectPulseRc3Test' \
+              --tests 'com.framebynavin.app.data.CreatorPublicationRecoveryEngineTest' \
+              --tests 'com.framebynavin.app.data.CreatorPublishWorkflowTest' \
+              --tests 'com.framebynavin.app.data.CreatorOutputCraftPolicyTest' \
+              --tests 'com.framebynavin.app.data.CreatorStageWorkPolicyTest' \
+              --tests 'com.framebynavin.app.data.CreatorContentStabilizationTest' \
+              --tests 'com.framebynavin.app.data.CreatorWorkspaceEndToEndTest' \
+              --tests 'com.framebynavin.app.ui.CW3StageExperiencePolicyTest' \
+              --tests 'com.framebynavin.app.ui.StageWorkspaceRoutingPolicyTest' \
+              --tests 'com.framebynavin.app.ui.HomeContinueRoutingPolicyTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee cw5-approval-unit.log
+      - name: Publish CW5 compile and unit results, never owner APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW5-Approval-Unit-Evidence-NOT-RELEASE
+          path: |
+            cw5-approval-unit.log
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 21
+          if-no-files-found: warn

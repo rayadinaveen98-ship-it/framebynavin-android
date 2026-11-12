@@ -79,6 +79,8 @@ internal fun V071WorkflowInlineContent(
     val liveOutputExists = task.workspace.deliverables.any {
         it.status == CreatorDeliverableStatus.PUBLISHED && it.publishedAtMillis > 0L
     }
+    val publicationRecorded = if (deliverablePublication) liveOutputExists
+        else task.publishedAtMillis > 0L && !task.publicationIsLegacy
 
     fun openContentWorkspace(stageAware: Boolean = false) {
         val destination = Intent(context, ContentWorkspaceActivity::class.java)
@@ -176,9 +178,12 @@ internal fun V071WorkflowInlineContent(
                         Text(
                             when {
                                 completed -> "Completed"
-                                current && deliverablePublication && CreatorWorkflowEngine.isPublicationStage(step) ->
-                                    if (liveOutputExists) "Live output recorded in Publish Studio. Complete this workflow step when ready."
-                                    else "Publish the exact output from Content Workspace → Publish Studio."
+                                current && CreatorWorkflowEngine.isPublicationStage(step) ->
+                                    when {
+                                        publicationRecorded -> "Live publication recorded. Approve the workflow step separately when ready."
+                                        deliverablePublication -> "Record the actual live output in Content Workspace → Publish Studio."
+                                        else -> "Record the real publication date in Publication Details before advancing."
+                                    }
                                 current -> step.action
                                 else -> "Upcoming"
                             },
@@ -251,10 +256,12 @@ internal fun V071WorkflowInlineContent(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             when {
-                                deliverablePublication && publicationStage && !liveOutputExists ->
-                                    "Open Publish Studio and record the exact output that went live."
-                                deliverablePublication && publicationStage ->
-                                    "A live output is recorded. Complete this workflow step when the project is ready to move on."
+                                publicationStage && !publicationRecorded ->
+                                    if (deliverablePublication)
+                                        "Open Publish Studio and record the exact output that went live."
+                                    else "Record the actual publication date in Publication Details."
+                                publicationStage && publicationRecorded ->
+                                    "Publication is confirmed. You can approve the workflow step separately."
                                 else -> currentStep.action
                             },
                             color = ProjectorIvory,
@@ -275,8 +282,8 @@ internal fun V071WorkflowInlineContent(
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(7.dp))
                     Text(
-                        if (deliverablePublication && publicationStage && !liveOutputExists)
-                            "OPEN PUBLISH STUDIO"
+                        if (publicationStage && !publicationRecorded)
+                            if (deliverablePublication) "OPEN PUBLISH STUDIO" else "RECORD PUBLICATION"
                         else "WORK ON · ${currentStep.label.uppercase()}",
                         fontWeight = FontWeight.Black,
                     )
@@ -308,16 +315,19 @@ internal fun V071WorkflowInlineContent(
                     }
                     Button(
                         onClick = {
-                            if (deliverablePublication && publicationStage && !liveOutputExists) openContentWorkspace()
-                            else onAdvance()
+                            if (publicationStage && !publicationRecorded) {
+                                if (deliverablePublication) openContentWorkspace(stageAware = true)
+                                else onEditPublication()
+                            } else onAdvance()
                         },
                         modifier = Modifier.weight(1.45f),
                         colors = ButtonDefaults.buttonColors(containerColor = CinemaSurfaceRaised),
                     ) {
                         Text(
                             when {
-                                deliverablePublication && publicationStage && !liveOutputExists -> "PUBLISH IN WORKSPACE"
-                                deliverablePublication && publicationStage -> "COMPLETE STEP"
+                                publicationStage && !publicationRecorded ->
+                                    if (deliverablePublication) "RECORD LIVE OUTPUT" else "RECORD PUBLICATION"
+                                publicationStage -> "APPROVE PUBLISH STEP"
                                 else -> CreatorWorkflowEngine.stageActionLabel(task)
                             },
                             color = ProjectorIvory,

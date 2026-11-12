@@ -94,6 +94,13 @@ import java.util.Locale
 internal enum class PTab { TODAY, IDEAS, CREATE, CALENDAR, INSIGHTS }
 private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_PROGRESS, PROGRESS_JOURNEY }
 
+/** In-memory only: a restored Activity cannot auto-confirm an earlier stage. */
+private data class CW5PendingStageApproval(
+    val projectId: String,
+    val stageId: String,
+    val workspaceRevision: Long,
+)
+
 private data class PPermissions(
     val notifications: Boolean,
     val preciseTiming: Boolean,
@@ -137,6 +144,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var composerCleanupKey by remember { mutableStateOf<String?>(null) }
     val composerStateHolder = rememberSaveableStateHolder()
     var publicationTaskId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingWorkflowApproval by remember { mutableStateOf<CW5PendingStageApproval?>(null) }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
@@ -345,10 +353,122 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         if (destination != null) overlay = POverlay.NONE
     }
     fun advanceWorkflowWithJourney(id: String) {
-        val taskBeforeAdvance = vm.tasks.firstOrNull { it.id == id }
-        val destination = taskBeforeAdvance?.let(V18CreatorJourney::afterWorkflowAdvance)
-        vm.advanceWorkflow(id)
-        routeJourney(destination)
+        val current = vm.tasks.firstOrNull { it.id == id } ?: return
+        // CW5 makes every stage advance a deliberate, creator-confirmed action.
+        // Capture exact stage and revision; reject stale approvals after a restore
+        // or another editor save instead of moving an unintended next stage.
+        pendingWorkflowApproval = CW5PendingStageApproval(
+            projectId = current.id,
+            stageId = CreatorWorkflowEngine.currentStage(current).id,
+            workspaceRevision = current.workspace.revision,
+        )
+    }
+
+    pendingWorkflowApproval?.let { request ->
+        val current = vm.tasks.firstOrNull { it.id == request.projectId }
+        val isCurrent = current != null &&
+            CreatorWorkflowEngine.currentStage(current).id == request.stageId &&
+            current.workspace.revision == request.workspaceRevision
+        val assessment = current?.let(CreatorWorkflowTransitionPolicy::assess)
+        val publishMissing = assessment?.blockers?.any {
+            it.code == "live_publication_missing"
+        } == true
+
+        AlertDialog(
+            onDismissRequest = { pendingWorkflowApproval = null },
+            containerColor = CinemaSurfaceRaised,
+            title = {
+                Text(
+                    when {
+                        !isCurrent -> "Stage changed"
+                        assessment?.willFinishProject == true -> "Approve and finish this project?"
+                        else -> "Approve ${assessment?.stageLabel.orEmpty()} stage?"
+                    },
+                    color = ProjectorIvory, fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = 340.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    if (!isCurrent) {
+                        Text("Your project changed while this approval was open. Close this dialog and review the latest stage.",
+                            color = MutedText, fontSize = 13.sp)
+                    } else {
+                        Text(
+                            if (assessment?.willFinishProject == true)
+                                "Finishing this project is separate from publishing an output."
+                            else "Approving this step records an explicit stage transition. It does not publish, approve a cut or complete another stage.",
+                            color = MutedText, fontSize = 13.sp, lineHeight = 19.sp,
+                        )
+                        assessment?.blockers?.forEach { notice ->
+                            Text("Needs action: ${notice.message}",
+                                color = RecRed, fontSize = 13.sp, lineHeight = 19.sp)
+                        }
+                        assessment?.warnings?.forEach { notice ->
+                            Text("Review before proceeding: ${notice.message}",
+                                color = MutedGold, fontSize = 12.sp, lineHeight = 18.sp)
+                        }
+                        if (assessment?.allowed == true && assessment.warnings.isEmpty()) {
+                            Text("This project stage is ready for your confirmation.",
+                                color = ProjectorIvory, fontSize = 13.sp)
+                        }
+                        if (assessment?.warnings?.isNotEmpty() == true) {
+                            Text("You may confirm despite these warnings. They will be recorded in the stage approval receipt.",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                when {
+                    !isCurrent -> Button(onClick = { pendingWorkflowApproval = null }) {
+                        Text("REVIEW LATEST")
+                    }
+                    publishMissing && current != null -> Button(onClick = {
+                        pendingWorkflowApproval = null
+                        if (CreatorPublicationEngine.usesDeliverablePublication(current)) {
+                            context.startActivity(
+                                Intent(context, ContentWorkspaceActivity::class.java)
+                                    .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, current.id)
+                                    .putExtra(
+                                        ContentWorkspaceActivity.EXTRA_HOME_CONTINUE_STAGE_ID,
+                                        request.stageId,
+                                    )
+                            )
+                        } else {
+                            publicationTaskId = current.id
+                        }
+                    }) {
+                        Text("RECORD PUBLICATION")
+                    }
+                    current != null -> Button(
+                        enabled = assessment?.allowed == true && vm.writeError == null,
+                        onClick = {
+                            val destination = V18CreatorJourney.afterWorkflowAdvance(current)
+                            vm.advanceWorkflow(
+                                current.id,
+                                expectedStageId = request.stageId,
+                                expectedWorkspaceRevision = request.workspaceRevision,
+                            )
+                            pendingWorkflowApproval = null
+                            routeJourney(destination)
+                        },
+                    ) {
+                        Text(if (assessment?.willFinishProject == true)
+                            "APPROVE & FINISH" else "APPROVE STEP")
+                    }
+                    else -> TextButton(onClick = { pendingWorkflowApproval = null }) {
+                        Text("CLOSE")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingWorkflowApproval = null }) { Text("CANCEL") }
+            },
+        )
     }
 
     LaunchedEffect(controlExpanded) {

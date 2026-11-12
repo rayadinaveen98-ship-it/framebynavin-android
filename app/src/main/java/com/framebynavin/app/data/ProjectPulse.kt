@@ -274,9 +274,12 @@ object ProjectPulseEngine {
     }
 
     fun canCompleteCurrentStep(task: CreatorTask): Boolean {
-        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED) return false
-        val stage = CreatorWorkflowEngine.currentStage(task)
-        return !CreatorWorkflowEngine.isPublicationStage(stage) || task.publishedAtMillis > 0L
+        if (task.status == TaskStatus.DONE || task.status == TaskStatus.SKIPPED ||
+            task.archivedAtMillis != 0L) return false
+        // A Stage Done reminder is an explicit creator instruction. It can begin
+        // a planned project as before, but it cannot bypass a missing live release.
+        val candidate = task.copy(status = TaskStatus.WORKING)
+        return CreatorWorkflowTransitionPolicy.assess(candidate).allowed
     }
 
     fun completeCurrentStep(task: CreatorTask, nowMillis: Long = System.currentTimeMillis()): CreatorTask {
@@ -284,8 +287,16 @@ object ProjectPulseEngine {
         val managed = ensureStageManaged(task)
         val template = CreatorWorkflowEngine.templateFor(managed)
         val current = CreatorWorkflowEngine.stageIndex(managed)
+        val stage = template.stages[current]
+        // Same persisted receipt and release blocker as the in-app approval.
+        // Status WORKING preserves the historical Stage Done behavior for
+        // planned projects without fabricating a publication event.
+        val approved = CreatorWorkflowTransitionPolicy.approveAndAdvance(
+            managed.copy(status = TaskStatus.WORKING), stage.id,
+            managed.workspace.revision, nowMillis,
+        )
         if (current >= template.stages.lastIndex) {
-            return managed.copy(
+            return approved.copy(
                 status = TaskStatus.DONE,
                 progress = 100,
                 workflowStageIndex = template.stages.lastIndex,
@@ -304,7 +315,7 @@ object ProjectPulseEngine {
             )
         }
         val next = current + 1
-        val advanced = managed.copy(
+        val advanced = approved.copy(
             status = TaskStatus.WORKING,
             workflowStageIndex = next,
             progress = CreatorWorkflowEngine.progressForStage(next, template.stages.size),

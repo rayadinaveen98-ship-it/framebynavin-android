@@ -62,10 +62,20 @@ object CreatorPublicationEngine {
         if (task.status == TaskStatus.DONE) return task
         val template = CreatorWorkflowEngine.templateFor(task)
         val index = CreatorWorkflowEngine.stageIndex(task)
-        val stage = template.stages[index]
-        val published = if (CreatorWorkflowEngine.isPublicationStage(stage)) record(task, now) else task
-        if (index >= template.stages.lastIndex) return finish(published, now)
-        return published.copy(
+        if (CreatorWorkflowEngine.isPublicationStage(template.stages[index])) {
+            // Defense in depth for legacy callers that still use this low-level
+            // workflow engine directly instead of the explicit approval policy.
+            check(CreatorWorkflowTransitionPolicy.assess(
+                task.copy(status = TaskStatus.WORKING)
+            ).allowed) {
+                "A real live publication must be recorded separately before leaving this stage."
+            }
+        }
+        // CW5: workflow progress is NEVER evidence of an actual publication.
+        // Record a live output in Publish Studio (or legacy Publication Details)
+        // independently before approving this stage through the transition gate.
+        if (index >= template.stages.lastIndex) return finish(task, now)
+        return task.copy(
             status = TaskStatus.WORKING,
             workflowStageIndex = index + 1,
             progress = CreatorWorkflowEngine.progressForStage(index + 1, template.stages.size),

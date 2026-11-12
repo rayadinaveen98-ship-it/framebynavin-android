@@ -97,10 +97,12 @@ data class CreatorContentWorkspace(
     val outputScripts: List<CreatorOutputScript> = emptyList(),
     /** Per-deliverable cut/version log, with links only, never embedded media bytes. */
     val editVersions: List<CreatorEditVersion> = emptyList(),
+    /** CW5 creator-confirmed workflow transitions; independent of publication events. */
+    val stageTransitions: List<CreatorStageTransitionReceipt> = emptyList(),
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
         angle.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
         assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && stageWork.isEmpty() &&
-        outputScripts.isEmpty() && editVersions.isEmpty() &&
+        outputScripts.isEmpty() && editVersions.isEmpty() && stageTransitions.isEmpty() &&
         (scriptStudio == null || scriptStudio.isEmpty())
 }
