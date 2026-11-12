@@ -93,9 +93,14 @@ data class CreatorContentWorkspace(
     val scriptStudio: CreatorScriptStudio? = null,
     /** CW2: optional stage-owned text/metadata, keyed by template + stage identity. */
     val stageWork: List<CreatorStageWork> = emptyList(),
+    /** CW4 independent scripts only for derivatives; primary script is in Script Studio. */
+    val outputScripts: List<CreatorOutputScript> = emptyList(),
+    /** Per-deliverable cut/version log, with links only, never embedded media bytes. */
+    val editVersions: List<CreatorEditVersion> = emptyList(),
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
         angle.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
         assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && stageWork.isEmpty() &&
+        outputScripts.isEmpty() && editVersions.isEmpty() &&
         (scriptStudio == null || scriptStudio.isEmpty())
 }
