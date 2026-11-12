@@ -540,6 +540,67 @@ class TaskStore(private val context: Context) {
         }
     }
 
+    private fun encodeStageTransitions(
+        receipts: List<CreatorStageTransitionReceipt>,
+    ): JSONArray = JSONArray().also { output ->
+        receipts.forEach { receipt ->
+            val codes = JSONArray()
+            receipt.acknowledgedWarningCodes.forEach { codes.put(it) }
+            output.put(JSONObject()
+                .put("id", receipt.id)
+                .put("workflowTemplateId", receipt.workflowTemplateId)
+                .put("stageId", receipt.stageId)
+                .put("fromStageIndex", receipt.fromStageIndex)
+                .put("approvedAtMillis", receipt.approvedAtMillis)
+                .put("workspaceRevisionBefore", receipt.workspaceRevisionBefore)
+                .put("acknowledgedWarningCodes", codes))
+        }
+    }
+
+    private fun decodeStageTransitions(value: JSONArray?): List<CreatorStageTransitionReceipt> {
+        if (value == null) return emptyList() // Older Creator backups remain valid.
+        val ids = mutableSetOf<String>()
+        return buildList {
+            for (i in 0 until value.length()) {
+                val item = value.optJSONObject(i)
+                    ?: error("Stage approval $i is unreadable. Existing creator data was retained.")
+                val id = item.optString("id")
+                val template = item.optString("workflowTemplateId")
+                val stageId = item.optString("stageId")
+                val stageIndex = item.optInt("fromStageIndex", -1)
+                val at = item.optLong("approvedAtMillis", 0L)
+                val revision = item.optLong("workspaceRevisionBefore", -1L)
+                require(id.isNotBlank() && ids.add(id) && template.isNotBlank() &&
+                    stageId.isNotBlank() && stageIndex >= 0 && at > 0L && revision >= 0L) {
+                    "Invalid or duplicate stage approval receipt. Existing creator data was retained."
+                }
+                val rawCodes = item.optJSONArray("acknowledgedWarningCodes")
+                require(!item.has("acknowledgedWarningCodes") ||
+                    item.isNull("acknowledgedWarningCodes") || rawCodes != null) {
+                    "Malformed stage approval warnings. Existing creator data was retained."
+                }
+                val codes = buildList {
+                    if (rawCodes != null) for (j in 0 until rawCodes.length()) {
+                        val code = rawCodes.optString(j)
+                        require(code.isNotBlank() && code != "null") {
+                            "Invalid stage approval warning code"
+                        }
+                        add(code)
+                    }
+                }
+                require(codes.distinct().size == codes.size) {
+                    "Duplicate stage warning codes. Existing creator data was retained."
+                }
+                add(CreatorStageTransitionReceipt(
+                    id = id, workflowTemplateId = template, stageId = stageId,
+                    fromStageIndex = stageIndex, approvedAtMillis = at,
+                    workspaceRevisionBefore = revision,
+                    acknowledgedWarningCodes = codes,
+                ))
+            }
+        }
+    }
+
     private fun encodeOutputScripts(records: List<CreatorOutputScript>): JSONArray = JSONArray().also { out ->
         records.forEach { script ->
             val history = JSONArray()
@@ -745,6 +806,7 @@ class TaskStore(private val context: Context) {
             .put("stageWork", encodeStageWork(workspace.stageWork))
             .put("outputScripts", encodeOutputScripts(workspace.outputScripts))
             .put("editVersions", encodeEditVersions(workspace.editVersions))
+            .put("stageTransitions", encodeStageTransitions(workspace.stageTransitions))
     }
 
     private fun encodeScriptStudio(studio: CreatorScriptStudio): JSONObject {
@@ -840,7 +902,7 @@ class TaskStore(private val context: Context) {
 
     private fun decodeWorkspace(projectId: String, item: JSONObject?): CreatorContentWorkspace {
         if (item == null) return CreatorContentWorkspace()
-        for (key in listOf("outputScripts", "editVersions")) {
+        for (key in listOf("outputScripts", "editVersions", "stageTransitions")) {
             require(!item.has(key) || item.isNull(key) || item.optJSONArray(key) != null) {
                 "Output craft data $key is malformed. Original project bytes retained."
             }
@@ -993,6 +1055,7 @@ class TaskStore(private val context: Context) {
             stageWork = decodeStageWork(item.optJSONArray("stageWork")),
             outputScripts = decodeOutputScripts(item.optJSONArray("outputScripts")),
             editVersions = decodeEditVersions(item.optJSONArray("editVersions")),
+            stageTransitions = decodeStageTransitions(item.optJSONArray("stageTransitions")),
         )
     }
 }
