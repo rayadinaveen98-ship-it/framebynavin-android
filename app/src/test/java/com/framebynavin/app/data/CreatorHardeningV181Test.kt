@@ -45,7 +45,7 @@ class CreatorHardeningV181Test {
         assertEquals(now, sent.publishedAtMillis)
         assertEquals(5, sent.workflowStageIndex)
         assertEquals(TaskStatus.WORKING, sent.status)
-        assertEquals("FINISH PROJECT", CreatorWorkflowEngine.stageActionLabel(sent))
+        assertEquals("APPROVE & FINISH PROJECT", CreatorWorkflowEngine.stageActionLabel(sent))
     }
 
     @Test fun completionDoesNotInventHistoricalPublication() {
