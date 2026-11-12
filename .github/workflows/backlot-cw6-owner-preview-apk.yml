@@ -1,0 +1,76 @@
+name: Backlot CW6 - Owner Preview APK Packaging (NOT PRODUCTION RELEASE)
+
+on:
+  push:
+    branches:
+      - candidate/backlot-cw6-owner-apk-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assemble-signed-owner-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Guard exact CW6-validated source and prohibit production code drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "a106aff25d21e695982b4dd60c3a2821443a3bb9"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/backlot-cw6-owner-preview-apk.yml"
+          test "$(grep -c 'applicationId = "com.framebynavin.app"' app/build.gradle.kts)" = 1
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          echo "a106aff25d21e695982b4dd60c3a2821443a3bb9" > validated-cw6-source-sha.txt
+      - name: Build owner's personalStable-signed Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:assemblePersonalStable \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx9g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+              --console=plain
+      - name: Verify package identity, owner-preview signer and SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$candidate"
+          mkdir -p output/backlot-cw6-owner-preview
+          out=output/backlot-cw6-owner-preview
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs "$candidate" > "$out/SIGNER.txt"
+          "$aapt" dump badging "$candidate" | head -n 9 > "$out/PACKAGE.txt"
+          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" "$out/PACKAGE.txt"
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' "$out/SIGNER.txt"
+          cp "$candidate" "$out/Backlot-CW6-V336-PersonalStable-OwnerPreview.apk"
+          (cd "$out" && sha256sum Backlot-CW6-V336-PersonalStable-OwnerPreview.apk > APK-SHA256.txt)
+          cp validated-cw6-source-sha.txt "$out/VALIDATED-CW6-SOURCE-SHA.txt"
+          git rev-parse HEAD > "$out/PACKAGING-COMMIT-SHA.txt"
+          cat > "$out/README-FIRST.txt" <<'EOF'
+          Backlot CW6 V336 - owner personalStable preview, not Play Store and not stable promotion.
+          Source for all application code: exact validated CW6 source a106aff25d21e695982b4dd60c3a2821443a3bb9.
+          APK uses the same personalStable signing certificate checked in prior V336 CI.
+          Do not uninstall the installed app or clear its data. Export and verify a backup
+          before testing an in-place update. Manual owner acceptance remains required.
+          EOF
+          test -s "$out/Backlot-CW6-V336-PersonalStable-OwnerPreview.apk"
+      - name: Upload verified signed owner-preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW6-V336-Owner-PersonalStable-APK-NOT-RELEASE
+          path: output/backlot-cw6-owner-preview/
+          retention-days: 21
+          if-no-files-found: error
