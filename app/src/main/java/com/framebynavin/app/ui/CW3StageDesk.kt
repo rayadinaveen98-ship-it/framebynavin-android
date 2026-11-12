@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -120,7 +121,7 @@ internal fun CW3StageDesk(
     }
     val editable = task.status == TaskStatus.WORKING && task.archivedAtMillis == 0L
     val experience = CW3StageExperiencePolicy.forStage(stage)
-    var notes by remember(task.id, stage.id, revision) { mutableStateOf(initial.notes) }
+    var notes by rememberSaveable(task.id, stage.id, revision) { mutableStateOf(initial.notes) }
     var checklist by remember(task.id, stage.id, revision) { mutableStateOf(initial.checklist) }
     var evidence by remember(task.id, stage.id, revision) { mutableStateOf(initial.evidence) }
     var decisions by remember(task.id, stage.id, revision) { mutableStateOf(initial.decisions) }
@@ -128,10 +129,10 @@ internal fun CW3StageDesk(
     var assets by remember(task.id, stage.id, revision) { mutableStateOf(initial.linkedAssetIds) }
     var outputs by remember(task.id, stage.id, revision) { mutableStateOf(initial.linkedDeliverableIds) }
     var reviewedAt by remember(task.id, stage.id, revision) { mutableLongStateOf(initial.reviewedAtMillis) }
-    var newTask by remember(task.id, stage.id, revision) { mutableStateOf("") }
-    var claim by remember(task.id, stage.id, revision) { mutableStateOf("") }
-    var timecode by remember(task.id, stage.id, revision) { mutableStateOf("") }
-    var decisionText by remember(task.id, stage.id, revision) { mutableStateOf("") }
+    var newTask by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var claim by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var timecode by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var decisionText by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var journalWarning by remember(task.id, stage.id, revision) { mutableStateOf(false) }
 
     fun snapshot(): CreatorStageWork = initial.copy(
