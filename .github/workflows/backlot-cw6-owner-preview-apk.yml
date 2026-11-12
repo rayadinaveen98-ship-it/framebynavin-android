@@ -33,22 +33,42 @@ jobs:
           test "$(grep -c 'applicationId = "com.framebynavin.app"' app/build.gradle.kts)" = 1
           grep -Fq 'versionCode = 336' app/build.gradle.kts
           echo "a106aff25d21e695982b4dd60c3a2821443a3bb9" > validated-cw6-source-sha.txt
-      # The app/owner-signed assemble, JVM suite and Android 15 instrumentation
-      # already PASSED at the exact guarded source in run 43226463122.
-      # The first packaging rerun hung in lintVitalAnalyzePersonalStable for
-      # an hour. Package this already-validated preview variant directly so
-      # this distribution-only job does not repeat the release lint gate.
-      # Never use this workflow to build the Play Store / production release.
-      - name: Package already-validated personalStable-signed Android APK
+      # CW6 full validation ran vital Lint, signed assemble and Android emulator
+      # on exactly this source SHA, in successful run 43226463122.
+      # This job distributes an already-validated preview build; separate
+      # production release validation must never skip vital Lint.
+      - name: Preflight Gradle graph - refuse any vital Lint execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/owner-preview-diagnostics
+          timeout --signal=TERM --kill-after=20s 300s \
+            gradle :app:assemblePersonalStable \
+              -x :app:lintVitalAnalyzePersonalStable \
+              -x :app:lintVitalReportPersonalStable \
+              -x :app:lintVitalPersonalStable \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx9g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+              --dry-run --console=plain 2>&1 | tee output/owner-preview-diagnostics/GRADLE-DRY-RUN.txt
+          if grep -E '^> Task :app:lintVital' output/owner-preview-diagnostics/GRADLE-DRY-RUN.txt; then
+            echo "Vital Lint still in task graph. Refusing another stuck build." >&2
+            exit 1
+          fi
+          echo "PREVIEW ONLY: lint already passed in integrated CW6 run 43226463122"
+      - name: Build owner-signed preview APK (validated source, exclude repeated vital Lint)
         shell: bash
         run: |
           set -euo pipefail
           timeout --signal=TERM --kill-after=20s 3300s \
-            gradle :app:packagePersonalStable \
+            gradle :app:assemblePersonalStable \
+              -x :app:lintVitalAnalyzePersonalStable \
+              -x :app:lintVitalReportPersonalStable \
+              -x :app:lintVitalPersonalStable \
               -Pkotlin.compiler.execution.strategy=in-process \
               --no-daemon --no-parallel --max-workers=1 \
               '-Dorg.gradle.jvmargs=-Xmx9g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
-              --console=plain
+              --stacktrace --console=plain 2>&1 | tee output/owner-preview-diagnostics/BUILD.txt
       - name: Verify package identity, owner-preview signer and SHA256
         shell: bash
         run: |
@@ -82,3 +102,11 @@ jobs:
           path: output/backlot-cw6-owner-preview/
           retention-days: 21
           if-no-files-found: error
+      - name: Upload preflight and build diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW6-Owner-Preview-Packaging-Diagnostics
+          path: output/owner-preview-diagnostics/
+          retention-days: 14
+          if-no-files-found: warn
