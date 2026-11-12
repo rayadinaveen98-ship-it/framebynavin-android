@@ -36,6 +36,10 @@ jobs:
             case "$changed" in
               app/src/main/java/com/framebynavin/app/data/*|app/src/main/java/com/framebynavin/app/ui/*|app/src/test/java/com/framebynavin/app/data/*|app/src/test/java/com/framebynavin/app/ui/*|app/src/androidTest/java/com/framebynavin/app/data/*|app/src/androidTest/java/com/framebynavin/app/ui/*|docs/roadmap/*|.github/workflows/backlot-cw[1-6]*.yml|.github/scripts/cw6_emulator_qa.sh)
                 ;;
+              # Historic AndroidTest compilation repairs only; these paths are
+              # test sources and cannot change V336 production Personal/Reminders.
+              app/src/androidTest/java/com/framebynavin/app/personal/BacklotV322To324SignedUpgradeTest.kt|app/src/androidTest/java/com/framebynavin/app/personal/LegacyV322ScheduleFixture.kt|app/src/androidTest/java/com/framebynavin/app/reminders/V336DirectorReminderVisualUiTest.kt)
+                ;;
               *)
                 echo "CW6 unexpected source outside workspace or QA: $changed" >&2
                 exit 1
