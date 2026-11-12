@@ -392,7 +392,7 @@ class TaskStore(private val context: Context) {
                     .put("id", item.id).put("text", item.text)
                     .put("recordedAtMillis", item.recordedAtMillis))
             }
-            fun ids(values: List<String>): JSONArray = JSONArray().also { a -> values.forEach(a::put) }
+            fun ids(values: List<String>): JSONArray = JSONArray().also { a -> values.forEach { a.put(it) } }
             array.put(JSONObject()
                 .put("workflowTemplateId", stage.workflowTemplateId)
                 .put("stageId", stage.stageId)
@@ -419,8 +419,15 @@ class TaskStore(private val context: Context) {
                 require(template.isNotBlank() && stageId.isNotBlank() && identities.add(template to stageId)) {
                     "Duplicate or missing stage identity. Original project bytes were retained."
                 }
+                fun stageArray(key: String): JSONArray {
+                    val parsed = value.optJSONArray(key)
+                    require(!value.has(key) || value.isNull(key) || parsed != null) {
+                        "Malformed $key in stage data; original project bytes were retained"
+                    }
+                    return parsed ?: JSONArray()
+                }
                 fun ids(key: String): List<String> {
-                    val source = value.optJSONArray(key) ?: return emptyList()
+                    val source = stageArray(key)
                     return buildList {
                         for (j in 0 until source.length()) {
                             val id = source.optString(j)
@@ -429,7 +436,7 @@ class TaskStore(private val context: Context) {
                         }
                     }
                 }
-                val checklist = value.optJSONArray("checklist") ?: JSONArray()
+                val checklist = stageArray("checklist")
                 val tasks = buildList {
                     for (j in 0 until checklist.length()) {
                         val item = checklist.optJSONObject(j) ?: error("Stage task $j is unreadable")
@@ -444,7 +451,7 @@ class TaskStore(private val context: Context) {
                         ))
                     }
                 }
-                val evidenceArray = value.optJSONArray("evidence") ?: JSONArray()
+                val evidenceArray = stageArray("evidence")
                 val evidence = buildList {
                     for (j in 0 until evidenceArray.length()) {
                         val item = evidenceArray.optJSONObject(j) ?: error("Stage evidence $j is unreadable")
@@ -457,7 +464,7 @@ class TaskStore(private val context: Context) {
                         ))
                     }
                 }
-                val decisionsArray = value.optJSONArray("decisions") ?: JSONArray()
+                val decisionsArray = stageArray("decisions")
                 val decisions = buildList {
                     for (j in 0 until decisionsArray.length()) {
                         val item = decisionsArray.optJSONObject(j) ?: error("Stage decision $j is unreadable")
