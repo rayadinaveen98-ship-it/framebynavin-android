@@ -1,0 +1,66 @@
+name: Backlot CW2 - Stage Data Preservation Gate
+
+on:
+  push:
+    branches:
+      - feature/backlot-cw2-stage-owned-data-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-cw2-stage-data-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stage-data-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Validate CW2 preservation boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'stageWork: List<CreatorStageWork> = emptyList()' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -Fq 'stageWork = current.workspace.stageWork' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'stageWork = current.stageWork' app/src/main/java/com/framebynavin/app/data/CreatorContentStabilization.kt
+          grep -Fq 'decodeStageWork(item.optJSONArray("stageWork"))' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -Fq 'encodeStageWork(workspace.stageWork)' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -Fq 'expectedWorkspaceRevision' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/CreatorStageWorkPersistenceAndroidTest.kt
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+      - name: Compile project and run stage/workspace regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.data.CreatorStageWorkPolicyTest' \
+              --tests 'com.framebynavin.app.data.CreatorContentWorkspaceTest' \
+              --tests 'com.framebynavin.app.data.CreatorWorkspaceEndToEndTest' \
+              --tests 'com.framebynavin.app.data.CreatorContentStabilizationTest' \
+              --tests 'com.framebynavin.app.ui.StageWorkspaceRoutingPolicyTest' \
+              --tests 'com.framebynavin.app.ui.HomeContinueRoutingPolicyTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee cw2-data-unit.log
+      - name: Upload CW2 unit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW2-Stage-Data-Unit-Results-NOT-RELEASE
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            cw2-data-unit.log
+          retention-days: 21
+          if-no-files-found: warn
