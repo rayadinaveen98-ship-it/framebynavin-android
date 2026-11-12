@@ -1,0 +1,197 @@
+name: Backlot V336 — Stability Candidate Gate
+
+on:
+  push:
+    branches:
+      - release/backlot-v336-stability-candidate-20261112
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  signed-and-unit-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Ensure stable candidate has no unapproved logic edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin feature/backlot-v336-directors-reminder-cinematic-native-20261111
+          git diff --name-only FETCH_HEAD HEAD | tee /tmp/stability-diff.txt
+          while IFS= read -r changed; do
+            case "$changed" in
+              .github/workflows/backlot-v336-stability-gate.yml|docs/audits/V336_RELEASE_AND_WORKSPACE_ASSESSMENT.md) ;;
+              *) echo "Unapproved change in stabilization candidate: $changed" >&2; exit 1 ;;
+            esac
+          done < /tmp/stability-diff.txt
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          test ! -e app/src/main/assets/backlot_v330_motion.html
+          grep -q 'V336DirectorSignalArt' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          grep -q 'V336DirectorSignalArt' app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt
+      - name: Build signed owner candidate and test existing reminder and workspace policies
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:assemblePersonalStable :app:testPersonalStableUnitTest \
+              -PbacklotSignedOwnerTest=true -x :app:lintVitalPersonalStable \
+              --no-daemon --no-parallel --max-workers=1 \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee v336-stable-compile.log
+      - name: Verify version, signature, owner upgrade identity, and APK checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/v336-stability
+          src=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$src"
+          cp "$src" output/v336-stability/Backlot-V336-Stability-Candidate.apk
+          (cd output/v336-stability && sha256sum *.apk > SHA256SUMS.txt)
+          signer=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$signer" verify --verbose --print-certs "$src" | tee output/v336-stability/SIGNING.txt
+          "$aapt" dump badging "$src" | head -n 7 | tee output/v336-stability/APK-IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" output/v336-stability/APK-IDENTITY.txt
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' output/v336-stability/SIGNING.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/v336-stability/SIGNING.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Stability-Candidate-Signed-APK
+          path: output/v336-stability/
+          retention-days: 45
+          if-no-files-found: error
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Stability-Compile-Logs
+          path: v336-stable-compile.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  compile-matching-ui-tests:
+    needs: signed-and-unit-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile Android test APK on a dedicated runner with increased Kotlin heap
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 5100s \
+            gradle :app:assemblePersonalStableAndroidTest \
+              -PbacklotSignedOwnerTest=true --no-daemon --no-parallel \
+              --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process \
+              '-Dorg.gradle.jvmargs=-Xmx10g -XX:MaxMetaspaceSize=1550m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee v336-stable-test-compile.log
+      - name: Prepare matching Android instrumented test binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/v336-ui-test
+          apk=app/build/outputs/apk/androidTest/personalStable/app-personalStable-androidTest.apk
+          test -s "$apk"
+          cp "$apk" output/v336-ui-test/test.apk
+          (cd output/v336-ui-test && sha256sum test.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Stability-Android-Test-APK
+          path: output/v336-ui-test/
+          if-no-files-found: error
+          retention-days: 45
+      - name: Upload test compile diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Stability-Test-Compile-Logs
+          path: v336-stable-test-compile.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  android-visual-acceptance:
+    needs: [signed-and-unit-gate, compile-matching-ui-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V336-Stability-Candidate-Signed-APK
+          path: output/v336-stability/
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-V336-Stability-Android-Test-APK
+          path: output/v336-ui-test/
+      - name: Verify APKs
+        run: |
+          (cd output/v336-stability && sha256sum -c SHA256SUMS.txt)
+          (cd output/v336-ui-test && sha256sum -c SHA256SUMS.txt)
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise four visuals, Creator actions, Personal actions and lock privacy
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 2048M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            mkdir -p output/v336-visual-evidence
+            adb install -r output/v336-stability/Backlot-V336-Stability-Candidate.apk
+            adb install -r output/v336-ui-test/test.apk
+            for suite in \
+              com.framebynavin.app.reminders.V336DirectorReminderVisualUiTest \
+              com.framebynavin.app.reminders.V200ReminderUiTest \
+              com.framebynavin.app.personal.V2233PersonalAlertUiTest \
+              com.framebynavin.app.personal.V279LockedPersonalAlertUiTest; do
+              name="${suite##*.}"
+              adb shell am instrument -w -r \
+                -e class "$suite" -e hardeningTestEnvironment ci-emulator \
+                com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
+                | tee "output/v336-visual-evidence/${name}.log"
+              if grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' "output/v336-visual-evidence/${name}.log"; then
+                exit 1
+              fi
+              grep -Eq '^OK \([1-9][0-9]* tests?\)' "output/v336-visual-evidence/${name}.log"
+            done
+            for scene in creator_voice creator_alarm personal_voice personal_alarm; do
+              adb pull "/sdcard/Android/data/com.framebynavin.app/files/v336_${scene}.png" \
+                "output/v336-visual-evidence/${scene}.png"
+              test -s "output/v336-visual-evidence/${scene}.png"
+            done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Backlot-V336-Stability-Device-Screens-and-Results
+          path: output/v336-visual-evidence/
+          retention-days: 45
+          if-no-files-found: warn
