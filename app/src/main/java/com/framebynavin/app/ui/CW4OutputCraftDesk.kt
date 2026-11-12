@@ -218,8 +218,9 @@ internal fun CW4OutputCraftDesk(
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text(selected.title.ifBlank { selected.format }, color = ProjectorIvory,
                                 fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text("OUTPUT · ${selected.status.name}  ·  " +
-                                if (selected.parentDeliverableId.isBlank()) "MAIN" else "DERIVATIVE",
+                            val outputRole = if (selected.parentDeliverableId.isBlank())
+                                "MAIN" else "DERIVATIVE"
+                            Text("OUTPUT · ${selected.status.name} · $outputRole",
                                 color = MutedGold, fontSize = 11.sp)
                             if (selected.status == CreatorDeliverableStatus.PUBLISHED) {
                                 Spacer(Modifier.height(7.dp))
