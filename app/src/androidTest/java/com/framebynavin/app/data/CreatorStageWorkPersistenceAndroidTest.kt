@@ -132,10 +132,26 @@ class CreatorStageWorkPersistenceAndroidTest {
             assertEquals(saved.workspace.stageWork, restored.workspace.stageWork)
             assertEquals(saved.workspace.assets, restored.workspace.assets)
 
+            // Also verify the actual Creator backup envelope and restore path.
+            val stageBackup = backup.createBackup()
+            backup.validate(stageBackup)
+            store.updateTask(task.id) { current ->
+                current.copy(workspace = current.workspace.copy(stageWork = emptyList(),
+                    revision = current.workspace.revision + 1L))
+            }
+            assertTrue(store.load().first { it.id == task.id }.workspace.stageWork.isEmpty())
+            CreatorDataGate.nonCancellable { backup.restore(stageBackup) }
+            val returned = store.load().first { it.id == task.id }
+            assertEquals(saved.workspace.stageWork, returned.workspace.stageWork)
+            assertEquals(saved.workspace.assets, returned.workspace.assets)
+            assertEquals(saved.workflowStageIndex, returned.workflowStageIndex)
+            assertEquals(saved.reminderEnabled, returned.reminderEnabled)
+            val postRestoreEpoch = CreatorDataGate.generation(context)
+
             // A stale editor cannot overwrite the newest stage revision.
             var failed = false
             try {
-                store.saveStageWork(task.id, epoch, 23L, stage().copy(notes = "Old draft"))
+                store.saveStageWork(task.id, postRestoreEpoch, 23L, stage().copy(notes = "Old draft"))
             } catch (_: IllegalStateException) {
                 failed = true
             }
