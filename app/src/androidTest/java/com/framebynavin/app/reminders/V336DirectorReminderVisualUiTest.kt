@@ -3,7 +3,6 @@ package com.framebynavin.app.reminders
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -61,7 +60,7 @@ class V336DirectorReminderVisualUiTest {
             }
         }
         val intro = rule.onAllNodesWithContentDescription("Show reminder controls")
-        if (intro.fetchSemanticsNodes().isNotEmpty()) intro.onFirst().performClick()
+        if (intro.fetchSemanticsNodes().isNotEmpty()) intro[0].performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("v200-reminder-title").assertExists()
         rule.onNodeWithTag("v200-primary-reminder-action").assertExists()
