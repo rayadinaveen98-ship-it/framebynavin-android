@@ -116,12 +116,15 @@ internal fun CW3StageDesk(
     val journal = remember(task.id) { CreatorStageDraftStore(context.applicationContext) }
     val persisted = CreatorStageWorkPolicy.find(task.workspace, template.id, stage.id)
         ?: CreatorStageWork(workflowTemplateId = template.id, stageId = stage.id)
-    val initial = remember(task.id, template.id, stage.id, revision) {
-        journal.load(task.id, revision, template.id, stage.id) ?: persisted
-    }
     // Planned projects can prepare stage materials before the first workflow step begins.
     val editable = task.status != TaskStatus.DONE && task.status != TaskStatus.SKIPPED &&
         task.archivedAtMillis == 0L
+    val initial = remember(task.id, template.id, stage.id, revision, editable) {
+        // Never show noncanonical unsaved drafts as the official record of a
+        // completed or archived project.
+        if (editable) journal.load(task.id, revision, template.id, stage.id) ?: persisted
+        else persisted
+    }
     val experience = CW3StageExperiencePolicy.forStage(stage)
     var notes by rememberSaveable(task.id, stage.id, revision) { mutableStateOf(initial.notes) }
     var checklist by remember(task.id, stage.id, revision) { mutableStateOf(initial.checklist) }
