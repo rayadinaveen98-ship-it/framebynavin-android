@@ -1,0 +1,150 @@
+name: Backlot CW6 — Integrated Workspace Android Acceptance (NOT RELEASE)
+
+on:
+  push:
+    branches:
+      - feature/backlot-cw6-integrated-acceptance-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-cw6-integrated-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify CW1–CW5 integration scope and owner identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin release/backlot-v336-stability-candidate-20261112
+          git diff --name-only FETCH_HEAD HEAD > /tmp/cw6-source-diff.txt
+          while IFS= read -r changed; do
+            case "$changed" in
+              app/src/main/java/com/framebynavin/app/data/*|app/src/main/java/com/framebynavin/app/ui/*|app/src/test/java/com/framebynavin/app/data/*|app/src/test/java/com/framebynavin/app/ui/*|app/src/androidTest/java/com/framebynavin/app/data/*|app/src/androidTest/java/com/framebynavin/app/ui/*|docs/roadmap/*|.github/workflows/backlot-cw[1-6]*.yml|.github/scripts/cw6_emulator_qa.sh)
+                ;;
+              *)
+                echo "CW6 unexpected source outside workspace or QA: $changed" >&2
+                exit 1
+                ;;
+            esac
+          done < /tmp/cw6-source-diff.txt
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          grep -Fq 'CreatorWorkflowTransitionPolicy.approveAndAdvance(' app/src/main/java/com/framebynavin/app/data/CreatorViewModel.kt
+          grep -Fq 'stageTransitions = current.workspace.stageTransitions' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'outputScripts = current.workspace.outputScripts' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/CW6IntegratedWorkspaceLifecycleAndroidTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/CW3StageDeskUiTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/CW4OutputCraftDeskUiTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/CreatorStageTransitionPersistenceAndroidTest.kt
+          echo "PASS: no changes to Personal Reminders, alarm/voice runtime, Play signing or release version."
+      - name: Run all local JVM regressions and build matching debug test and personal-preview APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/cw6-build
+          timeout --signal=TERM --kill-after=20s 6200s \
+            gradle :app:testDebugUnitTest \
+              :app:assembleDebug :app:assembleDebugAndroidTest :app:assemblePersonalStable \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx9g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee output/cw6-build/BUILD-AND-JVM-REGRESSION.log
+      - name: Confirm preview signing identity and stage test APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/cw6-build output/cw6-test-apks
+          debug=app/build/outputs/apk/debug/app-debug.apk
+          testapk=app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          candidate=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$debug" && test -s "$testapk" && test -s "$candidate"
+          cp "$debug" output/cw6-test-apks/app-debug.apk
+          cp "$testapk" output/cw6-test-apks/app-debug-androidTest.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs "$candidate" \
+            > output/cw6-build/PERSONAL-PREVIEW-SIGNER.txt
+          "$aapt" dump badging "$candidate" | head -n 9 \
+            > output/cw6-build/PERSONAL-PREVIEW-BADGING.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" \
+            output/cw6-build/PERSONAL-PREVIEW-BADGING.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' \
+            output/cw6-build/PERSONAL-PREVIEW-SIGNER.txt
+          echo "V336 preview signer is the previous public preview certificate; NOT Play signing." \
+            > output/cw6-build/RELEASE-RESTRICTION.txt
+          git rev-parse HEAD > output/cw6-build/SOURCE-SHA.txt
+          (cd output/cw6-test-apks && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Upload local compile and JVM evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW6-Compile-Unit-Signing-Evidence-NOT-RELEASE
+          path: |
+            output/cw6-build/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 21
+          if-no-files-found: warn
+      - name: Upload disposable Android debug test binaries (not an owner APK)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW6-Debug-Instrumentation-Binaries
+          path: output/cw6-test-apks/
+          retention-days: 14
+          if-no-files-found: error
+
+  real-android-emulator:
+    needs: compile-and-contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-CW6-Debug-Instrumentation-Binaries
+          path: output/cw6-test-apks/
+      - name: Verify binary integrity before installation
+        run: |
+          set -euo pipefail
+          (cd output/cw6-test-apks && sha256sum -c SHA256SUMS.txt)
+      - name: Enable Linux emulator KVM acceleration
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run real Android 15 phone, 320dp compact and 800dp tablet-style tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 3072M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash .github/scripts/cw6_emulator_qa.sh
+      - name: Upload real Android screenshot and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW6-Real-Android-UI-and-Restore-Evidence-NOT-RELEASE
+          path: output/cw6-android-qa/
+          retention-days: 30
+          if-no-files-found: warn
