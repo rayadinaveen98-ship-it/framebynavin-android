@@ -51,6 +51,7 @@ object CreatorContentStabilization {
             hook = current.hook,
             script = current.script,
             scriptStudio = current.scriptStudio,
+            stageWork = current.stageWork, // Plan editor cannot replace stage-owned records.
             deliverables = sanitizeDeliverableGraph(protectedDeliverables),
         )
     }
