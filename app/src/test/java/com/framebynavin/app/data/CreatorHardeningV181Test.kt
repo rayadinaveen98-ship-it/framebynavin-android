@@ -11,7 +11,13 @@ class CreatorHardeningV181Test {
     @Test fun publishingPrecedesPromotionAndPreservesActualTime() {
         val now = System.currentTimeMillis() - 3_600_000L
         val original = task().copy(status = TaskStatus.WORKING, workflowStageIndex = 7)
-        val published = CreatorPublicationEngine.advance(original, now)
+        // CW5: stage advancement must not silently record a live publication.
+        assertThrows(IllegalStateException::class.java) {
+            CreatorPublicationEngine.advance(original, now)
+        }
+        assertEquals(0L, original.publishedAtMillis)
+        val recorded = CreatorPublicationEngine.record(original, now)
+        val published = CreatorPublicationEngine.advance(recorded, now)
         assertEquals(TaskStatus.WORKING, published.status)
         assertEquals(8, published.workflowStageIndex)
         assertEquals(now, published.publishedAtMillis)
@@ -28,7 +34,14 @@ class CreatorHardeningV181Test {
     @Test fun newsletterSendIsNotFinalReview() {
         val original = task(type = "Newsletter").copy(platform = "Blog / Newsletter", status = TaskStatus.WORKING, workflowStageIndex = 4)
         val now = System.currentTimeMillis() - 60_000L
-        val sent = CreatorPublicationEngine.advance(original, now)
+        // Newsletter publication is explicit; completing the Send step does not
+        // invent a public send date or bypass the CW5 approval safeguard.
+        assertThrows(IllegalStateException::class.java) {
+            CreatorPublicationEngine.advance(original, now)
+        }
+        assertEquals(0L, original.publishedAtMillis)
+        val recorded = CreatorPublicationEngine.record(original, now)
+        val sent = CreatorPublicationEngine.advance(recorded, now)
         assertEquals(now, sent.publishedAtMillis)
         assertEquals(5, sent.workflowStageIndex)
         assertEquals(TaskStatus.WORKING, sent.status)
