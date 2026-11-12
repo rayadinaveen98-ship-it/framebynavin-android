@@ -151,6 +151,46 @@ class TaskStore(private val context: Context) {
         current.copy(workspace = updated.copy(revision = current.workspace.revision + 1L))
     }
 
+    /**
+     * Output Craft writes are atomic, revision/restore-epoch guarded and scoped
+     * to a real output. None advances the project or updates publication state.
+     */
+    private suspend fun updateOutputCraft(
+        projectId: String,
+        expectedGeneration: Long,
+        expectedWorkspaceRevision: Long,
+        edit: (CreatorTask) -> CreatorContentWorkspace,
+    ): CreatorTask? = updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+        check(current.workspace.revision == expectedWorkspaceRevision) {
+            "Output work changed while editing; reopen the latest project before saving."
+        }
+        current.copy(workspace = edit(current).copy(revision = current.workspace.revision + 1L))
+    }
+
+    suspend fun saveDerivativeScript(
+        projectId: String, expectedGeneration: Long, expectedWorkspaceRevision: Long,
+        draft: CreatorOutputScript, atMillis: Long,
+    ): CreatorTask? = updateOutputCraft(
+        projectId, expectedGeneration, expectedWorkspaceRevision,
+    ) { current -> CreatorOutputCraftPolicy.saveScript(current, draft, atMillis) }
+
+    suspend fun addOutputEditVersion(
+        projectId: String, expectedGeneration: Long, expectedWorkspaceRevision: Long,
+        deliverableId: String, label: String, sourceLocation: String,
+        notes: String, atMillis: Long,
+    ): CreatorTask? = updateOutputCraft(
+        projectId, expectedGeneration, expectedWorkspaceRevision,
+    ) { current -> CreatorOutputCraftPolicy.appendEditVersion(
+        current, deliverableId, label, sourceLocation, notes, atMillis,
+    ) }
+
+    suspend fun reviewOutputEditVersion(
+        projectId: String, expectedGeneration: Long, expectedWorkspaceRevision: Long,
+        versionId: String, target: CreatorEditReviewStatus, atMillis: Long,
+    ): CreatorTask? = updateOutputCraft(
+        projectId, expectedGeneration, expectedWorkspaceRevision,
+    ) { current -> CreatorOutputCraftPolicy.reviewVersion(current, versionId, target, atMillis) }
+
     internal fun encodeRecoveryTask(task: CreatorTask): String = encode(listOf(task))
     internal fun decodeRecoveryTask(raw: String): CreatorTask = decode(raw).single()
 
