@@ -1,0 +1,67 @@
+name: Backlot CW3 - Contextual Stage Desk Unit Gate
+
+on:
+  push:
+    branches:
+      - feature/backlot-cw3-contextual-stage-desk-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-cw3-stage-desk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stage-desk-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Static stage-desk navigation and non-mutating data contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'HomeContinueDestination.STAGE_DESK' app/src/main/java/com/framebynavin/app/ui/HomeContinueRoutingPolicy.kt
+          grep -Fq 'onOpenStage = { stageId -> openStage(stageId) }' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'CreatorStageDraftStore' app/src/main/java/com/framebynavin/app/ui/CW3StageDesk.kt
+          grep -Fq 'store.saveStageWork(' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'StageWorkspaceRoutingPolicy.destination(currentStage)' app/src/main/java/com/framebynavin/app/ui/V19ContentWorkspaceAlpha6Ui.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/CW3StageDeskUiTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/CreatorStageWorkPersistenceAndroidTest.kt
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+      - name: Compile Android app and run focused CW1/CW2/CW3 unit suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.ui.CW3StageExperiencePolicyTest' \
+              --tests 'com.framebynavin.app.ui.HomeContinueRoutingPolicyTest' \
+              --tests 'com.framebynavin.app.ui.StageWorkspaceRoutingPolicyTest' \
+              --tests 'com.framebynavin.app.data.CreatorStageWorkPolicyTest' \
+              --tests 'com.framebynavin.app.data.CreatorContentWorkspaceTest' \
+              --tests 'com.framebynavin.app.data.CreatorContentStabilizationTest' \
+              --tests 'com.framebynavin.app.data.CreatorWorkspaceEndToEndTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee cw3-stage-desk-unit.log
+      - name: Upload CW3 source and test evidence (NOT owner APK)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW3-Stage-Desk-Unit-Evidence-NOT-RELEASE
+          path: |
+            cw3-stage-desk-unit.log
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 14
+          if-no-files-found: warn
