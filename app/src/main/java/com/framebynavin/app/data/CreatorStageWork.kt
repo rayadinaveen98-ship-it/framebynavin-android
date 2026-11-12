@@ -89,6 +89,29 @@ object CreatorStageWorkPolicy {
         ensureUnique(stage.linkedReferenceIds, "linked source IDs")
         ensureUnique(stage.linkedAssetIds, "linked asset IDs")
         ensureUnique(stage.linkedDeliverableIds, "linked deliverable IDs")
+        // A stage may retain an earlier link to an item subsequently removed,
+        // but cannot link a newly saved stage to another project's materials.
+        val previous = find(task.workspace, stage.workflowTemplateId, stage.stageId)
+        fun ensureOwnLinks(
+            selected: List<String>, currentIds: Set<String>,
+            previouslyLinked: List<String>, label: String,
+        ) {
+            require(selected.all { it in currentIds || it in previouslyLinked }) {
+                "Stage references an unknown $label; the original project was retained"
+            }
+        }
+        ensureOwnLinks(
+            stage.linkedReferenceIds, task.workspace.references.map { it.id }.toSet(),
+            previous?.linkedReferenceIds.orEmpty(), "source",
+        )
+        ensureOwnLinks(
+            stage.linkedAssetIds, task.workspace.assets.map { it.id }.toSet(),
+            previous?.linkedAssetIds.orEmpty(), "asset",
+        )
+        ensureOwnLinks(
+            stage.linkedDeliverableIds, task.workspace.deliverables.map { it.id }.toSet(),
+            previous?.linkedDeliverableIds.orEmpty(), "output",
+        )
         require(stage.reviewedAtMillis >= 0L && stage.decisions.all { it.recordedAtMillis >= 0L }) {
             "Review timestamps cannot be negative"
         }
