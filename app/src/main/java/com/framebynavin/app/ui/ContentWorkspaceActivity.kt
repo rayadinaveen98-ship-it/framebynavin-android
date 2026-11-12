@@ -728,7 +728,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     // Existing Plan/Publish editors are not stage-work writers. Reattach
                     // the authoritative stage records rather than accepting an old local draft.
                     var normalized = normalizeWorkspace(draft, expectedRevision + 1L)
-                        .copy(stageWork = current.workspace.stageWork)
+                        .copy(
+                            stageWork = current.workspace.stageWork,
+                            outputScripts = current.workspace.outputScripts,
+                            editVersions = current.workspace.editVersions,
+                        )
                     normalized = when (editorMode) {
                         Alpha6WorkspaceMode.PROJECT -> CreatorContentStabilization.prepareProjectEditorSave(
                             current = current.workspace,
