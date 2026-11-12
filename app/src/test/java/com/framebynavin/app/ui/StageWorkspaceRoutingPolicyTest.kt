@@ -34,10 +34,10 @@ class StageWorkspaceRoutingPolicyTest {
 
     private fun homeDestination(destination: StageWorkspaceDestination): HomeContinueDestination =
         when (destination) {
-            StageWorkspaceDestination.PLAN -> HomeContinueDestination.PROJECT_PLAN
+            StageWorkspaceDestination.PLAN -> HomeContinueDestination.STAGE_DESK
             StageWorkspaceDestination.SCRIPT -> HomeContinueDestination.SCRIPT_STUDIO
             StageWorkspaceDestination.PUBLISH -> HomeContinueDestination.PUBLISH_STUDIO
-            StageWorkspaceDestination.HUB -> HomeContinueDestination.WORKSPACE_HUB
+            StageWorkspaceDestination.HUB -> HomeContinueDestination.STAGE_DESK
         }
 
     @Test fun filmReviewAllNineStagesUseOneRouteInHomeAndWorkspace() {
@@ -84,7 +84,7 @@ class StageWorkspaceRoutingPolicyTest {
         for (unsupported in listOf("voice", "edit", "promote")) {
             val working = atStage(legacy, unsupported)
             assertEquals(StageWorkspaceDestination.HUB, StageWorkspaceRoutingPolicy.destination(working))
-            assertEquals(HomeContinueDestination.WORKSPACE_HUB,
+            assertEquals(HomeContinueDestination.STAGE_DESK,
                 HomeContinueRoutingPolicy.destination(working))
         }
         assertEquals(StageWorkspaceDestination.HUB,
