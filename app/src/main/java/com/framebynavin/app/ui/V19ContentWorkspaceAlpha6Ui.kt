@@ -61,7 +61,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
         completed -> onOpenProject
         stageDestination == StageWorkspaceDestination.SCRIPT -> onOpenScript
         stageDestination == StageWorkspaceDestination.PUBLISH -> onOpenPublish
-        else -> { onOpenStage(currentStage.id) } // CW3 contextual desk, no fake editor.
+        else -> { { onOpenStage(currentStage.id) } } // A deferred click callback, never navigate during composition.
     }
     val primaryLabel = when {
         completed -> "OPEN PLAN"
