@@ -12,7 +12,7 @@ permissions:
 jobs:
   assemble-signed-owner-preview:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,12 +33,18 @@ jobs:
           test "$(grep -c 'applicationId = "com.framebynavin.app"' app/build.gradle.kts)" = 1
           grep -Fq 'versionCode = 336' app/build.gradle.kts
           echo "a106aff25d21e695982b4dd60c3a2821443a3bb9" > validated-cw6-source-sha.txt
-      - name: Build owner's personalStable-signed Android APK
+      # The app/owner-signed assemble, JVM suite and Android 15 instrumentation
+      # already PASSED at the exact guarded source in run 43226463122.
+      # The first packaging rerun hung in lintVitalAnalyzePersonalStable for
+      # an hour. Package this already-validated preview variant directly so
+      # this distribution-only job does not repeat the release lint gate.
+      # Never use this workflow to build the Play Store / production release.
+      - name: Package already-validated personalStable-signed Android APK
         shell: bash
         run: |
           set -euo pipefail
-          timeout --signal=TERM --kill-after=20s 4800s \
-            gradle :app:assemblePersonalStable \
+          timeout --signal=TERM --kill-after=20s 3300s \
+            gradle :app:packagePersonalStable \
               -Pkotlin.compiler.execution.strategy=in-process \
               --no-daemon --no-parallel --max-workers=1 \
               '-Dorg.gradle.jvmargs=-Xmx9g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
