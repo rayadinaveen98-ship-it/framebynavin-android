@@ -172,7 +172,11 @@ internal fun CW3StageDesk(
                 }
                 Spacer(Modifier.width(6.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("CURRENT PROJECT STAGE", color = MutedText, fontSize = 11.sp)
+                    Text(
+                        if (CreatorWorkflowEngine.currentStage(task).id == stage.id)
+                            "CURRENT PROJECT STAGE" else "EARLIER / OTHER PROJECT STAGE",
+                        color = MutedText, fontSize = 11.sp,
+                    )
                     Text(stage.label, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(
