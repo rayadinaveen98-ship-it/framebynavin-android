@@ -194,6 +194,10 @@ class TaskStore(private val context: Context) {
     internal fun encodeRecoveryTask(task: CreatorTask): String = encode(listOf(task))
     internal fun decodeRecoveryTask(raw: String): CreatorTask = decode(raw).single()
 
+    /** Pure multi-project codec fixture for Android safety tests, never a storage write. */
+    internal fun exportSyntheticProjectsForTest(tasks: List<CreatorTask>): String = encode(tasks)
+    internal fun decodeSyntheticProjectsForTest(raw: String): List<CreatorTask> = decode(raw)
+
     private fun encode(tasks: List<CreatorTask>): String {
         val array = JSONArray()
         tasks.forEach { task ->

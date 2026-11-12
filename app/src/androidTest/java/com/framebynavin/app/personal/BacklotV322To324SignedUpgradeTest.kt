@@ -47,19 +47,19 @@ class BacklotV322To324SignedUpgradeTest {
         val personal = PersonalReminderStore(app)
         val habits = Phase1HabitStore(app)
         val creator = TaskStore(app)
-        val templates = PersonalRebuildSchedulePack.reminders(date, zone).map {
+        val templates = LegacyV322ScheduleFixture.reminders(date, zone).map {
             // Quiet fixture: record all 16 actual V322 schedule definitions
             // but never trigger an alarm during CI.
             it.copy(paused = true).checked()
         }
         assertEquals(16, templates.size)
-        assertTrue(personal.load().none { it.id.startsWith(PersonalRebuildSchedulePack.PREFIX) })
-        assertTrue(habits.load().none { it.id == PersonalRebuildSchedulePack.CHALLENGE_ID })
+        assertTrue(personal.load().none { it.id.startsWith(LegacyV322ScheduleFixture.PREFIX) })
+        assertTrue(habits.load().none { it.id == LegacyV322ScheduleFixture.CHALLENGE_ID })
         assertTrue(creator.load().none { it.id == creatorId })
 
         personal.mutate { existing -> existing + templates }
         val walking = Phase1HabitChallenge(
-            id = PersonalRebuildSchedulePack.CHALLENGE_ID,
+            id = LegacyV322ScheduleFixture.CHALLENGE_ID,
             activity = "Morning walking", startDate = date, zoneId = zone.id,
         ).checked()
         habits.create(walking)
@@ -106,17 +106,17 @@ class BacklotV322To324SignedUpgradeTest {
         assertEquals(322L, expected.getLong("versionCode"))
         val personal = PersonalReminderStore(app)
         val original = PersonalCompletionBackupCodec.decode(expected.getString("personal")).reminders
-            .filter { it.id.startsWith(PersonalRebuildSchedulePack.PREFIX) }
-        val actual = personal.load().filter { it.id.startsWith(PersonalRebuildSchedulePack.PREFIX) }
+            .filter { it.id.startsWith(LegacyV322ScheduleFixture.PREFIX) }
+        val actual = personal.load().filter { it.id.startsWith(LegacyV322ScheduleFixture.PREFIX) }
         assertEquals(16, original.size)
         assertEquals("All 16 configured reminders must survive upgrade exactly", original, actual)
         assertTrue("Wake alarm was lost", actual.any { it.id.endsWith("wake") })
         assertTrue("Four-day work schedule was lost", actual.any { it.id.endsWith("app-work") })
         assertEquals(7, actual.count { it.id.contains("hobby-") })
         val before = Phase1HabitCodec.decode(expected.getString("habit"))
-            .single { it.id == PersonalRebuildSchedulePack.CHALLENGE_ID }
+            .single { it.id == LegacyV322ScheduleFixture.CHALLENGE_ID }
         val now = Phase1HabitStore(app).load()
-            .single { it.id == PersonalRebuildSchedulePack.CHALLENGE_ID }
+            .single { it.id == LegacyV322ScheduleFixture.CHALLENGE_ID }
         assertEquals("Challenge identity/activity/date and Day 1 proof changed", before, now)
         assertEquals(receipt, now.confirmations[date])
         val creator = TaskStore(app).load().single { it.id == expected.getString("creatorId") }

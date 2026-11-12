@@ -101,6 +101,16 @@ private data class CW5PendingStageApproval(
     val workspaceRevision: Long,
 )
 
+/**
+ * CW6: only a genuinely persisted new stage receipt may unlock the next
+ * journey screen. A queued write or a stale UI click is not success.
+ */
+private data class CW6PendingCommittedStageJourney(
+    val request: CW5PendingStageApproval,
+    val previousReceiptIds: Set<String>,
+    val destination: V18JourneyDestination?,
+)
+
 private data class PPermissions(
     val notifications: Boolean,
     val preciseTiming: Boolean,
@@ -145,6 +155,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val composerStateHolder = rememberSaveableStateHolder()
     var publicationTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingWorkflowApproval by remember { mutableStateOf<CW5PendingStageApproval?>(null) }
+    var pendingCommittedStageJourney by remember {
+        mutableStateOf<CW6PendingCommittedStageJourney?>(null)
+    }
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
@@ -353,6 +366,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         if (destination != null) overlay = POverlay.NONE
     }
     fun advanceWorkflowWithJourney(id: String) {
+        // Do not queue a second approval while the previous one has no
+        // durable result; the receipt identity must remain unambiguous.
+        if (pendingCommittedStageJourney != null) return
         val current = vm.tasks.firstOrNull { it.id == id } ?: return
         // CW5 makes every stage advance a deliberate, creator-confirmed action.
         // Capture exact stage and revision; reject stale approvals after a restore
@@ -362,6 +378,23 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             stageId = CreatorWorkflowEngine.currentStage(current).id,
             workspaceRevision = current.workspace.revision,
         )
+    }
+
+    LaunchedEffect(pendingCommittedStageJourney, vm) {
+        val pending = pendingCommittedStageJourney ?: return@LaunchedEffect
+        // vm.tasks is refreshed only from canonical TaskStore records after
+        // the transaction. Inspect the receipt, not an optimistic button tap.
+        val result = snapshotFlow {
+            val committed = vm.tasks.firstOrNull { it.id == pending.request.projectId }
+            val recorded = committed?.workspace?.stageTransitions?.any { receipt ->
+                receipt.id !in pending.previousReceiptIds &&
+                    receipt.stageId == pending.request.stageId &&
+                    receipt.workspaceRevisionBefore == pending.request.workspaceRevision
+            } == true
+            recorded to vm.writeError
+        }.first { (recorded, error) -> recorded || error != null }
+        if (result.first) routeJourney(pending.destination)
+        pendingCommittedStageJourney = null
     }
 
     pendingWorkflowApproval?.let { request ->
@@ -448,13 +481,18 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         enabled = assessment?.allowed == true && vm.writeError == null,
                         onClick = {
                             val destination = V18CreatorJourney.afterWorkflowAdvance(current)
+                            pendingCommittedStageJourney = CW6PendingCommittedStageJourney(
+                                request = request,
+                                previousReceiptIds = current.workspace.stageTransitions
+                                    .mapTo(mutableSetOf()) { it.id },
+                                destination = destination,
+                            )
                             vm.advanceWorkflow(
                                 current.id,
                                 expectedStageId = request.stageId,
                                 expectedWorkspaceRevision = request.workspaceRevision,
                             )
                             pendingWorkflowApproval = null
-                            routeJourney(destination)
                         },
                     ) {
                         Text(if (assessment?.willFinishProject == true)
