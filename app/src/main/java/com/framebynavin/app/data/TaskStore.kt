@@ -133,6 +133,24 @@ class TaskStore(private val context: Context) {
         }
     }
 
+    /**
+     * CW2's only intended stage-work write path. The project ID, restore epoch,
+     * workspace revision, and stage/template identity must all still match at
+     * commit time. It does not advance a workflow, publish, or schedule alerts.
+     */
+    suspend fun saveStageWork(
+        projectId: String,
+        expectedGeneration: Long,
+        expectedWorkspaceRevision: Long,
+        stage: CreatorStageWork,
+    ): CreatorTask? = updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+        check(current.workspace.revision == expectedWorkspaceRevision) {
+            "This workspace changed while you were editing the stage. Reload before saving."
+        }
+        val updated = CreatorStageWorkPolicy.put(current, stage)
+        current.copy(workspace = updated.copy(revision = current.workspace.revision + 1L))
+    }
+
     internal fun encodeRecoveryTask(task: CreatorTask): String = encode(listOf(task))
     internal fun decodeRecoveryTask(raw: String): CreatorTask = decode(raw).single()
 
@@ -354,6 +372,134 @@ class TaskStore(private val context: Context) {
         ).normalized()
     }
 
+    private fun encodeStageWork(records: List<CreatorStageWork>): JSONArray = JSONArray().also { array ->
+        records.forEach { stage ->
+            val checklist = JSONArray()
+            stage.checklist.forEach { item ->
+                checklist.put(JSONObject()
+                    .put("id", item.id).put("title", item.title).put("status", item.status.name))
+            }
+            val evidence = JSONArray()
+            stage.evidence.forEach { item ->
+                evidence.put(JSONObject().put("id", item.id)
+                    .put("claim", item.claim).put("timecode", item.timecode)
+                    .put("notes", item.notes).put("referenceId", item.referenceId)
+                    .put("assetId", item.assetId))
+            }
+            val decisions = JSONArray()
+            stage.decisions.forEach { item ->
+                decisions.put(JSONObject()
+                    .put("id", item.id).put("text", item.text)
+                    .put("recordedAtMillis", item.recordedAtMillis))
+            }
+            fun ids(values: List<String>): JSONArray = JSONArray().also { a -> values.forEach { a.put(it) } }
+            array.put(JSONObject()
+                .put("workflowTemplateId", stage.workflowTemplateId)
+                .put("stageId", stage.stageId)
+                .put("notes", stage.notes)
+                .put("checklist", checklist)
+                .put("evidence", evidence)
+                .put("decisions", decisions)
+                .put("linkedReferenceIds", ids(stage.linkedReferenceIds))
+                .put("linkedAssetIds", ids(stage.linkedAssetIds))
+                .put("linkedDeliverableIds", ids(stage.linkedDeliverableIds))
+                .put("reviewedAtMillis", stage.reviewedAtMillis))
+        }
+    }
+
+    private fun decodeStageWork(array: JSONArray?): List<CreatorStageWork> {
+        if (array == null) return emptyList() // Backwards-compatible legacy project.
+        val identities = mutableSetOf<Pair<String, String>>()
+        return buildList {
+            for (i in 0 until array.length()) {
+                val value = array.optJSONObject(i)
+                    ?: error("Stage-work entry $i is unreadable. Original project bytes were retained.")
+                val template = value.optString("workflowTemplateId")
+                val stageId = value.optString("stageId")
+                require(template.isNotBlank() && stageId.isNotBlank() && identities.add(template to stageId)) {
+                    "Duplicate or missing stage identity. Original project bytes were retained."
+                }
+                fun stageArray(key: String): JSONArray {
+                    val parsed = value.optJSONArray(key)
+                    require(!value.has(key) || value.isNull(key) || parsed != null) {
+                        "Malformed $key in stage data; original project bytes were retained"
+                    }
+                    return parsed ?: JSONArray()
+                }
+                fun ids(key: String): List<String> {
+                    val source = stageArray(key)
+                    return buildList {
+                        for (j in 0 until source.length()) {
+                            val id = source.optString(j)
+                            require(id.isNotBlank()) { "Stage link identity is missing" }
+                            add(id)
+                        }
+                    }
+                }
+                val checklist = stageArray("checklist")
+                val tasks = buildList {
+                    for (j in 0 until checklist.length()) {
+                        val item = checklist.optJSONObject(j) ?: error("Stage task $j is unreadable")
+                        val id = item.optString("id")
+                        require(id.isNotBlank()) { "Stage task is missing an ID" }
+                        add(CreatorStageChecklistItem(
+                            id = id, title = item.optString("title"),
+                            status = runCatching {
+                                CreatorChecklistStatus.valueOf(
+                                    item.optString("status", CreatorChecklistStatus.TODO.name))
+                            }.getOrDefault(CreatorChecklistStatus.TODO),
+                        ))
+                    }
+                }
+                val evidenceArray = stageArray("evidence")
+                val evidence = buildList {
+                    for (j in 0 until evidenceArray.length()) {
+                        val item = evidenceArray.optJSONObject(j) ?: error("Stage evidence $j is unreadable")
+                        val id = item.optString("id")
+                        require(id.isNotBlank()) { "Stage evidence is missing an ID" }
+                        add(CreatorStageEvidence(
+                            id = id, claim = item.optString("claim"),
+                            timecode = item.optString("timecode"), notes = item.optString("notes"),
+                            referenceId = item.optString("referenceId"), assetId = item.optString("assetId"),
+                        ))
+                    }
+                }
+                val decisionsArray = stageArray("decisions")
+                val decisions = buildList {
+                    for (j in 0 until decisionsArray.length()) {
+                        val item = decisionsArray.optJSONObject(j) ?: error("Stage decision $j is unreadable")
+                        val id = item.optString("id")
+                        require(id.isNotBlank()) { "Stage decision is missing an ID" }
+                        add(CreatorStageDecision(
+                            id = id, text = item.optString("text"),
+                            recordedAtMillis = item.optLong("recordedAtMillis", 0L),
+                        ))
+                    }
+                }
+                val refIds = ids("linkedReferenceIds")
+                val assetIds = ids("linkedAssetIds")
+                val outputIds = ids("linkedDeliverableIds")
+                fun unique(values: List<String>) = values.size == values.distinct().size
+                require(
+                    unique(tasks.map { it.id }) && unique(evidence.map { it.id }) &&
+                    unique(decisions.map { it.id }) && unique(refIds) &&
+                    unique(assetIds) && unique(outputIds)
+                ) { "Ambiguous stage-owned IDs. Original project bytes were retained." }
+                val reviewedAt = value.optLong("reviewedAtMillis", 0L)
+                require(reviewedAt >= 0L && decisions.all { it.recordedAtMillis >= 0L }) {
+                    "Stage review timestamp is invalid"
+                }
+                add(CreatorStageWork(
+                    workflowTemplateId = template, stageId = stageId,
+                    notes = value.optString("notes"), checklist = tasks,
+                    evidence = evidence, decisions = decisions,
+                    linkedReferenceIds = refIds, linkedAssetIds = assetIds,
+                    linkedDeliverableIds = outputIds, reviewedAtMillis = reviewedAt,
+                ))
+            }
+        }
+    }
+
     private fun encodeWorkspace(workspace: CreatorContentWorkspace): JSONObject {
         val references = JSONArray()
         workspace.references.forEach { reference ->
@@ -441,6 +587,7 @@ class TaskStore(private val context: Context) {
             .put("deliverables", deliverables)
             .put("learnings", workspace.learnings)
             .put("scriptStudio", workspace.scriptStudio?.let(::encodeScriptStudio) ?: JSONObject.NULL)
+            .put("stageWork", encodeStageWork(workspace.stageWork))
     }
 
     private fun encodeScriptStudio(studio: CreatorScriptStudio): JSONObject {
@@ -536,6 +683,9 @@ class TaskStore(private val context: Context) {
 
     private fun decodeWorkspace(projectId: String, item: JSONObject?): CreatorContentWorkspace {
         if (item == null) return CreatorContentWorkspace()
+        require(!item.has("stageWork") || item.isNull("stageWork") || item.optJSONArray("stageWork") != null) {
+            "Stage-work data is not an array. Original project bytes were retained."
+        }
         val references = item.optJSONArray("references") ?: JSONArray()
         val decodedReferences = buildList {
             for (i in 0 until references.length()) {
@@ -678,6 +828,7 @@ class TaskStore(private val context: Context) {
             deliverables = decodedDeliverables,
             learnings = item.optString("learnings"),
             scriptStudio = decodeScriptStudio(projectId, item.optJSONObject("scriptStudio")),
+            stageWork = decodeStageWork(item.optJSONArray("stageWork")),
         )
     }
 }

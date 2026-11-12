@@ -696,7 +696,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     check(current.workspace.revision == expectedRevision) {
                         "This workspace changed while you were editing. Reopen it to keep the newest version."
                     }
+                    // Existing Plan/Publish editors are not stage-work writers. Reattach
+                    // the authoritative stage records rather than accepting an old local draft.
                     var normalized = normalizeWorkspace(draft, expectedRevision + 1L)
+                        .copy(stageWork = current.workspace.stageWork)
                     normalized = when (editorMode) {
                         Alpha6WorkspaceMode.PROJECT -> CreatorContentStabilization.prepareProjectEditorSave(
                             current = current.workspace,
