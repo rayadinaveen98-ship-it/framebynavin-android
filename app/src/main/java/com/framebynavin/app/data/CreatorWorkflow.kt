@@ -195,10 +195,12 @@ object CreatorWorkflowEngine {
         if (task.status == TaskStatus.DONE) return "PROJECT COMPLETE"
         val stage = currentStage(task)
         return when {
-            isPublicationStage(stage) && task.publishedAtMillis <= 0L -> "MARK PUBLISHED"
-            isPublicationStage(stage) -> "COMPLETE STEP"
-            stageIndex(task) == templateFor(task).stages.lastIndex -> "FINISH PROJECT"
-            else -> "COMPLETE STEP"
+            isPublicationStage(stage) && task.publishedAtMillis <= 0L ->
+                if (CreatorPublicationEngine.usesDeliverablePublication(task))
+                    "RECORD LIVE OUTPUT" else "RECORD PUBLICATION"
+            isPublicationStage(stage) -> "APPROVE PUBLISH STEP"
+            stageIndex(task) == templateFor(task).stages.lastIndex -> "APPROVE & FINISH PROJECT"
+            else -> "APPROVE STEP"
         }
     }
 
