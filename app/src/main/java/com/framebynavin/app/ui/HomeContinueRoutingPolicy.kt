@@ -8,12 +8,14 @@ import com.framebynavin.app.data.TaskStatus
  * Phase 3B: Home Continue is navigation only. No project/status/reminder mutations.
  *
  * CW1 shares the stage-to-existing-editor policy with the Workspace hub.
- * Recording/editing/custom stages without a real editor still open HUB; the
- * Home button never invents an editor or silently advances workflow.
+ * CW3 adds the stage work desk for planning and production stages. It stores
+ * notes, evidence and tasks, not video/audio edits. No navigation advances
+ * a workflow, publishes a deliverable or acknowledges a reminder.
  */
 internal enum class HomeContinueDestination {
     PROJECT_OVERVIEW,
     WORKSPACE_HUB,
+    STAGE_DESK,
     PROJECT_PLAN,
     SCRIPT_STUDIO,
     PUBLISH_STUDIO,
@@ -25,10 +27,10 @@ internal object HomeContinueRoutingPolicy {
             return HomeContinueDestination.PROJECT_OVERVIEW
         }
         return when (StageWorkspaceRoutingPolicy.destination(task)) {
-            StageWorkspaceDestination.PLAN -> HomeContinueDestination.PROJECT_PLAN
+            StageWorkspaceDestination.PLAN -> HomeContinueDestination.STAGE_DESK
             StageWorkspaceDestination.SCRIPT -> HomeContinueDestination.SCRIPT_STUDIO
             StageWorkspaceDestination.PUBLISH -> HomeContinueDestination.PUBLISH_STUDIO
-            StageWorkspaceDestination.HUB -> HomeContinueDestination.WORKSPACE_HUB
+            StageWorkspaceDestination.HUB -> HomeContinueDestination.STAGE_DESK
         }
     }
 
