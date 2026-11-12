@@ -40,6 +40,7 @@ internal fun CW4OutputCraftDesk(
     onSaveDerivativeScript: (Long, CreatorOutputScript) -> Unit,
     onAddEditVersion: (Long, String, String, String, String) -> Unit,
     onReviewEditVersion: (Long, String, CreatorEditReviewStatus) -> Unit,
+    onSelectedOutput: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val workspace = task.workspace
@@ -51,6 +52,8 @@ internal fun CW4OutputCraftDesk(
     var selectedId by rememberSaveable(task.id) { mutableStateOf(outputs.firstOrNull()?.id.orEmpty()) }
     val selected = outputs.firstOrNull { it.id == selectedId } ?: outputs.firstOrNull()
     val outputId = selected?.id.orEmpty()
+    var pendingSwitchId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(task.id, outputId) { onSelectedOutput(outputId) }
     val script = CreatorOutputCraftPolicy.scriptFor(workspace, outputId)
 
     val restored = remember(task.id, outputId, revision, editable) {
@@ -108,6 +111,30 @@ internal fun CW4OutputCraftDesk(
             it.visualNotes != visualNotes.trimEnd() || it.creatorNotes != creatorNotes.trimEnd()
     } ?: (hook.isNotBlank() || narration.isNotBlank() ||
         visualNotes.isNotBlank() || creatorNotes.isNotBlank())
+
+    val hasUnsavedInputs = changedScript ||
+        versionLabel.isNotBlank() || versionUrl.isNotBlank() || versionNotes.isNotBlank()
+    if (pendingSwitchId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingSwitchId = null },
+            title = { Text("Switch output?") },
+            text = { Text("This output has unsaved work. Switching will discard that draft; saved revisions remain protected.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        journal.clear(task.id, outputId, explicitDiscard = true)
+                    }.onFailure { draftWarning = true }
+                    if (!draftWarning) {
+                        selectedId = pendingSwitchId.orEmpty()
+                        pendingSwitchId = null
+                    }
+                }) { Text("DISCARD & SWITCH") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingSwitchId = null }) { Text("KEEP EDITING") }
+            }
+        )
+    }
 
     LaunchedEffect(task.id, outputId, revision, draft, editable) {
         if (!editable || outputId.isBlank()) return@LaunchedEffect
@@ -169,7 +196,12 @@ internal fun CW4OutputCraftDesk(
                     outputs.forEach { output ->
                         FilterChip(
                             selected = output.id == outputId,
-                            onClick = { selectedId = output.id },
+                            onClick = {
+                                if (output.id != outputId) {
+                                    if (hasUnsavedInputs) pendingSwitchId = output.id
+                                    else selectedId = output.id
+                                }
+                            },
                             label = { Text(
                                 output.platform + " · " + output.format,
                                 maxLines = 1,
