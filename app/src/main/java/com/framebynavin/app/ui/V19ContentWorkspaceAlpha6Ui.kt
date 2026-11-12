@@ -54,17 +54,20 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     // Read-only prompts derived from canonical saved project content.
     val focusHints = V2285WorkspaceFocusPolicy.hints(task)
 
-    val primaryAction = if (completed) onOpenProject else workspaceActionForStage(
-        stage = currentStage,
-        onOpenProject = onOpenProject,
-        onOpenScript = onOpenScript,
-        onOpenPublish = onOpenPublish,
-    )
+    // Keep Home Work On and this primary action on the same validated stage route.
+    val stageDestination = StageWorkspaceRoutingPolicy.destination(currentStage)
+    val primaryAction = when {
+        completed -> onOpenProject
+        stageDestination == StageWorkspaceDestination.SCRIPT -> onOpenScript
+        stageDestination == StageWorkspaceDestination.PUBLISH -> onOpenPublish
+        else -> onOpenProject // PLAN or unsupported HUB: opens real, shared materials.
+    }
     val primaryLabel = when {
         completed -> "OPEN PLAN"
-        currentStage.id in SCRIPT_STAGE_IDS -> "CONTINUE SCRIPT"
-        currentStage.id in PUBLISH_STAGE_IDS || CreatorWorkflowEngine.isPublicationStage(currentStage) -> "PREPARE TO PUBLISH"
-        else -> "CONTINUE " + currentStage.label.uppercase()
+        stageDestination == StageWorkspaceDestination.SCRIPT -> "CONTINUE SCRIPT"
+        stageDestination == StageWorkspaceDestination.PUBLISH -> "PREPARE TO PUBLISH"
+        stageDestination == StageWorkspaceDestination.PLAN -> "OPEN SHARED PLAN"
+        else -> "OPEN PROJECT MATERIALS"
     }
 
     WorkspaceAdaptiveFrame {
@@ -144,6 +147,16 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                             Text(primaryLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.width(8.dp))
                             Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
+                        }
+                        if (!completed && stageDestination == StageWorkspaceDestination.HUB) {
+                            Spacer(Modifier.height(9.dp))
+                            Text(
+                                "No dedicated ${currentStage.label} editor yet. Shared materials and existing tools are available below.",
+                                color = MutedText,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                modifier = Modifier.testTag("cw1-shared-tools-fallback"),
+                            )
                         }
                     }
                 }
@@ -307,16 +320,4 @@ private fun MinimalWorkspaceToolCard(
     }
 }
 
-private fun workspaceActionForStage(
-    stage: WorkflowStage,
-    onOpenProject: () -> Unit,
-    onOpenScript: () -> Unit,
-    onOpenPublish: () -> Unit,
-): () -> Unit = when {
-    stage.id in SCRIPT_STAGE_IDS -> onOpenScript
-    stage.id in PUBLISH_STAGE_IDS || stage.id == "published" || stage.id == "send" -> onOpenPublish
-    else -> onOpenProject
-}
 
-private val SCRIPT_STAGE_IDS = setOf("script", "narration", "outline", "draft", "commentary", "guide_script")
-private val PUBLISH_STAGE_IDS = setOf("package", "packaging", "thumbnail", "metadata", "upload", "cover", "artwork", "recipe_metadata", "presentation")
