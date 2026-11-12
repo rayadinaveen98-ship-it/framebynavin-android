@@ -277,7 +277,7 @@ internal fun CW4OutputCraftDesk(
                             label = { Text("Visual and crop notes") }, minLines = 2)
                         Spacer(Modifier.height(9.dp))
                         OutlinedTextField(value = creatorNotes, onValueChange = { creatorNotes = it },
-                            enabled = editable, modifier = Modifier.fillMaxWidth(),
+                            enabled = editable && !cutDraftOpen, modifier = Modifier.fillMaxWidth(),
                             label = { Text("Creative notes") }, minLines = 2)
                         Spacer(Modifier.height(10.dp))
                         if (script != null) {
