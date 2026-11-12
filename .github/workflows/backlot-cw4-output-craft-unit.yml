@@ -1,0 +1,71 @@
+name: Backlot CW4 - Output Craft and Derivative Scripts Unit Gate
+
+on:
+  push:
+    branches:
+      - feature/backlot-cw4-output-craft-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-cw4-output-craft-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  output-craft-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Check output history preservation and code scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'outputScripts: List<CreatorOutputScript> = emptyList()' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -Fq 'editVersions: List<CreatorEditVersion> = emptyList()' app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt
+          grep -Fq 'encodeOutputScripts(workspace.outputScripts)' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -Fq 'decodeEditVersions(item.optJSONArray("editVersions"))' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -Fq 'outputScripts = current.workspace.outputScripts' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          grep -Fq 'CreatorOutputCraftPolicy.saveScript(current' app/src/main/java/com/framebynavin/app/data/TaskStore.kt
+          grep -Fq 'onOpenOutputCraft = { mode = Alpha6WorkspaceMode.OUTPUT }' app/src/main/java/com/framebynavin/app/ui/ContentWorkspaceActivity.kt
+          test -f app/src/test/java/com/framebynavin/app/data/CreatorOutputCraftPolicyTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/data/CreatorOutputCraftPersistenceAndroidTest.kt
+          test -f app/src/androidTest/java/com/framebynavin/app/ui/CW4OutputCraftDeskUiTest.kt
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+      - name: Compile main Android app and run CW1-CW4 unit regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.data.CreatorOutputCraftPolicyTest' \
+              --tests 'com.framebynavin.app.data.CreatorStageWorkPolicyTest' \
+              --tests 'com.framebynavin.app.data.CreatorContentWorkspaceTest' \
+              --tests 'com.framebynavin.app.data.CreatorContentStabilizationTest' \
+              --tests 'com.framebynavin.app.data.CreatorWorkspaceEndToEndTest' \
+              --tests 'com.framebynavin.app.ui.CW3StageExperiencePolicyTest' \
+              --tests 'com.framebynavin.app.ui.StageWorkspaceRoutingPolicyTest' \
+              --tests 'com.framebynavin.app.ui.HomeContinueRoutingPolicyTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee cw4-output-craft-unit.log
+      - name: Publish compile and unit evidence, never an owner APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-CW4-Output-Craft-Unit-Evidence-NOT-RELEASE
+          path: |
+            cw4-output-craft-unit.log
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 14
+          if-no-files-found: warn
