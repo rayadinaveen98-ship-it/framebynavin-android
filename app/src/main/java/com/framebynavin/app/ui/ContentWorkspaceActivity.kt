@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE }
+private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE, OUTPUT }
 
 private data class V211HistoricalPlanFieldRequest(
     val sourceId: String,
@@ -58,6 +58,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         const val EXTRA_HOME_CONTINUE_STAGE_ID = "home_continue_stage_id"
         private const val STATE_EDITOR_MODE = "content_project_editor_mode"
         private const val STATE_STAGE_ID = "cw3_selected_stage_id"
+        private const val STATE_OUTPUT_ID = "cw4_selected_output_id"
     }
 
     private val store by lazy { TaskStore(applicationContext) }
@@ -71,6 +72,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var scriptStudio by mutableStateOf<CreatorScriptStudio?>(null)
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var selectedStageId by mutableStateOf("")
+    private var selectedOutputCraftId by mutableStateOf("")
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
     private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
@@ -93,6 +95,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         editorDrafts = CreatorEditorDraftStore(applicationContext)
         window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
         selectedStageId = savedInstanceState?.getString(STATE_STAGE_ID).orEmpty()
+        selectedOutputCraftId = savedInstanceState?.getString(STATE_OUTPUT_ID).orEmpty()
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
         }?.takeUnless { it == Alpha6WorkspaceMode.HUB }
@@ -135,6 +138,22 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onOpenScript = { openScriptStudio(task!!) },
                             onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
                             onOpenStage = { stageId -> openStage(stageId) },
+                            onOpenOutputCraft = { mode = Alpha6WorkspaceMode.OUTPUT },
+                        )
+                        mode == Alpha6WorkspaceMode.OUTPUT -> CW4OutputCraftDesk(
+                            task = task!!,
+                            onBack = { confirmEditorClose = true },
+                            onOpenMainScript = { openScriptStudio(task!!) },
+                            onSelectedOutput = { selectedOutputCraftId = it },
+                            onSaveDerivativeScript = { expectedRev, script ->
+                                saveOutputScript(task!!.id, expectedRev, script)
+                            },
+                            onAddEditVersion = { expectedRev, outputId, label, link, notes ->
+                                addOutputCut(task!!.id, expectedRev, outputId, label, link, notes)
+                            },
+                            onReviewEditVersion = { expectedRev, versionId, status ->
+                                reviewOutputCut(task!!.id, expectedRev, versionId, status)
+                            },
                         )
                         mode == Alpha6WorkspaceMode.STAGE -> CW3StageDesk(
                             task = task!!,
@@ -348,6 +367,13 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                             Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
                                             Alpha6WorkspaceMode.SCRIPT -> editorDrafts.clearScript(projectId)
                                             Alpha6WorkspaceMode.PUBLISH -> editorDrafts.clearPublish(projectId)
+                                            Alpha6WorkspaceMode.OUTPUT -> {
+                                                runCatching {
+                                                    CreatorOutputCraftDraftStore(applicationContext).clear(
+                                                        projectId, selectedOutputCraftId, explicitDiscard = true,
+                                                    )
+                                                }
+                                            }
                                             Alpha6WorkspaceMode.STAGE -> {
                                                 val templateId = CreatorWorkflowEngine.templateFor(task!!).id
                                                 runCatching {
@@ -379,6 +405,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_EDITOR_MODE, mode.name)
         outState.putString(STATE_STAGE_ID, selectedStageId)
+        outState.putString(STATE_OUTPUT_ID, selectedOutputCraftId)
         super.onSaveInstanceState(outState)
     }
 
@@ -445,6 +472,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         Alpha6WorkspaceMode.HUB
                     }
                     when (destination) {
+                        Alpha6WorkspaceMode.OUTPUT -> mode = Alpha6WorkspaceMode.OUTPUT
                         Alpha6WorkspaceMode.STAGE -> {
                             val savedId = selectedStageId.takeIf { restore == Alpha6WorkspaceMode.STAGE }
                             openStage(savedId ?: CreatorWorkflowEngine.currentStage(loaded).id)
@@ -728,7 +756,11 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     // Existing Plan/Publish editors are not stage-work writers. Reattach
                     // the authoritative stage records rather than accepting an old local draft.
                     var normalized = normalizeWorkspace(draft, expectedRevision + 1L)
-                        .copy(stageWork = current.workspace.stageWork)
+                        .copy(
+                            stageWork = current.workspace.stageWork,
+                            outputScripts = current.workspace.outputScripts,
+                            editVersions = current.workspace.editVersions,
+                        )
                     normalized = when (editorMode) {
                         Alpha6WorkspaceMode.PROJECT -> CreatorContentStabilization.prepareProjectEditorSave(
                             current = current.workspace,
@@ -890,6 +922,74 @@ class ContentWorkspaceActivity : ComponentActivity() {
             } finally {
                 saveGate.end()
             }
+        }
+    }
+
+    private fun writeOutputCraft(
+        projectId: String,
+        expectedRevision: Long,
+        outputId: String,
+        save: suspend (Long) -> CreatorTask?,
+    ) {
+        if (!saveGate.tryBegin()) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = runCatching {
+                    val epoch = loadedGeneration
+                    CreatorDataGate.checkGeneration(applicationContext, epoch)
+                    check(outputId.isNotBlank() && projectId.isNotBlank()) {
+                        "The selected output is missing; reopen the project"
+                    }
+                    save(epoch) ?: error("This project no longer exists")
+                }
+                withContext(Dispatchers.Main) {
+                    result.onSuccess { updated ->
+                        task = updated
+                        confirmEditorClose = false
+                        mode = Alpha6WorkspaceMode.OUTPUT
+                        runCatching {
+                            CreatorOutputCraftDraftStore(applicationContext).clear(projectId, outputId)
+                        }.onFailure {
+                            android.util.Log.w("BacklotOutputCraft", "Draft cleanup deferred", it)
+                        }
+                    }.onFailure {
+                        error = it.message ?: "Output history could not be saved. Your prior project data is safe."
+                    }
+                }
+            } finally {
+                saveGate.end()
+            }
+        }
+    }
+
+    private fun saveOutputScript(
+        projectId: String, expectedRev: Long, draft: CreatorOutputScript,
+    ) = writeOutputCraft(projectId, expectedRev, draft.deliverableId) { epoch ->
+        store.saveDerivativeScript(
+            projectId, epoch, expectedRev, draft, System.currentTimeMillis(),
+        )
+    }
+
+    private fun addOutputCut(
+        projectId: String, expectedRev: Long, outputId: String,
+        label: String, link: String, notes: String,
+    ) = writeOutputCraft(projectId, expectedRev, outputId) { epoch ->
+        store.addOutputEditVersion(
+            projectId, epoch, expectedRev, outputId, label, link, notes,
+            System.currentTimeMillis(),
+        )
+    }
+
+    private fun reviewOutputCut(
+        projectId: String, expectedRev: Long, versionId: String,
+        target: CreatorEditReviewStatus,
+    ) {
+        val outputId = task?.workspace?.editVersions?.firstOrNull { it.id == versionId }
+            ?.deliverableId.orEmpty()
+        writeOutputCraft(projectId, expectedRev, outputId) { epoch ->
+            store.reviewOutputEditVersion(
+                projectId, epoch, expectedRev, versionId, target, System.currentTimeMillis(),
+            )
         }
     }
 

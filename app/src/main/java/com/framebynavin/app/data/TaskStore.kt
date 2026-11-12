@@ -151,6 +151,46 @@ class TaskStore(private val context: Context) {
         current.copy(workspace = updated.copy(revision = current.workspace.revision + 1L))
     }
 
+    /**
+     * Output Craft writes are atomic, revision/restore-epoch guarded and scoped
+     * to a real output. None advances the project or updates publication state.
+     */
+    private suspend fun updateOutputCraft(
+        projectId: String,
+        expectedGeneration: Long,
+        expectedWorkspaceRevision: Long,
+        edit: (CreatorTask) -> CreatorContentWorkspace,
+    ): CreatorTask? = updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+        check(current.workspace.revision == expectedWorkspaceRevision) {
+            "Output work changed while editing; reopen the latest project before saving."
+        }
+        current.copy(workspace = edit(current).copy(revision = current.workspace.revision + 1L))
+    }
+
+    suspend fun saveDerivativeScript(
+        projectId: String, expectedGeneration: Long, expectedWorkspaceRevision: Long,
+        draft: CreatorOutputScript, atMillis: Long,
+    ): CreatorTask? = updateOutputCraft(
+        projectId, expectedGeneration, expectedWorkspaceRevision,
+    ) { current -> CreatorOutputCraftPolicy.saveScript(current, draft, atMillis) }
+
+    suspend fun addOutputEditVersion(
+        projectId: String, expectedGeneration: Long, expectedWorkspaceRevision: Long,
+        deliverableId: String, label: String, sourceLocation: String,
+        notes: String, atMillis: Long,
+    ): CreatorTask? = updateOutputCraft(
+        projectId, expectedGeneration, expectedWorkspaceRevision,
+    ) { current -> CreatorOutputCraftPolicy.appendEditVersion(
+        current, deliverableId, label, sourceLocation, notes, atMillis,
+    ) }
+
+    suspend fun reviewOutputEditVersion(
+        projectId: String, expectedGeneration: Long, expectedWorkspaceRevision: Long,
+        versionId: String, target: CreatorEditReviewStatus, atMillis: Long,
+    ): CreatorTask? = updateOutputCraft(
+        projectId, expectedGeneration, expectedWorkspaceRevision,
+    ) { current -> CreatorOutputCraftPolicy.reviewVersion(current, versionId, target, atMillis) }
+
     internal fun encodeRecoveryTask(task: CreatorTask): String = encode(listOf(task))
     internal fun decodeRecoveryTask(raw: String): CreatorTask = decode(raw).single()
 
@@ -500,6 +540,121 @@ class TaskStore(private val context: Context) {
         }
     }
 
+    private fun encodeOutputScripts(records: List<CreatorOutputScript>): JSONArray = JSONArray().also { out ->
+        records.forEach { script ->
+            val history = JSONArray()
+            script.history.forEach { snap ->
+                history.put(JSONObject()
+                    .put("id", snap.id).put("revision", snap.revision)
+                    .put("atMillis", snap.atMillis).put("hook", snap.hook)
+                    .put("narration", snap.narration).put("visualNotes", snap.visualNotes)
+                    .put("creatorNotes", snap.creatorNotes))
+            }
+            out.put(JSONObject()
+                .put("deliverableId", script.deliverableId).put("revision", script.revision)
+                .put("hook", script.hook).put("narration", script.narration)
+                .put("visualNotes", script.visualNotes).put("creatorNotes", script.creatorNotes)
+                .put("adaptedFromDeliverableId", script.adaptedFromDeliverableId)
+                .put("adaptedFromScriptRevision", script.adaptedFromScriptRevision)
+                .put("updatedAtMillis", script.updatedAtMillis).put("history", history))
+        }
+    }
+
+    private fun encodeEditVersions(records: List<CreatorEditVersion>): JSONArray = JSONArray().also { out ->
+        records.forEach { version ->
+            out.put(JSONObject()
+                .put("id", version.id).put("deliverableId", version.deliverableId)
+                .put("label", version.label).put("sourceLocation", version.sourceLocation)
+                .put("notes", version.notes).put("status", version.status.name)
+                .put("createdAtMillis", version.createdAtMillis)
+                .put("reviewedAtMillis", version.reviewedAtMillis))
+        }
+    }
+
+    private fun decodeOutputScripts(array: JSONArray?): List<CreatorOutputScript> {
+        if (array == null) return emptyList() // Pre-CW4 compatibility.
+        val outputIds = mutableSetOf<String>()
+        return buildList {
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: error("Output script $i is unreadable")
+                val id = item.optString("deliverableId")
+                val revision = item.optLong("revision", 0L)
+                require(id.isNotBlank() && outputIds.add(id) && revision >= 1L) {
+                    "Duplicate or invalid derivative script; original project data retained"
+                }
+                val historyArray = item.optJSONArray("history")
+                require(historyArray != null) { "Missing derivative script history" }
+                val snapshots = buildList {
+                    val historyIds = mutableSetOf<String>()
+                    var lastRev = 0L
+                    for (j in 0 until historyArray.length()) {
+                        val h = historyArray.optJSONObject(j) ?: error("Script history $j is unreadable")
+                        val snapshotId = h.optString("id")
+                        val snapshotRev = h.optLong("revision", 0L)
+                        val recordedAt = h.optLong("atMillis", 0L)
+                        require(snapshotId.isNotBlank() && historyIds.add(snapshotId) &&
+                            snapshotRev > lastRev && recordedAt > 0L) {
+                            "Derivative script history was inconsistent; original bytes retained"
+                        }
+                        add(CreatorOutputScriptSnapshot(
+                            id = snapshotId, revision = snapshotRev, atMillis = recordedAt,
+                            hook = h.optString("hook"), narration = h.optString("narration"),
+                            visualNotes = h.optString("visualNotes"), creatorNotes = h.optString("creatorNotes"),
+                        ))
+                        lastRev = snapshotRev
+                    }
+                }
+                require(snapshots.isNotEmpty() && snapshots.last().revision == revision &&
+                    snapshots.last().hook == item.optString("hook") &&
+                    snapshots.last().narration == item.optString("narration") &&
+                    snapshots.last().visualNotes == item.optString("visualNotes") &&
+                    snapshots.last().creatorNotes == item.optString("creatorNotes")) {
+                    "Derivative script history does not match its latest saved content"
+                }
+                val adaptedRevision = item.optLong("adaptedFromScriptRevision", 0L)
+                require(adaptedRevision >= 0L && item.optLong("updatedAtMillis", 0L) > 0L) {
+                    "Derivative script revision time or source revision invalid"
+                }
+                add(CreatorOutputScript(
+                    deliverableId = id, revision = revision,
+                    hook = item.optString("hook"), narration = item.optString("narration"),
+                    visualNotes = item.optString("visualNotes"), creatorNotes = item.optString("creatorNotes"),
+                    adaptedFromDeliverableId = item.optString("adaptedFromDeliverableId"),
+                    adaptedFromScriptRevision = adaptedRevision,
+                    updatedAtMillis = item.optLong("updatedAtMillis", 0L),
+                    history = snapshots,
+                ))
+            }
+        }
+    }
+
+    private fun decodeEditVersions(array: JSONArray?): List<CreatorEditVersion> {
+        if (array == null) return emptyList()
+        val ids = mutableSetOf<String>()
+        return buildList {
+            for (i in 0 until array.length()) {
+                val v = array.optJSONObject(i) ?: error("Edit version $i is unreadable")
+                val id = v.optString("id")
+                val outputId = v.optString("deliverableId")
+                val label = v.optString("label")
+                val created = v.optLong("createdAtMillis", 0L)
+                val reviewed = v.optLong("reviewedAtMillis", 0L)
+                require(id.isNotBlank() && ids.add(id) && outputId.isNotBlank() &&
+                    label.isNotBlank() && created > 0L && reviewed >= 0L) {
+                    "Invalid or duplicate cut version. Original project data retained."
+                }
+                val status = runCatching { CreatorEditReviewStatus.valueOf(
+                    v.optString("status", CreatorEditReviewStatus.DRAFT.name)
+                ) }.getOrElse { throw IllegalArgumentException("Unknown cut review status") }
+                add(CreatorEditVersion(
+                    id = id, deliverableId = outputId, label = label,
+                    sourceLocation = v.optString("sourceLocation"), notes = v.optString("notes"),
+                    status = status, createdAtMillis = created, reviewedAtMillis = reviewed,
+                ))
+            }
+        }
+    }
+
     private fun encodeWorkspace(workspace: CreatorContentWorkspace): JSONObject {
         val references = JSONArray()
         workspace.references.forEach { reference ->
@@ -588,6 +743,8 @@ class TaskStore(private val context: Context) {
             .put("learnings", workspace.learnings)
             .put("scriptStudio", workspace.scriptStudio?.let(::encodeScriptStudio) ?: JSONObject.NULL)
             .put("stageWork", encodeStageWork(workspace.stageWork))
+            .put("outputScripts", encodeOutputScripts(workspace.outputScripts))
+            .put("editVersions", encodeEditVersions(workspace.editVersions))
     }
 
     private fun encodeScriptStudio(studio: CreatorScriptStudio): JSONObject {
@@ -683,6 +840,11 @@ class TaskStore(private val context: Context) {
 
     private fun decodeWorkspace(projectId: String, item: JSONObject?): CreatorContentWorkspace {
         if (item == null) return CreatorContentWorkspace()
+        for (key in listOf("outputScripts", "editVersions")) {
+            require(!item.has(key) || item.isNull(key) || item.optJSONArray(key) != null) {
+                "Output craft data $key is malformed. Original project bytes retained."
+            }
+        }
         require(!item.has("stageWork") || item.isNull("stageWork") || item.optJSONArray("stageWork") != null) {
             "Stage-work data is not an array. Original project bytes were retained."
         }
@@ -829,6 +991,8 @@ class TaskStore(private val context: Context) {
             learnings = item.optString("learnings"),
             scriptStudio = decodeScriptStudio(projectId, item.optJSONObject("scriptStudio")),
             stageWork = decodeStageWork(item.optJSONArray("stageWork")),
+            outputScripts = decodeOutputScripts(item.optJSONArray("outputScripts")),
+            editVersions = decodeEditVersions(item.optJSONArray("editVersions")),
         )
     }
 }

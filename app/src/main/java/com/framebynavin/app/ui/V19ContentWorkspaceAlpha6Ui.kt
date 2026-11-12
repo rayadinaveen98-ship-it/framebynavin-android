@@ -37,6 +37,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onOpenScript: () -> Unit,
     onOpenPublish: () -> Unit,
     onOpenStage: (String) -> Unit = { onOpenProject() },
+    onOpenOutputCraft: () -> Unit = onOpenProject,
 ) {
     val workspace = task.workspace
     val template = CreatorWorkflowEngine.templateFor(task)
@@ -194,6 +195,38 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         title = "Guide", detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
                         icon = Icons.Outlined.AutoAwesome, modifier = Modifier.weight(1f), onClick = onOpenBlueprint,
                     )
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    onClick = onOpenOutputCraft,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 92.dp)
+                        .testTag("cw4-output-craft-entry"),
+                    shape = RoundedCornerShape(17.dp),
+                    color = CinemaSurfaceRaised,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(17.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Outlined.Collections, contentDescription = null,
+                            tint = MutedGold, modifier = Modifier.size(25.dp))
+                        Spacer(Modifier.width(13.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Output Craft", color = ProjectorIvory,
+                                fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                            val derivativeCount = workspace.deliverables.count {
+                                it.parentDeliverableId.isNotBlank()
+                            }
+                            Text(
+                                "${derivativeCount} derivative outputs · ${workspace.outputScripts.size} scripts · ${workspace.editVersions.size} cuts",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 16.sp,
+                            )
+                        }
+                        Icon(Icons.Outlined.ArrowForward, contentDescription = null,
+                            tint = RecRed, modifier = Modifier.size(21.dp))
+                    }
                 }
 
                 if (!completed && task.status != TaskStatus.SKIPPED) {

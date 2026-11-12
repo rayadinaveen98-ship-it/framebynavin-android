@@ -19,6 +19,11 @@ object CreatorContentStabilization {
         val draftIds = draft.deliverables.map { it.id }.toSet()
         val explicitlyRemoved = current.deliverables.map { it.id }.toSet() - draftIds
         val removedTree = descendantIds(current.deliverables, explicitlyRemoved)
+        val craftAtRisk = (current.outputScripts.map { it.deliverableId } +
+            current.editVersions.map { it.deliverableId }).toSet().intersect(removedTree)
+        require(craftAtRisk.isEmpty()) {
+            "This output has derivative script or edit-version history. Retain the output to preserve its work."
+        }
         val historyAtRisk = protectedRemovalIds(current.deliverables, explicitlyRemoved)
         require(historyAtRisk.isEmpty()) {
             "This output or a linked output has publication history. Keep it in the project to preserve the release record."
@@ -52,6 +57,8 @@ object CreatorContentStabilization {
             script = current.script,
             scriptStudio = current.scriptStudio,
             stageWork = current.stageWork, // Plan editor cannot replace stage-owned records.
+            outputScripts = current.outputScripts, // Only Output Craft can edit these histories.
+            editVersions = current.editVersions,
             deliverables = sanitizeDeliverableGraph(protectedDeliverables),
         )
     }
