@@ -91,8 +91,11 @@ data class CreatorContentWorkspace(
     val learnings: String = "",
     /** Alpha6 source of truth for the structured writing workspace; included in normal project export/restore. */
     val scriptStudio: CreatorScriptStudio? = null,
+    /** CW2: optional stage-owned text/metadata, keyed by template + stage identity. */
+    val stageWork: List<CreatorStageWork> = emptyList(),
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
         angle.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
-        assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && (scriptStudio == null || scriptStudio.isEmpty())
+        assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && stageWork.isEmpty() &&
+        (scriptStudio == null || scriptStudio.isEmpty())
 }
