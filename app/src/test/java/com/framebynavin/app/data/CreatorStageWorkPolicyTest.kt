@@ -102,6 +102,26 @@ class CreatorStageWorkPolicyTest {
         }
     }
 
+    @Test fun cannotAttachAnotherProjectsAssetsButCanKeepOldMissingLinks() {
+        val original = review()
+        assertThrows(IllegalArgumentException::class.java) {
+            CreatorStageWorkPolicy.put(
+                original, work("evidence").copy(linkedAssetIds = listOf("another-project-asset"))
+            )
+        }
+        val withStage = original.copy(
+            workspace = CreatorStageWorkPolicy.put(original, work("evidence"))
+        )
+        val missingOriginalAsset = withStage.copy(
+            workspace = withStage.workspace.copy(assets = emptyList())
+        )
+        val kept = CreatorStageWorkPolicy.put(
+            missingOriginalAsset, work("evidence", "Keep previously documented source")
+        )
+        assertEquals(listOf("asset-1"), kept.stageWork.single().linkedAssetIds)
+        assertEquals("Keep previously documented source", kept.stageWork.single().notes)
+    }
+
     @Test fun reviewReceiptAndChecklistDoneNeverAdvanceOrPublishProject() {
         val task = review()
         val stage = work("evidence").copy(

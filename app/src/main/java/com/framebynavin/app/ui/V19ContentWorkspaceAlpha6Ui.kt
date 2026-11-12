@@ -36,6 +36,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onOpenProject: () -> Unit,
     onOpenScript: () -> Unit,
     onOpenPublish: () -> Unit,
+    onOpenStage: (String) -> Unit = { onOpenProject() },
 ) {
     val workspace = task.workspace
     val template = CreatorWorkflowEngine.templateFor(task)
@@ -60,14 +61,13 @@ internal fun V19ContentWorkspaceAlpha6Hub(
         completed -> onOpenProject
         stageDestination == StageWorkspaceDestination.SCRIPT -> onOpenScript
         stageDestination == StageWorkspaceDestination.PUBLISH -> onOpenPublish
-        else -> onOpenProject // PLAN or unsupported HUB: opens real, shared materials.
+        else -> { { onOpenStage(currentStage.id) } } // A deferred click callback, never navigate during composition.
     }
     val primaryLabel = when {
         completed -> "OPEN PLAN"
         stageDestination == StageWorkspaceDestination.SCRIPT -> "CONTINUE SCRIPT"
         stageDestination == StageWorkspaceDestination.PUBLISH -> "PREPARE TO PUBLISH"
-        stageDestination == StageWorkspaceDestination.PLAN -> "OPEN SHARED PLAN"
-        else -> "OPEN PROJECT MATERIALS"
+        else -> "CONTINUE " + currentStage.label.uppercase()
     }
 
     WorkspaceAdaptiveFrame {
@@ -151,17 +151,21 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         if (!completed && stageDestination == StageWorkspaceDestination.HUB) {
                             Spacer(Modifier.height(9.dp))
                             Text(
-                                "No dedicated ${currentStage.label} editor yet. Shared materials and existing tools are available below.",
+                                "Stage notes, evidence and tasks are available. Video/audio editing remains in your external tools.",
                                 color = MutedText,
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp,
-                                modifier = Modifier.testTag("cw1-shared-tools-fallback"),
+                                fontSize = 12.sp, lineHeight = 17.sp,
+                                modifier = Modifier.testTag("cw3-production-desk-hint"),
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = { onOpenStage(currentStage.id) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("cw3-stage-entry"),
+                ) { Text("OPEN ${currentStage.label.uppercase()} STAGE NOTES") }
+                Spacer(Modifier.height(18.dp))
                 Text("WORKSPACE", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -283,8 +287,13 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                     )
                                     Text(
                                         stage.label, color = if (index == stageIndex || done) ProjectorIvory else MutedText,
+                                        modifier = Modifier.weight(1f),
                                         fontSize = 13.sp, fontWeight = if (index == stageIndex) FontWeight.Bold else FontWeight.Normal,
                                     )
+                                    TextButton(onClick = { onOpenStage(stage.id) },
+                                        modifier = Modifier.heightIn(min = 48.dp)) {
+                                        Text("OPEN", color = RecRed, fontSize = 11.sp)
+                                    }
                                 }
                             }
                         }

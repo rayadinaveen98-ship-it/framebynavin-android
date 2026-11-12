@@ -33,15 +33,15 @@ class HomeContinueRoutingPolicyTest {
             HomeContinueRoutingPolicy.destination(atStage("script").copy(archivedAtMillis = 10L)))
     }
 
-    @Test fun workingScriptGoesToRealScriptEditorAndResearchToProjectPlan() {
+    @Test fun workingScriptGoesToRealScriptEditorAndResearchToStageDesk() {
         assertEquals(HomeContinueDestination.SCRIPT_STUDIO,
             HomeContinueRoutingPolicy.destination(atStage("script")))
-        assertEquals(HomeContinueDestination.PROJECT_PLAN,
+        assertEquals(HomeContinueDestination.STAGE_DESK,
             HomeContinueRoutingPolicy.destination(atStage("research")))
     }
 
-    @Test fun workingEditStageUsesRealWorkspaceHubNotFakeEditorOrTimer() {
-        assertEquals(HomeContinueDestination.WORKSPACE_HUB,
+    @Test fun workingEditStageUsesStageDeskNotFakeVideoEditorOrTimer() {
+        assertEquals(HomeContinueDestination.STAGE_DESK,
             HomeContinueRoutingPolicy.destination(atStage("edit")))
     }
 

@@ -372,7 +372,7 @@ class TaskStore(private val context: Context) {
         ).normalized()
     }
 
-    private fun encodeStageWork(records: List<CreatorStageWork>): JSONArray = JSONArray().also { array ->
+    internal fun encodeStageWork(records: List<CreatorStageWork>): JSONArray = JSONArray().also { array ->
         records.forEach { stage ->
             val checklist = JSONArray()
             stage.checklist.forEach { item ->
@@ -407,7 +407,7 @@ class TaskStore(private val context: Context) {
         }
     }
 
-    private fun decodeStageWork(array: JSONArray?): List<CreatorStageWork> {
+    internal fun decodeStageWork(array: JSONArray?): List<CreatorStageWork> {
         if (array == null) return emptyList() // Backwards-compatible legacy project.
         val identities = mutableSetOf<Pair<String, String>>()
         return buildList {
