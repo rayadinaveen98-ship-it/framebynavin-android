@@ -49,6 +49,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val completed = task.status == TaskStatus.DONE
     val checklistDone = workspace.checklist.count { it.status == CreatorChecklistStatus.DONE }
     val checklistTotal = workspace.checklist.size
+    val stageApprovals = workspace.stageTransitions.count {
+        it.workflowTemplateId == template.id
+    }
     val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val scriptBeats = workspace.scriptStudio?.beats?.size ?: 0
     val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
@@ -117,6 +120,12 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                 color = MutedText, fontSize = 13.sp,
                             )
                         }
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "$stageApprovals recorded stage approval(s) · separate from publishing",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                            modifier = Modifier.testTag("cw5-stage-approval-count"),
+                        )
                         Spacer(Modifier.height(9.dp))
                         Text(
                             if (completed) "Project complete" else currentStage.label,
