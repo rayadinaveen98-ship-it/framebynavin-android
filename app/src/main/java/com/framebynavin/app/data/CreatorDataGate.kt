@@ -431,6 +431,45 @@ object CreatorDataGate {
             V344UnifiedRestoreJournal(context).requireCheckpointReadOnly() == expected
     }
 
+    /**
+     * Read-only Creator mutex during exact H4 final verification checkpoint
+     * transition. No Creator transaction or restore writer is installed.
+     * H4 may advance ONE adjacent verification step before exit; data
+     * commits/alarms/journal release remain prohibited.
+     */
+    internal suspend fun <T> withCombinedFinalCheckpointFence(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+        next: V344UnifiedRestoreStep,
+        action: suspend () -> T,
+    ): T {
+        require(
+            (expected.step == V344UnifiedRestoreStep.PERSONAL_WRITTEN &&
+                next == V344UnifiedRestoreStep.VERIFYING_BOTH) ||
+            (expected.step == V344UnifiedRestoreStep.VERIFYING_BOTH &&
+                next == V344UnifiedRestoreStep.BOTH_VERIFIED)
+        ) { "Creator final checkpoint fence accepts only two verification stages" }
+        check(currentCoroutineContext()[Transaction] == null &&
+            currentCoroutineContext()[CombinedReadInspection] == null &&
+            currentCoroutineContext()[CombinedCreatorWritePermit] == null) {
+            "Final checkpoint cannot inherit Creator write or inspection authority"
+        }
+        return mutex.withLock {
+            val journal = V344UnifiedRestoreJournal(context)
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Creator final checkpoint started from stale H4"
+            }
+            val result = action()
+            val actual = journal.requireCheckpointReadOnly()
+            check(actual == V344UnifiedRestorePolicy.next(
+                expected, next, actual.updatedAtMillis,
+            )) {
+                "Creator final verification checkpoint did not advance exactly one stage"
+            }
+            result
+        }
+    }
+
     /** Rebind ownership for an uncancellable rollback without releasing the data lock. */
     suspend fun <T> nonCancellable(block: suspend () -> T): T {
         val context = currentCoroutineContext()
