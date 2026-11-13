@@ -256,7 +256,9 @@ internal class Phase1HabitStore(context: Context) {
     ): List<Phase1HabitChallenge> {
         StabilizationPersonalMutationGate.requireActiveRecovery(app)
         val previous = validateImport(authenticatedOriginal)
-        return mutate { previous }
+        // Inverse is a new OWNER baseline: last-good must NOT retain the
+        // imported target and resurrect its confirmed 21-day challenges.
+        return mutate(preservePreviousForRecovery = false) { previous }
     }
 
     suspend fun validatedPreviousRevision(): List<Phase1HabitChallenge>? =
