@@ -73,10 +73,10 @@ internal fun V342UnifiedRestorePreparationPanel() {
         onDispose { pendingSecret?.fill('\u0000') }
     }
 
+    // Pending owner preparation is visible even when the advanced controls
+    // are collapsed. Only read checksum evidence; never auto-restore.
     LaunchedEffect(expanded) {
-        if (expanded) {
-            status = withContext(Dispatchers.IO) { store.status() }
-        }
+        status = withContext(Dispatchers.IO) { store.status() }
     }
 
     val chooseSource = rememberLauncherForActivityResult(
@@ -137,6 +137,19 @@ internal fun V342UnifiedRestorePreparationPanel() {
                     "write or restore any app records.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
             )
+            if (!expanded) {
+                when (status) {
+                    is V342UnifiedRestorePreparationStore.Status.ChecksumMatched ->
+                        Text("Encrypted source retained for owner reauthentication.",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.testTag("v342-prepare-pending-summary"))
+                    V342UnifiedRestorePreparationStore.Status.NeedsOwnerReview ->
+                        Text("Interrupted preparation needs owner review; no restore occurred.",
+                            color = RecRed, fontSize = 11.sp,
+                            modifier = Modifier.testTag("v342-prepare-warning-summary"))
+                    else -> Unit
+                }
+            }
             OutlinedButton(
                 onClick = { expanded = !expanded },
                 modifier = Modifier.fillMaxWidth().testTag("v342-prepare-expand"),
