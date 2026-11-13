@@ -32,6 +32,9 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                         com.framebynavin.app.personal.Phase1HabitAlarmScheduler(app).reconcile()
                     }.onFailure {
                         android.util.Log.w("BacklotHabit", "Boot challenge recovery failed", it)
+                        runCatching {
+                            com.framebynavin.app.personal.Phase1HabitRecoverySafetyNet.enqueue(app)
+                        }
                     }
                     val outcome = V225RecoveryLanes.run(
                         creator = { ReminderRecoveryEngine.reconcile(app) },
