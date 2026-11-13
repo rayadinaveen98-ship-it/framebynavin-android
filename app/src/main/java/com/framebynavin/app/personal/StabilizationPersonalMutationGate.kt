@@ -580,6 +580,80 @@ internal object StabilizationPersonalMutationGate {
         }
     }
 
+    /**
+     * H3 Task 1: active native v2 forward recovery while H4 remains
+     * BEFORE_PERSONAL. This gate acquires the existing Personal process mutex
+     * ONCE through withPendingV2RecoveryInspection; callers may then acquire
+     * the Creator read mutex in the established Personal -> Creator order.
+     *
+     * A torn native journal, missing immutable V359 handoff, competing legacy
+     * journal or a different H4 checkpoint is never promoted to permission.
+     * The nested native v2 writer still needs withApprovedV2ForwardRecovery,
+     * which independently authenticates the original, target and photo bytes.
+     */
+    private class CombinedPersonalV2ResumePermit(
+        val root: String,
+        val combined: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        val native: Phase1V2RestoreCheckpoint,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<CombinedPersonalV2ResumePermit>
+    }
+
+    internal suspend fun <T> withCombinedActiveV2Resume(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        ownerConfirmedResume: Boolean,
+        action: suspend (Phase1V2RestoreCheckpoint) -> T,
+    ): T {
+        require(ownerConfirmedResume &&
+            expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+            "Owner must confirm recovery of the exact interrupted Personal stage"
+        }
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[CombinedPersonalV2ResumePermit] == null &&
+            currentCoroutineContext()[CombinedPersonalForwardPermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null) {
+            "Combined Personal resume cannot inherit another recovery authority"
+        }
+        val app = context.applicationContext
+        val legacy = journalRootFor(app)
+        val journal = com.framebynavin.app.data.V344UnifiedRestoreJournal(app)
+        return withPendingV2RecoveryInspection(app) { native ->
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Combined owner journal moved while inspecting Personal v2 recovery"
+            }
+            val bound = (
+                com.framebynavin.app.data.V359UnifiedPersonalV2HandoffJournal(app)
+                    .inspectReadOnly() as?
+                    com.framebynavin.app.data.V359UnifiedPersonalV2HandoffJournal
+                        .Inspection.Bound
+            )?.handoff ?: error("Missing or corrupt combined Personal v2 handoff")
+            check(com.framebynavin.app.data.V359PersonalV2HandoffCodec
+                .matchesCombined(bound, expected) &&
+                com.framebynavin.app.data.V359PersonalV2HandoffCodec
+                    .matchesV2(bound, native)) {
+                "Native v2 recovery is not the selected combined Personal transaction"
+            }
+            val scoped = CombinedPersonalV2ResumePermit(
+                legacy.absoluteFile.normalize().path, expected, native,
+            )
+            try {
+                withContext(scoped) {
+                    val result = action(native)
+                    check(journal.requireCheckpointReadOnly() == expected) {
+                        "Combined owner journal changed during Personal recovery"
+                    }
+                    result
+                }
+            } finally { scoped.active = false }
+        }
+    }
+
     internal fun journalRootFor(context: Context): File =
         File(context.applicationContext.filesDir, ACTIVE)
 
@@ -603,6 +677,52 @@ internal object StabilizationPersonalMutationGate {
         root: File, ordinaryMutation: Boolean, action: suspend () -> T,
     ): T {
         val path = root.absoluteFile.normalize().path
+        val combinedResume = currentCoroutineContext()[CombinedPersonalV2ResumePermit]
+        if (combinedResume != null) {
+            check(combinedResume.active && combinedResume.root == path) {
+                "Combined Personal v2 resume permission expired"
+            }
+            val appFiles = checkNotNull(root.parentFile)
+            val combinedFile = File(
+                File(appFiles,
+                    com.framebynavin.app.data.V344UnifiedRestoreJournal.ROOT_NAME),
+                "active.journal",
+            )
+            check(Files.isRegularFile(
+                combinedFile.toPath(), LinkOption.NOFOLLOW_LINKS,
+            ) && !Files.isSymbolicLink(combinedFile.toPath()) &&
+                com.framebynavin.app.data.V344UnifiedRestoreCheckpointCodec.decode(
+                    combinedFile.readBytes(),
+                ) == combinedResume.combined) {
+                "Combined Personal restore checkpoint is stale or torn"
+            }
+            val currentNative = Phase1V2RestoreWriteAheadJournal(
+                Phase1V2RecoveryRoots.alongsideLegacy(root),
+            ).inspectAfterRestart()
+            val writer = currentCoroutineContext()[V2RecoveryWritePermit]
+            if (ordinaryMutation) {
+                check(writer != null && writer.active &&
+                    writer.legacyRoot == path &&
+                    currentNative != null &&
+                    currentNative.transactionId ==
+                        combinedResume.native.transactionId &&
+                    currentNative.preparedId == combinedResume.native.preparedId &&
+                    currentNative.escrowId == combinedResume.native.escrowId &&
+                    currentNative.originalDigest ==
+                        combinedResume.native.originalDigest &&
+                    currentNative.targetDigest ==
+                        combinedResume.native.targetDigest) {
+                    "Native v2 owner write journal is required for each resumed mutation"
+                }
+                ensureMatchingV2RecoveryJournal(root, writer)
+            } else {
+                check(currentCoroutineContext()[V2InspectionPermit] != null ||
+                    writer != null) {
+                    "Personal interrupted recovery reads need a native inspection permit"
+                }
+            }
+            return action()
+        }
         val combinedForward = currentCoroutineContext()[CombinedPersonalForwardPermit]
         if (combinedForward != null) {
             check(combinedForward.active && combinedForward.root == path) {
