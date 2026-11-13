@@ -645,8 +645,19 @@ internal object StabilizationPersonalMutationGate {
             try {
                 withContext(scoped) {
                     val result = action(native)
-                    check(journal.requireCheckpointReadOnly() == expected) {
-                        "Combined owner journal changed during Personal recovery"
+                    val final = journal.requireCheckpointReadOnly()
+                    check(final.transactionId == expected.transactionId &&
+                        final.sourceId == expected.sourceId &&
+                        final.sourceSha256 == expected.sourceSha256 &&
+                        final.escrowId == expected.escrowId &&
+                        final.escrowSha256 == expected.escrowSha256 &&
+                        final.creatorOriginalSha256 == expected.creatorOriginalSha256 &&
+                        final.personalOriginalSha256 == expected.personalOriginalSha256 &&
+                        final.createdAtMillis == expected.createdAtMillis &&
+                        final.updatedAtMillis >= expected.updatedAtMillis &&
+                        final.step ==
+                            com.framebynavin.app.data.V344UnifiedRestoreStep.PERSONAL_WRITTEN) {
+                        "Personal recovery cannot return before its verified outer checkpoint"
                     }
                     result
                 }
