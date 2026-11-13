@@ -40,7 +40,10 @@ internal object PersonalDeliveryContract {
 }
 
 internal enum class PersonalApplyResult {
-    ACCEPTED, STALE, NOT_PRESENTED, INVALID_TIME, NOT_FOUND,
+    ACCEPTED,
+    /** Owner response persisted, but Android rejected an alarm and recovery was queued. */
+    ACCEPTED_NEEDS_REARM,
+    STALE, NOT_PRESENTED, INVALID_TIME, NOT_FOUND,
 }
 
 /**
@@ -486,6 +489,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                 }
             }
         }
+        var needsRearm = false
         if (result == PersonalApplyResult.ACCEPTED) {
             // Silence ONLY the exact occurrence that just received a real
             // user response. A later lease may be ringing independently.
@@ -495,6 +499,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             // The owner response is already durable. Android registration or
             // widget failure must never cause a "Snooze was not saved" error.
             runCatching { reconcile(nowMillis) }.onFailure { error ->
+                needsRearm = true
                 android.util.Log.w("BacklotPersonal",
                     "Response saved; post-commit alarm re-arm needs attention", error)
                 runCatching { PersonalSnoozeRearmSafetyNet.enqueue(app) }
@@ -509,7 +514,8 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                         "Response saved; widget refresh needs attention", it)
                 }
         }
-        return result
+        return if (result == PersonalApplyResult.ACCEPTED && needsRearm)
+            PersonalApplyResult.ACCEPTED_NEEDS_REARM else result
     }
 
     /** Fire receiver calls this only after validating the stored lease. */
