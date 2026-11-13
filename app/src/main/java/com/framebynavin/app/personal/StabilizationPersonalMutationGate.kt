@@ -503,6 +503,83 @@ internal object StabilizationPersonalMutationGate {
         }
     }
 
+    /**
+     * INTERNAL H3 Personal ADDITIVE forward stage. Requires CREATOR_WRITTEN,
+     * owner approval, and the exact combined checkpoint. Holds Personal's
+     * process mutex throughout the operation. Callers must also acquire
+     * CreatorDataGate.withPendingCombinedReadInspection at BEFORE_PERSONAL.
+     *
+     * Unlike the ordinary mutation lock, this special permit can read the
+     * original Personal baseline at CREATOR_WRITTEN, then enter mutation only
+     * AFTER BEFORE_PERSONAL is durably written. The existing v2 journal and
+     * photo write scopes are still required; this is not an unjournaled
+     * arbitrary Personal-write capability.
+     */
+    private class CombinedPersonalForwardPermit(
+        val root: String,
+        val ownerId: String,
+        val sourceSha256: String,
+        val escrowSha256: String,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<CombinedPersonalForwardPermit>
+    }
+
+    internal suspend fun <T> withCombinedPersonalForwardFence(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.CREATOR_WRITTEN) {
+            "Combined Personal stage needs owner consent after a verified Creator write"
+        }
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null &&
+            currentCoroutineContext()[CombinedPersonalForwardPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null) {
+            "A Personal combined forward writer cannot inherit another recovery permission"
+        }
+        val app = context.applicationContext
+        val root = journalRootFor(app)
+        val path = root.absoluteFile.normalize().path
+        return processMutex.withLock {
+            val journal = com.framebynavin.app.data.V344UnifiedRestoreJournal(app)
+            check(journal.requireCheckpointReadOnly() == expected &&
+                !Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.exists(
+                    Phase1V2RecoveryRoots.alongsideLegacy(root).toPath(),
+                    LinkOption.NOFOLLOW_LINKS,
+                )) { "Another recovery journal blocks combined Personal stage" }
+            val permit = CombinedPersonalForwardPermit(
+                root = path, ownerId = expected.transactionId,
+                sourceSha256 = expected.sourceSha256,
+                escrowSha256 = expected.escrowSha256,
+            )
+            try {
+                withContext(permit) {
+                    val result = action()
+                    val current = journal.requireCheckpointReadOnly()
+                    check(current.transactionId == expected.transactionId &&
+                        current.sourceSha256 == expected.sourceSha256 &&
+                        current.escrowSha256 == expected.escrowSha256 &&
+                        current.step ==
+                            com.framebynavin.app.data.V344UnifiedRestoreStep.PERSONAL_WRITTEN) {
+                        "Personal stage ended before both original/target journals were verified"
+                    }
+                    result
+                }
+            } finally {
+                permit.active = false
+            }
+        }
+    }
+
     internal fun journalRootFor(context: Context): File =
         File(context.applicationContext.filesDir, ACTIVE)
 
@@ -526,6 +603,64 @@ internal object StabilizationPersonalMutationGate {
         root: File, ordinaryMutation: Boolean, action: suspend () -> T,
     ): T {
         val path = root.absoluteFile.normalize().path
+        val combinedForward = currentCoroutineContext()[CombinedPersonalForwardPermit]
+        if (combinedForward != null) {
+            check(combinedForward.active && combinedForward.root == path) {
+                "Combined Personal writer is expired or belongs to another recovery root"
+            }
+            val appFiles = requireNotNull(root.parentFile) {
+                "Personal owner recovery path has no parent"
+            }
+            val combinedRoot = File(
+                appFiles, com.framebynavin.app.data.V344UnifiedRestoreJournal.ROOT_NAME,
+            )
+            check(Files.isRegularFile(
+                File(combinedRoot, "active.journal").toPath(),
+                LinkOption.NOFOLLOW_LINKS,
+            )) { "Combined Personal recovery checkpoint has no valid active journal" }
+            val active = com.framebynavin.app.data.V344UnifiedRestoreCheckpointCodec.decode(
+                File(combinedRoot, "active.journal").readBytes(),
+            )
+            check(active.transactionId == combinedForward.ownerId &&
+                active.sourceSha256 == combinedForward.sourceSha256 &&
+                active.escrowSha256 == combinedForward.escrowSha256) {
+                "Combined Personal owner checkpoint no longer matches the write scope"
+            }
+            if (ordinaryMutation) {
+                check(active.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+                    "No Personal mutation before the durable BEFORE_PERSONAL marker"
+                }
+            } else {
+                check(active.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.CREATOR_WRITTEN ||
+                    active.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+                    "Personal crash-forensic reads require an eligible combined checkpoint"
+                }
+            }
+            val existing = currentCoroutineContext()[Permit]
+            if (existing != null) {
+                check(existing.active && existing.root == path) {
+                    "Personal owner's restore scope is stale"
+                }
+                return action()
+            }
+            // The existing v2 recovery permit carries the exact independently
+            // authenticated Personal journal and can be used ONLY while this
+            // outer combined Personal permission is still active.
+            val v2 = currentCoroutineContext()[V2RecoveryWritePermit]
+            if (v2 != null) {
+                check(v2.active && v2.legacyRoot == path) {
+                    "Unrelated v2 restore cannot inherit combined Personal authority"
+                }
+                ensureMatchingV2RecoveryJournal(root, v2)
+                return action()
+            }
+            val owner = Permit(path)
+            return try { withContext(owner) { action() } }
+            finally { owner.active = false }
+        }
         val combinedRead = currentCoroutineContext()[CombinedReadInspectionPermit]
         if (combinedRead != null) {
             check(!ordinaryMutation && combinedRead.active &&
