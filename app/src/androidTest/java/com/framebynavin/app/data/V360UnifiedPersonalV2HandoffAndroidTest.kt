@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.personal.Phase1V2RecoveryRoots
 import com.framebynavin.app.personal.Phase1V2RestoreCheckpoint
+import com.framebynavin.app.personal.Phase1V2RestoreJournalCodec
 import com.framebynavin.app.personal.Phase1V2RestoreStep
 import com.framebynavin.app.personal.Phase1V2RestoreWriteAheadJournal
 import com.framebynavin.app.personal.StabilizationPersonalMutationGate
@@ -167,6 +168,58 @@ class V360UnifiedPersonalV2HandoffAndroidTest {
             // It is metadata-only: no Personal records were restored by the test.
         } finally { p.root.deleteRecursively() }
     }
+
+    @Test fun adjacentValidNativeCheckpointEvidenceIsClassifiedButNeverReplayed() =
+        runBlocking {
+            val p = setup()
+            try {
+                val journal = Phase1V2RestoreWriteAheadJournal(p.v2Root)
+                val durable = journal.prepare(p.native, ownerRequested = true)
+                val pending = Phase1V2RestoreJournalCodec.advance(
+                    durable, Phase1V2RestoreStep.BEFORE_PERSONAL,
+                    durable.updatedAtMillis + 1L,
+                )
+                File(p.v2Root, "active.pending").writeBytes(
+                    Phase1V2RestoreJournalCodec.encode(pending),
+                )
+                val status = V360UnifiedPersonalV2RecoveryInspector(p.context)
+                    .inspectReadOnly()
+                assertEquals(
+                    V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2TornAdjacent(
+                        durable.step, pending.step, durable.transactionId,
+                    ),
+                    status,
+                )
+                assertTrue(File(p.v2Root, "active.pending").isFile)
+                assertTrue(File(p.v2Root, "active.journal").isFile)
+                // V362 deliberately accepts only NativeV2Active and will
+                // never open a writer from this torn state.
+                assertFalse(status is
+                    V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active)
+            } finally { p.root.deleteRecursively() }
+        }
+
+    @Test fun adjacentPendingCheckpointWithSwappedIdentityIsStillUntrusted() =
+        runBlocking {
+            val p = setup()
+            try {
+                val journal = Phase1V2RestoreWriteAheadJournal(p.v2Root)
+                val durable = journal.prepare(p.native, ownerRequested = true)
+                val forged = Phase1V2RestoreJournalCodec.advance(
+                    durable, Phase1V2RestoreStep.BEFORE_PERSONAL,
+                    durable.updatedAtMillis + 1L,
+                ).copy(transactionId = UUID.randomUUID().toString())
+                File(p.v2Root, "active.pending").writeBytes(
+                    Phase1V2RestoreJournalCodec.encode(forged),
+                )
+                assertEquals(
+                    V360UnifiedPersonalV2RecoveryInspector.Assessment.UnreadableOrContradictory,
+                    V360UnifiedPersonalV2RecoveryInspector(p.context).inspectReadOnly(),
+                )
+                assertTrue(File(p.v2Root, "active.pending").isFile)
+                assertTrue(File(p.v2Root, "active.journal").isFile)
+            } finally { p.root.deleteRecursively() }
+        }
 
     @Test fun tornNativeCheckpointNeverBecomesSafeArchivedHistory() = runBlocking {
         val p = setup()
