@@ -135,8 +135,8 @@ object CreatorDataGate {
         // H4 CREATOR_WRITTEN means Personal's writer has never started.
         // Unrelated or torn Personal recovery evidence is NOT an exception:
         // no Creator rollback can run while a Personal v1/v2/handoff exists.
-        val legacy = com.framebynavin.app.personal
-            .StabilizationPersonalMutationGate.journalRootFor(context)
+        val legacy = com.framebynavin.app.personal.StabilizationPersonalMutationGate
+            .journalRootFor(context)
         check(!Files.exists(legacy.toPath(), LinkOption.NOFOLLOW_LINKS) &&
             !Files.exists(
                 com.framebynavin.app.personal.Phase1V2RecoveryRoots
