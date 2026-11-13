@@ -1,0 +1,167 @@
+package com.framebynavin.app.data
+
+import android.content.Context
+import com.framebynavin.app.personal.V300PersonalArchiveSource
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.security.MessageDigest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+/**
+ * H3 read-only evidence for BOTH owner-retained unified archives.
+ *
+ * The selected TARGET and independently encrypted ORIGINAL escrow are sealed
+ * ZIPs. A successful V345 proof authenticates every outer AES-GCM chunk and
+ * SHA-256 digest, then independently verifies the embedded Creator portable
+ * archive (including Voice Idea recordings and Best Frames) and the Personal
+ * encrypted archive (including linked Space photos and Done receipts).
+ *
+ * The result deliberately exposes ONLY immutable SHA/count evidence; never
+ * plaintext Files, recovery write permits or a Restore All callable.
+ */
+internal class V345UnifiedAuthenticatedRestoreParts(context: Context) {
+    private val app = context.applicationContext
+    private val source = V342UnifiedRestorePreparationStore(app)
+    private val escrow = V343UnifiedRecoveryEscrow(app)
+    private val creator = PortableCreatorBackupManager(app)
+    private val personal = V300PersonalArchiveSource(app)
+
+    suspend fun authenticate(
+        ownerConfirmedReview: Boolean,
+        passphrase: CharArray,
+    ): V345UnifiedAuthenticatedPairProof = withContext(Dispatchers.IO) {
+        require(ownerConfirmedReview && passphrase.size >= 12) {
+            "Owner-selected review and 12+ character archive passphrase required"
+        }
+        check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+            "An interrupted cross-domain restore already requires separate owner recovery"
+        }
+
+        val selected = source.status() as?
+            V342UnifiedRestorePreparationStore.Status.ChecksumMatched
+            ?: error("Encrypted owner target is missing or changed")
+        val original = escrow.inspectEscrowRecordReadOnly()
+        check(selected.transactionId == original.selectedSourceId &&
+            selected.sha256 == original.selectedSourceSha256) {
+            "Escrow does not bind this exact selected target"
+        }
+        val targetFile = exactOwnerFile(
+            "backlot-unified-owner-restore-preparation-v1",
+            "incoming-unified-encrypted.zip",
+        )
+        val originalFile = exactOwnerFile(
+            "backlot-unified-owner-recovery-escrow-v1",
+            "original-owner-encrypted-unified.zip",
+        )
+        check(sha256(targetFile) == selected.sha256 &&
+            sha256(originalFile) == original.rollbackSha256) {
+            "An encrypted source changed after owner selection"
+        }
+        val target = targetFile.inputStream().buffered().use {
+            V341UnifiedOwnerArchive.stageAndVerify(it, passphrase, app.cacheDir)
+        }
+        target.use { targetParts ->
+            val baseline = originalFile.inputStream().buffered().use {
+                V341UnifiedOwnerArchive.stageAndVerify(it, passphrase, app.cacheDir)
+            }
+            baseline.use { originalParts ->
+                val targetCreator = targetParts.creator.inputStream().buffered()
+                    .use(creator::validate)
+                val targetPersonal = targetParts.personal.inputStream().buffered()
+                    .use { personal.verify(passphrase, it) }
+                val originalCreator = originalParts.creator.inputStream().buffered()
+                    .use(creator::validate)
+                val originalPersonal = originalParts.personal.inputStream().buffered()
+                    .use { personal.verify(passphrase, it) }
+
+                check(!V344UnifiedRestoreJournal.hasPendingFor(app) &&
+                    source.status() == selected &&
+                    escrow.inspectEscrowRecordReadOnly() == original) {
+                    "Recovery source or independent owner escrow changed during authentication"
+                }
+
+                V345UnifiedAuthenticatedPairProof(
+                    sourceId = selected.transactionId,
+                    sourceSha256 = selected.sha256,
+                    originalEscrowId = original.transactionId,
+                    originalEscrowSha256 = original.rollbackSha256,
+                    targetCreatorSha256 = sha256(targetParts.creator),
+                    targetPersonalSha256 = sha256(targetParts.personal),
+                    originalCreatorSha256 = sha256(originalParts.creator),
+                    originalPersonalSha256 = sha256(originalParts.personal),
+                    targetCreatorProjects = targetCreator.projectCount,
+                    originalCreatorProjects = originalCreator.projectCount,
+                    targetPersonalSummary = targetPersonal.label,
+                    originalPersonalSummary = originalPersonal.label,
+                    noMutationAuthority = true,
+                )
+            }
+        }
+    }
+
+    private fun exactOwnerFile(folder: String, filename: String): File {
+        val root = File(app.filesDir, folder)
+        check(root.isDirectory &&
+            !Files.isSymbolicLink(root.toPath()) &&
+            root.canonicalFile.parentFile == app.filesDir.canonicalFile) {
+            "Untrusted encrypted archive directory"
+        }
+        val file = File(root, filename)
+        check(file.isFile && !Files.isSymbolicLink(file.toPath()) &&
+            file.canonicalFile.parentFile == root.canonicalFile) {
+            "Untrusted encrypted archive file"
+        }
+        return file
+    }
+
+    private fun sha256(file: File): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { source ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val n = source.read(buf)
+                if (n < 0) break
+                if (n > 0) md.update(buf, 0, n)
+            }
+        }
+        return md.digest().joinToString("") {
+            "%02x".format(it.toInt() and 0xff)
+        }
+    }
+}
+
+internal data class V345UnifiedAuthenticatedPairProof(
+    val sourceId: String,
+    val sourceSha256: String,
+    val originalEscrowId: String,
+    val originalEscrowSha256: String,
+    val targetCreatorSha256: String,
+    val targetPersonalSha256: String,
+    val originalCreatorSha256: String,
+    val originalPersonalSha256: String,
+    val targetCreatorProjects: Int,
+    val originalCreatorProjects: Int,
+    val targetPersonalSummary: String,
+    val originalPersonalSummary: String,
+    val noMutationAuthority: Boolean = true,
+)
+
+internal object V345UnifiedAuthenticatedPairPolicy {
+    private val sha = Regex("[0-9a-f]{64}")
+    fun matchesCheckpoint(
+        pair: V345UnifiedAuthenticatedPairProof,
+        candidate: V344UnifiedRestoreCheckpoint,
+    ): Boolean =
+        pair.noMutationAuthority &&
+            candidate.step == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
+            pair.sourceId == candidate.sourceId &&
+            pair.sourceSha256 == candidate.sourceSha256 &&
+            pair.originalEscrowId == candidate.escrowId &&
+            pair.originalEscrowSha256 == candidate.escrowSha256 &&
+            listOf(
+                pair.targetCreatorSha256, pair.targetPersonalSha256,
+                pair.originalCreatorSha256, pair.originalPersonalSha256,
+            ).all(sha::matches)
+}
