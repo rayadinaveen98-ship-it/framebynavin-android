@@ -67,6 +67,9 @@ object CreatorDataGate {
     }
 
     suspend fun <T> readyTransaction(context: Context, block: suspend () -> T): T = transaction {
+        check(!V344UnifiedRestoreJournal.hasPendingFor(context)) {
+            "Cross-domain restore is pending owner review; ordinary Creator writes are paused"
+        }
         CreatorBackupManager(context).recoverPendingRestore()
         IdeaProjectConversion(context).recoverPendingUnlocked()
         block()
