@@ -57,12 +57,18 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
         escrowPassphrase: CharArray,
         ownerConfirmedAdditions: Boolean,
         acknowledgedNonPortableAlarmsAndSongs: Boolean,
+        deferPostRestoreReconcileForUnified: Boolean = false,
     ): Finished = withContext(Dispatchers.IO) {
         require(ownerConfirmedAdditions && acknowledgedNonPortableAlarmsAndSongs) {
             "Owner must review all Personal changes and device-only alarm/music limitations"
         }
         require(selectedPassphrase.size >= 12 && escrowPassphrase.size >= 12) {
             "Encrypted archive and private recovery escrow require passphrases"
+        }
+        if (deferPostRestoreReconcileForUnified) {
+            check(com.framebynavin.app.data.V344UnifiedRestoreJournal.hasPendingFor(app)) {
+                "Suppress Personal alarm reconciliation only under a combined recovery journal"
+            }
         }
         val finished = StabilizationPersonalMutationGate.withOwnerMutation(app) {
             val baseline = reader.readV2()
@@ -125,9 +131,14 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
                 throw failure
             }
         }
-        runCatching {
-            PersonalDeliveryCoordinator(app).reconcile()
-            Phase1HabitAlarmScheduler(app).reconcile()
+        // Personal v2 completion is NOT combined transaction completion.
+        // Do not re-enable reminders/21-day alarms before the final combined
+        // journal is verified and released for both data domains.
+        if (!deferPostRestoreReconcileForUnified) {
+            runCatching {
+                PersonalDeliveryCoordinator(app).reconcile()
+                Phase1HabitAlarmScheduler(app).reconcile()
+            }
         }
         finished
     }
