@@ -268,6 +268,11 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
                     Phase1HabitDeliveryStage.RECONCILE_FAILED)
                 android.util.Log.w("BacklotHabit",
                     "Challenge delivery/recovery needs attention", error)
+                // A timed-out goAsync() can lose the next-day rearm; repair it
+                // later without extending Android's broadcast execution limit.
+                runCatching { Phase1HabitRecoverySafetyNet.enqueue(app) }
+                    .onFailure { android.util.Log.w("BacklotHabit",
+                        "Challenge recovery work could not be queued", it) }
             } finally { pending.finish() }
         }
     }
