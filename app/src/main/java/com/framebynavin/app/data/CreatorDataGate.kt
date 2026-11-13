@@ -165,6 +165,58 @@ object CreatorDataGate {
     }
 
     /**
+     * H3 Task 3: H4 BEFORE_PERSONAL with NO native Personal handoff/journal
+     * is a verifiable NO-PERSONAL-WRITES case, not a generic recovery bypass.
+     * Both domain locks are held Personal-first by the caller. Revalidate
+     * native evidence absence, original Personal data and photo bytes before
+     * the Creator writer can recover the original sealed archive.
+     */
+    internal suspend fun <T> withJournalBoundCreatorReverseBeforePersonalHandoff(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step == V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+            "Creator rollback before Personal journal requires exact owner checkpoint"
+        }
+        check(com.framebynavin.app.personal.StabilizationPersonalMutationGate
+            .isWithinPendingCombinedReadInspection(context, expected)) {
+            "No-handoff rollback requires the Personal exclusive recovery mutex"
+        }
+        check(V359UnifiedPersonalV2HandoffJournal(context).inspectReadOnly() ==
+            V359UnifiedPersonalV2HandoffJournal.Inspection.NotPrepared &&
+            V360UnifiedPersonalV2RecoveryInspector(context).inspectReadOnly() ==
+                V360UnifiedPersonalV2RecoveryInspector.Assessment.NoHandoff &&
+            !com.framebynavin.app.personal.Phase1V2OriginalReverseJournal(
+                context,
+            ).hasEvidence()) {
+            "Missing Personal handoff has ambiguous or independent recovery evidence"
+        }
+        val direction = (V347OwnerRecoveryDecisionJournal(context).readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("Owner reverse choice is missing or unreadable")
+        check(direction.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(direction, expected)) {
+            "Creator original rollback requires exact durable owner direction"
+        }
+        val original = com.framebynavin.app.personal.V301LocalRecoveryReader(context)
+            .readForInterruptedV2Recovery()
+        check(V343UnifiedBaselineReader(context)
+            .personalFingerprintForInterrupted(original) ==
+                expected.personalOriginalSha256 &&
+            V354UnifiedLiveSpacePhotoAudit(context)
+                .inspect(original.photos).currentPhotoFilesMatchTheirLiveRows) {
+            "Personal reminders, Done history, Spaces or JPEGs differ from original"
+        }
+        return withScopedRecoveryCreatorWrite(
+            context, expected, reverseCommittedOriginal = true,
+            action = action,
+        )
+    }
+
+    /**
      * H3 Task 3: Creator ORIGINAL may be written at H4 BEFORE_PERSONAL only
      * AFTER an independent, fsynced Personal reverse journal confirms the
      * complete original Personal store set. The Personal process mutex and
