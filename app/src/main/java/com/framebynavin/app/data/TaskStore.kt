@@ -108,6 +108,27 @@ class TaskStore(private val context: Context) {
         return encode(portable)
     }
 
+    /**
+     * Snapshot-only Creator export for cross-domain recovery checks.
+     * Unlike load()/exportJson(), this reads tasksFlow directly and never
+     * triggers workflowTimeline.seedCurrent() or a second TaskStore load
+     * through ScriptStudioStore. No project, script or timeline writes.
+     */
+    internal suspend fun exportJsonForUnifiedReadOnlyBaseline(): String {
+        val legacyStore = ScriptStudioStore(context)
+        val portable = tasksFlow.first().map { task ->
+            if (task.archivedAtMillis < 0L) {
+                return@map task.copy(workspace = CreatorContentWorkspace())
+            }
+            if (task.workspace.scriptStudio != null) return@map task
+            val legacy = legacyStore.loadForUnifiedSnapshot(task)
+                .normalized(projectId = task.id)
+            if (legacy.isEmpty()) task
+            else task.copy(workspace = task.workspace.copy(scriptStudio = legacy))
+        }
+        return encode(portable)
+    }
+
     suspend fun importJson(raw: String): List<CreatorTask> {
         val decoded = decode(raw)
         CreatorDataGate.transaction {
