@@ -59,6 +59,16 @@ internal class V343UnifiedBaselineReader(context: Context) {
         originalFrames: String,
     ): String = fingerprintCreatorRoot(JSONObject(nativeBackupRaw), originalFrames)
 
+    /**
+     * Compare exact logical Creator records before/after native recovery.
+     * The Hero/Best Frames byte order is independently checked through
+     * CreatorHeroArchive.captureOriginalOrder(): random new restored file
+     * names must not cause a false records mismatch. Neither envelope
+     * createdAtMillis nor payloadSha256 participates in owner-data hashes.
+     */
+    internal fun creatorRecordsFingerprintForRecovery(raw: String): String =
+        fingerprintCreatorRoot(JSONObject(raw), "[]")
+
     private fun fingerprintCreatorRoot(
         creatorRoot: JSONObject,
         originalFrames: String,
