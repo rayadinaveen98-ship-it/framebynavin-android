@@ -99,26 +99,9 @@ internal class Phase1HabitStore(context: Context) {
         require(before == expected) {
             "This challenge changed since you opened Edit. Reopen to protect your latest progress."
         }
-        require(!before.archived) { "Restore an archived challenge before editing" }
-        require(startDate == before.startDate ||
-            (before.confirmations.isEmpty() && before.dayNotes.isEmpty())) {
-            "Change the start date only before recording any Done days or notes"
-        }
-        val scheduleChanged = startDate != before.startDate ||
-            alertTime != before.alertTime || alertKind != before.alertKind
-        val next = before.copy(
-            activity = activity.trim(),
-            startDate = startDate,
-            alertTime = alertTime,
-            alertKind = alertKind,
-            completionMode = completionMode,
-            snoozedDay = if (scheduleChanged) null else before.snoozedDay,
-            snoozedUntil = if (scheduleChanged) null else before.snoozedUntil,
-        ).checked()
-        // If Strict would invalidate a historical Flexible confirmation,
-        // checked() rejects the edit without changing any stored receipts.
-        require(next.confirmations == before.confirmations &&
-            next.dayNotes == before.dayNotes) { "Cannot silently rewrite challenge history" }
+        val next = Phase1HabitManagementPolicy.reviewedEdit(
+            before, activity, startDate, alertTime, alertKind, completionMode,
+        )
         current.toMutableList().apply { set(index, next) }
     }
 
