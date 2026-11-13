@@ -37,6 +37,7 @@ class Phase1HabitArchivedCodecTest {
         val root = JSONObject(Phase1HabitCodec.encode(listOf(original)))
         val items = root.getJSONArray("items")
         items.getJSONObject(0).remove("archived")
+        root.put("version", 1)
         val bytes = MessageDigest.getInstance("SHA-256")
             .digest(items.toString().toByteArray(Charsets.UTF_8))
         val checksum = bytes.joinToString("") { "%02x".format(it) }
