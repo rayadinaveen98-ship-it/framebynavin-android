@@ -102,15 +102,6 @@ class V347UnifiedRecoveryChoiceJournalAndroidTest {
     }
 
     @Test fun durableChoiceSurvivesRestartButCannotBeReplacedOrReplayed() = runBlocking {
-        val parent = File(app.filesDir, "v347-test-" + UUID.randomUUID())
-        try {
-            assertTrue(parent.mkdir())
-            val journal = V344UnifiedRestoreJournal(app, File(parent, "checkpoint"))
-            // Synthetic path must be immediately under app.filesDir because
-            // V344 strict ownership policy refuses arbitrary nested roots.
-            // Use separate sibling dirs instead.
-        } finally { parent.deleteRecursively() }
-
         val token = UUID.randomUUID().toString()
         val journalRoot = File(app.filesDir, "v347-journal-$token")
         val decisionRoot = File(app.filesDir, "v347-choice-$token")
