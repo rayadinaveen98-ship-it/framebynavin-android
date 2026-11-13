@@ -69,6 +69,33 @@ internal class V343UnifiedBaselineReader(context: Context) {
     internal fun creatorRecordsFingerprintForRecovery(raw: String): String =
         fingerprintCreatorRoot(JSONObject(raw), "[]")
 
+    /**
+     * Compare backup Creator records across devices without treating random
+     * device-local Voice Idea filenames as changes to the owner's ideas.
+     * The caller MUST separately checksum every referenced recording by ID
+     * against the authenticated portable ZIP; this fingerprint alone has
+     * NO media authority.
+     */
+    internal fun creatorRecordFingerprintIgnoringLocalVoicePaths(
+        raw: String,
+    ): String {
+        val root = JSONObject(raw)
+        val ideas = org.json.JSONArray(root.getString("ideas"))
+        val ids = mutableSetOf<String>()
+        for (index in 0 until ideas.length()) {
+            val idea = ideas.getJSONObject(index)
+            val id = idea.getString("id")
+            check(id.isNotBlank() && ids.add(id)) {
+                "Creator release proof contains duplicate or empty Idea ID"
+            }
+            if (idea.optString("audioLocalPath").isNotBlank()) {
+                idea.put("audioLocalPath", "__verified_portable_voice__")
+            }
+        }
+        root.put("ideas", ideas.toString())
+        return fingerprintCreatorRoot(root, "[]")
+    }
+
     private fun fingerprintCreatorRoot(
         creatorRoot: JSONObject,
         originalFrames: String,
