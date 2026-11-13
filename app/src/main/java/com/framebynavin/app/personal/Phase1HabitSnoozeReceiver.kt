@@ -42,9 +42,14 @@ internal class Phase1HabitSnoozeReceiver : BroadcastReceiver() {
                     // only this occurrence's posted notification.
                     Phase1HabitAlarmScheduler(app).reconcile()
                     Phase1HabitNotification.cancelPosted(app, existing, at)
+                    Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                        Phase1HabitDeliveryStage.SNOOZE_ACCEPTED)
                 }
             } catch (failure: Exception) {
-                Log.w("BacklotHabit", "Snooze needs attention; existing Done receipts intact")
+                Phase1HabitDeliveryLedger.recordSafely(context.applicationContext, id, at,
+                    Phase1HabitDeliveryStage.SNOOZE_FAILED)
+                Log.w("BacklotHabit", "Snooze needs attention; existing Done receipts intact",
+                    failure)
             } finally {
                 pending.finish()
             }
