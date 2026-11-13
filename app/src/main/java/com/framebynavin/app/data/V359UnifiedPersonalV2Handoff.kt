@@ -180,8 +180,9 @@ internal class V359UnifiedPersonalV2HandoffJournal(
     fun inspectReadOnly(): Inspection {
         if (!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS))
             return Inspection.NotPrepared
-        return runCatching { Inspection.Bound(requireNotNull(readStrict())) }
-            .getOrElse { Inspection.UnreadableEvidence }
+        return runCatching<Inspection> {
+            Inspection.Bound(requireNotNull(readStrict()))
+        }.getOrElse { Inspection.UnreadableEvidence }
     }
 
     /**
