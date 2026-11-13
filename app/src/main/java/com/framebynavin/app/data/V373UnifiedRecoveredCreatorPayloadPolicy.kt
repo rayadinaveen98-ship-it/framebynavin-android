@@ -12,6 +12,30 @@ package com.framebynavin.app.data
  * current domain fingerprints, journals, owner direction and writer gates.
  */
 internal object V373RecoveredCreatorMediaPolicy {
+    /**
+     * Native Best Frame imports allocate NEW random filenames. Compare
+     * verified bytes/order rather than filenames; captureOriginalOrder
+     * independently hashes files and checks their image bounds.
+     *
+     * Legacy embedded-media restores are intentionally not eligible for
+     * this Task 2 fast-forward path until a verified original image
+     * manifest can be produced. Empty legacy frames are unambiguous.
+     */
+    fun liveFramesMatchVerifiedTarget(
+        liveOriginalOrderJson: String,
+        targetFrames: List<PortableBestFrame>,
+        compactFrameCount: Int?,
+    ): Boolean = runCatching {
+        val actual = org.json.JSONArray(liveOriginalOrderJson)
+        val expectedCount = compactFrameCount ?: 0
+        if (targetFrames.size != expectedCount ||
+            actual.length() != expectedCount) return@runCatching false
+        (0 until actual.length()).all { index ->
+            actual.getJSONObject(index).getString("sha256") ==
+                targetFrames[index].sha256
+        }
+    }.getOrDefault(false)
+
     fun selectNames(
         allocation: V365VoiceCopyPlan,
         audit: V365VoiceCopyAudit,
