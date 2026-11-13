@@ -228,6 +228,22 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
                                         .VoiceAllocatedBeforeNativeCreatorJournal) {
                                 "Voice copy or recovery journal verification failed; preserve evidence"
                             }
+                            // Even a media-only recovery cannot claim it
+                            // prepared safe Creator records unless all Voice
+                            // paths and Best Frame payload bytes can be
+                            // independently reconstructed and validated.
+                            val prepared = PortableCreatorBackupManager(app)
+                                .previewRecoveredCreatorPortable(
+                                    staged, plan, shadow = null,
+                                )
+                            check(prepared.transactionId == cp.transactionId &&
+                                prepared.restoredVoiceIdeaCount == plan.entries.size &&
+                                prepared.shadowVoiceIdeaCount == 0 &&
+                                !prepared.mayImportCreator &&
+                                sha256(target) == cp.sourceSha256 &&
+                                sha256(originalEscrow) == cp.escrowSha256) {
+                                "Recovered Voice Idea data did not produce a verified Creator backup"
+                            }
                             V370MissingVoiceReceipt(
                                 transactionId = cp.transactionId,
                                 planned = plan.entries.size,
