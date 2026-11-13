@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.V341UnifiedBackupManager
 import com.framebynavin.app.data.V341UnifiedBackupPreview
+import com.framebynavin.app.data.V341UnifiedRestoreInspection
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -67,15 +68,18 @@ internal fun V341UnifiedBackupPanel() {
     var passphrase by remember { mutableStateOf("") }
     var exportingKey by remember { mutableStateOf<CharArray?>(null) }
     var verifyingKey by remember { mutableStateOf<CharArray?>(null) }
+    var inspectionKey by remember { mutableStateOf<CharArray?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf<V341UnifiedBackupPreview?>(null) }
+    var restoreReview by remember { mutableStateOf<V341UnifiedRestoreInspection?>(null) }
 
     DisposableEffect(Unit) {
         onDispose {
             exportingKey?.fill('\u0000')
             verifyingKey?.fill('\u0000')
+            inspectionKey?.fill('\u0000')
         }
     }
 
@@ -90,6 +94,7 @@ internal fun V341UnifiedBackupPanel() {
             scope.launch {
                 busy = true
                 preview = null
+                restoreReview = null
                 try {
                     val verified = withContext(Dispatchers.IO) {
                         // The document provider might commit partial bytes.
@@ -148,6 +153,7 @@ internal fun V341UnifiedBackupPanel() {
             scope.launch {
                 busy = true
                 preview = null
+                restoreReview = null
                 try {
                     preview = withContext(Dispatchers.IO) {
                         context.contentResolver.openInputStream(uri)?.use {
@@ -164,6 +170,46 @@ internal fun V341UnifiedBackupPanel() {
                     error = true
                     message = "Archive verification failed. Check the passphrase and original file. " +
                         "No Creator, Personal or Space data was changed."
+                } finally {
+                    secret.fill('\u0000')
+                    busy = false
+                }
+            }
+        }
+    }
+
+    val inspectForRestore = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        val secret = inspectionKey
+        inspectionKey = null
+        if (uri == null || secret == null) {
+            secret?.fill('\u0000')
+        } else {
+            scope.launch {
+                busy = true
+                preview = null
+                restoreReview = null
+                try {
+                    val inspection = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use {
+                            manager.inspectRestore(secret, it)
+                        } ?: error("Cannot open selected archive")
+                    }
+                    restoreReview = inspection
+                    preview = inspection.backup
+                    error = false
+                    message = "Both archive parts authenticated. Existing Personal data " +
+                        "was compared without changing any records. Unified restore " +
+                        "remains disabled until cross-domain recovery is ready."
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    preview = null
+                    restoreReview = null
+                    error = true
+                    message = "Restore inspection could not be completed. A missing local " +
+                        "record, invalid archive or password may need review. No data was changed."
                 } finally {
                     secret.fill('\u0000')
                     busy = false
@@ -246,6 +292,27 @@ internal fun V341UnifiedBackupPanel() {
             ) {
                 Text("VERIFY A UNIFIED FILE · NO RESTORE")
             }
+            OutlinedButton(
+                enabled = !busy && passphrase.length >= 12,
+                onClick = {
+                    inspectionKey?.fill('\u0000')
+                    inspectionKey = passphrase.toCharArray()
+                    passphrase = ""
+                    try {
+                        inspectForRestore.launch(arrayOf(
+                            "application/zip", "application/octet-stream", "*/*",
+                        ))
+                    } catch (_: Exception) {
+                        inspectionKey?.fill('\u0000')
+                        inspectionKey = null
+                        error = true
+                        message = "The restore-review picker could not open. Nothing changed."
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().testTag("v341-unified-restore-review"),
+            ) {
+                Text("REVIEW RESTORE DIFFERENCES · NO WRITE")
+            }
             if (busy) {
                 CircularProgressIndicator(modifier = Modifier.testTag("v341-unified-busy"))
                 Text("Authenticating the complete file and all media…",
@@ -270,6 +337,24 @@ internal fun V341UnifiedBackupPanel() {
                     "PERSONAL  ·  " + snapshot.personal.label,
                     color = ProjectorIvory, fontSize = 11.sp, lineHeight = 16.sp,
                     modifier = Modifier.testTag("v341-unified-personal-preview"),
+                )
+            }
+            restoreReview?.let { review ->
+                HorizontalDivider(color = CinemaLine)
+                Text(
+                    "PERSONAL RESTORE REVIEW  ·  ${review.personalDiff.proposedAdditions} " +
+                        "potential additions · ${review.personalDiff.conflicts} conflicts",
+                    color = if (review.personalDiff.conflicts > 0) RecRed else MutedGold,
+                    fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("v341-unified-restore-diff"),
+                )
+                Text(
+                    if (review.personalDiff.needsOwnerReview)
+                        "Conflict or local integrity review required. No automatic overwrite."
+                    else
+                        "No Personal ID conflicts found. This is NOT permission to " +
+                            "overwrite Creator records or start a combined restore.",
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
                 )
             }
             HorizontalDivider(color = CinemaLine)
