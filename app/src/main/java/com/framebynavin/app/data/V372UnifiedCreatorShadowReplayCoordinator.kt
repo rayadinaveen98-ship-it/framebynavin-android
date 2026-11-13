@@ -252,6 +252,28 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
                                 sha256(escrow) == cp.escrowSha256) {
                                 "Shadow install must preserve damaged originals and owner ZIPs"
                             }
+                            // Construct and re-sign the exact portable Creator
+                            // target with SHADOW Voice references and verified
+                            // Best Frames. This is a read-only preview only:
+                            // no Creator DataStore/Hero import happens here.
+                            val payload = PortableCreatorBackupManager(app)
+                                .previewRecoveredCreatorPortable(
+                                    staged, allocation, plan,
+                                )
+                            check(payload.transactionId == cp.transactionId &&
+                                payload.restoredVoiceIdeaCount == allocation.entries.size &&
+                                payload.shadowVoiceIdeaCount ==
+                                    preMedia.alteredOrPartialCopies &&
+                                payload.verifiedPortableFrameCount ==
+                                    PortableBestFrameMedia.verifyCompactPreview(
+                                        staged.backupJson, staged.bestFrames,
+                                        staged.hasFrameManifest,
+                                    ) &&
+                                !payload.mayImportCreator &&
+                                sha256(source) == cp.sourceSha256 &&
+                                sha256(escrow) == cp.escrowSha256) {
+                                "Verified Creator records, Voice refs or Best Frames changed"
+                            }
                             // The voice shadow is NOT referenced by any live
                             // Creator Idea. H4 remains BEFORE_CREATOR, the
                             // encrypted ORIGINAL stays available for Task 3.
