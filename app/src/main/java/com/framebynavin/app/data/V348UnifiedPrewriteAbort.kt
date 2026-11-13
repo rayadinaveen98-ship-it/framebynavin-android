@@ -67,10 +67,17 @@ internal class V348UnifiedPrewriteAbort(
      * immediately before the atomic rename. Aborted history is never erased.
      */
     suspend fun abortOwnerApproved(
-        proof: V346InterruptedRecoveryProof,
+        passphrase: CharArray,
         ownerConfirmedAbort: Boolean,
     ): V348PrewriteAbortReceipt = withContext(Dispatchers.IO) {
-        require(ownerConfirmedAbort) { "Only the owner can cancel an unwritten restore" }
+        require(ownerConfirmedAbort && passphrase.size >= 12) {
+            "Fresh owner approval and passphrase are required to abort an unwritten restore"
+        }
+        // Do not trust a possibly constructed caller-supplied proof. Reopen
+        // and fully authenticate both retained ZIPs against the active journal.
+        val proof = V346UnifiedInterruptedRecoveryReview(app).inspect(
+            ownerConfirmedReview = true, passphrase = passphrase,
+        )
         gate.lock()
         try {
             val checkpoint = journal.requireCheckpointReadOnly()
@@ -100,8 +107,21 @@ internal class V348UnifiedPrewriteAbort(
                 destination.isDirectory && !Files.isSymbolicLink(destination.toPath())) {
                 "Aborted recovery journal cannot be safely confirmed"
             }
-            val archived = V344UnifiedRestoreJournal(app, destination)
-                .requireCheckpointReadOnly()
+            // A completed history directory intentionally lives one level
+            // below app.filesDir, unlike the active journal root. Inspect it
+            // directly without invoking recovery code that requires an active
+            // journal or might mutate AtomicFile crash evidence.
+            val archivedFiles = destination.listFiles()
+                ?: error("Archived owner journal is unreadable")
+            check(archivedFiles.size == 1 &&
+                archivedFiles.single().name == "active.journal" &&
+                !Files.isSymbolicLink(archivedFiles.single().toPath()) &&
+                archivedFiles.single().length() in 1..V344UnifiedRestoreCheckpointCodec.MAX_BYTES.toLong()) {
+                "Archived checkpoint must contain exactly the intact owner journal"
+            }
+            val archived = V344UnifiedRestoreCheckpointCodec.decode(
+                archivedFiles.single().readBytes(),
+            )
             check(archived == checkpoint) {
                 "Archived journal differs from the original owner checkpoint"
             }
