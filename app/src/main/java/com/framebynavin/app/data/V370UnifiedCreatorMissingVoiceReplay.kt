@@ -97,6 +97,12 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
             )) {
             "Unsafe or altered target Voice Idea copies require separate owner review"
         }
+        val originalAudio = V366UnifiedCreatorVoiceRecoveryInspector(app)
+            .inspectOwnerReviewed(ownerConfirmed = true, passphrase = passphrase)
+        check(originalAudio.transactionId == cp.transactionId &&
+            originalAudio.installedCopies == report.allocatedTargetCopies) {
+            "Authenticated original Voice Idea proof differs from owner media review"
+        }
         val sealed = V345UnifiedAuthenticatedRestoreParts(app)
             .authenticateForInterruptedRecovery(
                 ownerConfirmedReview = true, passphrase = passphrase,
@@ -176,9 +182,7 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
                                 V367UnifiedCreatorOriginalVoiceSafety(app)
                                     .inspectOriginalIdeaReferencesReadOnly(
                                         ideasJson = JSONObject(creatorJson).getString("ideas"),
-                                        expectedAudio = V366OriginalVoiceProofs.originalForOwner(
-                                            app, passphrase, cp,
-                                        ),
+                                        expectedAudio = originalAudio.originalMediaHashes,
                                         voiceDir = File(app.filesDir, "voice_ideas"),
                                     )
                             check(baseline.creatorSha256 == cp.creatorOriginalSha256 &&
