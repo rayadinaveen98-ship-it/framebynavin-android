@@ -36,15 +36,24 @@ internal class V300PersonalArchiveSource(context: Context) {
                 personal = personal, challenges = challenges, groups = groups, spaces = spaces,
                 singleActivityChallenges = singleActivityChallenges,
             )
+            // H3 Task 5: selected transfer bytes must contain neither
+            // active Android delivery leases nor source-device music grants.
+            // This must NOT be applied to V300's exact ORIGINAL restore escrow.
+            V382UnifiedPortableSelectedPolicy.inspectSelected(domains)
             V300EncryptedPersonalArchive.write(domains, photos, password, output)
         }
     }
 
     /** Checks and stages the archive. A future restore needs separate owner consent. */
     suspend fun verify(
-        password: CharArray, input: InputStream,
+        password: CharArray,
+        input: InputStream,
+        requireUnifiedPortable: Boolean = false,
     ): V300PersonalArchivePreview = withContext(Dispatchers.IO) {
         V300EncryptedPersonalArchive.stageAndVerify(input, password, app.cacheDir).use { staged ->
+            if (requireUnifiedPortable) {
+                V382UnifiedPortableSelectedPolicy.inspectSelected(staged.components)
+            }
             val reminders = PersonalCompletionBackupCodec.decode(staged.components.personal)
             val spaces = V303SpaceReceiptArchiveCodec.decode(staged.components.spaces, reminders)
             val singleActivity = staged.components.singleActivityChallenges?.let {
