@@ -67,10 +67,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 
 /**
- * V222.1: the same V221.4 evidence/dismissal/action policy, now hosted inside
- * a 48dp Home-header portrait and a tap-to-open sheet instead of a tall inline
- * card below the creator's actual work. No new evidence, inferred delivery,
- * background service, notification or reminder mutations.
+ * V339: preserve V221.4 evidence, companion suggestions, existing Spark sheet
+ * and activity actions, but expose them from the single 48dp Home overflow
+ * control instead of separate header icons. No new delivery/notification data
+ * sources, background service or reminder mutations.
  */
 internal object V2214HomeCompanionPolicy {
     fun unorganizedCount(ideas: List<CreatorIdea>): Int = ideas.count {
