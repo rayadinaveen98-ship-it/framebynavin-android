@@ -21,6 +21,8 @@ internal data class Phase1HabitChallenge(
     val alertKind: Phase1HabitAlertKind? = null,
     val confirmations: Map<LocalDate, Instant> = emptyMap(),
     val paused: Boolean = false,
+    /** Archived challenges retain every receipt but are no longer actionable or scheduled. */
+    val archived: Boolean = false,
     /** STRICT permits today's receipt; FLEXIBLE also permits explicit past-day backfill. */
     val completionMode: Phase1HabitCompletionMode = Phase1HabitCompletionMode.STRICT,
     /** Notes are separate from Done receipts: writing a note never completes a day. */
@@ -102,6 +104,7 @@ internal data class Phase1HabitChallenge(
     /** Idempotent owner confirmation of TODAY only, never inferred from alert delivery. */
     fun confirmToday(now: Instant): Phase1HabitChallenge {
         checked()
+        require(!archived) { "Restore an archived challenge before confirming" }
         require(!paused) { "Resume the challenge to confirm a day" }
         val today = LocalDate.ofInstant(now, ZoneId.of(zoneId))
         require(!today.isBefore(startDate) && !today.isAfter(endDate)) {
@@ -121,6 +124,7 @@ internal data class Phase1HabitChallenge(
      */
     fun confirmDay(day: LocalDate, at: Instant): Phase1HabitChallenge {
         checked()
+        require(!archived) { "Restore an archived challenge before confirming" }
         require(!paused) { "Resume the challenge before confirming a day" }
         val today = LocalDate.ofInstant(at, ZoneId.of(zoneId))
         require(!day.isBefore(startDate) && !day.isAfter(endDate) &&
@@ -158,9 +162,16 @@ internal data class Phase1HabitChallenge(
             snoozedUntil = if (value) null else snoozedUntil,
         ).checked()
 
+    /** Archive preserves the entire 21-day history while removing active alerts. */
+    fun setArchived(value: Boolean): Phase1HabitChallenge =
+        copy(archived = value,
+            snoozedDay = if (value) null else snoozedDay,
+            snoozedUntil = if (value) null else snoozedUntil,
+        ).checked()
+
     /** Owner-requested delay only after today's scheduled alert time. */
     fun canSnooze(at: Instant): Boolean {
-        if (paused || alertTime == null || alertKind == null) return false
+        if (archived || paused || alertTime == null || alertKind == null) return false
         val zone = ZoneId.of(zoneId)
         val day = LocalDate.ofInstant(at, zone)
         if (day.isBefore(startDate) || day.isAfter(endDate) || day in confirmations) return false
@@ -204,7 +215,7 @@ internal data class Phase1HabitChallenge(
     fun nextAlertAfter(now: Instant): ZonedDateTime? {
         checked()
         val time = alertTime ?: return null
-        if (paused) return null
+        if (paused || archived) return null
         val zone = ZoneId.of(zoneId)
         val regular = (0L..20L).asSequence()
             .map { startDate.plusDays(it) }
