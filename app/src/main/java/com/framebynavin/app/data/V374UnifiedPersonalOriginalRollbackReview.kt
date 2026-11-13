@@ -78,7 +78,13 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
             "Personal original rollback requires fresh owner consent/passphrase"
         }
         val cp = journal.requireCheckpointReadOnly()
-        check(cp.step == V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+        val afterPersonalStage = cp.step in setOf(
+            V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+            V344UnifiedRestoreStep.VERIFYING_BOTH,
+            V344UnifiedRestoreStep.BOTH_VERIFIED,
+        )
+        check(cp.step == V344UnifiedRestoreStep.BEFORE_PERSONAL ||
+            afterPersonalStage) {
             "Personal inverse preflight cannot skip an unknown combined stage"
         }
         val ownerChoice = (decisions.readOnlyStatus() as?
@@ -91,16 +97,21 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
         val handoff = (handoffs.inspectReadOnly() as?
             V359UnifiedPersonalV2HandoffJournal.Inspection.Bound)?.handoff
             ?: error("Missing or torn Personal v2 recovery handoff")
-        check(V359PersonalV2HandoffCodec.matchesCombined(handoff, cp)) {
-            "Personal native v2 identity is unrelated to the combined owner restore"
+        check(if (afterPersonalStage)
+            V359PersonalV2HandoffCodec.matchesCompletedCombined(handoff, cp)
+        else V359PersonalV2HandoffCodec.matchesCombined(handoff, cp)) {
+            "Personal v2 handoff is unrelated to the combined owner transaction"
         }
         val nativeStatus = native.inspectReadOnly()
-        val state = when (nativeStatus) {
-            is V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active ->
-                nativeStatus
-            is V360UnifiedPersonalV2RecoveryInspector.Assessment
-                .NativeV2CompletedAndArchived -> nativeStatus
-            else -> error("Missing, contradictory or torn Personal v2 recovery journal")
+        val isActive = !afterPersonalStage && nativeStatus is
+            V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active
+        val isArchived = if (afterPersonalStage) {
+            nativeStatus ==
+                V360UnifiedPersonalV2RecoveryInspector.Assessment.WrongCombinedStage
+        } else nativeStatus is V360UnifiedPersonalV2RecoveryInspector.Assessment
+            .NativeV2CompletedAndArchived
+        check(isActive || isArchived) {
+            "Unknown, torn, or unarchived native Personal v2 owner journal"
         }
         val legacy = StabilizationPersonalMutationGate.journalRootFor(app)
         val active = Phase1V2RecoveryRoots.alongsideLegacy(legacy)
@@ -108,9 +119,17 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
             File(app.filesDir, "backlot-personal-v2-completed-journals"),
             handoff.personalV2TransactionId,
         )
-        val nativeRoot = if (state is
-                V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active)
-            active else archived
+        if (afterPersonalStage) {
+            check(!Files.exists(active.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.exists(legacy.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                archived.isDirectory &&
+                !Files.isSymbolicLink(archived.toPath()) &&
+                archived.canonicalFile.parentFile ==
+                    archived.parentFile.canonicalFile) {
+                "Later Personal restore requires an isolated ARCHIVED v2 journal"
+            }
+        }
+        val nativeRoot = if (isActive) active else archived
         check(nativeRoot.isDirectory &&
             !Files.isSymbolicLink(nativeRoot.toPath()) &&
             nativeRoot.canonicalFile.parentFile ==
@@ -123,10 +142,11 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
             ?: error("Active/archived Personal v2 journal is incomplete")
         check(V359PersonalV2HandoffCodec.matchesV2(handoff, checkpoint) &&
             checkpoint.transactionId == handoff.personalV2TransactionId &&
-            (if (state is
-                V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active)
-                checkpoint.step == state.checkpoint
-             else checkpoint.step == Phase1V2RestoreStep.VERIFYING)) {
+            (if (isActive) {
+                val activeState = nativeStatus as
+                    V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active
+                checkpoint.step == activeState.checkpoint
+             } else checkpoint.step == Phase1V2RestoreStep.VERIFYING)) {
             "Personal native write checkpoint does not match encrypted owner handoff"
         }
 
@@ -169,6 +189,8 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
             ) {
                 CreatorDataGate.withPendingCombinedReadInspection(app, cp) {
                     check(native.inspectReadOnly() == nativeStatus &&
+                        Phase1V2RestoreWriteAheadJournal(nativeRoot)
+                            .inspectAfterRestart() == checkpoint &&
                         handoffs.inspectReadOnly() ==
                             V359UnifiedPersonalV2HandoffJournal.Inspection.Bound(handoff) &&
                         decisions.readOnlyStatus() ==
@@ -211,7 +233,9 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
                         originalPhotos, target.photos, live.photos,
                     )
                     check(journal.requireCheckpointReadOnly() == cp &&
-                        native.inspectReadOnly() == nativeStatus) {
+                        native.inspectReadOnly() == nativeStatus &&
+                        Phase1V2RestoreWriteAheadJournal(nativeRoot)
+                            .inspectAfterRestart() == checkpoint) {
                         "Recovery evidence changed during Personal rollback preflight"
                     }
                     states to bytes
