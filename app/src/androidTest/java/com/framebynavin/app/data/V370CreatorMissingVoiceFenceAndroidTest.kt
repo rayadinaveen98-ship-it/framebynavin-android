@@ -142,4 +142,79 @@ class V370CreatorMissingVoiceFenceAndroidTest {
             root.deleteRecursively()
         }
     }
+
+    @Test fun verifiedCreatorCheckpointRetainsTheOriginalOwnerForwardDirection() = runBlocking {
+        val root = File(app.filesDir, "v370-creator-finish-" + UUID.randomUUID())
+        assertTrue(root.mkdir())
+        try {
+            val context = isolated(root)
+            CreatorDataGate.installUnifiedRecoveryFence(context)
+            val before = beforeCreator(context)
+            choose(context, before, V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
+            val decision = (V347OwnerRecoveryDecisionJournal(context).readOnlyStatus() as
+                V347OwnerRecoveryDecisionJournal.ReadState.Recorded).choice
+            var creatorEntered = false
+            val next = StabilizationPersonalMutationGate
+                .withCombinedCreatorRecoveryFinishFence(
+                    context, before, ownerConfirmed = true,
+                ) {
+                    CreatorDataGate.withJournalBoundCreatorWrite(
+                        context, before, ownerConfirmed = true,
+                    ) {
+                        StabilizationPersonalMutationGate.withStableSnapshot(context) {
+                            creatorEntered = true
+                        }
+                        // No user data is changed in this synthetic test.
+                    }
+                    V344UnifiedRestoreJournal(context).checkpoint(
+                        before, V344UnifiedRestoreStep.CREATOR_WRITTEN,
+                        before.updatedAtMillis + 1L,
+                        otherRecoveryPending = {
+                            !V347OwnerRecoveryDecisionJournal(context)
+                                .matchesUnchangedForwardChoice(before, decision)
+                        },
+                    )
+                }
+            assertTrue(creatorEntered)
+            assertEquals(V344UnifiedRestoreStep.CREATOR_WRITTEN, next.step)
+            assertEquals(
+                V347OwnerRecoveryDecisionJournal.ReadState
+                    .CreatorWrittenRetained(decision, next),
+                V347OwnerRecoveryDecisionJournal(context).readOnlyStatus(),
+            )
+            assertEquals(next, V344UnifiedRestoreJournal(context)
+                .requireCheckpointReadOnly())
+            assertTrue(V347OwnerRecoveryDecisionJournal.hasPendingFor(context))
+            assertTrue(runCatching {
+                CreatorDataGate.readyTransaction(context) {
+                    error("Ordinary Creator editing must remain frozen")
+                }
+            }.isFailure)
+        } finally {
+            CreatorDataGate.installUnifiedRecoveryFence(app)
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun recoveryFinishNeverAcceptsReverseChoiceOrUnadvancedJournal() = runBlocking {
+        val root = File(app.filesDir, "v370-creator-finish-" + UUID.randomUUID())
+        assertTrue(root.mkdir())
+        try {
+            val context = isolated(root)
+            val before = beforeCreator(context)
+            choose(context, before, V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL)
+            var executed = false
+            assertTrue(runCatching {
+                StabilizationPersonalMutationGate.withCombinedCreatorRecoveryFinishFence(
+                    context, before, ownerConfirmed = true,
+                ) { executed = true }
+            }.isFailure)
+            assertFalse(executed)
+            assertEquals(before, V344UnifiedRestoreJournal(context)
+                .requireCheckpointReadOnly())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }
