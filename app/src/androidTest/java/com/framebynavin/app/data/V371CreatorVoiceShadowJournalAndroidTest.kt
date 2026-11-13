@@ -132,6 +132,11 @@ class V371CreatorVoiceShadowJournalAndroidTest {
                     }
                 }.isFailure)
                 assertEquals(plan, shadow.inspectReadOnly())
+                damaged.writeText("unexpected-owner-file-change")
+                assertTrue(runCatching { shadow.auditShadowReadOnly(plan) }.isFailure)
+                // Reset synthetic test data, never a real owner recording.
+                damaged.writeText("partial")
+                assertTrue(shadow.auditShadowReadOnly(plan).allVerified)
                 // A left-over AtomicFile sibling is FORENSIC evidence, not a clean journal.
                 File(root, "backlot-unified-creator-voice-shadow-v1/shadow.json.new")
                     .writeText("synthetic torn write")
