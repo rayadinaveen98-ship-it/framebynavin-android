@@ -36,7 +36,9 @@ internal class V341UnifiedBackupManager(context: Context) {
                 val creatorFile = File(staging, "creator.fbnbackup")
                 val personalFile = File(staging, "personal-encrypted.zip")
 
-                creatorFile.outputStream().buffered().use(creator::writeBackup)
+                creatorFile.outputStream().buffered().use { output ->
+                    creator.writeBackup(output)
+                }
                 // One password is chosen by the owner, with INDEPENDENT salt
                 // and authenticated encryption for Personal's inner archive.
                 personalFile.outputStream().buffered().use {
