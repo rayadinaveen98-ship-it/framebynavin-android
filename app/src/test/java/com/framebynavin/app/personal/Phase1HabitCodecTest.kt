@@ -48,7 +48,7 @@ class Phase1HabitCodecTest {
             Phase1HabitCodec.decode(json.replace("single-activity-21day", "legacy-day-plan"))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            Phase1HabitCodec.decode(json.replace("\"version\":1", "\"version\":12"))
+            Phase1HabitCodec.decode(json.replace("\"version\":2", "\"version\":12"))
         }
     }
 
