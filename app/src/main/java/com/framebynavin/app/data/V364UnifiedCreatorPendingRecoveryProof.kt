@@ -34,6 +34,11 @@ internal class V364UnifiedCreatorPendingRecoveryProof(context: Context) {
     sealed interface Assessment {
         data object WrongCombinedStage : Assessment
         data object NoNativeCreatorJournalMediaMayExist : Assessment
+        data class VoiceAllocatedBeforeNativeCreatorJournal(
+            val voice: V365VoiceCopyAudit,
+        ) : Assessment {
+            val mayReplayOrDelete: Boolean get() = false
+        }
         data object UnreadableOrUnboundNativeEvidence : Assessment
         data class BoundOriginal(
             val combinedTransactionId: String,
@@ -41,6 +46,7 @@ internal class V364UnifiedCreatorPendingRecoveryProof(context: Context) {
             val nativeOriginalSha256: String,
             val originalCreatorFingerprint: String,
             val verifiedOriginalBestFrameCount: Int,
+            val voice: V365VoiceCopyAudit? = null,
             val preexistingVoiceOrphansCanBeRuledOut: Boolean = false,
         ) : Assessment {
             val mayReplayCreator: Boolean get() = false
@@ -57,6 +63,18 @@ internal class V364UnifiedCreatorPendingRecoveryProof(context: Context) {
         if (checkpoint.step != V344UnifiedRestoreStep.BEFORE_CREATOR) {
             return Assessment.WrongCombinedStage
         }
+        val media = V365UnifiedCreatorVoiceInstallJournal(app)
+        val voiceAudit = runCatching {
+            val plan = media.inspectReadOnly() ?: return@runCatching null
+            check(plan.transactionId == checkpoint.transactionId &&
+                plan.sourceSha256 == checkpoint.sourceSha256 &&
+                plan.escrowSha256 == checkpoint.escrowSha256) {
+                "Voice Idea allocation belongs to another encrypted owner restore"
+            }
+            media.auditReadOnly(plan)
+        }.getOrElse {
+            return Assessment.UnreadableOrUnboundNativeEvidence
+        }
         val root = File(app.filesDir, "creator_restore_recovery_v181")
         val pending = File(root, "pending.json")
         val allEvidence = listOf(
@@ -72,7 +90,9 @@ internal class V364UnifiedCreatorPendingRecoveryProof(context: Context) {
                 (!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS) ||
                     (root.isDirectory &&
                         !Files.isSymbolicLink(root.toPath()))))
-                Assessment.NoNativeCreatorJournalMediaMayExist
+                if (voiceAudit == null)
+                    Assessment.NoNativeCreatorJournalMediaMayExist
+                else Assessment.VoiceAllocatedBeforeNativeCreatorJournal(voiceAudit)
             else Assessment.UnreadableOrUnboundNativeEvidence
         }
         if (presence[1] || presence[2]) {
@@ -123,12 +143,16 @@ internal class V364UnifiedCreatorPendingRecoveryProof(context: Context) {
                 h4.requireCheckpointReadOnly() == checkpoint) {
                 "Native Creator recovery original does not match the H4 original"
             }
+            check(voiceAudit != null) {
+                "Portable combined Creator restore has no pre-copy audio journal"
+            }
             Assessment.BoundOriginal(
                 combinedTransactionId = checkpoint.transactionId,
                 nativeOriginalFileName = name,
                 nativeOriginalSha256 = savedSha,
                 originalCreatorFingerprint = digest,
                 verifiedOriginalBestFrameCount = originals.size,
+                voice = voiceAudit,
             )
         }.getOrElse {
             Assessment.UnreadableOrUnboundNativeEvidence
