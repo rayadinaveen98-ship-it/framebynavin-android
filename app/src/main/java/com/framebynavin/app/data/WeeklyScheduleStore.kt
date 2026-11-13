@@ -77,6 +77,9 @@ class WeeklyScheduleStore(private val context: Context) {
 
     suspend fun exportJson(): String = encode(loadOrSeed())
 
+    /** Recovery forensics must never seed or migrate persisted weekly slots. */
+    internal suspend fun exportJsonForUnifiedReadOnlyBaseline(): String = encode(loadRaw())
+
     suspend fun importJson(raw: String): List<WeeklyScheduleSlot> {
         val decoded = decode(raw)
         save(decoded)
