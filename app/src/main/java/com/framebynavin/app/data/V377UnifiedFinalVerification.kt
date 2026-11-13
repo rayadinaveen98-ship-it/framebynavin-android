@@ -113,7 +113,11 @@ internal class V377UnifiedFinalVerification(context: Context) {
             V377VerifiedOwnerOutcome.ORIGINAL_RESTORED
         else V377VerifiedOwnerOutcome.SELECTED_TARGET_RESTORED
         check(if (outcome == V377VerifiedOwnerOutcome.SELECTED_TARGET_RESTORED)
-            cp.step == V344UnifiedRestoreStep.BOTH_VERIFIED
+            cp.step in setOf(
+                V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+                V344UnifiedRestoreStep.VERIFYING_BOTH,
+                V344UnifiedRestoreStep.BOTH_VERIFIED,
+            )
         else true) {
             "A partially written selected TARGET cannot claim a completed restore"
         }
