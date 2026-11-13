@@ -142,6 +142,13 @@ internal class V371UnifiedCreatorVoiceShadowJournal(
             !hasBlockingEvidence()) {
             "Pre-existing or stale Creator shadow recovery evidence"
         }
+        val choice = (V347OwnerRecoveryDecisionJournal(app).readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("No durable owner recovery direction for Creator shadow media")
+        check(choice.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(choice, cp)) {
+            "Creator shadow allocation requires the exact FORWARD_TARGET owner choice"
+        }
         check(selectedTargetMedia.keys == original.entries.map { it.ideaId }.toSet()) {
             "Authenticated target audio differs from original allocation"
         }
