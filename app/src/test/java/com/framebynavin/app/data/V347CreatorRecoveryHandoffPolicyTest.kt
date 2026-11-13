@@ -100,4 +100,44 @@ class V347CreatorRecoveryHandoffPolicyTest {
             direction, after.copy(updatedAtMillis = before.updatedAtMillis),
         ))
     }
+
+    @Test fun retainedForwardChoiceCanBeInspectedAtVerifiedFinalStageOnlyWithSameArchives() {
+        val decision = choice(V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
+        var reached = before
+        V344UnifiedRestoreStep.entries.drop(
+            V344UnifiedRestoreStep.CREATOR_WRITTEN.ordinal,
+        ).forEach { next ->
+            reached = V344UnifiedRestorePolicy.next(
+                reached, next, reached.updatedAtMillis + 1L,
+            )
+        }
+        assertTrue(V347OwnerRecoveryDecisionPolicy.remainsAuthenticForFinalReview(
+            decision, reached, archives,
+        ))
+        assertFalse(V347OwnerRecoveryDecisionPolicy.remainsAuthenticForFinalReview(
+            decision, reached.copy(escrowSha256 = "0".repeat(64)), archives,
+        ))
+        assertFalse(V347OwnerRecoveryDecisionPolicy.remainsAuthenticForFinalReview(
+            decision, reached.copy(createdAtMillis = reached.createdAtMillis + 1L),
+            archives,
+        ))
+        assertFalse(V347OwnerRecoveryDecisionPolicy.remainsAuthenticForFinalReview(
+            decision, reached, archives.copy(targetPersonalSha256 = "f".repeat(64)),
+        ))
+    }
+
+    @Test fun reverseDecisionMustRemainAtItsExactCheckpointForFinalReview() {
+        val direction = choice(V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL)
+        val after = V344UnifiedRestorePolicy.next(
+            before, V344UnifiedRestoreStep.CREATOR_WRITTEN,
+            before.updatedAtMillis + 1L,
+        )
+        assertTrue(V347OwnerRecoveryDecisionPolicy.remainsAuthenticForFinalReview(
+            direction, before, archives,
+        ))
+        assertFalse(V347OwnerRecoveryDecisionPolicy.remainsAuthenticForFinalReview(
+            direction, after, archives,
+        ))
+    }
+
 }
