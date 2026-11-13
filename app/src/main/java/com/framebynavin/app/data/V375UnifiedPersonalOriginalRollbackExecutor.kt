@@ -152,12 +152,9 @@ internal class V375UnifiedPersonalOriginalRollbackExecutor(context: Context) {
                 // A resumed inverse needs reverse-aware known-state proof;
                 // otherwise the native forward chronology must be intact.
                 if (previous == null) {
-                    val latest = V374UnifiedPersonalOriginalRollbackInspector(app)
-                        // Already holding Personal/Creator mutexes: DO NOT
-                        // reacquire them. Use the previous owner review,
-                        // whose full archive evidence is checked again below.
-                        .let { review }
-                    check(!latest.reverseJournalAlreadyPrepared)
+                    check(!review.reverseJournalAlreadyPrepared) {
+                        "Another Personal inverse journal appeared during preflight"
+                    }
                 }
                 // Initial inspection already passed native-specific v2
                 // chronology; after a crash, only ORIGINAL/TARGET atomic
@@ -307,16 +304,10 @@ internal class V375UnifiedPersonalOriginalRollbackExecutor(context: Context) {
         reviewed: V374UnifiedPersonalOriginalRollbackReview,
         snapshot: com.framebynavin.app.personal.V301LocalRecoverySnapshot,
     ) {
-        val checkpoint = com.framebynavin.app.personal.Phase1V2RestoreCheckpoint(
-            transactionId = reviewed.nativeV2TransactionId,
-            preparedId = "00000000-0000-0000-0000-000000000000",
-            escrowId = "00000000-0000-0000-0000-000000000000",
-            originalDigest = reviewed.delta.originalDigest,
-            targetDigest = reviewed.delta.mergedTargetDigest,
-            step = reviewed.nativeStep,
-            createdAtMillis = 1L,
-            updatedAtMillis = 1L,
-        )
+        // The genuine, authenticated native write checkpoint is reused.
+        // Never fabricate owner IDs or pretend a read-only sample is a
+        // durable v2 recovery journal.
+        val checkpoint = reviewed.nativeCheckpoint
         Phase1V2RestoreDomainForensics.inspectWithReverseJournal(
             checkpoint, reviewed.originalComponents,
             reviewed.targetComponents, snapshot.components,
