@@ -3,12 +3,9 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -171,21 +168,16 @@ internal fun V339HomeOverflowMenu(
                         }
                     },
                     text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                when (action) {
-                                    V339HomeOverflowAction.NOTIFICATION_CENTER -> "Notification Center"
-                                    V339HomeOverflowAction.SPARK -> if (sparkEnabled) "Spark" else "Spark · off"
-                                    V339HomeOverflowAction.GALLERY -> "Gallery"
-                                },
-                                color = if (enabled) ProjectorIvory else MutedText,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            if (action == V339HomeOverflowAction.SPARK && !enabled) {
-                                Spacer(Modifier.width(3.dp))
-                            }
-                        }
+                        Text(
+                            when (action) {
+                                V339HomeOverflowAction.NOTIFICATION_CENTER -> "Notification Center"
+                                V339HomeOverflowAction.SPARK -> if (sparkEnabled) "Spark" else "Spark · off"
+                                V339HomeOverflowAction.GALLERY -> "Gallery"
+                            },
+                            color = if (enabled) ProjectorIvory else MutedText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                     },
                 )
             }
