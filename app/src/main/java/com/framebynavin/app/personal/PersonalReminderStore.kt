@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.json.JSONArray
 
 /** Separate file. No CreatorTask, CreatorBackupManager, cloud sync or YouTube dependency. */
 private val Context.personalReminderDataStore by preferencesDataStore(name = "backlot_personal_reminders_v1")
@@ -28,6 +29,8 @@ internal class PersonalReminderStore(context: Context) {
     private val lastGoodKey = stringPreferencesKey("personal_records_last_good_v1")
     private val completionKey = stringPreferencesKey("personal_done_history_v1")
     private val completionLastGoodKey = stringPreferencesKey("personal_done_history_last_good_v1")
+    // Atomic tombstones for a post-commit Android cleanup that may be interrupted.
+    private val pendingDeleteCleanupKey = stringPreferencesKey("personal_delete_cleanup_pending_v1")
 
     val remindersFlow: Flow<List<PersonalReminder>> = data.data.map { prefs ->
         when (val raw = prefs[mainKey]) {
@@ -69,10 +72,66 @@ internal class PersonalReminderStore(context: Context) {
     suspend fun delete(id: String): List<PersonalReminder> =
         mutate { current -> current.filterNot { it.id == id } }
 
+    /**
+     * One owner-reviewed transaction. No partial delete on a stale selection.
+     * The tombstones are committed in the SAME DataStore edit as the removals,
+     * so the next health worker can cancel orphaned OS leases after a crash.
+     */
+    suspend fun deleteManyReviewed(
+        tickets: Collection<PersonalDeletionTicket>,
+    ): List<PersonalReminder> {
+        val selected = tickets.toList()
+        return mutate(
+            deletionCleanupIds = selected.map { it.id }.toSet(),
+            redactDeletedRecoveryCopies = true,
+        ) { current ->
+            PersonalBulkDeletePolicy.deleteReviewed(current, selected)
+        }
+    }
+
+    suspend fun pendingDeletionCleanupIds(): Set<String> {
+        val raw = data.data.first()[pendingDeleteCleanupKey]
+        return parseDeletionCleanup(raw)
+    }
+
+    suspend fun markDeletionCleanupFinished(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        StabilizationPersonalMutationGate.withOwnerMutation(app) {
+            personalReminderMutationMutex.withLock {
+                data.edit { prefs ->
+                    val pending = parseDeletionCleanup(prefs[pendingDeleteCleanupKey])
+                    val remaining = pending - ids
+                    if (remaining != pending) {
+                        prefs[pendingDeleteCleanupKey] = encodeDeletionCleanup(remaining)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun parseDeletionCleanup(raw: String?): Set<String> {
+        if (raw == null) return emptySet()
+        val rows = JSONArray(raw)
+        require(rows.length() <= 1000) { "Too many pending Personal cleanup IDs" }
+        return (0 until rows.length()).map { rows.getString(it) }.toSet().also { ids ->
+            require(ids.all { it.matches(Regex("[a-zA-Z0-9_:.-]{1,128}")) }) {
+                "Invalid Personal alarm cleanup ID"
+            }
+            require(ids.size == rows.length()) { "Duplicate Personal alarm cleanup IDs" }
+        }
+    }
+
+    private fun encodeDeletionCleanup(ids: Set<String>): String {
+        require(ids.size <= 1000) { "Too many pending Personal cleanup IDs" }
+        return JSONArray().also { array -> ids.sorted().forEach(array::put) }.toString()
+    }
+
     suspend fun mutate(
         onDoneAccepted: ((List<PersonalReminder>, List<PersonalReminder>) -> PersonalCompletionEvent?)? = null,
         replacementHistory: List<PersonalCompletionEvent>? = null,
         beforeReplace: ((List<PersonalReminder>, List<PersonalCompletionEvent>) -> Unit)? = null,
+        deletionCleanupIds: Set<String> = emptySet(),
+        redactDeletedRecoveryCopies: Boolean = false,
         change: (List<PersonalReminder>) -> List<PersonalReminder>,
     ): List<PersonalReminder> =
         StabilizationPersonalMutationGate.withOwnerMutation(app) {
@@ -90,6 +149,16 @@ internal class PersonalReminderStore(context: Context) {
                     else -> readChecked(currentRaw)
                 }
                 val updated = change(previous)
+                if (deletionCleanupIds.isNotEmpty()) {
+                    val actuallyRemoved = previous.map { it.id }.toSet() -
+                        updated.map { it.id }.toSet()
+                    require(actuallyRemoved == deletionCleanupIds) {
+                        "Bulk deletion must remove exactly the confirmed Personal IDs"
+                    }
+                    val olderPending = parseDeletionCleanup(prefs[pendingDeleteCleanupKey])
+                    prefs[pendingDeleteCleanupKey] =
+                        encodeDeletionCleanup(olderPending + deletionCleanupIds)
+                }
                 val previousHistoryRaw = prefs[completionKey]
                 // Fail closed on damaged Personal history; never silently overwrite it.
                 val previousHistory = previousHistoryRaw?.let(PersonalCompletionJournal::decode) ?: emptyList()
@@ -112,13 +181,18 @@ internal class PersonalReminderStore(context: Context) {
                     // Independent recovery copy must be durable BEFORE the atomic replacement.
                     beforeReplace?.invoke(previous, previousHistory)
                     if (remindersChanged) {
-                        if (currentRaw != null) prefs[lastGoodKey] = currentRaw
-                        else prefs[lastGoodKey] = PersonalReminderCodec.encode(emptyList())
+                        prefs[lastGoodKey] = if (redactDeletedRecoveryCopies) encoded
+                            else currentRaw ?: PersonalReminderCodec.encode(emptyList())
                         prefs[mainKey] = encoded
                     }
                     if (historyChanged) {
-                        if (previousHistoryRaw != null) prefs[completionLastGoodKey] = previousHistoryRaw
+                        prefs[completionLastGoodKey] = if (redactDeletedRecoveryCopies)
+                            nextHistoryRaw else previousHistoryRaw ?: nextHistoryRaw
                         prefs[completionKey] = nextHistoryRaw
+                    } else if (redactDeletedRecoveryCopies) {
+                        // A previous revision must not resurrect deleted reminder
+                        // completion events during a future recovery review.
+                        prefs[completionLastGoodKey] = nextHistoryRaw
                     }
                 }
                 committed = updated
