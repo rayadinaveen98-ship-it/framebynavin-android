@@ -338,6 +338,15 @@ internal fun V341UnifiedBackupPanel() {
                     color = ProjectorIvory, fontSize = 11.sp, lineHeight = 16.sp,
                     modifier = Modifier.testTag("v341-unified-personal-preview"),
                 )
+                if (snapshot.creator.externalProjectAssetCount > 0) {
+                    Text(
+                        "ATTENTION  ·  ${snapshot.creator.externalProjectAssetCount} " +
+                            "project attachment references have no portable file bytes " +
+                            "in this archive. Keep those original media files separately.",
+                        color = RecRed, fontSize = 11.sp, lineHeight = 16.sp,
+                        modifier = Modifier.testTag("v341-unified-external-assets"),
+                    )
+                }
             }
             restoreReview?.let { review ->
                 HorizontalDivider(color = CinemaLine)
@@ -369,9 +378,11 @@ internal fun V341UnifiedBackupPanel() {
             )
             Text(
                 "NOT PORTABLE  ·  External project attachments are references, not " +
-                    "file copies. Custom reminder songs, account credentials, " +
-                    "sign-in, device permissions and some appearance preferences " +
-                    "are not yet bundled. Keep existing separate backups until " +
+                    "file copies. The existing Personal export resets CUSTOM music " +
+                    "choices to piano because SAF music files and access grants " +
+                    "are device-specific; Creator custom soundtrack preferences " +
+                    "also remain local. Sign-in, device permissions and some " +
+                    "appearance preferences are excluded. Keep separate backups until " +
                     "this full coverage is independently validated.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
             )
