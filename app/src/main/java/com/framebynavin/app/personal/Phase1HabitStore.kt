@@ -68,8 +68,10 @@ internal class Phase1HabitStore(context: Context) {
         val index = current.indexOfFirst { it.id == id }
         require(index >= 0) { "Challenge not found" }
         val before = current[index]
+        require(!before.archived) { "Restore this challenge before changing progress or links" }
         val after = change(before).checked()
-        require(after.id == before.id && after.startDate == before.startDate &&
+        require(after.id == before.id && after.archived == before.archived &&
+            after.startDate == before.startDate &&
             after.activity == before.activity && after.zoneId == before.zoneId &&
             after.alertTime == before.alertTime && after.alertKind == before.alertKind
         ) {
