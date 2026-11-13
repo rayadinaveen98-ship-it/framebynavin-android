@@ -3,6 +3,8 @@ package com.framebynavin.app.data
 import android.content.Context
 import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
@@ -252,6 +254,271 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
             originalBestFrames = frames,
             nativeCreatorRewound = nativeRewound,
         )
+    }
+
+    /**
+     * Task 3: return BOTH domains to ORIGINAL after the Creator forward stage
+     * reached CREATOR_WRITTEN but BEFORE any Personal write began.
+     *
+     * Reuse CreatorBackupManager's own native pre-restore journal and the
+     * ORIGINAL portable Creator ZIP. Original Voice Idea audio files must
+     * already exist with the exact hashes from the encrypted ORIGINAL archive;
+     * never create/delete them or import target audio during rollback.
+     *
+     * The ORIGINAL Best Frame files must still be present under their old,
+     * cryptographically verified names; native import may briefly assign
+     * fresh frame names but we restore the original verified pointer while
+     * the same Creator write lock is held. Old and newly installed media stay
+     * on disk: media cleanup/owner release belong to H3 Task 4.
+     */
+    internal suspend fun restoreBothOriginalFromCommittedCreatorInternalOnly(
+        freshOwnerConsent: Boolean,
+        passphrase: CharArray,
+    ): V368CrossDomainOriginalReceipt = withContext(Dispatchers.IO) {
+        require(freshOwnerConsent && passphrase.size >= 12) {
+            "Original Creator rollback requires fresh owner consent and passphrase"
+        }
+        val expected = journal.requireCheckpointReadOnly()
+        require(expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN) {
+            "This rollback cannot run once the Personal write stage has begun"
+        }
+        val decision = (decisions.readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("Owner reverse-original direction was not durably recorded")
+        check(decision.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(decision, expected) &&
+            !IdeaProjectConversion(app).hasPendingRecovery()) {
+            "A stale or forward-only choice cannot restore original Creator records"
+        }
+        val proof = V345UnifiedAuthenticatedRestoreParts(app)
+            .authenticateForInterruptedRecovery(
+                ownerConfirmedReview = true, passphrase = passphrase,
+            )
+        check(V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(
+            proof, expected,
+        )) {
+            "ORIGINAL and TARGET owner archives no longer match this transaction"
+        }
+        fun ownerArchive(folderName: String, fileName: String): File {
+            val folder = File(app.filesDir, folderName)
+            val file = File(folder, fileName)
+            check(folder.isDirectory &&
+                !Files.isSymbolicLink(folder.toPath()) &&
+                folder.canonicalFile.parentFile == app.filesDir.canonicalFile &&
+                file.isFile && !Files.isSymbolicLink(file.toPath()) &&
+                file.canonicalFile.parentFile == folder.canonicalFile) {
+                "Original recovery ZIP is missing or points outside private storage"
+            }
+            return file
+        }
+        val originalFile = ownerArchive(
+            "backlot-unified-owner-recovery-escrow-v1",
+            "original-owner-encrypted-unified.zip",
+        )
+        val selectedFile = ownerArchive(
+            "backlot-unified-owner-restore-preparation-v1",
+            "incoming-unified-encrypted.zip",
+        )
+        fun sha(file: File): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().buffered().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (count > 0) digest.update(buffer, 0, count)
+                }
+            }
+            return digest.digest().joinToString("") {
+                "%02x".format(it.toInt() and 255)
+            }
+        }
+        check(sha(originalFile) == expected.escrowSha256 &&
+            sha(selectedFile) == expected.sourceSha256) {
+            "Rollback escrow or selected owner ZIP bytes have changed"
+        }
+
+        originalFile.inputStream().buffered().use { encrypted ->
+            V341UnifiedOwnerArchive.stageAndVerify(
+                encrypted, passphrase, app.cacheDir,
+            ).use { authenticated ->
+                check(sha(authenticated.creator) == proof.originalCreatorSha256) {
+                    "The ORIGINAL Creator portion differs from owner escrow"
+                }
+                val portable = PortableCreatorBackupManager(app)
+                authenticated.creator.inputStream().buffered().use {
+                    portable.validate(it)
+                }
+                val staged = authenticated.creator.inputStream().buffered().use {
+                    PortableBackupArchive.stage(it, app.cacheDir)
+                }
+                try {
+                    check(staged.isArchive) {
+                        "Exact owner original recovery requires portable media ZIP"
+                    }
+                    val frameCount = PortableBestFrameMedia.verifyCompactPreview(
+                        staged.backupJson, staged.bestFrames, staged.hasFrameManifest,
+                    )
+                    check(frameCount != null ||
+                        (staged.bestFrames.isEmpty() &&
+                            JSONObject(staged.backupJson)
+                                .getString("personalFrames") == "[]")) {
+                        "Original Best Frames cannot be restored from ambiguous legacy media"
+                    }
+                    val originalFrames = JSONArray()
+                    val frameDirectory = File(app.filesDir, "best_frames_original")
+                    staged.bestFrames.forEach { image ->
+                        val local = File(frameDirectory, image.name)
+                        check(frameDirectory.isDirectory &&
+                            !Files.isSymbolicLink(frameDirectory.toPath()) &&
+                            !Files.isSymbolicLink(local.toPath()) &&
+                            local.isFile &&
+                            local.canonicalFile.parentFile ==
+                                frameDirectory.canonicalFile &&
+                            sha(local) == image.sha256) {
+                            "Old original Best Frame file must still be present and unchanged"
+                        }
+                        originalFrames.put(JSONObject().put("name", image.name)
+                            .put("sha256", image.sha256))
+                    }
+                    val originalFrameRecord = originalFrames.toString()
+                    check(CreatorHeroArchive.verifyOriginalOrderSourceFiles(
+                        app, originalFrameRecord,
+                    ).size == staged.bestFrames.size &&
+                        V343UnifiedBaselineReader(app)
+                            .creatorFingerprintFromNativeOriginal(
+                                staged.backupJson, originalFrameRecord,
+                            ) == expected.creatorOriginalSha256) {
+                        "Authenticated ORIGINAL Creator metadata/Best Frames do not match H4"
+                    }
+                    val originalHashes = staged.mediaByIdeaId.mapValues { (_, file) ->
+                        check(file.isFile && !Files.isSymbolicLink(file.toPath()) &&
+                            file.length() in 1L..(512L * 1024L * 1024L)) {
+                            "Unsafe original staged Voice Idea recording"
+                        }
+                        V366VoiceBytes(file.length(), sha(file))
+                    }
+                    val originalIdeas = JSONObject(staged.backupJson)
+                        .getString("ideas")
+                    val inventory = originalVoice.inspectOriginalIdeaReferencesReadOnly(
+                        ideasJson = originalIdeas,
+                        expectedAudio = originalHashes,
+                        voiceDir = File(app.filesDir, "voice_ideas"),
+                    )
+                    check(inventory.verifiedOriginalVoiceCount ==
+                        staged.mediaByIdeaId.size) {
+                        "Original local Voice recordings differ from the escrow ZIP"
+                    }
+
+                    StabilizationPersonalMutationGate.withPendingCombinedReadInspection(
+                        app, expected,
+                    ) {
+                        val personal = com.framebynavin.app.personal.V301LocalRecoveryReader(
+                            app,
+                        ).readForInterruptedV2Recovery()
+                        check(V343UnifiedBaselineReader(app)
+                            .personalFingerprintForInterrupted(personal) ==
+                                expected.personalOriginalSha256 &&
+                            V354UnifiedLiveSpacePhotoAudit(app)
+                                .inspect(personal.photos)
+                                .currentPhotoFilesMatchTheirLiveRows) {
+                            "Personal data or photos changed before committed Creator rollback"
+                        }
+                        CreatorDataGate.withJournalBoundCommittedCreatorReverse(
+                            app, expected, ownerConfirmed = true,
+                        ) {
+                            val nativeRoot = File(
+                                app.filesDir, "creator_restore_recovery_v181",
+                            )
+                            check(listOf("pending.json", "pending.json.new",
+                                "pending.json.bak").none {
+                                    Files.exists(
+                                        File(nativeRoot, it).toPath(),
+                                        LinkOption.NOFOLLOW_LINKS,
+                                    )
+                                } &&
+                                !IdeaProjectConversion(app).hasPendingRecovery() &&
+                                journal.requireCheckpointReadOnly() == expected &&
+                                decisions.readOnlyStatus() ==
+                                    V347OwnerRecoveryDecisionJournal.ReadState.Recorded(
+                                        decision,
+                                    ) &&
+                                sha(originalFile) == expected.escrowSha256 &&
+                                sha(selectedFile) == expected.sourceSha256) {
+                                "Competing native Creator recovery, H4 or owner ZIP changed"
+                            }
+                            val currentCreator = CreatorBackupManager(app)
+                                .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
+                            val currentFrameFingerprint = runCatching {
+                                V343UnifiedBaselineReader(app)
+                                    .creatorFingerprintFromNativeOriginal(
+                                        currentCreator,
+                                        CreatorHeroArchive.captureOriginalOrder(app),
+                                    )
+                            }.getOrNull()
+                            val requiredWrite = currentFrameFingerprint !=
+                                expected.creatorOriginalSha256
+                            if (requiredWrite) {
+                                val manager = CreatorBackupManager(app)
+                                if (frameCount != null) {
+                                    manager.restorePortableCompact(
+                                        staged.backupJson, staged.bestFrames,
+                                    )
+                                } else {
+                                    manager.restore(staged.backupJson)
+                                }
+                                // This changes only the original-frame ORDER
+                                // pointer; authenticated original image bytes
+                                // already exist under original names.
+                                CreatorHeroArchive.restoreOriginalOrder(
+                                    app, originalFrameRecord,
+                                )
+                            }
+                            val current = CreatorBackupManager(app)
+                                .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
+                            val livePersonal =
+                                com.framebynavin.app.personal.V301LocalRecoveryReader(app)
+                                    .readForInterruptedV2Recovery()
+                            val originalNow = V343UnifiedBaselineReader(app)
+                                .fingerprintUnverifiedInterrupted(
+                                    current, livePersonal,
+                                )
+                            check(originalNow.creatorSha256 ==
+                                expected.creatorOriginalSha256 &&
+                                originalNow.personalSha256 ==
+                                    expected.personalOriginalSha256 &&
+                                V354UnifiedLiveSpacePhotoAudit(app)
+                                    .inspect(livePersonal.photos)
+                                    .currentPhotoFilesMatchTheirLiveRows &&
+                                originalVoice.inspectOriginalIdeaReferencesReadOnly(
+                                    ideasJson = JSONObject(current).getString("ideas"),
+                                    expectedAudio = originalHashes,
+                                    voiceDir = File(app.filesDir, "voice_ideas"),
+                                ).verifiedOriginalVoiceCount == inventory.verifiedOriginalVoiceCount &&
+                                journal.requireCheckpointReadOnly() == expected &&
+                                decisions.readOnlyStatus() ==
+                                    V347OwnerRecoveryDecisionJournal.ReadState.Recorded(
+                                        decision,
+                                    ) &&
+                                sha(originalFile) == expected.escrowSha256 &&
+                                sha(selectedFile) == expected.sourceSha256) {
+                                "Committed Creator rollback did not restore both ORIGINAL domains"
+                            }
+                            V368CrossDomainOriginalReceipt(
+                                transactionId = expected.transactionId,
+                                originalCreatorFingerprint = originalNow.creatorSha256,
+                                originalPersonalFingerprint = originalNow.personalSha256,
+                                originalVoiceCount = inventory.verifiedOriginalVoiceCount,
+                                originalBestFrames = staged.bestFrames.size,
+                                nativeCreatorRewound = requiredWrite,
+                            )
+                        }
+                    }
+                } finally {
+                    staged.cleanup()
+                }
+            }
+        }
     }
 
     /**
