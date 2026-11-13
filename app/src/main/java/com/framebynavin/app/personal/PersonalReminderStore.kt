@@ -225,6 +225,23 @@ internal class PersonalReminderStore(context: Context) {
         return mutate(replacementHistory = replacement.completions) { replacement.reminders }
     }
 
+    /**
+     * Task H3.3 original Personal inverse. Preserve the authenticated
+     * original reminders and exact Done receipts, but make the LOCAL
+     * last-good revision equal to the verified original—not the imported
+     * target—so the target cannot resurrect after Task 4 releases H4.
+     */
+    internal suspend fun replaceFromApprovedV2OriginalRollback(
+        original: String,
+    ): List<PersonalReminder> {
+        StabilizationPersonalMutationGate.requireActiveRecovery(app)
+        val authenticated = PersonalCompletionBackupCodec.decode(original)
+        return mutate(
+            replacementHistory = authenticated.completions,
+            redactDeletedRecoveryCopies = true,
+        ) { authenticated.reminders }
+    }
+
     /** Read-only recovery data, never auto-overwrite a damaged primary. */
     suspend fun validatedPreviousRevision(): List<PersonalReminder>? {
         val prior = data.data.first()[lastGoodKey] ?: return null
