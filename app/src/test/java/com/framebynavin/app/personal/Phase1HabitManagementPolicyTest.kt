@@ -102,6 +102,31 @@ class Phase1HabitManagementPolicyTest {
         assertEquals(before.confirmations, archived.setArchived(false).confirmations)
     }
 
+    @Test fun reviewedDeleteTargetsOnlyOneChallengeAndPreservesOtherHistory() {
+        val first = challenge().confirmToday(receipt)
+            .noteForDay(start, "Keep this record in the other item")
+        val second = challenge().copy(id = "another-challenge").checked()
+        val remaining = Phase1HabitManagementPolicy.deleteReviewed(
+            listOf(first, second), second.id, second)
+        assertEquals(listOf(first), remaining)
+        assertEquals(receipt, remaining.single().confirmations[start])
+        assertEquals("Keep this record in the other item", remaining.single().dayNotes[start])
+    }
+
+    @Test fun staleDeleteSnapshotOrWrongIdMustNotRemoveAnyRecord() {
+        val first = challenge().confirmToday(receipt)
+        val second = challenge().copy(id = "another-challenge").checked()
+        val records = listOf(first, second)
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1HabitManagementPolicy.deleteReviewed(
+                records, first.id, first.copy(activity = "Outdated title"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1HabitManagementPolicy.deleteReviewed(records, "unknown", first)
+        }
+        assertEquals(2, records.size)
+    }
+
     @Test fun archiveCannotBeEditedBeforeItIsRestored() {
         val archived = challenge().setArchived(true)
         assertThrows(IllegalArgumentException::class.java) {
