@@ -518,9 +518,14 @@ class CreatorBackupManager(private val context: Context) {
         // resolved as a whole, not silently recovered as Creator-only.
         // This guard also protects normal Creator ZIP/cloud export and
         // standalone restore entry points, which call this method first.
-        check(!V344UnifiedRestoreJournal.hasPendingFor(appContext)) {
-            "Cross-domain restore recovery is pending; Creator-only recovery " +
-                "must not overwrite combined owner evidence"
+        if (V344UnifiedRestoreJournal.hasPendingFor(appContext)) {
+            // Only the explicitly scoped Creator-stage recovery executor
+            // may inspect/resolve its OWN pre-restore Creator journal. The
+            // ordinary startup/cloud/standalone path remains frozen.
+            check(CreatorDataGate.isJournalBoundCreatorWrite(appContext)) {
+                "Cross-domain recovery is pending; standalone Creator-only " +
+                    "replay cannot overwrite combined owner evidence"
+            }
         }
         val pending = pendingFile()
         if (!pending.isFile) return false
