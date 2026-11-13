@@ -278,28 +278,36 @@ internal class V347OwnerRecoveryDecisionJournal(
                 nowMillis = System.currentTimeMillis().coerceAtLeast(checkpoint.updatedAtMillis),
                 decisionId = UUID.randomUUID().toString(),
             )
-            check(root.mkdir() && root.isDirectory &&
-                !Files.isSymbolicLink(root.toPath()) &&
-                root.canonicalFile.parentFile == app.filesDir.canonicalFile) {
-                "Cannot create owner-only recovery decision journal"
+            // The exact active checkpoint cannot advance or be archived
+            // between approval and the durable choice write. Both actions
+            // use V344's mutex, preventing an orphaned owner decision after
+            // PREPARED-only cancellation.
+            crossDomain.withCheckpointUnchanged(checkpoint) {
+                check(!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                    "A recovery choice appeared while the owner was reviewing"
+                }
+                check(root.mkdir() && root.isDirectory &&
+                    !Files.isSymbolicLink(root.toPath()) &&
+                    root.canonicalFile.parentFile == app.filesDir.canonicalFile) {
+                    "Cannot create owner-only recovery decision journal"
+                }
+                val atomic = AtomicFile(active)
+                var output: FileOutputStream? = null
+                try {
+                    output = atomic.startWrite()
+                    output.write(V347OwnerRecoveryDecisionCodec.encode(decision))
+                    output.fd.sync()
+                    atomic.finishWrite(output)
+                    output = null
+                } catch (failure: Throwable) {
+                    output?.let(atomic::failWrite)
+                    throw failure
+                }
+                check(readStrict() == decision) {
+                    "Owner recovery choice was not durably retained"
+                }
+                decision
             }
-            val atomic = AtomicFile(active)
-            var output: FileOutputStream? = null
-            try {
-                output = atomic.startWrite()
-                output.write(V347OwnerRecoveryDecisionCodec.encode(decision))
-                output.fd.sync()
-                atomic.finishWrite(output)
-                output = null
-            } catch (failure: Throwable) {
-                output?.let(atomic::failWrite)
-                throw failure
-            }
-            check(readStrict() == decision &&
-                crossDomain.requireCheckpointReadOnly() == checkpoint) {
-                "Owner recovery checkpoint changed before the direction was safely recorded"
-            }
-            decision
         } finally {
             guard.unlock()
         }
