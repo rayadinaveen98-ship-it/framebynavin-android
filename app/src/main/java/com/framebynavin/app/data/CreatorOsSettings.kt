@@ -4,6 +4,7 @@ import android.content.Context
 import com.framebynavin.app.cloud.CloudLocalStore
 import com.framebynavin.app.reminders.QuietHoursPolicy
 import com.framebynavin.app.reminders.V205NudgePausePolicy
+import com.framebynavin.app.reminders.V280ReminderSnoozePolicy
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -86,7 +87,8 @@ class CreatorOsSettingsStore(context: Context) {
                 VoicePersona.valueOf(prefs.getString(KEY_DEFAULT_VOICE, VoicePersona.WARM.name) ?: VoicePersona.WARM.name)
             }.getOrDefault(VoicePersona.WARM),
             defaultAlarmTimeoutSeconds = prefs.getInt(KEY_ALARM_TIMEOUT, 120).coerceIn(30, 300),
-            snoozeMinutes = prefs.getInt(KEY_SNOOZE_MINUTES, 10).coerceIn(5, 30),
+            snoozeMinutes = V280ReminderSnoozePolicy.effectiveCreatorMinutes(
+                0, prefs.getInt(KEY_SNOOZE_MINUTES, 10)),
             unansweredFollowUpsEnabled = prefs.getBoolean(KEY_NO_RESPONSE_FOLLOWUPS, true),
             weeklyAutoPlanEnabled = prefs.getBoolean(KEY_WEEKLY_AUTO_PLAN, false),
             contextNudgesEnabled = prefs.getBoolean(KEY_CONTEXT_NUDGES, false),
@@ -163,7 +165,8 @@ class CreatorOsSettingsStore(context: Context) {
                 VoicePersona.valueOf(obj.optString("defaultVoicePersona", VoicePersona.WARM.name))
             }.getOrDefault(VoicePersona.WARM),
             defaultAlarmTimeoutSeconds = obj.optInt("defaultAlarmTimeoutSeconds", 120).coerceIn(30, 300),
-            snoozeMinutes = obj.optInt("snoozeMinutes", 10).coerceIn(5, 30),
+            snoozeMinutes = V280ReminderSnoozePolicy.effectiveCreatorMinutes(
+                0, obj.optInt("snoozeMinutes", 10)),
             unansweredFollowUpsEnabled = obj.optBoolean("unansweredFollowUpsEnabled", true),
             weeklyAutoPlanEnabled = obj.optBoolean("weeklyAutoPlanEnabled", false),
             contextNudgesEnabled = obj.optBoolean("contextNudgesEnabled", false),
@@ -284,7 +287,8 @@ class CreatorOsSettingsStore(context: Context) {
     }
 
     fun setSnoozeMinutes(value: Int) {
-        prefs.edit().putInt(KEY_SNOOZE_MINUTES, value.coerceIn(5, 30)).apply()
+        prefs.edit().putInt(KEY_SNOOZE_MINUTES,
+            V280ReminderSnoozePolicy.effectiveCreatorMinutes(0, value)).apply()
     }
 
     fun setUnansweredFollowUpsEnabled(value: Boolean) {
