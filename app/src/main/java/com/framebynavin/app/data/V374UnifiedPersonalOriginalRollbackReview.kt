@@ -6,6 +6,7 @@ import com.framebynavin.app.personal.Phase1V2OriginalRollbackDeltaPolicy
 import com.framebynavin.app.personal.Phase1V2OriginalReverseJournal
 import com.framebynavin.app.personal.Phase1V2PhotoByteEvidence
 import com.framebynavin.app.personal.Phase1V2PhotoByteForensics
+import com.framebynavin.app.personal.Phase1V2RestoreCheckpoint
 import com.framebynavin.app.personal.Phase1V2RestoreDomainForensics
 import com.framebynavin.app.personal.Phase1V2RestoreForensicAssessment
 import com.framebynavin.app.personal.Phase1V2RestoreStep
@@ -45,6 +46,7 @@ internal data class V374UnifiedPersonalOriginalRollbackReview(
     val transactionId: String,
     val nativeV2TransactionId: String,
     val nativeStep: Phase1V2RestoreStep,
+    val nativeCheckpoint: Phase1V2RestoreCheckpoint,
     val delta: Phase1V2OriginalRollbackDelta,
     val currentDomains: Phase1V2RestoreForensicAssessment,
     val currentPhotoBytes: Phase1V2PhotoByteEvidence,
@@ -219,6 +221,7 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
             transactionId = cp.transactionId,
             nativeV2TransactionId = checkpoint.transactionId,
             nativeStep = checkpoint.step,
+            nativeCheckpoint = checkpoint,
             delta = delta,
             currentDomains = domains,
             currentPhotoBytes = photos,
