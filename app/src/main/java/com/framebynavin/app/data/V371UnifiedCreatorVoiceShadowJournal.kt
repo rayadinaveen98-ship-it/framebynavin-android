@@ -236,6 +236,18 @@ internal class V371UnifiedCreatorVoiceShadowJournal(
         var missing = 0
         var damaged = 0
         var unsafe = 0
+        // An intact replacement is NOT a trustworthy recovery source if
+        // the original damaged bytes were modified after reservation.
+        plan.entries.forEach { entry ->
+            val damaged = File(directory, entry.damagedFile)
+            check(Files.isRegularFile(damaged.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.isSymbolicLink(damaged.toPath()) &&
+                damaged.canonicalFile.parentFile == directory.canonicalFile &&
+                damaged.length() == entry.damagedBytes &&
+                sha256(damaged) == entry.damagedSha256) {
+                "Original damaged recording changed; shadow recovery needs owner review"
+            }
+        }
         plan.entries.forEach { e ->
             val shadow = File(directory, e.shadowFile)
             when {
