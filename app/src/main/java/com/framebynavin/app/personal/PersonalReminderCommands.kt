@@ -82,6 +82,11 @@ internal class PersonalReminderCreatedButNeedsAttention(
     cause,
 )
 
+internal data class PersonalDeletionOutcome(
+    val deletedCount: Int,
+    val cleanupWarning: String? = null,
+)
+
 internal class PersonalReminderCommands(context: Context) {
     private val app = context.applicationContext
     private val store = PersonalReminderStore(app)
@@ -177,6 +182,42 @@ internal class PersonalReminderCommands(context: Context) {
         PersonalReminderNotifications.cancel(app, id)
         if (!paused) delivery.reconcile()
         V224WidgetUpdater.refresh(app)
+    }
+
+    /**
+     * One confirmed atomic deletion across PersonalReminderStore only.
+     * If Android cleanup fails after commit, the selected reminders are ALREADY
+     * deleted; surface a warning instead of suggesting a second delete.
+     */
+    suspend fun deleteManyReviewed(
+        selection: Collection<PersonalDeletionTicket>,
+    ): PersonalDeletionOutcome {
+        val tickets = selection.toList()
+        store.deleteManyReviewed(tickets)
+        var cleanupWarning: String? = null
+        // The cleanup IDs are durable in DataStore even if process death
+        // happens before WorkManager can accept this task.
+        runCatching { PersonalDeletionCleanupScheduler.enqueue(app) }
+            .onFailure {
+                cleanupWarning = "Reminders deleted, but automatic alarm cleanup " +
+                    "could not be queued. Periodic recovery can retry."
+            }
+        try {
+            val cleaned = PersonalDeletionCleanup(app).reconcile()
+            if (!cleaned) {
+                cleanupWarning = "Reminders deleted, but one or more Android " +
+                    "alerts need background cleanup. Recovery will retry."
+            }
+        } catch (error: Exception) {
+            cleanupWarning = "Reminders deleted, but Android alert cleanup " +
+                "needs attention; the recovery job will retry."
+        }
+        runCatching { V224WidgetUpdater.refresh(app) }
+            .onFailure {
+                cleanupWarning = (cleanupWarning?.plus(" ") ?: "") +
+                    "Widget refresh needs attention."
+            }
+        return PersonalDeletionOutcome(tickets.size, cleanupWarning)
     }
 
     suspend fun delete(id: String) {
