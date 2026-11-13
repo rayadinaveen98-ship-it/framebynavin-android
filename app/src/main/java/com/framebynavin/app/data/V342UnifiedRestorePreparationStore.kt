@@ -186,9 +186,13 @@ internal class V342UnifiedRestorePreparationStore(
             root.canonicalFile.parentFile != app.filesDir.canonicalFile) return null
         if (!manifest.isFile || Files.isSymbolicLink(manifest.toPath()) ||
             !archive.isFile || Files.isSymbolicLink(archive.toPath())) return null
-        val record = V342UnifiedPreparationCodec.decode(AtomicFile(manifest).openRead().use {
-            it.readBytes().also { data -> require(data.size <= 2048) }
-        })
+        // Never read a user-corrupted multi-GB journal into memory.
+        require(manifest.length() in 1..2048) {
+            "Prepared restore metadata exceeds safety limit"
+        }
+        val record = V342UnifiedPreparationCodec.decode(
+            AtomicFile(manifest).openRead().use { it.readBytes() }
+        )
         if (archive.length() != record.sizeBytes) return null
         return record.takeIf { hashFile(archive) == it.sha256 }
     }
