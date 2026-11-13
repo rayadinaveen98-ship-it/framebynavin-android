@@ -131,6 +131,7 @@ internal class V358UnifiedPersonalForwardStage(context: Context) {
                                     ownerConfirmedAdditions = true,
                                     acknowledgedNonPortableAlarmsAndSongs = true,
                                     deferPostRestoreReconcileForUnified = true,
+                                    combinedCheckpointForUnified = before,
                                 )
                             }
                         }
