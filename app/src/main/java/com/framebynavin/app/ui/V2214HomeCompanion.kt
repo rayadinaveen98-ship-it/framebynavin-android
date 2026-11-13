@@ -102,9 +102,9 @@ internal fun V2214HomeCompanion(
     onOpenIdeas: () -> Unit,
     onOpenActivity: () -> Unit = onOpenReminders,
     onOpenPersonal: () -> Unit = onOpenReminders,
-    onOpenGallery: () -> Unit = {},
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onOpenGallery: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val store = remember(context) { V221CompanionDismissalStore(context.applicationContext) }
