@@ -338,6 +338,16 @@ internal fun V341UnifiedBackupPanel() {
                     color = ProjectorIvory, fontSize = 11.sp, lineHeight = 16.sp,
                     modifier = Modifier.testTag("v341-unified-personal-preview"),
                 )
+                if (snapshot.creator.deviceOnlyAlarmSoundReferenceCount > 0) {
+                    Text(
+                        "ATTENTION  ·  ${snapshot.creator.deviceOnlyAlarmSoundReferenceCount} " +
+                            "Creator alarm sound selections are device-only references. " +
+                            "Their audio files and Android access grants are not inside " +
+                            "this archive; reselect those sounds after device transfer.",
+                        color = RecRed, fontSize = 11.sp, lineHeight = 16.sp,
+                        modifier = Modifier.testTag("v341-unified-device-only-alarm-sounds"),
+                    )
+                }
                 if (snapshot.creator.externalProjectAssetCount > 0) {
                     Text(
                         "ATTENTION  ·  ${snapshot.creator.externalProjectAssetCount} " +
@@ -377,13 +387,13 @@ internal fun V341UnifiedBackupPanel() {
                 modifier = Modifier.testTag("v341-unified-restore-gate"),
             )
             Text(
-                "NOT PORTABLE  ·  External project attachments are references, not " +
-                    "file copies. The existing Personal export resets CUSTOM music " +
-                    "choices to piano because SAF music files and access grants " +
-                    "are device-specific; Creator custom soundtrack preferences " +
-                    "also remain local. Sign-in, device permissions and some " +
-                    "appearance preferences are excluded. Keep separate backups until " +
-                    "this full coverage is independently validated.",
+                "NOT PORTABLE  ·  External project attachments and Creator custom " +
+                    "alarm sounds are references, not media file copies. Personal " +
+                    "CUSTOM music is reset to piano for transfer, since source-device " +
+                    "audio files and Android access grants cannot be transferred. " +
+                    "Sign-in, device permissions, delivery leases and local runtime " +
+                    "sessions are excluded. Keep separate source-file backups and " +
+                    "reselect custom audio on your other device.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
             )
         }
