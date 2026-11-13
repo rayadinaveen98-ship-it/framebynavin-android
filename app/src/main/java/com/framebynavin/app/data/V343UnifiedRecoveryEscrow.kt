@@ -218,14 +218,13 @@ internal class V343UnifiedRecoveryEscrow(
                 root.canonicalFile.parentFile == app.filesDir.canonicalFile) {
                 "Recovery escrow path is not an owned app-private folder"
             }
-            val permitted = setOf(
-                ROLLBACK_NAME, JOURNAL_NAME,
-                "$JOURNAL_NAME.bak", "$JOURNAL_NAME.new",
-            )
+            // A torn AtomicFile .bak/.new may be the ONLY durable journal
+            // checkpoint. Never delete either under the ordinary discard UI.
+            val permitted = setOf(ROLLBACK_NAME, JOURNAL_NAME)
             val files = root.listFiles() ?: error("Cannot inspect recovery escrow files")
             check(files.all { it.isFile && !Files.isSymbolicLink(it.toPath()) &&
                 it.name in permitted }) {
-                "Unexpected recovery files; refusing deletion"
+                "Unexpected or interrupted recovery journal files; refusing deletion"
             }
             // A checksum-valid journal is the only state that can be released.
             // An interrupted/no-journal escrow may contain the ONLY original
