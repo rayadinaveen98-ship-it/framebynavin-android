@@ -450,24 +450,24 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                             lastResponse = if (action == PersonalDeliveryContract.ACTION_DONE)
                                 PersonalResponse.DONE else PersonalResponse.DISMISSED,
                         )
-                    PersonalDeliveryContract.ACTION_SNOOZE, PersonalDeliveryContract.ACTION_RESCHEDULE -> {
-                        val next = if (action == PersonalDeliveryContract.ACTION_SNOOZE)
-                            com.framebynavin.app.reminders.V280ReminderSnoozePolicy.nextAtMillis(nowMillis, item.snoozeMinutes)
-                        else rescheduleAtMillis
+                    PersonalDeliveryContract.ACTION_SNOOZE ->
+                        PersonalManualSnoozePolicy.apply(
+                            item, originalOccurrence, token,
+                            UUID.randomUUID().toString(), nowMillis,
+                        )
+                    PersonalDeliveryContract.ACTION_RESCHEDULE ->
                         common.copy(
-                            pendingFireAtMillis = next,
-                            snoozedUntilMillis = next,
+                            pendingFireAtMillis = rescheduleAtMillis,
+                            snoozedUntilMillis = rescheduleAtMillis,
                             pendingToken = UUID.randomUUID().toString(),
                             presentedToken = "",
                             presentedAtMillis = 0L,
-                            followUpSentToken = item.followUpSentToken,
-                            followUpSentOccurrenceMillis = item.followUpSentOccurrenceMillis,
+                            followUpSentToken = "",
+                            followUpSentOccurrenceMillis = 0L,
                             autoRetryCount = 0,
                             autoRetryScheduledAtMillis = 0L,
-                            lastResponse = if (action == PersonalDeliveryContract.ACTION_SNOOZE)
-                                PersonalResponse.SNOOZED else PersonalResponse.RESCHEDULED,
+                            lastResponse = PersonalResponse.RESCHEDULED,
                         )
-                    }
                     else -> {
                         result = PersonalApplyResult.STALE
                         item
