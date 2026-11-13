@@ -69,8 +69,8 @@ internal object V355UnifiedPersonalRecoveryRecipePolicy {
             Phase1V2RestoreFingerprint.calculate(target.combined, target.photos)) {
             "Recovery recipe merged target digest is not stable"
         }
-        originalPhotos.forEach(V290PhotoTimelinePolicy::validate)
-        target.photos.forEach(V290PhotoTimelinePolicy::validate)
+        originalPhotos.forEach { V290PhotoTimelinePolicy.validate(it) }
+        target.photos.forEach { V290PhotoTimelinePolicy.validate(it) }
         val old = originalPhotos.associateBy { it.id }
         val merged = target.photos.associateBy { it.id }
         require(old.size == originalPhotos.size && merged.size == target.photos.size) {
