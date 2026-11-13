@@ -491,17 +491,30 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         }
         var needsRearm = false
         if (result == PersonalApplyResult.ACCEPTED) {
-            // Silence ONLY the exact occurrence that just received a real
-            // user response. A later lease may be ringing independently.
-            PersonalPlaybackService.stopMatching(id, token)
-            cancelPending(id)
-            PersonalReminderNotifications.cancel(app, id)
-            // The owner response is already durable. Android registration or
-            // widget failure must never cause a "Snooze was not saved" error.
+            // The owner response has ALREADY committed. A failure while
+            // stopping sound, canceling OS alarms or rearming a next lease
+            // must never be reported as an unsaved Snooze.
+            runCatching { PersonalPlaybackService.stopMatching(id, token) }
+                .onFailure { error ->
+                    needsRearm = true
+                    android.util.Log.w("BacklotPersonal", "Old Personal playback stop failed", error)
+                }
+            runCatching { cancelPending(id) }
+                .onFailure { error ->
+                    needsRearm = true
+                    android.util.Log.w("BacklotPersonal", "Old Personal alarm cleanup failed", error)
+                }
+            runCatching { PersonalReminderNotifications.cancel(app, id) }
+                .onFailure { error ->
+                    needsRearm = true
+                    android.util.Log.w("BacklotPersonal", "Old Personal notification cleanup failed", error)
+                }
             runCatching { reconcile(nowMillis) }.onFailure { error ->
                 needsRearm = true
                 android.util.Log.w("BacklotPersonal",
                     "Response saved; post-commit alarm re-arm needs attention", error)
+            }
+            if (needsRearm) {
                 runCatching { PersonalSnoozeRearmSafetyNet.enqueue(app) }
                     .onFailure {
                         android.util.Log.w("BacklotPersonal",
