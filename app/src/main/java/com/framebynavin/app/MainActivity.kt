@@ -91,6 +91,12 @@ class MainActivity : ComponentActivity() {
                 VoiceIdeaRecorder.cleanupAbandonedWorkingFiles(applicationContext)
                 ReminderNotifications.ensureChannel(applicationContext)
                 ReminderHealthScheduler.ensurePeriodic(applicationContext)
+                // Crash after atomic Personal deletion must not leave an orphan alarm
+                // with no cleanup retry until the next hourly health scan.
+                runCatching {
+                    com.framebynavin.app.personal.PersonalDeletionCleanupScheduler
+                        .enqueue(applicationContext)
+                }
                 CreatorContextNudgeWorker.ensurePeriodic(applicationContext)
                 CreatorAutoPlanWorker.ensurePeriodic(applicationContext)
                 CreatorRoutineWorker.ensurePeriodic(applicationContext)
