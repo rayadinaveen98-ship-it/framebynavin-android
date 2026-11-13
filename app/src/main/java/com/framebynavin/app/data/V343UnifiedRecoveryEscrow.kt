@@ -169,6 +169,31 @@ internal class V343UnifiedRecoveryEscrow(
         }
     }
 
+    /**
+     * Read-only evidence for the proposed cross-domain journal. This proves
+     * file checksum and source identity, NOT crypto authentication or future
+     * permission to mutate. inspectRetained(password) is additionally required.
+     */
+    internal suspend fun inspectEscrowRecordReadOnly(): V343UnifiedRecoveryRecord =
+        withContext(Dispatchers.IO) {
+            mutex.lock()
+            try {
+                val record = requireNotNull(readAndVerify()) {
+                    "Original escrow is incomplete or modified"
+                }
+                val target = selected.status() as?
+                    V342UnifiedRestorePreparationStore.Status.ChecksumMatched
+                    ?: error("Selected owner source is not safely retained")
+                check(record.selectedSourceId == target.transactionId &&
+                    record.selectedSourceSha256 == target.sha256) {
+                    "Original recovery escrow does not bind this owner target"
+                }
+                record
+            } finally {
+                mutex.unlock()
+            }
+        }
+
     /** Revalidate encrypted baseline, target and CURRENT local drift. No writes. */
     suspend fun inspectRetained(password: CharArray): V343UnifiedRecoveryReview =
         withContext(Dispatchers.IO) {
