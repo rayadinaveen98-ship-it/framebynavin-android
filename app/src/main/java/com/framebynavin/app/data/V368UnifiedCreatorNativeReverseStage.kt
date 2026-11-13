@@ -104,6 +104,9 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
         require(freshOwnerConsent && passphrase.size >= 12) {
             "Fresh owner consent and encrypted recovery passphrase required"
         }
+        check(!V371UnifiedCreatorVoiceShadowJournal(app).hasBlockingEvidence()) {
+            "Unresolved Voice Idea shadow journal needs separate owner review"
+        }
         val checkpoint = journal.requireCheckpointReadOnly()
         require(checkpoint.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
             "The Creator domain is not at an interrupted native restore stage"
@@ -149,6 +152,9 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                     decisions.readOnlyStatus() ==
                         V347OwnerRecoveryDecisionJournal.ReadState.Recorded(decision)) {
                     "Combined journal or owner reverse decision changed"
+                }
+                check(!V371UnifiedCreatorVoiceShadowJournal(app).hasBlockingEvidence()) {
+                    "A shadow recording allocation appeared before Creator rollback"
                 }
                 check(!IdeaProjectConversion(app).hasPendingRecovery()) {
                     "Competing Creator conversion evidence appeared before native rollback"
