@@ -51,6 +51,19 @@ class V339HomeOverflowPolicyTest {
             V339HomeOverflowAction.SPARK, false, true, sparkEnabled = true))
     }
 
+    @Test fun collapsedButtonUsesRedActionBeforeGoldSparkAndNeverClaimsUnread() {
+        assertEquals(V339HomeOverflowAction.NOTIFICATION_CENTER,
+            V339HomeOverflowPolicy.collapsedIndicator(
+                needsReminderAction = true, hasSparkSuggestion = true, sparkEnabled = true))
+        assertEquals(V339HomeOverflowAction.SPARK,
+            V339HomeOverflowPolicy.collapsedIndicator(
+                needsReminderAction = false, hasSparkSuggestion = true, sparkEnabled = true))
+        assertEquals(null, V339HomeOverflowPolicy.collapsedIndicator(
+            needsReminderAction = false, hasSparkSuggestion = true, sparkEnabled = false))
+        assertEquals(null, V339HomeOverflowPolicy.collapsedIndicator(
+            needsReminderAction = false, hasSparkSuggestion = false, sparkEnabled = true))
+    }
+
     @Test fun galleryNeverFakesAnAlertDot() {
         for (needed in listOf(false, true)) {
             for (suggestion in listOf(false, true)) {
