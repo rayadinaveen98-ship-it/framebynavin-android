@@ -148,16 +148,19 @@ class V2215CompanionAccessibilityUiTest {
                     }
                 }
             }
-            rule.onNodeWithTag("v2221-companion-avatar").assertIsDisplayed()
-            // V222.1 intentionally no longer reserves a large inline card.
+            rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed()
+            // V339: Spark/Notification/Gallery are reached through one menu.
             rule.onNodeWithTag("v2212-companion-card").assertDoesNotExist()
             rule.onNodeWithTag("v2215-companion-switch").performClick()
-            rule.onNodeWithTag("v2221-companion-avatar").assertDoesNotExist()
+            rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed().performClick()
+            rule.onNodeWithTag("v339-home-menu-SPARK").assertIsNotEnabled()
+            rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
             rule.runOnIdle {
                 assertTrue(!V221CompanionDismissalStore(context()).enabled())
             }
             rule.onNodeWithTag("v2215-companion-switch").performClick()
-            rule.onNodeWithTag("v2221-companion-avatar").assertIsDisplayed()
+            rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed().performClick()
+            rule.onNodeWithTag("v339-home-menu-SPARK").assertIsEnabled()
         } finally { prefs.edit().clear().commit() }
     }
 }
