@@ -55,6 +55,7 @@ internal enum class Phase1HabitDeliveryHealth {
     VOICE_REQUESTED,
     VOICE_SPEAKING,
     VOICE_UNAVAILABLE,
+    STALE_IGNORED,
 }
 
 internal object Phase1HabitDeliveryEvidencePolicy {
@@ -84,6 +85,8 @@ internal object Phase1HabitDeliveryEvidencePolicy {
                 Phase1HabitDeliveryHealth.VOICE_REQUESTED
             Phase1HabitDeliveryStage.NOTIFICATION_POSTED in stages ->
                 Phase1HabitDeliveryHealth.NOTIFICATION_POSTED
+            Phase1HabitDeliveryStage.STALE_IGNORED in stages ->
+                Phase1HabitDeliveryHealth.STALE_IGNORED
             Phase1HabitDeliveryStage.OS_FIRED in stages ->
                 Phase1HabitDeliveryHealth.FIRED_PRESENTATION_UNCONFIRMED
             nowMillis >= scheduledAtMillis &&
@@ -111,6 +114,16 @@ internal class Phase1HabitDeliveryLedger(context: Context) {
             for (i in 0 until previous.length()) {
                 val row = previous.getJSONObject(i)
                 if (row.getLong("observedAt") >= cutoff) retained.add(row)
+            }
+            // Periodic recovery reasserts PendingIntents; it must not flood
+            // this bounded log with identical hourly scheduling evidence.
+            if (stage == Phase1HabitDeliveryStage.ARMED_EXACT ||
+                stage == Phase1HabitDeliveryStage.ARMED_INEXACT) {
+                val alreadyArmed = retained.any {
+                    it.getString("id") == id && it.getLong("at") == scheduledAtMillis &&
+                        it.getString("stage") == stage.name
+                }
+                if (alreadyArmed) return
             }
             retained.add(JSONObject().apply {
                 put("id", id)
