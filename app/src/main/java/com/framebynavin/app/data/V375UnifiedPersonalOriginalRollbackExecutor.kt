@@ -225,10 +225,10 @@ internal class V375UnifiedPersonalOriginalRollbackExecutor(context: Context) {
                             Phase1V2ReverseStep.BEFORE_GROUPS,
                             Phase1V2ReverseStep.GROUPS_REVERTED,
                         ) {
-                            val baseline = V298ReminderGroupCodec.decode(
-                                review.originalComponents.groups,
-                            )
-                            V298ReminderGroupStore(app).mutate { baseline }
+                            V298ReminderGroupStore(app)
+                                .replaceFromApprovedV2OriginalRollback(
+                                    review.originalComponents.groups,
+                                )
                         }
                         phase(
                             Phase1V2ReverseStep.GROUPS_REVERTED,
@@ -246,18 +246,20 @@ internal class V375UnifiedPersonalOriginalRollbackExecutor(context: Context) {
                             Phase1V2ReverseStep.BEFORE_LEGACY_CHALLENGES,
                             Phase1V2ReverseStep.LEGACY_CHALLENGES_REVERTED,
                         ) {
-                            V297ChallengeStore(app).replaceFromApprovedImport(
-                                review.originalComponents.challenges,
-                            )
+                            V297ChallengeStore(app)
+                                .replaceFromApprovedV2OriginalRollback(
+                                    review.originalComponents.challenges,
+                                )
                         }
                         phase(
                             Phase1V2ReverseStep.LEGACY_CHALLENGES_REVERTED,
                             Phase1V2ReverseStep.BEFORE_PERSONAL,
                             Phase1V2ReverseStep.PERSONAL_REVERTED,
                         ) {
-                            PersonalReminderStore(app).replaceFromApprovedImport(
-                                review.originalComponents.personal,
-                            )
+                            PersonalReminderStore(app)
+                                .replaceFromApprovedV2OriginalRollback(
+                                    review.originalComponents.personal,
+                                )
                         }
                         val checkpoint = requireNotNull(reverse.inspect())
                         check(checkpoint.step in setOf(
