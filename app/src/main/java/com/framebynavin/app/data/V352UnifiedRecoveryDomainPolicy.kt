@@ -43,17 +43,20 @@ internal object V352UnifiedRecoveryDomainPolicy {
         directionDecision: V347OwnerRecoveryDecision,
         domain: V352RecoveryDomain,
     ): V352DomainAccessAssessment {
-        if (!V346InterruptedRecoveryProofPolicy.matches(proof, checkpoint)) {
-            return V352DomainAccessAssessment.Blocked(
-                V352WriteBlocker.UNAUTHENTICATED_ARCHIVES,
-            )
-        }
+        // A changed journal invalidates the owner's choice first, even when
+        // its previously authenticated archive proof is now stale as well.
+        // Both cases remain hard blocks; no write authority is granted.
         if (!V347OwnerRecoveryDecisionPolicy.remainsBound(
                 directionDecision, checkpoint
             )
         ) {
             return V352DomainAccessAssessment.Blocked(
                 V352WriteBlocker.STALE_OWNER_DECISION,
+            )
+        }
+        if (!V346InterruptedRecoveryProofPolicy.matches(proof, checkpoint)) {
+            return V352DomainAccessAssessment.Blocked(
+                V352WriteBlocker.UNAUTHENTICATED_ARCHIVES,
             )
         }
         if (proof.creatorStandaloneRecoveryMarker ||
