@@ -25,14 +25,19 @@ class ReminderHealthWorker(
         val challengeRecovered = runCatching {
             com.framebynavin.app.personal.Phase1HabitAlarmScheduler(app).reconcile()
         }.isSuccess
-        if (!outcome.allSucceeded || !challengeRecovered) {
+        // Durable Personal deletion tombstones are independent from delivery
+        // and recover orphaned Android PendingIntents after a process crash.
+        val deleteCleanupRecovered = runCatching {
+            com.framebynavin.app.personal.PersonalDeletionCleanup(app).reconcile()
+        }.getOrDefault(false)
+        if (!outcome.allSucceeded || !challengeRecovered || !deleteCleanupRecovered) {
             android.util.Log.w(
                 "BacklotReminderHealth",
                 "Recovery retry: creator=${outcome.creatorRecovered}, " +
                     "personal=${outcome.personalRecovered}, ideas=${outcome.ideasRecovered}",
             )
         }
-        return if (outcome.allSucceeded && challengeRecovered)
+        return if (outcome.allSucceeded && challengeRecovered && deleteCleanupRecovered)
             Result.success() else Result.retry()
     }
 }
