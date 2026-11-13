@@ -5,6 +5,19 @@ import java.time.LocalTime
 
 /** Pure, deterministic rule for edits. No store, alarm or UI side effects. */
 internal object Phase1HabitManagementPolicy {
+    /** Deletes only one exact reviewed ID; stale UI snapshots fail closed. */
+    fun deleteReviewed(
+        records: List<Phase1HabitChallenge>,
+        id: String,
+        expected: Phase1HabitChallenge,
+    ): List<Phase1HabitChallenge> {
+        require(records.count { it.id == id } == 1 &&
+            records.first { it.id == id } == expected) {
+            "Challenge changed or was removed. Reopen before deleting."
+        }
+        return records.filterNot { it.id == id }
+    }
+
     fun reviewedEdit(
         before: Phase1HabitChallenge,
         activity: String,
