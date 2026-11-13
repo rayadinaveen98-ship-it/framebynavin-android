@@ -94,6 +94,76 @@ internal object Phase1V2RestoreDomainForensics {
         return Phase1V2RestoreForensicAssessment(journal.step, states, needsPhotos)
     }
 
+    /**
+     * Once the independent inverse journal exists, forward chronology is
+     * intentionally no longer authoritative. EVERY atomic store must still
+     * equal the exact owner ORIGINAL or TARGET (never arbitrary third data),
+     * and original JPEG rows must be retained. Imported photo rows may be
+     * present or removed individually by the journaled inverse Room stage.
+     */
+    fun inspectWithReverseJournal(
+        native: Phase1V2RestoreCheckpoint,
+        original: V300PersonalComponents,
+        target: V300PersonalComponents,
+        observed: V300PersonalComponents,
+        originalPhotos: List<V290SpacePhotoEntity>,
+        targetPhotos: List<V290SpacePhotoEntity>,
+        livePhotos: List<V290SpacePhotoEntity>,
+    ): Phase1V2RestoreForensicAssessment {
+        Phase1V2RestoreJournalCodec.validate(native)
+        require(native.originalDigest ==
+            Phase1V2RestoreFingerprint.calculate(original, originalPhotos) &&
+            native.targetDigest ==
+                Phase1V2RestoreFingerprint.calculate(target, targetPhotos)) {
+            "Reverse journal original/target fingerprints differ from native owner escrow"
+        }
+        val mark = Phase1V2RestoreStep.BEFORE_PERSONAL
+        val states = linkedMapOf<Phase1V2RecoveryDomain, Phase1V2RecoveryDomainState>(
+            Phase1V2RecoveryDomain.PERSONAL to classify(
+                Phase1V2RecoveryDomain.PERSONAL, mark, mark,
+                personal(original.personal), personal(target.personal),
+                personal(observed.personal),
+            ),
+            Phase1V2RecoveryDomain.LEGACY_CHALLENGES to classify(
+                Phase1V2RecoveryDomain.LEGACY_CHALLENGES, mark, mark,
+                V297ChallengeCodec.decode(original.challenges).sortedBy { it.id },
+                V297ChallengeCodec.decode(target.challenges).sortedBy { it.id },
+                V297ChallengeCodec.decode(observed.challenges).sortedBy { it.id },
+            ),
+            Phase1V2RecoveryDomain.SINGLE_ACTIVITY to classify(
+                Phase1V2RecoveryDomain.SINGLE_ACTIVITY, mark, mark,
+                Phase1HabitCodec.decode(
+                    requireNotNull(original.singleActivityChallenges)).sortedBy { it.id },
+                Phase1HabitCodec.decode(
+                    requireNotNull(target.singleActivityChallenges)).sortedBy { it.id },
+                Phase1HabitCodec.decode(
+                    requireNotNull(observed.singleActivityChallenges)).sortedBy { it.id },
+            ),
+            Phase1V2RecoveryDomain.GROUPS to classify(
+                Phase1V2RecoveryDomain.GROUPS, mark, mark,
+                V298ReminderGroupCodec.decode(original.groups).sortedBy { it.id },
+                V298ReminderGroupCodec.decode(target.groups).sortedBy { it.id },
+                V298ReminderGroupCodec.decode(observed.groups).sortedBy { it.id },
+            ),
+            Phase1V2RecoveryDomain.SPACES to classify(
+                Phase1V2RecoveryDomain.SPACES, mark, mark,
+                spaces(original), spaces(target), spaces(observed),
+            ),
+        )
+        val old = photos(originalPhotos).associateBy { it.id }
+        val new = photos(targetPhotos).associateBy { it.id }
+        val current = photos(livePhotos).associateBy { it.id }
+        require(old.all { (id, item) -> current[id] == item } &&
+            current.all { (id, item) -> new[id] == item }) {
+            "Reverse Personal photo row is not an original or an imported target"
+        }
+        return Phase1V2RestoreForensicAssessment(
+            checkpoint = native.step,
+            domains = states,
+            requiresIndependentPhotoProof = true,
+        )
+    }
+
     private fun personal(raw: String):
         Pair<List<PersonalReminder>, List<PersonalCompletionEvent>> {
         val snapshot = PersonalCompletionBackupCodec.decode(raw)
