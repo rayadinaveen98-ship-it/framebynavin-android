@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.V342UnifiedRestorePreparationStore
+import com.framebynavin.app.data.V344UnifiedRestoreJournal
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -68,6 +69,7 @@ internal fun V342UnifiedRestorePreparationPanel() {
     var conflicts by remember { mutableStateOf<Int?>(null) }
     var prepareConfirmation by remember { mutableStateOf(false) }
     var discardConfirmation by remember { mutableStateOf(false) }
+    var combinedRecoveryPending by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         onDispose { pendingSecret?.fill('\u0000') }
@@ -77,6 +79,7 @@ internal fun V342UnifiedRestorePreparationPanel() {
     // are collapsed. Only read checksum evidence; never auto-restore.
     LaunchedEffect(expanded) {
         status = withContext(Dispatchers.IO) { store.status() }
+        combinedRecoveryPending = V344UnifiedRestoreJournal.hasPendingFor(context)
     }
 
     val chooseSource = rememberLauncherForActivityResult(
@@ -158,6 +161,17 @@ internal fun V342UnifiedRestorePreparationPanel() {
                     else "OPEN ADVANCED RESTORE PREPARATION")
             }
             if (expanded) {
+                if (combinedRecoveryPending) {
+                    Text(
+                        "Combined Creator + Personal recovery is pending. Keep " +
+                            "the selected encrypted source and original escrow. " +
+                            "Use Original-Data Recovery below to authenticate " +
+                            "both copies; standalone discard and Personal " +
+                            "recheck are disabled.",
+                        color = RecRed, fontSize = 11.sp, lineHeight = 17.sp,
+                        modifier = Modifier.testTag("v342-combined-recovery-hold"),
+                    )
+                }
                 when (val value = status) {
                     null -> Text("Checking for previously selected archive…",
                         color = MutedText, fontSize = 11.sp)
@@ -199,12 +213,14 @@ internal fun V342UnifiedRestorePreparationPanel() {
                     color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
                 )
                 Button(
-                    enabled = !loading && passphrase.length >= 12 &&
+                    enabled = !loading && !combinedRecoveryPending &&
+                        passphrase.length >= 12 &&
                         status == V342UnifiedRestorePreparationStore.Status.None,
                     onClick = { prepareConfirmation = true },
                     modifier = Modifier.fillMaxWidth().testTag("v342-prepare-file"),
                 ) { Text("PREPARE ENCRYPTED SOURCE · NO RESTORE") }
-                if (status is V342UnifiedRestorePreparationStore.Status.ChecksumMatched) {
+                if (!combinedRecoveryPending &&
+                    status is V342UnifiedRestorePreparationStore.Status.ChecksumMatched) {
                     OutlinedButton(
                         enabled = !loading && passphrase.length >= 12,
                         onClick = {
@@ -237,7 +253,7 @@ internal fun V342UnifiedRestorePreparationPanel() {
                         modifier = Modifier.fillMaxWidth().testTag("v342-prepare-recheck"),
                     ) { Text("RECHECK PREPARED SOURCE · NO WRITE") }
                 }
-                if (status != null &&
+                if (!combinedRecoveryPending && status != null &&
                     status != V342UnifiedRestorePreparationStore.Status.None) {
                     OutlinedButton(
                         enabled = !loading,
