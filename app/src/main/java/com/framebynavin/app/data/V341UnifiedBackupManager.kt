@@ -33,6 +33,7 @@ internal class V341UnifiedBackupManager(context: Context) {
     suspend fun export(passphrase: CharArray, output: OutputStream): V341UnifiedBackupPreview =
         withContext(Dispatchers.IO) {
             require(passphrase.size >= 12) { "Use a passphrase with at least 12 characters" }
+            runCatching { V341UnifiedTempCleanup.prune(app.cacheDir) }
             val staging = createStageDirectory("backlot-unified-export-")
             try {
                 val creatorFile = File(staging, "creator.fbnbackup")
@@ -69,6 +70,7 @@ internal class V341UnifiedBackupManager(context: Context) {
      */
     suspend fun verify(passphrase: CharArray, input: InputStream): V341UnifiedBackupPreview =
         withContext(Dispatchers.IO) {
+            runCatching { V341UnifiedTempCleanup.prune(app.cacheDir) }
             V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir).use { staged ->
                 val creatorPreview = staged.creator.inputStream().buffered().use(creator::validate)
                 val personalPreview = staged.personal.inputStream().buffered().use {
@@ -91,6 +93,7 @@ internal class V341UnifiedBackupManager(context: Context) {
         passphrase: CharArray,
         input: InputStream,
     ): V341UnifiedRestoreInspection = withContext(Dispatchers.IO) {
+        runCatching { V341UnifiedTempCleanup.prune(app.cacheDir) }
         V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir).use { staged ->
             val creatorPreview = staged.creator.inputStream().buffered().use(creator::validate)
             val personalPreview = staged.personal.inputStream().buffered().use {
