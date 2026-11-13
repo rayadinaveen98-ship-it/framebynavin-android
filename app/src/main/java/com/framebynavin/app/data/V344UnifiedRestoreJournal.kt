@@ -310,7 +310,7 @@ internal class V344UnifiedRestoreJournal(
                         File(app.filesDir, "creator_restore_recovery_v181/" + name)
                             .toPath(), LinkOption.NOFOLLOW_LINKS,
                     )
-                }) &&
+                } &&
                 !Files.exists(
                     File(app.filesDir,
                         "backlot-personal-active-restore-transaction-v2")
