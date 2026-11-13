@@ -32,6 +32,30 @@ class ScriptStudioStore(private val context: Context) {
             all[projectId] ?: CreatorScriptStudio.fromLegacy(projectId, legacyHook, legacyScript)
         }
 
+    /**
+     * Sidecar compatibility read for a unified recovery fingerprint ONLY.
+     * The caller already holds the exact TaskStore snapshot; avoid calling
+     * TaskStore.load() again (which seeds the workflow timeline as a side
+     * effect of ordinary UI loading). No DataStore edits or migrations here.
+     */
+    internal suspend fun loadForUnifiedSnapshot(task: CreatorTask): CreatorScriptStudio =
+        scriptStudioMutex.withLock {
+            if (task.archivedAtMillis < 0L) {
+                return@withLock CreatorScriptStudio(projectId = task.id)
+            }
+            val prefs = context.scriptStudioDataStore.data.first()
+            val raw = prefs[primaryKey]
+            if (raw.isNullOrBlank()) {
+                return@withLock CreatorScriptStudio.fromLegacy(
+                    task.id, task.workspace.hook, task.workspace.script,
+                )
+            }
+            val all = decodeAll(raw)
+            all[task.id] ?: CreatorScriptStudio.fromLegacy(
+                task.id, task.workspace.hook, task.workspace.script,
+            )
+        }
+
     suspend fun save(
         projectId: String,
         expectedRevision: Long,
