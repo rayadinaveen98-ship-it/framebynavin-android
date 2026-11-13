@@ -21,8 +21,6 @@ internal data class Phase1HabitChallenge(
     val alertKind: Phase1HabitAlertKind? = null,
     val confirmations: Map<LocalDate, Instant> = emptyMap(),
     val paused: Boolean = false,
-    /** Archived challenges retain every receipt but are no longer actionable or scheduled. */
-    val archived: Boolean = false,
     /** STRICT permits today's receipt; FLEXIBLE also permits explicit past-day backfill. */
     val completionMode: Phase1HabitCompletionMode = Phase1HabitCompletionMode.STRICT,
     /** Notes are separate from Done receipts: writing a note never completes a day. */
@@ -33,6 +31,8 @@ internal data class Phase1HabitChallenge(
     /** Explicit owner snooze for one local 21-day challenge occurrence. */
     val snoozedDay: LocalDate? = null,
     val snoozedUntil: Instant? = null,
+    /** Appended for compatibility with existing positional constructors and copies. */
+    val archived: Boolean = false,
 ) {
     fun checked(): Phase1HabitChallenge {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,100}"))) { "Invalid challenge identity" }
