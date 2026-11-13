@@ -58,6 +58,8 @@ internal data class V366CreatorVoiceRecoveryProof(
     val originalCreatorSha256: String,
     val targetMediaCount: Int,
     val originalMediaCount: Int,
+    /** Authenticated per-ID ORIGINAL media digests for native rollback preflight. */
+    val originalMediaHashes: Map<String, V366VoiceBytes> = emptyMap(),
     val installedCopies: V365VoiceCopyAudit,
     val originalMediaAuthenticated: Boolean,
     val targetAllocationAuthenticated: Boolean,
@@ -67,7 +69,8 @@ internal data class V366CreatorVoiceRecoveryProof(
         require(originalMediaAuthenticated && targetAllocationAuthenticated &&
             noMutationAuthority &&
             installedCopies.transactionId == transactionId &&
-            installedCopies.planned == targetMediaCount) {
+            installedCopies.planned == targetMediaCount &&
+            originalMediaCount == originalMediaHashes.size) {
             "A source-only Voice Idea report cannot authorize recovery actions"
         }
     }
@@ -150,6 +153,7 @@ internal class V366UnifiedCreatorVoiceRecoveryInspector(context: Context) {
             originalCreatorSha256 = pair.originalCreatorSha256,
             targetMediaCount = targetBytes.size,
             originalMediaCount = originalBytes.size,
+            originalMediaHashes = originalBytes.toMap(),
             installedCopies = lastAudit,
             originalMediaAuthenticated = true,
             targetAllocationAuthenticated = true,
