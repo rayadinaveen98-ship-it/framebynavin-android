@@ -305,15 +305,21 @@ internal class Phase1HabitVoiceService : Service() {
                 .setContentTitle("21-day challenge voice").setContentText(activity)
                 .setOngoing(true).build())
         } catch (error: Exception) {
+            Phase1HabitDeliveryLedger.recordAsync(this, id, at,
+                Phase1HabitDeliveryStage.VOICE_SERVICE_RESTRICTED)
             android.util.Log.w("BacklotHabit", "Foreground speech unavailable", error)
             stopSelf(startId)
             return START_NOT_STICKY
         }
+        Phase1HabitDeliveryLedger.recordAsync(this, id, at,
+            Phase1HabitDeliveryStage.VOICE_FOREGROUND_STARTED)
         engine?.shutdown()
         engine = TextToSpeech(this) { status ->
             val tts = engine ?: return@TextToSpeech
             if (current != generation || status != TextToSpeech.SUCCESS ||
                 tts.setLanguage(Locale.getDefault()) < TextToSpeech.LANG_AVAILABLE) {
+                Phase1HabitDeliveryLedger.recordAsync(this, id, at,
+                    Phase1HabitDeliveryStage.VOICE_TTS_UNAVAILABLE)
                 stopSelf(startId)
                 return@TextToSpeech
             }
@@ -322,7 +328,12 @@ internal class Phase1HabitVoiceService : Service() {
                 if (index >= 3) { stopSelf(startId); return }
                 if (tts.speak("It's time for " + activity, TextToSpeech.QUEUE_FLUSH,
                     null, current.toString() + "-" + index) != TextToSpeech.SUCCESS) {
+                    Phase1HabitDeliveryLedger.recordAsync(this, id, at,
+                        Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED)
                     stopSelf(startId)
+                } else if (index == 0) {
+                    Phase1HabitDeliveryLedger.recordAsync(this, id, at,
+                        Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED)
                 }
             }
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -333,6 +344,9 @@ internal class Phase1HabitVoiceService : Service() {
                 }
                 @Deprecated("Android TextToSpeech")
                 override fun onError(utteranceId: String?) {
+                    Phase1HabitDeliveryLedger.recordAsync(
+                        this@Phase1HabitVoiceService, id, at,
+                        Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED)
                     handler.post { if (current == generation) stopSelf(startId) }
                 }
             })
