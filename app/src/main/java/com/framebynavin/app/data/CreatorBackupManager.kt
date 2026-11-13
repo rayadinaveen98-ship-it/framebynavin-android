@@ -621,7 +621,9 @@ class CreatorBackupManager(private val context: Context) {
             taskStore.exportJsonForUnifiedReadOnlyBaseline()
         else taskStore.exportJson(),
         ideasJson = ideaStore.exportJson(),
-        weeklyJson = weeklyStore.exportJson(),
+        weeklyJson = if (readOnlyUnifiedFingerprint)
+            weeklyStore.exportJsonForUnifiedReadOnlyBaseline()
+        else weeklyStore.exportJson(),
         settingsJson = settingsStore.exportJson(),
         smartConfigJson = smartConfigStore.exportJson(),
         postPublishJson = postPublishStore.exportJson(),
