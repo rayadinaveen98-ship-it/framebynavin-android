@@ -155,6 +155,12 @@ internal class V377UnifiedFinalVerification(context: Context) {
             V377VerifiedOwnerOutcome.ORIGINAL_RESTORED)
             recipe.originalDigest else recipe.mergedTargetDigest
 
+        // Original Voice media remains on-device even after a selected
+        // target restore. Authenticate its independent archive bytes so
+        // the live private Voice folder can be checked against the UNION
+        // of approved old/selected SHA values (including orphan copies).
+        val originalVoiceHashes = originalVoiceArchiveHashes(passphrase)
+
         // Both sealed archives were authenticated above. Stage only ONE
         // Creator section here; its media manifest independently SHA-checks
         // every recording and every Best Frame before live comparison.
@@ -263,6 +269,15 @@ internal class V377UnifiedFinalVerification(context: Context) {
                             check(voice.verifiedOriginalVoiceCount == stagedVoice.size) {
                                 "Voice Idea references are not byte-identical to selected archive"
                             }
+                            // Unreferenced files are not silently
+                            // ignored: either their bytes match an ORIGINAL
+                            // or SELECTED owner archive recording, or Task 4
+                            // refuses to release the recovery journal. No
+                            // media is deleted or renamed in this audit.
+                            auditRetainedVoiceFiles(
+                                originalVoiceHashes.values.toSet() +
+                                    stagedVoice.values.toSet(),
+                            )
                             val originalFrameOrder =
                                 CreatorHeroArchive.captureOriginalOrder(app)
                             check(V373RecoveredCreatorMediaPolicy
@@ -400,6 +415,71 @@ internal class V377UnifiedFinalVerification(context: Context) {
                 }
             }
         }
+    }
+
+    private fun originalVoiceArchiveHashes(
+        passphrase: CharArray,
+    ): Map<String, V366VoiceBytes> {
+        val original = ownerArchive(
+            "backlot-unified-owner-recovery-escrow-v1",
+            "original-owner-encrypted-unified.zip",
+        )
+        return original.inputStream().buffered().use { input ->
+            V341UnifiedOwnerArchive.stageAndVerify(
+                input, passphrase, app.cacheDir,
+            ).use { verified ->
+                val staged = verified.creator.inputStream().buffered().use {
+                    PortableBackupArchive.stage(it, app.cacheDir)
+                }
+                try {
+                    check(staged.isArchive) {
+                        "Retained original Creator archive must carry a voice media manifest"
+                    }
+                    staged.mediaByIdeaId.mapValues { (_, file) ->
+                        check(Files.isRegularFile(
+                            file.toPath(), LinkOption.NOFOLLOW_LINKS,
+                        ) && !Files.isSymbolicLink(file.toPath()) &&
+                            file.length() in 1L..(512L * 1024L * 1024L)) {
+                            "Invalid ORIGINAL encrypted Voice Idea file"
+                        }
+                        V366VoiceBytes(file.length(), sha(file))
+                    }
+                } finally { staged.cleanup() }
+            }
+        }
+    }
+
+    private fun auditRetainedVoiceFiles(
+        expectedMedia: Set<V366VoiceBytes>,
+    ): Int {
+        val root = File(app.filesDir, "voice_ideas")
+        if (!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            check(expectedMedia.isEmpty()) {
+                "Original or restored Voice Idea folder is missing"
+            }
+            return 0
+        }
+        check(Files.isDirectory(root.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+            !Files.isSymbolicLink(root.toPath()) &&
+            root.canonicalFile.parentFile == app.filesDir.canonicalFile) {
+            "Private Voice Idea folder is unsafe"
+        }
+        val files = requireNotNull(root.listFiles()) {
+            "Could not inspect original and newly copied Voice Idea media"
+        }
+        check(files.size <= 10_000) {
+            "Unbounded unknown Voice Idea media prevents final release"
+        }
+        files.forEach { file ->
+            check(Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.isSymbolicLink(file.toPath()) &&
+                file.canonicalFile.parentFile == root.canonicalFile &&
+                file.length() in 1L..(512L * 1024L * 1024L) &&
+                V366VoiceBytes(file.length(), sha(file)) in expectedMedia) {
+                "Unknown, altered or partial Voice Idea copy must remain blocked for owner review"
+            }
+        }
+        return files.size
     }
 
     private fun section(
