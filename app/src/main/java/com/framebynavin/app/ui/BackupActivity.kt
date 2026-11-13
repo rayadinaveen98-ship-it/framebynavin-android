@@ -173,6 +173,11 @@ private fun BackupScreen(onClose: () -> Unit) {
             // legacy restore flows remain available until a cross-domain
             // owner recovery journal has been accepted and device-tested.
             V341UnifiedBackupPanel()
+            Spacer(Modifier.height(12.dp))
+            // H2: a selected, encrypted archive may be retained for later
+            // verified owner review. Preparation is NOT a restore or a permit
+            // to mutate Creator/Personal; a cross-domain escrow is still needed.
+            V342UnifiedRestorePreparationPanel()
             Spacer(Modifier.height(18.dp))
             Text("EXISTING SEPARATE BACKUP & RECOVERY TOOLS",
                 color = MutedGold, fontSize = 10.sp,
