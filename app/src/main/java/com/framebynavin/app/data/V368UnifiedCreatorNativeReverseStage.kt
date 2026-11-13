@@ -116,6 +116,9 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
         )
         val voice = V366UnifiedCreatorVoiceRecoveryInspector(app)
             .inspectOwnerReviewed(ownerConfirmed = true, passphrase = passphrase)
+        check(!IdeaProjectConversion(app).hasPendingRecovery()) {
+            "An independent Creator conversion recovery must be reviewed first"
+        }
         val originalNative = native.inspectReadOnly() as?
             V364UnifiedCreatorPendingRecoveryProof.Assessment.BoundOriginal
             ?: error("Native Creator original is absent, torn or unbound")
@@ -146,6 +149,9 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                     decisions.readOnlyStatus() ==
                         V347OwnerRecoveryDecisionJournal.ReadState.Recorded(decision)) {
                     "Combined journal or owner reverse decision changed"
+                }
+                check(!IdeaProjectConversion(app).hasPendingRecovery()) {
+                    "Competing Creator conversion evidence appeared before native rollback"
                 }
                 val currentNative = native.inspectReadOnly() as?
                     V364UnifiedCreatorPendingRecoveryProof.Assessment.BoundOriginal
