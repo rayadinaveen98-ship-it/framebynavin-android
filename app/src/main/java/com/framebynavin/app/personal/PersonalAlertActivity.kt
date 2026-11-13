@@ -151,7 +151,15 @@ internal class PersonalAlertActivity : ComponentActivity() {
                                 )
                             }
                         }.getOrNull()
-                        if (result == PersonalApplyResult.ACCEPTED) {
+                        if (result == PersonalApplyResult.ACCEPTED ||
+                            result == PersonalApplyResult.ACCEPTED_NEEDS_REARM) {
+                            if (result == PersonalApplyResult.ACCEPTED_NEEDS_REARM) {
+                                android.widget.Toast.makeText(
+                                    applicationContext,
+                                    "Response saved. Android alarm re-arm needs attention.",
+                                    android.widget.Toast.LENGTH_LONG,
+                                ).show()
+                            }
                             PersonalPlaybackService.stopMatching(current.id, current.pendingToken)
                             finish()
                         } else {
