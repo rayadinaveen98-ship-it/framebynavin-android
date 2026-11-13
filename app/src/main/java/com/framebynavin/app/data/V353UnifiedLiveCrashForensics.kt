@@ -39,6 +39,11 @@ internal class V353UnifiedLiveCrashForensics(context: Context) {
             passphrase = passphrase,
         )
         val checkpoint = proof.journal
+        // Derive the actual intended ADDITIVE Personal target from the
+        // untouched ORIGINAL escrow and selected backup, not partially
+        // written live records. Reuse the already authenticated V346 proof.
+        val intendedPersonal = V356UnifiedPersonalRecoveryRecipeReader(app)
+            .inspectVerified(proof, passphrase).personalRecipe
         check(!proof.creatorStandaloneRecoveryMarker &&
             !proof.personalStandaloneRecoveryMarker) {
             "Independent Creator or Personal restore evidence needs its own review"
@@ -83,6 +88,7 @@ internal class V353UnifiedLiveCrashForensics(context: Context) {
             originalCreatorMetadataSha256 = checkpoint.creatorOriginalSha256,
             originalPersonalMetadataSha256 = checkpoint.personalOriginalSha256,
             livePhotoAudit = photoAudit,
+            intendedPersonalRecipe = intendedPersonal,
             privatePhotoByteIntegrityProven = false,
             mediaRollbackProven = false,
             mayWriteLiveData = false,
@@ -101,13 +107,15 @@ internal data class V353UnifiedLiveForensicReport(
     val originalCreatorMetadataSha256: String,
     val originalPersonalMetadataSha256: String,
     val livePhotoAudit: V354SpacePhotoAuditResult,
+    val intendedPersonalRecipe: V355UnifiedPersonalRecoveryRecipe,
     val privatePhotoByteIntegrityProven: Boolean,
     val mediaRollbackProven: Boolean,
     val mayWriteLiveData: Boolean,
     val mayReleaseRecoveryJournals: Boolean,
 ) {
     init {
-        require(!privatePhotoByteIntegrityProven &&
+        require(intendedPersonalRecipe.noMutationAuthority &&
+            !privatePhotoByteIntegrityProven &&
             !mediaRollbackProven &&
             !mayWriteLiveData &&
             !mayReleaseRecoveryJournals) {
