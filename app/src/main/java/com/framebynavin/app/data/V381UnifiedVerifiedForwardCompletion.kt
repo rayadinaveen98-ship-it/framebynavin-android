@@ -36,6 +36,46 @@ internal class V381UnifiedVerifiedForwardCompletion(context: Context) {
         )) {
             "Selected Creator+Personal restore must finish its native imports first"
         }
+        // The normal uninterrupted V357+V358 forward path has NO V347
+        // interrupted-recovery choice. At finalization the owner must
+        // explicitly confirm the same selected TARGET, after BOTH encrypted
+        // archives are reauthenticated. Record that direction durably
+        // BEFORE the first verification checkpoint so crash retries keep
+        // the exact decision. Never replace a torn/other owner choice.
+        val choices = V347OwnerRecoveryDecisionJournal(app)
+        when (val existingChoice = choices.readOnlyStatus()) {
+            V347OwnerRecoveryDecisionJournal.ReadState.None -> {
+                val originalAndSelected =
+                    V346UnifiedInterruptedRecoveryReview(app).inspect(
+                        ownerConfirmedReview = true, passphrase = passphrase,
+                    )
+                check(originalAndSelected.journal == cp &&
+                    V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(
+                        originalAndSelected.sealedArchives, cp,
+                    ) &&
+                    !originalAndSelected.creatorStandaloneRecoveryMarker &&
+                    !originalAndSelected.personalStandaloneRecoveryMarker) {
+                    "An unrelated Creator/Personal native recovery blocks normal forward finalization"
+                }
+                choices.recordChoice(
+                    originalAndSelected,
+                    V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET,
+                    ownerConfirmedChoice = true,
+                )
+            }
+            is V347OwnerRecoveryDecisionJournal.ReadState.Recorded ->
+                check(existingChoice.choice.choice ==
+                    V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET) {
+                    "Owner previously selected ORIGINAL rollback, not TARGET finalization"
+                }
+            is V347OwnerRecoveryDecisionJournal.ReadState.CreatorWrittenRetained ->
+                check(existingChoice.choice.choice ==
+                    V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET) {
+                    "An original-reversal owner choice cannot finish forward restore"
+                }
+            V347OwnerRecoveryDecisionJournal.ReadState.NeedsOwnerReview ->
+                error("A torn or stale prior recovery decision requires owner review")
+        }
         while (cp.step != V344UnifiedRestoreStep.BOTH_VERIFIED) {
             val checked = verifier.inspectOwnerApproved(
                 freshOwnerConsent = true, passphrase = passphrase,
