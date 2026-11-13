@@ -25,16 +25,19 @@ class ReminderRecoveryReceiver : BroadcastReceiver() {
                         .onFailure {
                             android.util.Log.w("BacklotReminderHealth", "Could not register periodic health", it)
                         }
-                    val outcome = V225RecoveryLanes.run(
-                        creator = { ReminderRecoveryEngine.reconcile(app) },
-                        personal = { com.framebynavin.app.personal.PersonalDeliveryCoordinator(app).reconcile() },
-                        ideas = { IdeaReminderScheduler(app).reconcile() },
-                    )
+                    // The shared broadcast deadline is short: re-arm the
+                    // independent challenge lane FIRST, before larger Creator
+                    // and Personal recovery work can exhaust its time budget.
                     runCatching {
                         com.framebynavin.app.personal.Phase1HabitAlarmScheduler(app).reconcile()
                     }.onFailure {
                         android.util.Log.w("BacklotHabit", "Boot challenge recovery failed", it)
                     }
+                    val outcome = V225RecoveryLanes.run(
+                        creator = { ReminderRecoveryEngine.reconcile(app) },
+                        personal = { com.framebynavin.app.personal.PersonalDeliveryCoordinator(app).reconcile() },
+                        ideas = { IdeaReminderScheduler(app).reconcile() },
+                    )
                     if (!outcome.allSucceeded) {
                         android.util.Log.w(
                             "BacklotReminderHealth",
