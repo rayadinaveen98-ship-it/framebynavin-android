@@ -1205,7 +1205,7 @@ internal fun V289PersonalSpacesScreen(
     }
 }
 
-private fun V289SpaceIcon(type: String): ImageVector =
+internal fun V289SpaceIcon(type: String): ImageVector =
     when (runCatching { V289SpaceType.valueOf(type) }.getOrDefault(V289SpaceType.CUSTOM)) {
         V289SpaceType.SKIN_CARE -> Icons.Outlined.WbSunny
         V289SpaceType.FITNESS -> Icons.Outlined.FitnessCenter
