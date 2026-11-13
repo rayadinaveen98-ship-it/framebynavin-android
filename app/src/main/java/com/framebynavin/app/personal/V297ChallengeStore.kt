@@ -78,6 +78,11 @@ internal class V297ChallengeStore(context: Context) {
                 else encoded
                 prefs[primary] = encoded
             }
+            if (!preservePreviousForRecovery) {
+                // The stored original must also be the recovery copy after
+                // an idempotent owner inverse; never retain imported target.
+                prefs[lastGood] = encoded
+            }
             result = updated
         }
         result
