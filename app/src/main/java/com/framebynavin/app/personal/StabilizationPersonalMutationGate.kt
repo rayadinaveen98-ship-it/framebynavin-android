@@ -401,6 +401,58 @@ internal object StabilizationPersonalMutationGate {
         action: suspend (StabilizationRestoreJournalRecord) -> T,
     ): T = withPendingRecoveryInspection(journalRootFor(context), action)
 
+    /**
+     * H3 combined CRASH FORENSICS, READ ONLY. A valid V344 checkpoint may
+     * pause all ordinary Personal writes. Holding the process mutex, this
+     * permits ONLY withStableSnapshot (never withOwnerMutation) so we can
+     * inspect actual reminder/receipt/Space metadata after process death.
+     *
+     * No independent v1/v2 recovery permit is borrowed. A torn cross-domain
+     * checkpoint refuses entry rather than being treated as empty data.
+     */
+    private class CombinedReadInspectionPermit(
+        val root: String,
+        val expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<CombinedReadInspectionPermit>
+    }
+
+    internal suspend fun <T> withPendingCombinedReadInspection(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        action: suspend () -> T,
+    ): T {
+        val root = journalRootFor(context)
+        val path = root.absoluteFile.normalize().path
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null) {
+            "Combined read-only recovery inspection cannot borrow writer authority"
+        }
+        return processMutex.withLock {
+            val journal = com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Combined Personal inspection started against stale recovery evidence"
+            }
+            val permit = CombinedReadInspectionPermit(path, expected)
+            try {
+                withContext(permit) {
+                    val result = action()
+                    check(journal.requireCheckpointReadOnly() == expected) {
+                        "Cross-domain recovery changed during Personal forensics"
+                    }
+                    result
+                }
+            } finally {
+                permit.active = false
+            }
+        }
+    }
+
     internal fun journalRootFor(context: Context): File =
         File(context.applicationContext.filesDir, ACTIVE)
 
@@ -424,6 +476,14 @@ internal object StabilizationPersonalMutationGate {
         root: File, ordinaryMutation: Boolean, action: suspend () -> T,
     ): T {
         val path = root.absoluteFile.normalize().path
+        val combinedRead = currentCoroutineContext()[CombinedReadInspectionPermit]
+        if (combinedRead != null) {
+            check(!ordinaryMutation && combinedRead.active &&
+                combinedRead.root == path) {
+                "Combined recovery inspection cannot mutate Personal records or media"
+            }
+            return action()
+        }
         // The combined journal takes precedence over all standalone v1/v2
         // permits: none may change half-restored Creator+Personal owner data.
         requireNoCombinedRestoreJournal(root)
