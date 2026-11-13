@@ -424,6 +424,9 @@ internal object StabilizationPersonalMutationGate {
         root: File, ordinaryMutation: Boolean, action: suspend () -> T,
     ): T {
         val path = root.absoluteFile.normalize().path
+        // The combined journal takes precedence over all standalone v1/v2
+        // permits: none may change half-restored Creator+Personal owner data.
+        requireNoCombinedRestoreJournal(root)
         val v2Recovery = currentCoroutineContext()[V2RecoveryWritePermit]
         if (v2Recovery != null) {
             check(v2Recovery.active && v2Recovery.legacyRoot == path) {
@@ -481,12 +484,6 @@ internal object StabilizationPersonalMutationGate {
             }
             return action()
         }
-        // A combined Creator+Personal journal is not an ordinary Personal
-        // restore. Until the dedicated two-domain owner recovery permit
-        // exists, no normal Personal writer or snapshot may bypass it.
-        // The validated v1/v2 recovery permits above remain available for
-        // recovery of their own independently authenticated journals.
-        requireNoCombinedRestoreJournal(root)
         val inherited = currentCoroutineContext()[Permit]
         if (inherited != null) {
             check(inherited.active && inherited.root == path) {
