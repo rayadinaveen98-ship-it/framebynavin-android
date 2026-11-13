@@ -111,6 +111,10 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
             "Encrypted target or original escrow no longer matches H4"
         }
         val target = exactTarget()
+        val originalEscrow = exactOriginalEscrow()
+        check(sha256(originalEscrow) == cp.escrowSha256) {
+            "Original encrypted owner rollback escrow changed before recovery"
+        }
         check(sha256(target) == cp.sourceSha256) {
             "Owner selected encrypted target has changed"
         }
@@ -191,7 +195,8 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
                                 verifiedOriginalVoice.ideaCount == report.originalIdeaCount &&
                                 verifiedOriginalVoice.verifiedOriginalVoiceCount ==
                                     report.originalVoiceFileCount &&
-                                sha256(target) == cp.sourceSha256) {
+                                sha256(target) == cp.sourceSha256 &&
+                                sha256(originalEscrow) == cp.escrowSha256) {
                                 "Owner original data changed before missing Voice replay"
                             }
                             val before = allocations.auditReadOnly(plan)
@@ -207,6 +212,8 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
                                 after.alteredOrPartialCopies == 0 &&
                                 after.unsafeCopies == 0 &&
                                 newCount == before.missingCopies &&
+                                sha256(target) == cp.sourceSha256 &&
+                                sha256(originalEscrow) == cp.escrowSha256 &&
                                 journal.requireCheckpointReadOnly() == cp &&
                                 decisions.readOnlyStatus() ==
                                     V347OwnerRecoveryDecisionJournal.ReadState.Recorded(
@@ -301,6 +308,20 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
             copied++
         }
         return copied
+    }
+
+    private fun exactOriginalEscrow(): File {
+        val folder = File(app.filesDir, "backlot-unified-owner-recovery-escrow-v1")
+        check(folder.isDirectory && !Files.isSymbolicLink(folder.toPath()) &&
+            folder.canonicalFile.parentFile == app.filesDir.canonicalFile) {
+            "Untrusted original owner recovery escrow directory"
+        }
+        val file = File(folder, "original-owner-encrypted-unified.zip")
+        check(file.isFile && !Files.isSymbolicLink(file.toPath()) &&
+            file.canonicalFile.parentFile == folder.canonicalFile) {
+            "Untrusted original owner recovery escrow archive"
+        }
+        return file
     }
 
     private fun exactTarget(): File {
