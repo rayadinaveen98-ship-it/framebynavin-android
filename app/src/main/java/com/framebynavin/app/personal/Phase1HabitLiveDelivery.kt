@@ -149,25 +149,44 @@ internal class Phase1HabitAlarmScheduler(context: Context) {
     suspend fun reconcile(now: Instant = Instant.now()): Unit =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
             Phase1HabitNotification.ensureChannels(app)
+            val failures = mutableListOf<String>()
+            // One challenge's failed alarm must not starve the other alarms.
             Phase1HabitStore(app).load().forEach { challenge ->
-                pending(challenge.id, 0L,
-                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
-                    ?.let { previous ->
-                        alarms.cancel(previous)
-                        // Revoke the OS token too, not just its scheduled slot:
-                        // a paused or changed activity must leave no stale intent.
-                        previous.cancel()
+                val target = challenge.nextAlertAfter(now)?.toInstant()?.toEpochMilli()
+                try {
+                    if (target == null) {
+                        pending(challenge.id, 0L,
+                            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+                            ?.let {
+                                alarms.cancel(it)
+                                it.cancel()
+                            }
+                    } else {
+                        // Replacing the same PendingIntent identity avoids a cancel-before-
+                        // schedule gap that could lose the upcoming occurrence on failure.
+                        val pi = checkNotNull(pending(challenge.id, target,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+                        val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                            alarms.canScheduleExactAlarms()
+                        if (exact) {
+                            alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target, pi)
+                        } else {
+                            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target, pi)
+                        }
+                        Phase1HabitDeliveryLedger.recordSafely(app, challenge.id, target,
+                            if (exact) Phase1HabitDeliveryStage.ARMED_EXACT
+                            else Phase1HabitDeliveryStage.ARMED_INEXACT)
                     }
-                val at = challenge.nextAlertAfter(now)?.toInstant()?.toEpochMilli()
-                    ?: return@forEach
-                val intent = checkNotNull(pending(challenge.id, at,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                    alarms.canScheduleExactAlarms()) {
-                    alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
-                } else {
-                    alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
+                } catch (error: Exception) {
+                    android.util.Log.w("BacklotHabit",
+                        "Challenge alarm could not be reconciled: ${challenge.id}", error)
+                    if (target != null) Phase1HabitDeliveryLedger.recordSafely(
+                        app, challenge.id, target, Phase1HabitDeliveryStage.RECONCILE_FAILED)
+                    failures.add(challenge.id)
                 }
+            }
+            check(failures.isEmpty()) {
+                "Scheduling failed for ${failures.size} challenge(s); retry recovery"
             }
         }
 }
@@ -178,41 +197,77 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
         val id = intent.getStringExtra(Phase1HabitNotification.ID)
             ?.takeIf { it.isNotBlank() } ?: return
         val at = intent.getLongExtra(Phase1HabitNotification.AT, 0L)
+        if (at <= 0L) return
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
+            val app = context.applicationContext
             try {
                 withTimeout(9_000L) {
-                    val app = context.applicationContext
+                    Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                        Phase1HabitDeliveryStage.OS_FIRED)
                     val record = StabilizationPersonalMutationGate.withStableSnapshot(app) {
                         Phase1HabitStore(app).load().firstOrNull { it.id == id }
                             ?.takeIf { Phase1HabitOccurrencePolicy.current(
                                 it, at, System.currentTimeMillis()) }
                     }
-                    if (record != null &&
-                        NotificationManagerCompat.from(app).areNotificationsEnabled()) {
-                        Phase1HabitNotification.ensureChannels(app)
-                        val day = LocalDate.ofInstant(Instant.ofEpochMilli(at),
-                            ZoneId.of(record.zoneId))
-                        app.getSystemService(NotificationManager::class.java).notify(
-                            "backlot:habit:" + record.id + ":" + day,
-                            record.id.hashCode(), Phase1HabitNotification.build(app, record, at))
-                        if (record.alertKind == Phase1HabitAlertKind.VOICE) {
-                            runCatching {
-                                ContextCompat.startForegroundService(app,
-                                    Intent(app, Phase1HabitVoiceService::class.java)
-                                        .putExtra(Phase1HabitNotification.TEXT, record.activity)
-                                        .putExtra(Phase1HabitNotification.ID, record.id)
-                                        .putExtra(Phase1HabitNotification.AT, at))
-                            }.onFailure {
-                                android.util.Log.w("BacklotHabit", "Voice playback restricted", it)
+                    when {
+                        record == null -> Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                            Phase1HabitDeliveryStage.STALE_IGNORED)
+                        !NotificationManagerCompat.from(app).areNotificationsEnabled() ->
+                            Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                                Phase1HabitDeliveryStage.APP_NOTIFICATIONS_BLOCKED)
+                        else -> {
+                            Phase1HabitNotification.ensureChannels(app)
+                            val manager = app.getSystemService(NotificationManager::class.java)
+                            val channelBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                                manager.getNotificationChannel(
+                                    Phase1HabitNotification.channel(requireNotNull(record.alertKind))
+                                )?.importance == NotificationManager.IMPORTANCE_NONE
+                            if (channelBlocked) {
+                                Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                                    Phase1HabitDeliveryStage.CHANNEL_BLOCKED)
+                            } else {
+                                try {
+                                    val day = LocalDate.ofInstant(Instant.ofEpochMilli(at),
+                                        ZoneId.of(record.zoneId))
+                                    manager.notify("backlot:habit:" + record.id + ":" + day,
+                                        record.id.hashCode(),
+                                        Phase1HabitNotification.build(app, record, at))
+                                    Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                                        Phase1HabitDeliveryStage.NOTIFICATION_POSTED)
+                                    if (record.alertKind == Phase1HabitAlertKind.VOICE) {
+                                        Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                                            Phase1HabitDeliveryStage.VOICE_REQUESTED)
+                                        runCatching {
+                                            ContextCompat.startForegroundService(app,
+                                                Intent(app, Phase1HabitVoiceService::class.java)
+                                                    .putExtra(Phase1HabitNotification.TEXT, record.activity)
+                                                    .putExtra(Phase1HabitNotification.ID, record.id)
+                                                    .putExtra(Phase1HabitNotification.AT, at))
+                                        }.onFailure {
+                                            Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                                                Phase1HabitDeliveryStage.VOICE_SERVICE_RESTRICTED)
+                                            android.util.Log.w("BacklotHabit",
+                                                "Voice playback restricted", it)
+                                        }
+                                    }
+                                } catch (error: Exception) {
+                                    Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                                        Phase1HabitDeliveryStage.NOTIFICATION_FAILED)
+                                    android.util.Log.w("BacklotHabit",
+                                        "Challenge notification was not posted", error)
+                                }
                             }
                         }
                     }
-                    // No synthetic Done: only explicit owner confirmation writes it.
+                    // Notification or voice delivery must never forge a Done receipt.
                     Phase1HabitAlarmScheduler(app).reconcile()
                 }
             } catch (error: Exception) {
-                android.util.Log.w("BacklotHabit", "Challenge alarm needs attention", error)
+                Phase1HabitDeliveryLedger.recordSafely(app, id, at,
+                    Phase1HabitDeliveryStage.RECONCILE_FAILED)
+                android.util.Log.w("BacklotHabit",
+                    "Challenge delivery/recovery needs attention", error)
             } finally { pending.finish() }
         }
     }
