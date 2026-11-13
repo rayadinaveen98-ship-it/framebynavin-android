@@ -14,7 +14,9 @@ import org.json.JSONObject
  */
 internal object Phase1HabitCodec {
     private const val FORMAT = "backlot.personal.single-activity-21day"
-    private const val VERSION = 1
+    // v2 carries the archived bit. Older v1 apps must fail closed instead of
+    // silently reading an archived item as active and re-arming its alarm.
+    private const val VERSION = 2
     private const val MAX_CHALLENGES = 40
     private const val MAX_JSON_CHARS = 1_000_000
 
@@ -66,7 +68,8 @@ internal object Phase1HabitCodec {
     fun decode(raw: String): List<Phase1HabitChallenge> {
         require(raw.length <= MAX_JSON_CHARS) { "Challenge archive exceeds size limit" }
         val root = JSONObject(raw)
-        require(root.getString("format") == FORMAT && root.getInt("version") == VERSION) {
+        val version = root.getInt("version")
+        require(root.getString("format") == FORMAT && version in 1..VERSION) {
             "Unsupported challenge archive"
         }
         val items = root.getJSONArray("items")
