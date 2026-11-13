@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.framebynavin.app.personal.Phase1HabitManagementCoordinator
 import com.framebynavin.app.personal.Phase1HabitAlertKind
 import com.framebynavin.app.personal.Phase1HabitChallenge
 import com.framebynavin.app.personal.Phase1HabitCompletionMode
@@ -56,6 +57,7 @@ internal fun Phase1HabitLocalStoreReview(
 ) {
     val context = LocalContext.current
     val store = remember(context) { Phase1HabitStore(context) }
+    val manager = remember(context) { Phase1HabitManagementCoordinator(context, store) }
     val groupStore = remember(context) { V298ReminderGroupStore(context) }
     val coroutineScope = rememberCoroutineScope()
     var records by remember { mutableStateOf<List<Phase1HabitChallenge>>(emptyList()) }
@@ -63,6 +65,12 @@ internal fun Phase1HabitLocalStoreReview(
     var fatalReadError by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var editTarget by remember { mutableStateOf<Phase1HabitChallenge?>(null) }
+    var manageError by remember { mutableStateOf<String?>(null) }
+    var archiveTarget by remember {
+        mutableStateOf<Pair<Phase1HabitChallenge, Boolean>?>(null)
+    }
+    var deleteTarget by remember { mutableStateOf<Phase1HabitChallenge?>(null) }
 
     var chosenId by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -110,7 +118,8 @@ internal fun Phase1HabitLocalStoreReview(
             delay(30_000L)
         }
     }
-    val selected = records.firstOrNull { it.id == chosenId } ?: records.lastOrNull()
+    val selected = records.firstOrNull { it.id == chosenId }
+        ?: records.lastOrNull { !it.archived } ?: records.lastOrNull()
 
     LaunchedEffect(linkDialog) {
         if (!linkDialog) return@LaunchedEffect
@@ -166,7 +175,8 @@ internal fun Phase1HabitLocalStoreReview(
                                 onClick = { chosenId = item.id; detailDay = null; message = null },
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp, if (selected.id == item.id) BacklotAccent else BacklotBorder),
-                            ) { Text(item.activity, color = BacklotPrimaryText, maxLines = 1) }
+                            ) { Text(item.activity + if (item.archived) " · ARCHIVED" else "",
+                                color = BacklotPrimaryText, maxLines = 1) }
                         }
                     }
                 }
@@ -249,11 +259,44 @@ internal fun Phase1HabitLocalStoreReview(
                         liveErrorMessage = message,
                     )
                 } else if (selected != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 3.dp),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        if (!selected.archived) {
+                            TextButton(
+                                onClick = { editTarget = selected; manageError = null },
+                                enabled = !saving,
+                                modifier = Modifier.testTag("habit-manage-edit"),
+                            ) { Text("EDIT", color = BacklotAccent) }
+                        }
+                        TextButton(
+                            onClick = {
+                                archiveTarget = selected to !selected.archived
+                                manageError = null
+                            },
+                            enabled = !saving,
+                            modifier = Modifier.testTag("habit-manage-archive"),
+                        ) { Text(if (selected.archived) "RESTORE" else "ARCHIVE",
+                            color = BacklotAccent) }
+                        TextButton(
+                            onClick = { deleteTarget = selected; manageError = null },
+                            enabled = !saving,
+                            modifier = Modifier.testTag("habit-manage-delete"),
+                        ) { Text("DELETE", color = BacklotError) }
+                    }
+                    if (selected.archived) {
+                        Text("Archived · ${selected.confirmations.size} / 21 days confirmed. " +
+                            "This challenge will not schedule alerts until restored.",
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                            color = BacklotSecondaryText)
+                    }
                     if (message != null) {
                         Text(message.orEmpty(), color = BacklotError,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
                     }
-                    if (selected.alertKind != null) {
+                    if (selected.alertKind != null && !selected.archived) {
                         Phase1HabitAlertHealthPanel(
                             challenge = selected,
                             now = now,
@@ -302,7 +345,96 @@ internal fun Phase1HabitLocalStoreReview(
             }
         }
     }
-    val currentChallenge = records.firstOrNull { it.id == chosenId } ?: records.lastOrNull()
+    val currentChallenge = records.firstOrNull { it.id == chosenId }
+        ?: records.lastOrNull { !it.archived } ?: records.lastOrNull()
+    editTarget?.let { snapshot ->
+        Phase1HabitEditDialog(
+            challenge = snapshot, busy = saving, saveError = manageError,
+            onDismiss = { editTarget = null; manageError = null },
+            onSave = { activity, date, time, kind, mode ->
+                if (!saving) {
+                    saving = true
+                    coroutineScope.launch {
+                        try {
+                            val result = manager.edit(snapshot, activity, date, time, kind, mode)
+                            records = result.records
+                            editTarget = null
+                            manageError = null
+                            message = result.deliveryWarning ?: "Challenge updated. Done history preserved."
+                        } catch (error: Exception) {
+                            manageError = error.message
+                                ?: "Could not edit challenge. Existing progress was not changed."
+                        } finally { saving = false }
+                    }
+                }
+            },
+        )
+    }
+    archiveTarget?.let { (snapshot, toArchive) ->
+        Phase1HabitConfirmManagementDialog(
+            title = if (toArchive) "Archive this challenge?" else "Restore challenge?",
+            message = if (toArchive)
+                "Archive \"${snapshot.activity}\"? All ${snapshot.confirmations.size} " +
+                    "Done receipts and ${snapshot.dayNotes.size} notes remain saved. " +
+                    "Upcoming alerts will be canceled until you restore it."
+                else "Restore \"${snapshot.activity}\"? Saved progress remains intact. " +
+                    "Future alerts will be scheduled again when Android permits.",
+            confirmLabel = if (toArchive) "ARCHIVE" else "RESTORE",
+            destructive = false, busy = saving,
+            onDismiss = { archiveTarget = null },
+            onConfirm = {
+                if (!saving) {
+                    saving = true
+                    coroutineScope.launch {
+                        try {
+                            val result = manager.archive(snapshot, toArchive)
+                            records = result.records
+                            archiveTarget = null
+                            chosenId = snapshot.id
+                            message = result.deliveryWarning
+                                ?: if (toArchive) "Challenge archived with all progress intact."
+                                else "Challenge restored with previous progress intact."
+                        } catch (error: Exception) {
+                            archiveTarget = null
+                            message = error.message ?: "Archive change was not saved."
+                        } finally { saving = false }
+                    }
+                }
+            },
+        )
+    }
+    deleteTarget?.let { snapshot ->
+        Phase1HabitConfirmManagementDialog(
+            title = "Permanently delete this challenge?",
+            message = "Delete \"${snapshot.activity}\"? This permanently removes " +
+                "${snapshot.confirmations.size} Done receipts and " +
+                "${snapshot.dayNotes.size} daily notes for THIS challenge only. " +
+                "This cannot be undone. Other challenges, reminders and Spaces are not deleted.",
+            confirmLabel = "DELETE CHALLENGE",
+            destructive = true, busy = saving,
+            onDismiss = { deleteTarget = null },
+            onConfirm = {
+                if (!saving) {
+                    saving = true
+                    coroutineScope.launch {
+                        try {
+                            val result = manager.delete(snapshot)
+                            records = result.records
+                            deleteTarget = null
+                            chosenId = result.records.lastOrNull { !it.archived }?.id
+                                ?: result.records.lastOrNull()?.id
+                            detailDay = null
+                            message = result.deliveryWarning
+                                ?: "Challenge and its history deleted. Other records were preserved."
+                        } catch (error: Exception) {
+                            deleteTarget = null
+                            message = error.message ?: "Deletion failed; reopen the challenge."
+                        } finally { saving = false }
+                    }
+                }
+            },
+        )
+    }
     if (linkDialog && currentChallenge != null) {
         val targetId = currentChallenge.id
         FC13ChallengeLinksDialog(
