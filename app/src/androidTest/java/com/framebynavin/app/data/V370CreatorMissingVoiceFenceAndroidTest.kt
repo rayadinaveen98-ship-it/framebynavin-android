@@ -70,7 +70,7 @@ class V370CreatorMissingVoiceFenceAndroidTest {
             proof = V346InterruptedRecoveryProof(
                 journal = checkpoint,
                 sealedArchives = pair,
-                recoveryKind = V344RecoveryKind.CREATOR_MAY_BE_PARTIAL,
+                recoveryKind = V344UnifiedRestorePolicy.classify(checkpoint.step),
                 creatorStandaloneRecoveryMarker = false,
                 personalStandaloneRecoveryMarker = false,
             ),
@@ -213,6 +213,84 @@ class V370CreatorMissingVoiceFenceAndroidTest {
             assertEquals(before, V344UnifiedRestoreJournal(context)
                 .requireCheckpointReadOnly())
         } finally {
+            root.deleteRecursively()
+        }
+    }
+
+
+    @Test fun committedCreatorOriginalRollbackRequiresPersonalFenceAndReverseChoice() =
+        runBlocking {
+            val root = File(app.filesDir, "v368-committed-reverse-" + UUID.randomUUID())
+            assertTrue(root.mkdir())
+            try {
+                val context = isolated(root)
+                CreatorDataGate.installUnifiedRecoveryFence(context)
+                val before = beforeCreator(context)
+                val checkpoint = V344UnifiedRestoreJournal(context).checkpoint(
+                    before, V344UnifiedRestoreStep.CREATOR_WRITTEN,
+                    before.updatedAtMillis + 1L,
+                )
+                choose(context, checkpoint, V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL)
+                var entered = false
+                assertTrue(runCatching {
+                    CreatorDataGate.withJournalBoundCommittedCreatorReverse(
+                        context, checkpoint, ownerConfirmed = true,
+                    ) { entered = true }
+                }.isFailure)
+                assertFalse(entered)
+
+                StabilizationPersonalMutationGate.withPendingCombinedReadInspection(
+                    context, checkpoint,
+                ) {
+                    CreatorDataGate.withJournalBoundCommittedCreatorReverse(
+                        context, checkpoint, ownerConfirmed = true,
+                    ) {
+                        CreatorDataGate.transaction {
+                            entered = true
+                            check(CreatorDataGate.isJournalBoundCreatorWrite(context))
+                        }
+                    }
+                }
+                assertTrue(entered)
+                assertEquals(checkpoint, V344UnifiedRestoreJournal(context)
+                    .requireCheckpointReadOnly())
+                assertTrue(V347OwnerRecoveryDecisionJournal.hasPendingFor(context))
+                assertTrue(runCatching {
+                    CreatorDataGate.readyTransaction(context) {
+                        error("Ordinary Creator work must remain frozen")
+                    }
+                }.isFailure)
+            } finally {
+                CreatorDataGate.installUnifiedRecoveryFence(app)
+                root.deleteRecursively()
+            }
+        }
+
+    @Test fun committedCreatorRollbackRefusesForwardChoice() = runBlocking {
+        val root = File(app.filesDir, "v368-committed-reverse-" + UUID.randomUUID())
+        assertTrue(root.mkdir())
+        try {
+            val context = isolated(root)
+            CreatorDataGate.installUnifiedRecoveryFence(context)
+            val before = beforeCreator(context)
+            val checkpoint = V344UnifiedRestoreJournal(context).checkpoint(
+                before, V344UnifiedRestoreStep.CREATOR_WRITTEN,
+                before.updatedAtMillis + 1L,
+            )
+            choose(context, checkpoint, V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
+            var entered = false
+            assertTrue(runCatching {
+                StabilizationPersonalMutationGate.withPendingCombinedReadInspection(
+                    context, checkpoint,
+                ) {
+                    CreatorDataGate.withJournalBoundCommittedCreatorReverse(
+                        context, checkpoint, ownerConfirmed = true,
+                    ) { entered = true }
+                }
+            }.isFailure)
+            assertFalse(entered)
+        } finally {
+            CreatorDataGate.installUnifiedRecoveryFence(app)
             root.deleteRecursively()
         }
     }
