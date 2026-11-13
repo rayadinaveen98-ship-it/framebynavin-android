@@ -82,15 +82,17 @@ class V358UnifiedPersonalWriteScopeAndroidTest {
                 StabilizationPersonalMutationGate.withStableSnapshot(testApp) {
                     snapshotRan.set(true)
                 }
-                assertThrows(IllegalStateException::class.java) {
-                    runBlocking {
+                var deniedNestedWrite = false
+                try {
+                    StabilizationPersonalMutationGate.withOwnerMutation(testApp) {
                         StabilizationPersonalMutationGate.withOwnerMutation(testApp) {
-                            StabilizationPersonalMutationGate.withOwnerMutation(testApp) {
-                                nestedWriteRan.set(true)
-                            }
+                            nestedWriteRan.set(true)
                         }
                     }
+                } catch (_: IllegalStateException) {
+                    deniedNestedWrite = true
                 }
+                assertTrue(deniedNestedWrite)
                 assertFalse(nestedWriteRan.get())
                 val before = journal.checkpoint(
                     creatorDone, V344UnifiedRestoreStep.BEFORE_PERSONAL,
