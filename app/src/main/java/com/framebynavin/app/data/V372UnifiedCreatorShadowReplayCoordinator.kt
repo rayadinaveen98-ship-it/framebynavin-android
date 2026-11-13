@@ -491,6 +491,148 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
     }
 
     /**
+     * Crash gap: native Creator import has already cleared pending.json but
+     * H4 still says BEFORE_CREATOR. DO NOT re-import. After fresh owner
+     * confirmation, verify the entire live TARGET plus ORIGINAL Personal,
+     * retained media, source, escrow, original V347 choice and Best Frames.
+     * Only then may H4 advance one Creator step without touching records.
+     *
+     * A still-present/torn native journal or partly restored target refuses
+     * this path; it requires the separately reviewed native recovery path.
+     */
+    internal suspend fun finishAlreadyInstalledCreatorAfterCrashInternalOnly(
+        freshOwnerConsent: Boolean,
+        passphrase: CharArray,
+    ): V357CreatorForwardReceipt = withContext(Dispatchers.IO) {
+        require(freshOwnerConsent && passphrase.size >= 12) {
+            "Interrupted native Creator recovery needs fresh owner consent/passphrase"
+        }
+        val cp = h4.requireCheckpointReadOnly()
+        require(cp.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Only an interrupted Creator checkpoint may be reconciled"
+        }
+        val paired = V345UnifiedAuthenticatedRestoreParts(app)
+            .authenticateForInterruptedRecovery(
+                ownerConfirmedReview = true, passphrase = passphrase,
+            )
+        val audio = V366UnifiedCreatorVoiceRecoveryInspector(app)
+            .inspectOwnerReviewed(ownerConfirmed = true, passphrase = passphrase)
+        val decision = (ownerDecision.readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("No owner-approved Creator forward recovery decision")
+        check(V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(paired, cp) &&
+            audio.transactionId == cp.transactionId &&
+            decision.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(decision, cp) &&
+            native.inspectReadOnly() is
+                V364UnifiedCreatorPendingRecoveryProof.Assessment
+                    .VoiceAllocatedBeforeNativeCreatorJournal &&
+            !IdeaProjectConversion(app).hasPendingRecovery()) {
+            "Native pending journal or unauthenticated owner evidence blocks reconciliation"
+        }
+        val source = ownerFile(
+            "backlot-unified-owner-restore-preparation-v1",
+            "incoming-unified-encrypted.zip",
+        )
+        val rollback = ownerFile(
+            "backlot-unified-owner-recovery-escrow-v1",
+            "original-owner-encrypted-unified.zip",
+        )
+        check(sha256(source) == cp.sourceSha256 &&
+            sha256(rollback) == cp.escrowSha256) {
+            "Owner encrypted archive differs from recovery checkpoint"
+        }
+        source.inputStream().buffered().use { encrypted ->
+            V341UnifiedOwnerArchive.stageAndVerify(
+                encrypted, passphrase, app.cacheDir,
+            ).use { inner ->
+                check(sha256(inner.creator) == paired.targetCreatorSha256) {
+                    "The Creator TARGET archive changed after owner authentication"
+                }
+                val portable = PortableCreatorBackupManager(app)
+                val targetPreview = inner.creator.inputStream().buffered().use {
+                    portable.validate(it)
+                }
+                val staged = inner.creator.inputStream().buffered().use {
+                    PortableBackupArchive.stage(it, app.cacheDir)
+                }
+                try {
+                    val allocation = originalInstall.inspectReadOnly()
+                        ?: error("Native Creator target is missing its original Voice allocation")
+                    val shadow = shadowInstall.inspectReadOnly()
+                    val intended = portable.previewRecoveredCreatorPortable(
+                        staged, allocation, shadow,
+                    )
+                    check(intended.transactionId == cp.transactionId &&
+                        audio.installedCopies == originalInstall.auditReadOnly(allocation) &&
+                        (intended.verifiedPortableFrameCount != null ||
+                            (staged.bestFrames.isEmpty() &&
+                                org.json.JSONObject(staged.backupJson)
+                                    .getString("personalFrames") == "[]"))) {
+                        "Unverified Creator target media cannot be marked completed"
+                    }
+
+                    StabilizationPersonalMutationGate
+                        .withCombinedCreatorRecoveryFinishFence(
+                            app, cp, ownerConfirmed = true,
+                        ) {
+                            CreatorDataGate.withJournalBoundCreatorWrite(
+                                app, cp, ownerConfirmed = true,
+                            ) {
+                                check(native.inspectReadOnly() is
+                                    V364UnifiedCreatorPendingRecoveryProof.Assessment
+                                        .VoiceAllocatedBeforeNativeCreatorJournal &&
+                                    h4.requireCheckpointReadOnly() == cp &&
+                                    ownerDecision.readOnlyStatus() ==
+                                        V347OwnerRecoveryDecisionJournal.ReadState.Recorded(
+                                            decision,
+                                        ) &&
+                                    originalInstall.inspectReadOnly() == allocation &&
+                                    shadowInstall.inspectReadOnly() == shadow) {
+                                    "Interrupted native restore or owner direction changed"
+                                }
+                                val refreshed = portable.previewRecoveredCreatorPortable(
+                                    staged, allocation, shadow,
+                                )
+                                check(refreshed == intended) {
+                                    "Verified target data changed before Creator reconciliation"
+                                }
+                                // Read-only live TARGET verification, including
+                                // original Personal records, photos and Voice.
+                                verifyInstalledCreatorTargetInsideOwnerGate(
+                                    cp, intended, staged, allocation, shadow,
+                                    decision, source, rollback,
+                                )
+                            }
+                            val next = h4.checkpoint(
+                                cp, V344UnifiedRestoreStep.CREATOR_WRITTEN,
+                                maxOf(System.currentTimeMillis(), cp.updatedAtMillis + 1L),
+                                otherRecoveryPending = {
+                                    !ownerDecision.matchesUnchangedForwardChoice(cp, decision)
+                                },
+                            )
+                            check(ownerDecision.readOnlyStatus() ==
+                                V347OwnerRecoveryDecisionJournal.ReadState
+                                    .CreatorWrittenRetained(decision, next)) {
+                                "Reconciled native Creator checkpoint lost its owner decision"
+                            }
+                            V357CreatorForwardReceipt(
+                                combinedTransactionId = cp.transactionId,
+                                sourceSha256 = cp.sourceSha256,
+                                checkpointReached = next.step,
+                                restoredCreatorProjects = targetPreview.projectCount,
+                                personalRestored = false,
+                                combinedRestoreComplete = false,
+                            )
+                        }
+                } finally {
+                    staged.cleanup()
+                }
+            }
+        }
+    }
+
+    /**
      * The single shared post-native and post-crash target verifier.
      * Caller holds PERSONAL read fence then CREATOR owner writer. Returns
      * no new write authority or journal release permission.
