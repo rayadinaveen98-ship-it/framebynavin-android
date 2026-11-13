@@ -7,6 +7,7 @@ import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption
+import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -63,11 +64,13 @@ internal class V356UnifiedPersonalRecoveryRecipeReader(context: Context) {
             "backlot-unified-owner-recovery-escrow-v1",
             "original-owner-encrypted-unified.zip",
             passphrase,
+            expectedSha256 = authenticated.originalEscrowSha256,
         )
         val incoming = readPersonalSection(
             "backlot-unified-owner-restore-preparation-v1",
             "incoming-unified-encrypted.zip",
             passphrase,
+            expectedSha256 = authenticated.sourceSha256,
         )
         val merged = V355UnifiedPersonalRecoveryRecipePolicy.build(
             original.components, original.photos,
@@ -97,6 +100,7 @@ internal class V356UnifiedPersonalRecoveryRecipeReader(context: Context) {
         folder: String,
         filename: String,
         passphrase: CharArray,
+        expectedSha256: String,
     ): PersonalSection {
         val root = File(app.filesDir, folder)
         check(root.isDirectory && !Files.isSymbolicLink(root.toPath()) &&
@@ -108,7 +112,10 @@ internal class V356UnifiedPersonalRecoveryRecipeReader(context: Context) {
             file.canonicalFile.parentFile == root.canonicalFile) {
             "Owner archive source file is missing or untrusted"
         }
-        return file.inputStream().buffered().use { source ->
+        check(sha256(file) == expectedSha256) {
+            "Retained encrypted owner archive changed after original authentication"
+        }
+        val result = file.inputStream().buffered().use { source ->
             V341UnifiedOwnerArchive.stageAndVerify(
                 source, passphrase, app.cacheDir,
             ).use { verified ->
@@ -123,6 +130,25 @@ internal class V356UnifiedPersonalRecoveryRecipeReader(context: Context) {
                     }
                 }
             }
+        }
+        check(sha256(file) == expectedSha256) {
+            "Retained encrypted owner archive changed during additive recovery reconstruction"
+        }
+        return result
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { stream ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val size = stream.read(buffer)
+                if (size < 0) break
+                if (size > 0) digest.update(buffer, 0, size)
+            }
+        }
+        return digest.digest().joinToString("") {
+            "%02x".format(it.toInt() and 0xff)
         }
     }
 }
