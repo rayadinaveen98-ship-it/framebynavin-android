@@ -53,6 +53,9 @@ internal class V349UnifiedRestoreReservation(context: Context) {
             }
             // Single linearization point. From here every ordinary gated
             // writer becomes fail-closed, even after process death.
+            check(!V347OwnerRecoveryDecisionJournal.hasPendingFor(app)) {
+                "An earlier owner recovery direction needs review before a new reservation"
+            }
             val prepared = journal.prepare(candidate, ownerApproved = true)
             check(prepared == candidate) { "Combined journal did not retain the reviewed checkpoint" }
             V349UnwrittenReservation(
