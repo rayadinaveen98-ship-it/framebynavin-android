@@ -115,8 +115,6 @@ internal fun V339HomeOverflowMenu(
             modifier = Modifier
                 .defaultMinSize(minWidth = 188.dp)
                 .testTag("v339-home-overflow-list"),
-            containerColor = CinemaSurfaceRaised,
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         ) {
             V339HomeOverflowPolicy.actions.forEach { action ->
                 val enabled = V339HomeOverflowPolicy.enabled(action, sparkEnabled)
