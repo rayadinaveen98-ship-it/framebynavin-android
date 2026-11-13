@@ -283,9 +283,29 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
             "Original Creator rollback requires fresh owner consent and passphrase"
         }
         val expected = journal.requireCheckpointReadOnly()
-        require(expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN) {
-            "This rollback cannot run once the Personal write stage has begun"
+        require(expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN ||
+            expected.step == V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+            "Creator reverse requires untouched or already-reversed Personal records"
         }
+        // A previous Personal write MUST be independently reversed with its
+        // own durable six-phase journal before a Creator record may change.
+        val personalReversal = if (expected.step ==
+            V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+            val receipt = V374UnifiedPersonalOriginalRollbackInspector(app)
+                .inspectOwnerApproved(
+                    ownerConfirmed = true, passphrase = passphrase,
+                )
+            val retained = com.framebynavin.app.personal
+                .Phase1V2OriginalReverseJournal(app).inspect()
+            check(retained?.step == com.framebynavin.app.personal
+                .Phase1V2ReverseStep.ORIGINAL_RECORDS_VERIFIED &&
+                receipt.transactionId == expected.transactionId &&
+                retained.originalDigest == receipt.delta.originalDigest &&
+                retained.targetDigest == receipt.delta.mergedTargetDigest) {
+                "Only fully restored ORIGINAL Personal records permit Creator rollback"
+            }
+            receipt
+        } else null
         val decision = (decisions.readOnlyStatus() as?
             V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
             ?: error("Owner reverse-original direction was not durably recorded")
@@ -420,17 +440,45 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                         val personal = com.framebynavin.app.personal.V301LocalRecoveryReader(
                             app,
                         ).readForInterruptedV2Recovery()
+                        val originalPhotoProof =
+                            if (personalReversal == null) {
+                                V354UnifiedLiveSpacePhotoAudit(app)
+                                    .inspect(personal.photos)
+                                    .currentPhotoFilesMatchTheirLiveRows
+                            } else {
+                                com.framebynavin.app.personal.Phase1V2PhotoByteForensics
+                                    .inspect(
+                                        com.framebynavin.app.personal
+                                            .Phase1V2RestoreStep.BEFORE_PHOTOS,
+                                        File(app.filesDir, "backlot-personal-space-photos"),
+                                        personalReversal.originalPhotoRows,
+                                        personalReversal.targetPhotoRows,
+                                        personal.photos,
+                                    ).observedRecords ==
+                                    personalReversal.originalPhotoRows.size &&
+                                    personal.photos.sortedBy { it.id } ==
+                                        personalReversal.originalPhotoRows.sortedBy { it.id }
+                            }
                         check(V343UnifiedBaselineReader(app)
                             .personalFingerprintForInterrupted(personal) ==
                                 expected.personalOriginalSha256 &&
-                            V354UnifiedLiveSpacePhotoAudit(app)
-                                .inspect(personal.photos)
-                                .currentPhotoFilesMatchTheirLiveRows) {
-                            "Personal data or photos changed before committed Creator rollback"
+                            originalPhotoProof) {
+                            "Personal records or original JPEG bytes changed before Creator rollback"
                         }
-                        CreatorDataGate.withJournalBoundCommittedCreatorReverse(
-                            app, expected, ownerConfirmed = true,
-                        ) {
+                        suspend fun <T> withCorrectCreatorOwnerWriter(
+                            operation: suspend () -> T,
+                        ): T = if (personalReversal == null) {
+                            CreatorDataGate.withJournalBoundCommittedCreatorReverse(
+                                app, expected, ownerConfirmed = true,
+                                action = operation,
+                            )
+                        } else {
+                            CreatorDataGate.withJournalBoundCreatorReverseAfterPersonalOriginal(
+                                app, expected, ownerConfirmed = true,
+                                action = operation,
+                            )
+                        }
+                        withCorrectCreatorOwnerWriter {
                             val nativeRoot = File(
                                 app.filesDir, "creator_restore_recovery_v181",
                             )
@@ -491,9 +539,25 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                                 expected.creatorOriginalSha256 &&
                                 originalNow.personalSha256 ==
                                     expected.personalOriginalSha256 &&
-                                V354UnifiedLiveSpacePhotoAudit(app)
-                                    .inspect(livePersonal.photos)
-                                    .currentPhotoFilesMatchTheirLiveRows &&
+                                (if (personalReversal == null) {
+                                    V354UnifiedLiveSpacePhotoAudit(app)
+                                        .inspect(livePersonal.photos)
+                                        .currentPhotoFilesMatchTheirLiveRows
+                                } else {
+                                    com.framebynavin.app.personal
+                                        .Phase1V2PhotoByteForensics.inspect(
+                                            com.framebynavin.app.personal
+                                                .Phase1V2RestoreStep.BEFORE_PHOTOS,
+                                            File(app.filesDir,
+                                                "backlot-personal-space-photos"),
+                                            personalReversal.originalPhotoRows,
+                                            personalReversal.targetPhotoRows,
+                                            livePersonal.photos,
+                                        ).observedRecords ==
+                                        personalReversal.originalPhotoRows.size &&
+                                        livePersonal.photos.sortedBy { it.id } ==
+                                            personalReversal.originalPhotoRows.sortedBy { it.id }
+                                }) &&
                                 originalVoice.inspectOriginalIdeaReferencesReadOnly(
                                     ideasJson = JSONObject(current).getString("ideas"),
                                     expectedAudio = originalHashes,
