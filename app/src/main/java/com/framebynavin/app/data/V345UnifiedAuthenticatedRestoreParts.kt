@@ -31,13 +31,35 @@ internal class V345UnifiedAuthenticatedRestoreParts(context: Context) {
     suspend fun authenticate(
         ownerConfirmedReview: Boolean,
         passphrase: CharArray,
+    ): V345UnifiedAuthenticatedPairProof =
+        authenticateInternal(ownerConfirmedReview, passphrase, expectedRecovery = null)
+
+    /**
+     * Exceptionally, a READ-ONLY recovery inspector must authenticate the
+     * original and target even though the combined journal freezes all normal
+     * data-store reads. This method does not bypass either owner write gate;
+     * it only opens the two sealed archive files in private storage.
+     */
+    suspend fun authenticateForInterruptedRecovery(
+        ownerConfirmedReview: Boolean,
+        passphrase: CharArray,
+    ): V345UnifiedAuthenticatedPairProof {
+        require(ownerConfirmedReview && passphrase.size >= 12) {
+            "A fresh owner confirmation and passphrase are required"
+        }
+        val expected = V344UnifiedRestoreJournal(app).requireCheckpointReadOnly()
+        return authenticateInternal(ownerConfirmedReview, passphrase, expected)
+    }
+
+    private suspend fun authenticateInternal(
+        ownerConfirmedReview: Boolean,
+        passphrase: CharArray,
+        expectedRecovery: V344UnifiedRestoreCheckpoint?,
     ): V345UnifiedAuthenticatedPairProof = withContext(Dispatchers.IO) {
         require(ownerConfirmedReview && passphrase.size >= 12) {
             "Owner-selected review and 12+ character archive passphrase required"
         }
-        check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
-            "An interrupted cross-domain restore already requires separate owner recovery"
-        }
+        requireExpectedRecovery(expectedRecovery)
 
         val selected = source.status() as?
             V342UnifiedRestorePreparationStore.Status.ChecksumMatched
@@ -69,12 +91,12 @@ internal class V345UnifiedAuthenticatedRestoreParts(context: Context) {
             V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir)
         }.use { inspectCanonical(it, passphrase) }
 
-        check(!V344UnifiedRestoreJournal.hasPendingFor(app) &&
-            source.status() == selected &&
+        requireExpectedRecovery(expectedRecovery)
+        check(source.status() == selected &&
             escrow.inspectEscrowRecordReadOnly() == original) {
             "Recovery source or independent owner escrow changed during authentication"
         }
-        V345UnifiedAuthenticatedPairProof(
+        val proof = V345UnifiedAuthenticatedPairProof(
             sourceId = selected.transactionId,
             sourceSha256 = selected.sha256,
             originalEscrowId = original.transactionId,
@@ -89,6 +111,27 @@ internal class V345UnifiedAuthenticatedRestoreParts(context: Context) {
             originalPersonalSummary = originalProof.personalSummary,
             noMutationAuthority = true,
         )
+        if (expectedRecovery != null) {
+            check(V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(
+                proof, expectedRecovery,
+            )) { "Retained encrypted sources do not match the interrupted restore journal" }
+        }
+        proof
+    }
+
+    /** Never reinterpret an unreadable journal as an absent/clean one. */
+    private suspend fun requireExpectedRecovery(
+        expected: V344UnifiedRestoreCheckpoint?,
+    ) {
+        if (expected == null) {
+            check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+                "Interrupted restore requires the dedicated read-only recovery authentication"
+            }
+        } else {
+            check(V344UnifiedRestoreJournal(app).requireCheckpointReadOnly() == expected) {
+                "Combined recovery journal changed while authenticating owner archives"
+            }
+        }
     }
 
     private data class CanonicalInspection(
@@ -167,12 +210,23 @@ internal object V345UnifiedAuthenticatedPairPolicy {
         pair: V345UnifiedAuthenticatedPairProof,
         candidate: V344UnifiedRestoreCheckpoint,
     ): Boolean =
+        candidate.step == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
+            matchesRecoveryCheckpoint(pair, candidate)
+
+    /**
+     * Source/escrow binding at ANY interrupted checkpoint. This is
+     * authentication evidence only, never permission to continue writes.
+     */
+    fun matchesRecoveryCheckpoint(
+        pair: V345UnifiedAuthenticatedPairProof,
+        journal: V344UnifiedRestoreCheckpoint,
+    ): Boolean =
         pair.noMutationAuthority &&
-            candidate.step == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
-            pair.sourceId == candidate.sourceId &&
-            pair.sourceSha256 == candidate.sourceSha256 &&
-            pair.originalEscrowId == candidate.escrowId &&
-            pair.originalEscrowSha256 == candidate.escrowSha256 &&
+            runCatching { V344UnifiedRestorePolicy.validate(journal) }.isSuccess &&
+            pair.sourceId == journal.sourceId &&
+            pair.sourceSha256 == journal.sourceSha256 &&
+            pair.originalEscrowId == journal.escrowId &&
+            pair.originalEscrowSha256 == journal.escrowSha256 &&
             listOf(
                 pair.targetCreatorSha256, pair.targetPersonalSha256,
                 pair.originalCreatorSha256, pair.originalPersonalSha256,
