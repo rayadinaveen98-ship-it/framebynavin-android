@@ -246,8 +246,8 @@ internal fun V2232PersonalReminderHub(
         busy = true
         scope.launch {
             try {
-                block()
                 infoMessage = null
+                block()
             } catch (error: Exception) {
                 infoMessage = error.message ?: "Could not save. Your existing reminders were kept."
             } finally {
@@ -481,8 +481,13 @@ internal fun V2232PersonalReminderHub(
                                     token = item.pendingToken,
                                     action = action,
                                 )
-                                check(result == PersonalApplyResult.ACCEPTED) {
+                                check(result == PersonalApplyResult.ACCEPTED ||
+                                    result == PersonalApplyResult.ACCEPTED_NEEDS_REARM) {
                                     "This reminder is no longer awaiting a response."
+                                }
+                                if (result == PersonalApplyResult.ACCEPTED_NEEDS_REARM) {
+                                    infoMessage = "Response saved, but Android alarm scheduling " +
+                                        "needs attention. A recovery retry was requested."
                                 }
                             }
                         },
@@ -706,8 +711,13 @@ internal fun V2232PersonalReminderHub(
                                                 token = item.pendingToken,
                                                 action = action,
                                             )
-                                            check(result == PersonalApplyResult.ACCEPTED) {
+                                            check(result == PersonalApplyResult.ACCEPTED ||
+                                                result == PersonalApplyResult.ACCEPTED_NEEDS_REARM) {
                                                 "This notification is no longer active. Reopen the reminder."
+                                            }
+                                            if (result == PersonalApplyResult.ACCEPTED_NEEDS_REARM) {
+                                                infoMessage = "Snooze or response saved, but Android " +
+                                                    "alarm re-arm needs attention. Recovery was requested."
                                             }
                                         }
                                     },
