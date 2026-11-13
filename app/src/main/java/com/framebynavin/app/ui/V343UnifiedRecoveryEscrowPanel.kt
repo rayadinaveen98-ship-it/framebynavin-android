@@ -113,9 +113,9 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                 )
                 Text(
                     "Original escrow: " +
-                        if (review.originalRetained) "checksum retained" else "unverified" +
+                        (if (review.originalRetained) "checksum retained" else "unverified") +
                         " · Target: " +
-                        if (review.targetRetained) "checksum retained" else "unverified",
+                        (if (review.targetRetained) "checksum retained" else "unverified"),
                     color = MutedGold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v344-recovery-evidence"),
                 )
