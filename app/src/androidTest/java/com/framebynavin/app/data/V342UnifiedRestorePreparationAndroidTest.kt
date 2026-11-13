@@ -150,6 +150,27 @@ class V342UnifiedRestorePreparationAndroidTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun tornAtomicPreparationJournalRemainsUntouchedOnInspection() = runBlocking {
+        val root = newRoot()
+        try {
+            assertTrue(root.mkdir())
+            val fake = "synthetic encrypted file".toByteArray()
+            File(root, "incoming-unified-encrypted.zip").writeBytes(fake)
+            File(root, "prepared.json").writeBytes(
+                V342UnifiedPreparationCodec.encode(record(fake))
+            )
+            val backup = File(root, "prepared.json.bak").apply {
+                writeBytes(V342UnifiedPreparationCodec.encode(record(fake)))
+            }
+            val originalBackup = backup.readBytes()
+            val store = V342UnifiedRestorePreparationStore(app, root)
+            assertEquals(V342UnifiedRestorePreparationStore.Status.NeedsOwnerReview,
+                store.status())
+            assertTrue(backup.isFile)
+            assertTrue(originalBackup.contentEquals(backup.readBytes()))
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun unexpectedFileBlocksEvenExplicitDestructiveCleanup() = runBlocking {
         val root = newRoot()
         try {
