@@ -656,6 +656,13 @@ internal object StabilizationPersonalMutationGate {
                 check(existing.active && existing.root == path) {
                     "Personal owner's restore scope is stale"
                 }
+                // The outer owner mutation permits preparing an encrypted
+                // Personal v2 escrow and journal, not changing any records.
+                // All nested real store/photo mutations must carry the
+                // verified V2RecoveryWritePermit checked ABOVE.
+                check(!ordinaryMutation) {
+                    "Combined Personal data writes require the independent prepared v2 journal"
+                }
                 return action()
             }
             val owner = Permit(path)
