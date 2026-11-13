@@ -73,6 +73,25 @@ internal class V377UnifiedFinalVerification(context: Context) {
     internal suspend fun inspectOwnerApproved(
         freshOwnerConsent: Boolean,
         passphrase: CharArray,
+    ): V377UnifiedFinalReadOnlyProof =
+        verifyOwnerOutcome(freshOwnerConsent, passphrase, persistReceipt = false)
+
+    /**
+     * The SAME complete read-only forensics runs under BOTH owner locks.
+     * Only after Creator/Personal/media are checked inside the locks may
+     * the separate non-executable immutable outcome receipt be fsynced.
+     * Does not advance H4, archive journals, delete media or schedule alarms.
+     */
+    internal suspend fun recordVerifiedOwnerOutcomeInternalOnly(
+        freshOwnerConsent: Boolean,
+        passphrase: CharArray,
+    ): V377UnifiedFinalReadOnlyProof =
+        verifyOwnerOutcome(freshOwnerConsent, passphrase, persistReceipt = true)
+
+    private suspend fun verifyOwnerOutcome(
+        freshOwnerConsent: Boolean,
+        passphrase: CharArray,
+        persistReceipt: Boolean,
     ): V377UnifiedFinalReadOnlyProof = withContext(Dispatchers.IO) {
         require(freshOwnerConsent && passphrase.size >= 12) {
             "Complete combined verification requires fresh owner consent and password"
@@ -333,7 +352,7 @@ internal class V377UnifiedFinalVerification(context: Context) {
                                     choice) {
                                 "Owner source or H4 changed during verification"
                             }
-                            V377UnifiedFinalReadOnlyProof(
+                            val proof = V377UnifiedFinalReadOnlyProof(
                                 transactionId = cp.transactionId,
                                 checkpointSha256 =
                                     V359PersonalV2HandoffCodec.sha256(
@@ -355,6 +374,21 @@ internal class V377UnifiedFinalVerification(context: Context) {
                                 preservedImportedJpegFiles = photos.verifiedNewFiles,
                                 archivedNativePersonalVerified = archivedNative,
                             )
+                            if (persistReceipt) {
+                                check(h4.requireCheckpointReadOnly() == cp &&
+                                    decisions.inspectAuthenticatedForFinalReview(cp, pair) ==
+                                        choice) {
+                                    "Owner decision changed before completion receipt fsync"
+                                }
+                                V378UnifiedVerifiedEvidenceJournal(app)
+                                    .prepareUnderBothOwnerReadLocks(
+                                        ownerConfirmed = true,
+                                        checkpoint = cp,
+                                        decision = choice,
+                                        proof = proof,
+                                    )
+                            }
+                            proof
                         }
                     }
                 } finally {
