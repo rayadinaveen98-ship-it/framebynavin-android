@@ -157,4 +157,49 @@ class Phase1V2RestoreDomainForensicsTest {
         assertTrue(r.requiresIndependentPhotoProof)
         assertFalse(r.authorizesLiveWrite)
     }
+
+    @Test fun inverseMarkerMayObserveWholeOriginalOrTargetDomainDuringReverse() {
+        val partlyReverted = original.copy(
+            personal = target.personal,
+            challenges = original.challenges,
+            singleActivityChallenges = original.singleActivityChallenges,
+            groups = target.groups,
+            spaces = target.spaces,
+        )
+        val inspection = Phase1V2RestoreDomainForensics.inspectWithReverseJournal(
+            checkpoint(Phase1V2RestoreStep.VERIFYING),
+            original, target, partlyReverted,
+            emptyList(), emptyList(), emptyList(),
+        )
+        assertEquals(Phase1V2RecoveryDomainState.TARGET,
+            inspection.domains[Phase1V2RecoveryDomain.PERSONAL])
+        assertEquals(Phase1V2RecoveryDomainState.ORIGINAL,
+            inspection.domains[Phase1V2RecoveryDomain.SINGLE_ACTIVITY])
+        assertEquals(Phase1V2RecoveryDomainState.TARGET,
+            inspection.domains[Phase1V2RecoveryDomain.GROUPS])
+        assertTrue(inspection.requiresIndependentPhotoProof)
+        assertFalse(inspection.authorizesLiveWrite)
+    }
+
+    @Test fun inverseMarkerStillRejectsForgedDoneHistoryAndUnknownDomainStates() {
+        val forged = target.copy(singleActivityChallenges =
+            Phase1HabitCodec.encode(listOf(
+                habit.confirmToday(Instant.parse("2026-11-07T11:00:00Z")),
+            )))
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1V2RestoreDomainForensics.inspectWithReverseJournal(
+                checkpoint(Phase1V2RestoreStep.VERIFYING),
+                original, target, forged, emptyList(),
+                emptyList(), emptyList(),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1V2RestoreDomainForensics.inspectWithReverseJournal(
+                checkpoint(Phase1V2RestoreStep.VERIFYING),
+                original, target.copy(groups = "[]"),
+                original, emptyList(), emptyList(), emptyList(),
+            )
+        }
+    }
+
 }
