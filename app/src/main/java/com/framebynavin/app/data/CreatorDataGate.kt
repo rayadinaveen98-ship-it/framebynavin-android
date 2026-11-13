@@ -1,6 +1,9 @@
 package com.framebynavin.app.data
 
 import android.content.Context
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -18,6 +21,27 @@ import kotlin.coroutines.CoroutineContext
 object CreatorDataGate {
     private val mutex = Mutex()
     private val epochLock = Any()
+    @Volatile private var unifiedRecoveryDirectory: File? = null
+
+    /**
+     * Installed from the manifest Application before components run, including
+     * boot receivers and workers that never launch MainActivity. A missing
+     * journal has zero effect on ordinary Creator transactions.
+     */
+    fun installUnifiedRecoveryFence(context: Context) {
+        unifiedRecoveryDirectory = File(
+            context.applicationContext.filesDir,
+            V344UnifiedRestoreJournal.ROOT_NAME,
+        )
+    }
+
+    private fun requireNoCombinedRestoreJournal() {
+        val path = unifiedRecoveryDirectory ?: return
+        check(!Files.exists(path.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            "A Creator + Personal restore was interrupted. Ordinary Creator " +
+                "writes are paused until owner-approved recovery is available."
+        }
+    }
     private class State(val token: Any = Any()) {
         // The token is valid only while its outer transaction holds the mutex.
         @Volatile var active = false
@@ -35,10 +59,12 @@ object CreatorDataGate {
             check(inherited.owner === context[Job]) {
                 "A child coroutine cannot inherit a writable transaction. Use a separate transaction after the parent finishes."
             }
+            requireNoCombinedRestoreJournal()
             return block()
         }
         val state = State()
         return mutex.withLock(state.token) {
+            requireNoCombinedRestoreJournal()
             withContext(Transaction(state)) {
                 val marker = currentCoroutineContext()[Transaction]!!
                 marker.owner = currentCoroutineContext()[Job]
