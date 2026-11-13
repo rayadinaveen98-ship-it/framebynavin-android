@@ -1,6 +1,7 @@
 package com.framebynavin.app.data
 
 import com.framebynavin.app.reminders.ReminderActionSafety
+import com.framebynavin.app.reminders.V280ReminderSnoozePolicy
 import com.framebynavin.app.reminders.SmartEscalationConfig
 import com.framebynavin.app.reminders.SmartEscalationPolicy
 
@@ -77,14 +78,16 @@ object ReminderCenterPolicy {
             nowMillis > 0L
 
     fun nextSnoozeAt(task: CreatorTask, nowMillis: Long, minutes: Int): Long? {
-        if (minutes !in 1..120) return null
-        // Snoozing an upcoming reminder postpones its planned alert. For a
-        // reminder that already passed, snooze forward from the present.
-        val original = maxOf(nowMillis, task.reminderAtMillis)
-        val candidate = original + minutes * MINUTE
-        val limit = task.dueAtMillis.takeIf { it > nowMillis }
-        val at = if (limit == null) candidate else minOf(candidate, limit)
-        return at.takeIf { it > original }
+        if (!V280ReminderSnoozePolicy.validMinutes(minutes) || nowMillis <= 0L) return null
+        // A future check-in moves relative to its planned time; an already
+        // ringing check-in snoozes from the user's response. Never silently
+        // shorten 10 minutes to 7 because of a nearer publication deadline.
+        val base = maxOf(nowMillis, task.reminderAtMillis)
+        val requested = runCatching {
+            V280ReminderSnoozePolicy.nextAtMillis(base, minutes)
+        }.getOrNull() ?: return null
+        val deadline = task.dueAtMillis.takeIf { it > nowMillis }
+        return requested.takeIf { deadline == null || it <= deadline }
     }
 
     fun validTargetWindow(
