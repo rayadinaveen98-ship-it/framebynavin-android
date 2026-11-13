@@ -11,8 +11,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * A strict, read-only H3/H4 readiness assessment. It does not acquire BOTH
- * app-wide data-store write locks, and thus MUST NOT be used as a commit permit.
+ * A strict, read-only H3/H4 readiness assessment. The final journal-absence
+ * recheck does acquire both existing data-store mutexes, but does NOT hold
+ * them across source/escrow authentication and cannot be a commit permit.
  * It can answer whether the existing original/target ZIPs are independently
  * authenticated, refer to the same owner selection and match current data.
  */
@@ -20,6 +21,7 @@ internal data class V344UnifiedPrecommitReview(
     val candidate: V344UnifiedRestoreCheckpoint,
     val potentialPersonalAdditions: Int,
     val sourceAndEscrowAuthenticated: Boolean,
+    val existingDomainGatesRechecked: Boolean = true,
     val noCommitAuthority: Boolean = true,
     val mayRunWithoutFreshOwnerConsent: Boolean = false,
 )
@@ -117,6 +119,14 @@ internal class V344UnifiedRestorePrecommit(context: Context) {
             source.status() == prepared &&
             escrow.inspectEscrowRecordReadOnly() == original) {
             "Owner restore evidence changed during read-only precommit review"
+        }
+        // Both existing owner mutexes are acquired IN ONE ORDER. This is a
+        // last-moment journal-absence check, not an atomic data fingerprint:
+        // ordinary writes may resume after the gates are released.
+        V345UnifiedOwnerDomainFence(app).withExclusiveReadCheck {
+            check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+                "Combined recovery journal appeared while both stores were fenced"
+            }
         }
         V344UnifiedPrecommitReview(
             candidate = proposed,
