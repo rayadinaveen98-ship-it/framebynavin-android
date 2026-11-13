@@ -292,6 +292,254 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
         }
     }
 
+    /**
+     * Task 2 integration: finish an interrupted Creator import using the
+     * EXISTING native CreatorBackupManager restore and Best Frame journal.
+     * Both domains were ORIGINAL at preflight; Voice files must have been
+     * completely repaired (V370) or have verified V371 shadows.
+     *
+     * The current combined H4 remains BEFORE_CREATOR until AFTER native
+     * import and all live Creator/Personal/media proofs pass. Then and only
+     * then the retained FORWARD_TARGET choice is carried to CREATOR_WRITTEN.
+     *
+     * A crash at any point still retains H4, the V347 owner choice,
+     * encrypted original/target ZIPs, V365 and V371 media evidence.
+     * No automatic retry, deletion or alarm scheduling is performed here.
+     */
+    internal suspend fun resumeVerifiedCreatorImportInternalOnly(
+        freshOwnerConsent: Boolean,
+        passphrase: CharArray,
+    ): V357CreatorForwardReceipt = withContext(Dispatchers.IO) {
+        require(freshOwnerConsent && passphrase.size >= 12) {
+            "Fresh owner confirmation and encrypted passphrase are required"
+        }
+        val cp = h4.requireCheckpointReadOnly()
+        check(cp.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Only the interrupted Creator restore may use this stage"
+        }
+        val original = V369UnifiedCreatorPreNativeOriginalInspector(app)
+            .inspectInternalOwnerReviewed(
+                freshOwnerConsent = true, passphrase = passphrase,
+                expectedDirection = V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET,
+            )
+        val voiceProof = V366UnifiedCreatorVoiceRecoveryInspector(app)
+            .inspectOwnerReviewed(ownerConfirmed = true, passphrase = passphrase)
+        val paired = V345UnifiedAuthenticatedRestoreParts(app)
+            .authenticateForInterruptedRecovery(
+                ownerConfirmedReview = true, passphrase = passphrase,
+            )
+        check(V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(paired, cp) &&
+            original.transactionId == cp.transactionId &&
+            voiceProof.transactionId == cp.transactionId &&
+            original.allocatedTargetCopies == voiceProof.installedCopies) {
+            "Creator resume requires unchanged original Creator and Personal data"
+        }
+        val source = ownerFile(
+            "backlot-unified-owner-restore-preparation-v1",
+            "incoming-unified-encrypted.zip",
+        )
+        val rollback = ownerFile(
+            "backlot-unified-owner-recovery-escrow-v1",
+            "original-owner-encrypted-unified.zip",
+        )
+        check(sha256(source) == cp.sourceSha256 &&
+            sha256(rollback) == cp.escrowSha256) {
+            "Owner original or target escrow changed before Creator recovery"
+        }
+        source.inputStream().buffered().use { encrypted ->
+            V341UnifiedOwnerArchive.stageAndVerify(
+                encrypted, passphrase, app.cacheDir,
+            ).use { inner ->
+                check(sha256(inner.creator) == paired.targetCreatorSha256) {
+                    "Creator TARGET differs from independently authenticated owner backup"
+                }
+                val portable = PortableCreatorBackupManager(app)
+                inner.creator.inputStream().buffered().use(portable::validate)
+                val staged = inner.creator.inputStream().buffered().use {
+                    PortableBackupArchive.stage(it, app.cacheDir)
+                }
+                try {
+                    val allocation = originalInstall.inspectReadOnly()
+                        ?: error("Immutable original Creator audio allocation disappeared")
+                    val shadow = shadowInstall.inspectReadOnly()
+                    val expected = (ownerDecision.readOnlyStatus() as?
+                        V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+                        ?: error("Durable owner FORWARD_TARGET choice is absent")
+                    check(expected.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+                        V347OwnerRecoveryDecisionPolicy.remainsBound(expected, cp) &&
+                        allocation.transactionId == cp.transactionId &&
+                        allocation.sourceSha256 == cp.sourceSha256 &&
+                        allocation.escrowSha256 == cp.escrowSha256) {
+                        "Creator resume references the wrong owner recovery transaction"
+                    }
+                    // Source audit may contain damaged V365 files only when
+                    // the matching, authenticated V371 shadows are complete.
+                    // Refuse unknown legacy embedded image payloads: this
+                    // stage can independently verify compact images or an
+                    // empty Best Frame collection, never guessed frame bytes.
+                    val preview = portable.previewRecoveredCreatorPortable(
+                        staged, allocation, shadow,
+                    )
+                    check(preview.transactionId == cp.transactionId &&
+                        preview.restoredVoiceIdeaCount == allocation.entries.size &&
+                        (preview.verifiedPortableFrameCount != null ||
+                            (staged.bestFrames.isEmpty() &&
+                                org.json.JSONObject(staged.backupJson)
+                                    .getString("personalFrames") == "[]"))) {
+                        "Creator recovery needs verified portable Best Frame bytes"
+                    }
+
+                    StabilizationPersonalMutationGate
+                        .withCombinedCreatorRecoveryFinishFence(
+                            app, cp, ownerConfirmed = true,
+                        ) {
+                            val completed = CreatorDataGate.withJournalBoundCreatorWrite(
+                                app, cp, ownerConfirmed = true,
+                            ) {
+                                check(h4.requireCheckpointReadOnly() == cp &&
+                                    ownerDecision.readOnlyStatus() ==
+                                        V347OwnerRecoveryDecisionJournal.ReadState.Recorded(
+                                            expected,
+                                        ) &&
+                                    !IdeaProjectConversion(app).hasPendingRecovery() &&
+                                    originalInstall.inspectReadOnly() == allocation &&
+                                    shadowInstall.inspectReadOnly() == shadow &&
+                                    native.inspectReadOnly() is
+                                        V364UnifiedCreatorPendingRecoveryProof.Assessment
+                                            .VoiceAllocatedBeforeNativeCreatorJournal) {
+                                    "Native Creator recovery or original media evidence changed"
+                                }
+                                val currentJson = CreatorBackupManager(app)
+                                    .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
+                                val personal = V301LocalRecoveryReader(app)
+                                    .readForInterruptedV2Recovery()
+                                val before = V343UnifiedBaselineReader(app)
+                                    .fingerprintUnverifiedInterrupted(currentJson, personal)
+                                val photos = V354UnifiedLiveSpacePhotoAudit(app)
+                                    .inspect(personal.photos)
+                                val originalVoice =
+                                    V367UnifiedCreatorOriginalVoiceSafety(app)
+                                        .inspectOriginalIdeaReferencesReadOnly(
+                                            ideasJson = org.json.JSONObject(currentJson)
+                                                .getString("ideas"),
+                                            expectedAudio = voiceProof.originalMediaHashes,
+                                            voiceDir = File(app.filesDir, "voice_ideas"),
+                                        )
+                                check(before.creatorSha256 == cp.creatorOriginalSha256 &&
+                                    before.personalSha256 == cp.personalOriginalSha256 &&
+                                    photos.currentPhotoFilesMatchTheirLiveRows &&
+                                    originalVoice.verifiedOriginalVoiceCount ==
+                                        voiceProof.originalMediaCount &&
+                                    originalInstall.auditReadOnly(allocation) ==
+                                        original.allocatedTargetCopies) {
+                                    "Live original Creator/Personal state changed before import"
+                                }
+                                val checked = portable.previewRecoveredCreatorPortable(
+                                    staged, allocation, shadow,
+                                )
+                                check(checked == preview &&
+                                    sha256(source) == cp.sourceSha256 &&
+                                    sha256(rollback) == cp.escrowSha256) {
+                                    "Authenticated Creator payload changed after acquiring locks"
+                                }
+                                val restored =
+                                    if (preview.verifiedPortableFrameCount != null) {
+                                        CreatorBackupManager(app).restorePortableCompact(
+                                            preview.rewrittenCreatorJson, staged.bestFrames,
+                                        )
+                                    } else {
+                                        CreatorBackupManager(app).restore(
+                                            preview.rewrittenCreatorJson,
+                                        )
+                                    }
+
+                                val installedJson = CreatorBackupManager(app)
+                                    .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
+                                val recordFingerprint = V343UnifiedBaselineReader(app)
+                                check(recordFingerprint.creatorRecordsFingerprintForRecovery(
+                                    installedJson,
+                                ) == recordFingerprint.creatorRecordsFingerprintForRecovery(
+                                    preview.rewrittenCreatorJson,
+                                )) {
+                                    "Restored Creator records differ from approved TARGET"
+                                }
+                                check(V373RecoveredCreatorMediaPolicy.liveFramesMatchVerifiedTarget(
+                                    CreatorHeroArchive.captureOriginalOrder(app),
+                                    staged.bestFrames, preview.verifiedPortableFrameCount,
+                                )) {
+                                    "Restored Best Frame bytes or order differ from TARGET"
+                                }
+                                val expectedAudio = allocation.entries.associate { entry ->
+                                    entry.ideaId to V366VoiceBytes(
+                                        entry.sizeBytes, entry.sha256,
+                                    )
+                                }
+                                val installedVoice =
+                                    V367UnifiedCreatorOriginalVoiceSafety(app)
+                                        .inspectOriginalIdeaReferencesReadOnly(
+                                            ideasJson = org.json.JSONObject(installedJson)
+                                                .getString("ideas"),
+                                            expectedAudio = expectedAudio,
+                                            voiceDir = File(app.filesDir, "voice_ideas"),
+                                        )
+                                check(installedVoice.verifiedOriginalVoiceCount ==
+                                    allocation.entries.size &&
+                                    originalInstall.inspectReadOnly() == allocation &&
+                                    shadowInstall.inspectReadOnly() == shadow) {
+                                    "Restored Creator Voice Idea references are not authentic"
+                                }
+                                val stillPersonal = V301LocalRecoveryReader(app)
+                                    .readForInterruptedV2Recovery()
+                                val after = V343UnifiedBaselineReader(app)
+                                    .fingerprintUnverifiedInterrupted(
+                                        installedJson, stillPersonal,
+                                    )
+                                check(after.personalSha256 == cp.personalOriginalSha256 &&
+                                    V354UnifiedLiveSpacePhotoAudit(app)
+                                        .inspect(stillPersonal.photos)
+                                        .currentPhotoFilesMatchTheirLiveRows &&
+                                    h4.requireCheckpointReadOnly() == cp &&
+                                    ownerDecision.readOnlyStatus() ==
+                                        V347OwnerRecoveryDecisionJournal.ReadState.Recorded(
+                                            expected,
+                                        ) &&
+                                    sha256(source) == cp.sourceSha256 &&
+                                    sha256(rollback) == cp.escrowSha256) {
+                                    "Creator import modified Personal data or owner escrow"
+                                }
+                                restored
+                            }
+                            // No Creator writer remains after this boundary;
+                            // Personal mutex is still held, normal writers
+                            // remain frozen by the active H4 restore journal.
+                            val next = h4.checkpoint(
+                                cp, V344UnifiedRestoreStep.CREATOR_WRITTEN,
+                                maxOf(System.currentTimeMillis(), cp.updatedAtMillis + 1L),
+                                otherRecoveryPending = {
+                                    !ownerDecision.matchesUnchangedForwardChoice(cp, expected)
+                                },
+                            )
+                            check(ownerDecision.readOnlyStatus() ==
+                                V347OwnerRecoveryDecisionJournal.ReadState
+                                    .CreatorWrittenRetained(expected, next)) {
+                                "Creator checkpoint lost its durable owner recovery direction"
+                            }
+                            V357CreatorForwardReceipt(
+                                combinedTransactionId = cp.transactionId,
+                                sourceSha256 = cp.sourceSha256,
+                                checkpointReached = next.step,
+                                restoredCreatorProjects = completed.projectCount,
+                                personalRestored = false,
+                                combinedRestoreComplete = false,
+                            )
+                        }
+                } finally {
+                    staged.cleanup()
+                }
+            }
+        }
+    }
+
     private fun ownerFile(folderName: String, filename: String): File {
         val folder = File(app.filesDir, folderName)
         check(folder.isDirectory && !Files.isSymbolicLink(folder.toPath()) &&
