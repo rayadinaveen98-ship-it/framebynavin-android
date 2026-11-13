@@ -545,7 +545,7 @@ internal fun V2232PersonalReminderHub(
                 }
                 Text("YOUR REMINDERS · ${reminders.count { !it.paused } + activeChallengeCount} ACTIVE · " +
                     "${reminders.count { it.paused } + pausedChallengeCount} PAUSED / ARCHIVED" +
-                    if (finishedChallengeCount > 0) " · $finishedChallengeCount ENDED" else "",
+                    (if (finishedChallengeCount > 0) " · $finishedChallengeCount ENDED" else ""),
                     color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
                 Row(
