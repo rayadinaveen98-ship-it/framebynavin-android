@@ -379,10 +379,12 @@ internal fun DashboardHabitReview(
                 ) { Text("OPEN LINKED SPACE & PHOTO JOURNAL") }
             }
             Hint("Reminder Group: ${linkedGroupLabel ?: "None"}")
-            OutlinedButton(
-                onClick = onManageLinks,
-                modifier = Modifier.fillMaxWidth().testTag("fc13-challenge-links-open"),
-            ) { Text("MANAGE LINKS") }
+            if (!habit.archived) {
+                OutlinedButton(
+                    onClick = onManageLinks,
+                    modifier = Modifier.fillMaxWidth().testTag("fc13-challenge-links-open"),
+                ) { Text("MANAGE LINKS") }
+            }
             Hint("Links are optional. They never create reminders or mark any day Done.")
         }
         Text(if (previewOnly) "Review only · No data or alerts saved"
