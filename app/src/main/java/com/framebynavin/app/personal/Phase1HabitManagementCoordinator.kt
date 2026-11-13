@@ -49,7 +49,8 @@ internal class Phase1HabitManagementCoordinator(
     ): Phase1HabitManagementOutcome = withContext(Dispatchers.IO) {
         val records = store.setArchivedReviewed(before.id, before, archived)
         Phase1HabitManagementOutcome(records,
-            cleanupAfterSave(before, shouldDismissPosted = archived))
+            cleanupAfterSave(before, shouldDismissPosted = archived,
+                mustCancelPending = archived))
     }
 
     suspend fun delete(
@@ -81,6 +82,18 @@ internal class Phase1HabitManagementCoordinator(
         runCatching { Phase1HabitAlarmScheduler(app).reconcile() }
             .onFailure { failures.add("alarm scheduling")
                 Log.w(TAG, "Post-management challenge rearm failed", it) }
+        if (failures.isNotEmpty()) {
+            runCatching {
+                if (mustCancelPending) {
+                    Phase1HabitCancellationSafetyNet.enqueue(app, before)
+                } else {
+                    Phase1HabitRecoverySafetyNet.enqueue(app)
+                }
+            }.onFailure {
+                failures.add("retry setup")
+                Log.w(TAG, "Challenge cleanup recovery could not be queued", it)
+            }
+        }
         return if (failures.isEmpty()) null
         else "Challenge change saved, but Android " +
             failures.distinct().joinToString(", ") +
