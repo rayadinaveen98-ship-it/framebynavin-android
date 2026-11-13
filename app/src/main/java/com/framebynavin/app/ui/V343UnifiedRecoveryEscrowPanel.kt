@@ -38,6 +38,7 @@ import com.framebynavin.app.data.V344UnifiedRestoreStep
 import com.framebynavin.app.data.V348UnifiedPrewriteAbort
 import com.framebynavin.app.data.V353UnifiedLiveCrashForensics
 import com.framebynavin.app.data.V360UnifiedPersonalV2RecoveryInspector
+import com.framebynavin.app.data.V364UnifiedCreatorPendingRecoveryProof
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -68,6 +69,9 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     val nativeHandoff = remember(context) {
         V360UnifiedPersonalV2RecoveryInspector(context)
     }
+    val nativeCreator = remember(context) {
+        V364UnifiedCreatorPendingRecoveryProof(context)
+    }
     val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf(false) }
     var ownerPassword by remember { mutableStateOf("") }
@@ -84,6 +88,9 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     var nativePersonalRecovery by remember {
         mutableStateOf<V360UnifiedPersonalV2RecoveryInspector.Assessment?>(null)
     }
+    var nativeCreatorRecovery by remember {
+        mutableStateOf<V364UnifiedCreatorPendingRecoveryProof.Assessment?>(null)
+    }
 
     LaunchedEffect(opened) {
         status = withContext(Dispatchers.IO) { escrow.status() }
@@ -96,6 +103,13 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                     V344UnifiedRestoreStep.BEFORE_PERSONAL
         ) withContext(Dispatchers.IO) {
             nativeHandoff.inspectReadOnly()
+        } else null
+        nativeCreatorRecovery = if (
+            (combinedRecovery as?
+                V344UnifiedRecoveryInspector.Assessment.OwnerReview)?.checkpoint ==
+                    V344UnifiedRestoreStep.BEFORE_CREATOR
+        ) withContext(Dispatchers.IO) {
+            nativeCreator.inspectReadOnly()
         } else null
     }
 
@@ -110,6 +124,13 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                     V344UnifiedRestoreStep.BEFORE_PERSONAL
         ) withContext(Dispatchers.IO) {
             nativeHandoff.inspectReadOnly()
+        } else null
+        nativeCreatorRecovery = if (
+            (combinedRecovery as?
+                V344UnifiedRecoveryInspector.Assessment.OwnerReview)?.checkpoint ==
+                    V344UnifiedRestoreStep.BEFORE_CREATOR
+        ) withContext(Dispatchers.IO) {
+            nativeCreator.inspectReadOnly()
         } else null
     }
 
@@ -149,6 +170,36 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                         (if (review.targetRetained) "checksum retained" else "unverified"),
                     color = MutedGold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v344-recovery-evidence"),
+                )
+            }
+            if (nativeCreatorRecovery != null) {
+                val creatorText = when (val n = nativeCreatorRecovery) {
+                    V364UnifiedCreatorPendingRecoveryProof.Assessment.WrongCombinedStage ->
+                        "Creator: current stage is not BEFORE_CREATOR."
+                    V364UnifiedCreatorPendingRecoveryProof.Assessment
+                        .NoNativeCreatorJournalMediaMayExist ->
+                        "Creator: native journal is absent; Voice Idea media may have been copied. " +
+                            "Do not assume recovery is safe."
+                    V364UnifiedCreatorPendingRecoveryProof.Assessment
+                        .UnreadableOrUnboundNativeEvidence ->
+                        "Creator: original snapshot or Voice Idea evidence is missing, " +
+                            "corrupted or unrelated. Keep all recovery files."
+                    is V364UnifiedCreatorPendingRecoveryProof.Assessment
+                        .VoiceAllocatedBeforeNativeCreatorJournal ->
+                        "Creator: audio copy journal exists before native project checkpoint. " +
+                            "Voice files matching: ${n.voice.matchingCopies}/${n.voice.planned}, " +
+                            "missing: ${n.voice.missingCopies}, " +
+                            "changed: ${n.voice.alteredOrPartialCopies}, " +
+                            "unsafe: ${n.voice.unsafeCopies}. No automatic repair."
+                    is V364UnifiedCreatorPendingRecoveryProof.Assessment.BoundOriginal ->
+                        "Creator: native original project + Best Frames checkpoint is bound to H4. " +
+                            "Voice copies matching: ${n.voice?.matchingCopies ?: 0}/" +
+                            "${n.voice?.planned ?: 0}. Forward replay and rollback remain disabled."
+                }
+                Text(
+                    creatorText, color = RecRed, fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.testTag("v364-creator-crash-inventory"),
                 )
             }
             if (nativePersonalRecovery != null) {
