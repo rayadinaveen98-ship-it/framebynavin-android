@@ -62,6 +62,9 @@ internal fun V339HomeOverflowMenu(
     modifier: Modifier = Modifier,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val collapsedIndicator = V339HomeOverflowPolicy.collapsedIndicator(
+        reminderActionNeeded, sparkSuggestionAvailable, sparkEnabled,
+    )
 
     fun select(action: V339HomeOverflowAction) {
         if (!V339HomeOverflowPolicy.enabled(action, sparkEnabled)) return
@@ -80,7 +83,14 @@ internal fun V339HomeOverflowMenu(
                 .testTag("v339-home-overflow-trigger")
                 .semantics {
                     contentDescription = "Home options: Notification Center, Spark and Gallery"
-                    stateDescription = if (expanded) "Expanded" else "Collapsed"
+                    stateDescription = when {
+                        expanded -> "Expanded"
+                        collapsedIndicator == V339HomeOverflowAction.NOTIFICATION_CENTER ->
+                            "Collapsed; a reminder needs action"
+                        collapsedIndicator == V339HomeOverflowAction.SPARK ->
+                            "Collapsed; a Spark suggestion is available"
+                        else -> "Collapsed"
+                    }
                 },
             color = CinemaSurfaceRaised,
             shape = CircleShape,
@@ -94,16 +104,21 @@ internal fun V339HomeOverflowMenu(
                     tint = ProjectorIvory,
                     modifier = Modifier.size(21.dp),
                 )
-                if (!expanded && V339HomeOverflowPolicy.hasIndicator(
-                        V339HomeOverflowAction.NOTIFICATION_CENTER,
-                        reminderActionNeeded, sparkSuggestionAvailable, sparkEnabled,
-                    )) {
+                if (!expanded && collapsedIndicator != null) {
                     Box(
                         Modifier.align(Alignment.TopEnd)
                             .padding(top = 8.dp, end = 8.dp)
                             .size(7.dp)
-                            .background(BacklotAccent, CircleShape)
-                            .testTag("v339-home-action-indicator"),
+                            .background(
+                                if (collapsedIndicator == V339HomeOverflowAction.SPARK)
+                                    MutedGold else BacklotAccent,
+                                CircleShape,
+                            )
+                            .testTag(
+                                if (collapsedIndicator == V339HomeOverflowAction.SPARK)
+                                    "v339-home-spark-indicator"
+                                else "v339-home-action-indicator",
+                            ),
                     )
                 }
             }
