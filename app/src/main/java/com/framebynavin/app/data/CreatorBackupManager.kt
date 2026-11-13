@@ -107,6 +107,35 @@ class CreatorBackupManager(private val context: Context) {
     }
 
     /**
+     * Unified recovery BASELINE forensic export, not a normal backup.
+     *
+     * Ordinary createCloudBackup() intentionally repairs pending Creator
+     * restores and idea conversions before exporting. Those repair routines
+     * can WRITE owner data. A no-write unified recovery reservation must
+     * reject pending independent journals instead and capture the current
+     * schema without implicit timeline seeding or legacy project replay.
+     *
+     * This is called under CreatorDataGate.transaction (possibly nested in
+     * the combined Personal-then-Creator read lock). It intentionally has no
+     * cloud upload, alarm mutation, recovery or migration side effects.
+     */
+    internal suspend fun createCloudBackupForUnifiedReadOnlyBaseline(): String =
+        CreatorDataGate.transaction {
+            check(!File(appContext.filesDir,
+                "creator_restore_recovery_v181/pending.json").exists()) {
+                "Creator's separate restore must be resolved before a unified baseline"
+            }
+            check(!IdeaProjectConversion(appContext).hasPendingRecovery()) {
+                "A pending idea-to-project conversion is not a stable unified baseline"
+            }
+            encode(
+                snapshot(includeHero = false, readOnlyUnifiedFingerprint = true)
+                    .copy(heroJson = CLOUD_FRAMES_OMITTED),
+                System.currentTimeMillis(),
+            )
+        }
+
+    /**
      * Portable ZIP export must never build a giant canonical root JSON only
      * to parse it again. Build the compact envelope from the same locked
      * creator-data snapshot, preserving schema and integrity semantics.
@@ -544,8 +573,13 @@ class CreatorBackupManager(private val context: Context) {
         .filter { it.name.startsWith("pre-restore-") && it.name.endsWith(".fbnbackup") }
         .sortedByDescending { it.lastModified() }
 
-    private suspend fun snapshot(includeHero: Boolean = true): Snapshot = Snapshot(
-        tasksJson = taskStore.exportJson(),
+    private suspend fun snapshot(
+        includeHero: Boolean = true,
+        readOnlyUnifiedFingerprint: Boolean = false,
+    ): Snapshot = Snapshot(
+        tasksJson = if (readOnlyUnifiedFingerprint)
+            taskStore.exportJsonForUnifiedReadOnlyBaseline()
+        else taskStore.exportJson(),
         ideasJson = ideaStore.exportJson(),
         weeklyJson = weeklyStore.exportJson(),
         settingsJson = settingsStore.exportJson(),
