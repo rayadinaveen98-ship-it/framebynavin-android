@@ -475,6 +475,52 @@ internal object StabilizationPersonalMutationGate {
     }
 
     /**
+     * Outer Personal process mutex for exact H4 final-verification stages.
+     * Creator takes its mutex SECOND via CreatorDataGate's final fence.
+     * No Personal recovery-write token is installed. A caller may only
+     * advance H4 one adjacent VERIFYING/BOTH_VERIFIED stage, not mutate
+     * reminders, Space photos, challenges, or alarms.
+     */
+    internal suspend fun <T> withCombinedFinalCheckpointFence(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        next: com.framebynavin.app.data.V344UnifiedRestoreStep,
+        action: suspend () -> T,
+    ): T {
+        val steps = com.framebynavin.app.data.V344UnifiedRestoreStep
+        require(
+            (expected.step == steps.PERSONAL_WRITTEN &&
+                next == steps.VERIFYING_BOTH) ||
+            (expected.step == steps.VERIFYING_BOTH &&
+                next == steps.BOTH_VERIFIED)
+        ) {
+            "Personal checkpoint fence accepts only verification steps"
+        }
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null &&
+            currentCoroutineContext()[CombinedPersonalOriginalReversePermit] == null) {
+            "Final verification cannot inherit Personal write or inspection permit"
+        }
+        return processMutex.withLock {
+            val journal = com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Personal final checkpoint started from stale owner H4"
+            }
+            val result = action()
+            val actual = journal.requireCheckpointReadOnly()
+            check(actual ==
+                com.framebynavin.app.data.V344UnifiedRestorePolicy.next(
+                    expected, next, actual.updatedAtMillis,
+                )) {
+                "Personal final checkpoint did not advance exactly one verified stage"
+            }
+            result
+        }
+    }
+
+    /**
      * Read-only outer Personal owner fence for a scoped ORIGINAL Creator
      * rollback after H4 CREATOR_WRITTEN. Does not grant Personal writes.
      * The Creator writer must separately verify both sealed archives and
