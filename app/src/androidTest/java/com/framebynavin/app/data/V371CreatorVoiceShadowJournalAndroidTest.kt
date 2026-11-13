@@ -2,6 +2,7 @@ package com.framebynavin.app.data
 
 import android.content.Context
 import android.content.ContextWrapper
+import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
@@ -176,4 +177,121 @@ class V371CreatorVoiceShadowJournalAndroidTest {
             root.deleteRecursively()
         }
     }
+
+    @Test fun shadowWriterCopiesOnlyNewPathsAndVerifiedRetryIsIdempotent() = runBlocking {
+        val root = File(device.filesDir, "v371-shadow-write-" + UUID.randomUUID())
+        assertTrue(root.mkdir())
+        try {
+            val context = isolated(root)
+            CreatorDataGate.installUnifiedRecoveryFence(context)
+            val cp = checkpoint(context)
+            val source = File(root, "synthetic-authenticated-target.m4a")
+            source.writeText("synthetic-verified-audio-bytes")
+            val original = V365UnifiedCreatorVoiceInstallJournal(context)
+            val base = CreatorDataGate.withJournalBoundCreatorWrite(
+                context, cp, ownerConfirmed = true,
+            ) { original.reserveForCurrentCreatorWriter(mapOf("idea-a" to source)) }
+            val directory = File(root, "voice_ideas")
+            assertTrue(directory.mkdir())
+            val partial = File(directory, base.entries.single().fileName)
+            partial.writeText("interrupted")
+            choose(context, cp, V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
+            val shadow = V371UnifiedCreatorVoiceShadowJournal(context)
+            val plan = CreatorDataGate.withJournalBoundCreatorWrite(
+                context, cp, ownerConfirmed = true,
+            ) { shadow.reserveForCurrentCreatorWriter(
+                base, mapOf("idea-a" to source),
+            ) }
+            val replacement = File(directory, plan.entries.single().shadowFile)
+            assertFalse(replacement.exists())
+            val first = StabilizationPersonalMutationGate
+                .withCombinedCreatorMissingVoiceFence(context, cp, ownerConfirmed = true) {
+                    CreatorDataGate.withJournalBoundCreatorWrite(
+                        context, cp, ownerConfirmed = true,
+                    ) {
+                        shadow.installMissingShadowsForCurrentOwnerWriter(
+                            plan, mapOf("idea-a" to source),
+                        )
+                    }
+                }
+            assertTrue(first.allVerified)
+            assertEquals(source.readText(), replacement.readText())
+            assertEquals("interrupted", partial.readText())
+            assertEquals(plan, shadow.inspectReadOnly())
+            val second = StabilizationPersonalMutationGate
+                .withCombinedCreatorMissingVoiceFence(context, cp, ownerConfirmed = true) {
+                    CreatorDataGate.withJournalBoundCreatorWrite(
+                        context, cp, ownerConfirmed = true,
+                    ) {
+                        shadow.installMissingShadowsForCurrentOwnerWriter(
+                            plan, mapOf("idea-a" to source),
+                        )
+                    }
+                }
+            assertEquals(first, second)
+            assertEquals(source.readText(), replacement.readText())
+
+            replacement.writeText("partial-after-crash")
+            assertTrue(runCatching {
+                StabilizationPersonalMutationGate
+                    .withCombinedCreatorMissingVoiceFence(context, cp, ownerConfirmed = true) {
+                        CreatorDataGate.withJournalBoundCreatorWrite(
+                            context, cp, ownerConfirmed = true,
+                        ) {
+                            shadow.installMissingShadowsForCurrentOwnerWriter(
+                                plan, mapOf("idea-a" to source),
+                            )
+                        }
+                    }
+            }.isFailure)
+            assertEquals("partial-after-crash", replacement.readText())
+            assertEquals("interrupted", partial.readText())
+            assertEquals(cp, V344UnifiedRestoreJournal(context).requireCheckpointReadOnly())
+        } finally {
+            CreatorDataGate.installUnifiedRecoveryFence(device)
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun shadowMediaWriterRejectsMissingPersonalFence() = runBlocking {
+        val root = File(device.filesDir, "v371-shadow-locked-" + UUID.randomUUID())
+        assertTrue(root.mkdir())
+        try {
+            val context = isolated(root)
+            CreatorDataGate.installUnifiedRecoveryFence(context)
+            val cp = checkpoint(context)
+            val source = File(root, "synthetic-target.m4a")
+            source.writeText("full-synthetic-owner-voice")
+            val original = V365UnifiedCreatorVoiceInstallJournal(context)
+            val base = CreatorDataGate.withJournalBoundCreatorWrite(
+                context, cp, ownerConfirmed = true,
+            ) { original.reserveForCurrentCreatorWriter(mapOf("idea-a" to source)) }
+            assertTrue(File(root, "voice_ideas").mkdir())
+            val damaged = File(root, "voice_ideas/" + base.entries.single().fileName)
+            damaged.writeText("partial")
+            choose(context, cp, V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
+            val shadow = V371UnifiedCreatorVoiceShadowJournal(context)
+            val plan = CreatorDataGate.withJournalBoundCreatorWrite(
+                context, cp, ownerConfirmed = true,
+            ) { shadow.reserveForCurrentCreatorWriter(
+                base, mapOf("idea-a" to source),
+            ) }
+            val output = File(root, "voice_ideas/" + plan.entries.single().shadowFile)
+            assertTrue(runCatching {
+                CreatorDataGate.withJournalBoundCreatorWrite(
+                    context, cp, ownerConfirmed = true,
+                ) {
+                    shadow.installMissingShadowsForCurrentOwnerWriter(
+                        plan, mapOf("idea-a" to source),
+                    )
+                }
+            }.isFailure)
+            assertFalse(output.exists())
+            assertEquals("partial", damaged.readText())
+        } finally {
+            CreatorDataGate.installUnifiedRecoveryFence(device)
+            root.deleteRecursively()
+        }
+    }
+
 }
