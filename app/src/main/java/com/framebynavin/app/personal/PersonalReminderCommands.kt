@@ -197,11 +197,9 @@ internal class PersonalReminderCommands(context: Context) {
         var cleanupWarning: String? = null
         // The cleanup IDs are durable in DataStore even if process death
         // happens before WorkManager can accept this task.
-        runCatching { PersonalDeletionCleanupScheduler.enqueue(app) }
-            .onFailure {
-                cleanupWarning = "Reminders deleted, but automatic alarm cleanup " +
-                    "could not be queued. Periodic recovery can retry."
-            }
+        val queueFailed = runCatching {
+            PersonalDeletionCleanupScheduler.enqueue(app)
+        }.isFailure
         try {
             val cleaned = PersonalDeletionCleanup(app).reconcile()
             if (!cleaned) {
@@ -211,6 +209,10 @@ internal class PersonalReminderCommands(context: Context) {
         } catch (error: Exception) {
             cleanupWarning = "Reminders deleted, but Android alert cleanup " +
                 "needs attention; the recovery job will retry."
+        }
+        if (queueFailed && cleanupWarning != null) {
+            cleanupWarning += " The immediate retry could not be queued; " +
+                "periodic recovery remains available."
         }
         runCatching { V224WidgetUpdater.refresh(app) }
             .onFailure {
