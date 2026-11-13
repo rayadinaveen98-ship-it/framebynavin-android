@@ -115,6 +115,7 @@ internal class V344UnifiedRestoreJournal(
         expected: V344UnifiedRestoreCheckpoint,
         next: V344UnifiedRestoreStep,
         atMillis: Long,
+        otherRecoveryPending: () -> Boolean = { false },
     ): V344UnifiedRestoreCheckpoint = withContext(Dispatchers.IO) {
         mutex.lock()
         try {
@@ -122,6 +123,11 @@ internal class V344UnifiedRestoreJournal(
                 "Missing cross-domain recovery marker; refuse write stage"
             }
             check(onDisk == expected) { "Stale cross-domain restore checkpoint" }
+            // Optional owner-direction exclusion is evaluated UNDER the same
+            // mutex used by V347 recordChoice and PREPARED-only abort.
+            check(!otherRecoveryPending()) {
+                "Another durable owner recovery direction blocks this write stage"
+            }
             val updated = V344UnifiedRestorePolicy.next(onDisk, next, atMillis)
             writeAtomic(updated)
             check(readStrict() == updated) { "Updated restore journal is not durable" }
