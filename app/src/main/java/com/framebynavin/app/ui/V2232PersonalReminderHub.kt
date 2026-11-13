@@ -111,6 +111,12 @@ internal fun V2232PersonalReminderHub(
     var editorSpacesError by remember { mutableStateOf<String?>(null) }
     var editorGroupsError by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<PersonalReminder?>(null) }
+    // Ephemeral selection: never persisted as an owner's delete consent.
+    var selectingPersonal by remember { mutableStateOf(false) }
+    var selectedPersonal by remember {
+        mutableStateOf<Map<String, PersonalDeletionTicket>>(emptyMap())
+    }
+    var confirmBulkDelete by remember { mutableStateOf(false) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
     // Recompute local calendar labels while this screen is visible; the next
     // occurrence journal and Android alarms remain authoritative.
@@ -198,6 +204,17 @@ internal fun V2232PersonalReminderHub(
     }
     BackHandler(enabled = personalPageName == "SETTINGS") {
         personalPageName = "TODAY"
+    }
+    BackHandler(enabled = selectingPersonal && personalPageName == "TODAY") {
+        selectingPersonal = false
+        selectedPersonal = emptyMap()
+        confirmBulkDelete = false
+    }
+    LaunchedEffect(agendaScopeName, activityFocusId, personalPageName) {
+        // Switching scopes must not secretly retain selected hidden reminders.
+        selectedPersonal = emptyMap()
+        confirmBulkDelete = false
+        if (personalPageName != "TODAY") selectingPersonal = false
     }
     LaunchedEffect(Unit) {
         while (true) {
@@ -543,11 +560,27 @@ internal fun V2232PersonalReminderHub(
                 val finishedChallengeCount = challengeSections.count {
                     it.section == PersonalAgendaSection.NO_UPCOMING
                 }
-                Text("YOUR REMINDERS · ${reminders.count { !it.paused } + activeChallengeCount} ACTIVE · " +
-                    "${reminders.count { it.paused } + pausedChallengeCount} PAUSED / ARCHIVED" +
-                    (if (finishedChallengeCount > 0) " · $finishedChallengeCount ENDED" else ""),
-                    color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
-                    modifier = Modifier.testTag("v2232-personal-count"))
+                Row(Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("YOUR REMINDERS · ${reminders.count { !it.paused } + activeChallengeCount} ACTIVE · " +
+                        "${reminders.count { it.paused } + pausedChallengeCount} PAUSED / ARCHIVED" +
+                        (if (finishedChallengeCount > 0) " · $finishedChallengeCount ENDED" else ""),
+                        color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
+                        modifier = Modifier.weight(1f).testTag("v2232-personal-count"))
+                    TextButton(
+                        onClick = {
+                            selectingPersonal = !selectingPersonal
+                            selectedPersonal = emptyMap()
+                            confirmBulkDelete = false
+                        },
+                        enabled = !busy && reminders.isNotEmpty(),
+                        modifier = Modifier.testTag("v338-personal-select-toggle"),
+                    ) {
+                        Text(if (selectingPersonal) "CANCEL" else "SELECT",
+                            color = if (selectingPersonal) RecRed else ProjectorIvory)
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                         .testTag("v285-agenda-scope-selector"),
@@ -590,6 +623,41 @@ internal fun V2232PersonalReminderHub(
                     )
                 }
                 val visibleCount = agendaGroups.sumOf { it.entries.size }
+                if (selectingPersonal) {
+                    val visibleTickets = PersonalBulkDeletePolicy.visiblePersonalTickets(agendaGroups)
+                    val visibleIds = visibleTickets.map { it.id }.toSet()
+                    val everyVisibleSelected = visibleTickets.isNotEmpty() &&
+                        visibleIds.all { it in selectedPersonal }
+                    Text("${selectedPersonal.size} PERSONAL REMINDER(S) SELECTED · " +
+                        "Challenge rows are managed separately.",
+                        color = ProjectorIvory, fontSize = 11.sp,
+                        modifier = Modifier.testTag("v338-selected-count"))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        TextButton(
+                            enabled = !busy && visibleTickets.isNotEmpty(),
+                            onClick = {
+                                selectedPersonal = if (everyVisibleSelected)
+                                    selectedPersonal - visibleIds
+                                else selectedPersonal + visibleTickets.associateBy { it.id }
+                            },
+                            modifier = Modifier.testTag("v338-select-all-visible"),
+                        ) {
+                            Text(if (everyVisibleSelected) "DESELECT SHOWN" else "SELECT ALL SHOWN",
+                                color = ProjectorIvory)
+                        }
+                        TextButton(
+                            enabled = !busy && selectedPersonal.isNotEmpty(),
+                            onClick = { confirmBulkDelete = true },
+                            modifier = Modifier.testTag("v338-delete-selected"),
+                        ) { Text("DELETE SELECTED", color = RecRed) }
+                        TextButton(
+                            enabled = !busy,
+                            onClick = { selectedPersonal = emptyMap() },
+                            modifier = Modifier.testTag("v338-clear-selection"),
+                        ) { Text("CLEAR", color = MutedText) }
+                    }
+                }
                 Text("$visibleCount shown · choose ALL for paused, archived or finished alerts",
                     color = MutedText, fontSize = 10.sp,
                     modifier = Modifier.testTag("v285-agenda-count"))
@@ -617,6 +685,14 @@ internal fun V2232PersonalReminderHub(
                                     nowMillis = agendaNowMillis,
                                     busy = busy,
                                     expandedInitially = item.id == activityFocusId,
+                                    selectionMode = selectingPersonal,
+                                    selectedForDeletion = item.id in selectedPersonal,
+                                    onToggleSelection = {
+                                        val ticket = PersonalBulkDeletePolicy.ticket(item)
+                                        selectedPersonal = if (item.id in selectedPersonal)
+                                            selectedPersonal - item.id
+                                        else selectedPersonal + (item.id to ticket)
+                                    },
                                     onEdit = { editing = item; editorOpen = true },
                                     onPause = {
                                         perform { commands.setPaused(item.id, !item.paused) }
@@ -754,18 +830,85 @@ internal fun V2232PersonalReminderHub(
             onSave = { draft -> saveDraft(draft, V310LinkTargets()) },
         )
     }
+    if (confirmBulkDelete && selectedPersonal.isNotEmpty()) {
+        val tickets = selectedPersonal.values.toList()
+        AlertDialog(
+            onDismissRequest = { if (!busy) confirmBulkDelete = false },
+            title = { Text("Delete ${tickets.size} Personal reminders?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("This permanently removes the selected Personal reminders " +
+                        "and their local completion history. The associated alerts " +
+                        "will be canceled. Challenge reminders, Spaces and Creator " +
+                        "projects are not selected or deleted.")
+                    Text(tickets.take(4).joinToString("\n") { "• ${it.title}" } +
+                        if (tickets.size > 4) "\n… and ${tickets.size - 4} more" else "",
+                        color = MutedText)
+                    Text("You cannot undo this action.", color = RecRed)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        if (!busy) {
+                            busy = true
+                            scope.launch {
+                                try {
+                                    val outcome = commands.deleteManyReviewed(tickets)
+                                    confirmBulkDelete = false
+                                    selectingPersonal = false
+                                    selectedPersonal = emptyMap()
+                                    infoMessage = outcome.cleanupWarning
+                                        ?: "${outcome.deletedCount} Personal reminders deleted."
+                                } catch (failure: Exception) {
+                                    confirmBulkDelete = false
+                                    infoMessage = failure.message
+                                        ?: "Deletion could not be confirmed. Review your selection."
+                                } finally { busy = false }
+                            }
+                        }
+                    },
+                    modifier = Modifier.testTag("v338-bulk-delete-confirm"),
+                ) { Text("DELETE ${tickets.size}", color = RecRed) }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy,
+                    onClick = { confirmBulkDelete = false }) {
+                    Text("CANCEL")
+                }
+            },
+        )
+    }
     deleteTarget?.let { item ->
         AlertDialog(
             onDismissRequest = { if (!busy) deleteTarget = null },
             title = { Text("Delete personal reminder?") },
-            text = { Text("This removes only this personal reminder. Creator projects stay unchanged.") },
+            text = {
+                Text("Delete \"${item.title}\" and its Personal completion history? " +
+                    "Its scheduled alerts will be canceled. Other Personal reminders, " +
+                    "21-day challenges, Spaces and Creator projects stay unchanged.")
+            },
             confirmButton = {
                 TextButton(enabled = !busy, onClick = {
-                    perform {
-                        commands.delete(item.id)
-                        deleteTarget = null
+                    if (!busy) {
+                        busy = true
+                        scope.launch {
+                            try {
+                                val outcome = commands.deleteManyReviewed(
+                                    listOf(PersonalBulkDeletePolicy.ticket(item)))
+                                deleteTarget = null
+                                infoMessage = outcome.cleanupWarning ?: "Personal reminder deleted."
+                            } catch (failure: Exception) {
+                                deleteTarget = null
+                                infoMessage = failure.message
+                                    ?: "Reminder deletion could not be confirmed."
+                            } finally { busy = false }
+                        }
                     }
-                }) { Text("DELETE", color = RecRed) }
+                }, modifier = Modifier.testTag("v338-single-delete-confirm")) {
+                    Text("DELETE", color = RecRed)
+                }
             },
             dismissButton = {
                 TextButton(onClick = { deleteTarget = null }) { Text("CANCEL") }
