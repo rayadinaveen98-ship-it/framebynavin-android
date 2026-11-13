@@ -37,6 +37,7 @@ import com.framebynavin.app.data.V346UnifiedInterruptedRecoveryReview
 import com.framebynavin.app.data.V344UnifiedRestoreStep
 import com.framebynavin.app.data.V348UnifiedPrewriteAbort
 import com.framebynavin.app.data.V353UnifiedLiveCrashForensics
+import com.framebynavin.app.data.V360UnifiedPersonalV2RecoveryInspector
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -64,6 +65,9 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     val interruptedVerifier = remember(context) { V346UnifiedInterruptedRecoveryReview(context) }
     val prewriteAbort = remember(context) { V348UnifiedPrewriteAbort(context) }
     val liveForensics = remember(context) { V353UnifiedLiveCrashForensics(context) }
+    val nativeHandoff = remember(context) {
+        V360UnifiedPersonalV2RecoveryInspector(context)
+    }
     val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf(false) }
     var ownerPassword by remember { mutableStateOf("") }
@@ -77,12 +81,22 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     var combinedRecovery by remember {
         mutableStateOf<V344UnifiedRecoveryInspector.Assessment?>(null)
     }
+    var nativePersonalRecovery by remember {
+        mutableStateOf<V360UnifiedPersonalV2RecoveryInspector.Assessment?>(null)
+    }
 
     LaunchedEffect(opened) {
         status = withContext(Dispatchers.IO) { escrow.status() }
         combinedRecovery = withContext(Dispatchers.IO) {
             recoveryInspector.inspect()
         }
+        nativePersonalRecovery = if (
+            (combinedRecovery as?
+                V344UnifiedRecoveryInspector.Assessment.OwnerReview)?.checkpoint ==
+                    V344UnifiedRestoreStep.BEFORE_PERSONAL
+        ) withContext(Dispatchers.IO) {
+            nativeHandoff.inspectReadOnly()
+        } else null
     }
 
     suspend fun refresh() {
@@ -90,6 +104,13 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
         combinedRecovery = withContext(Dispatchers.IO) {
             recoveryInspector.inspect()
         }
+        nativePersonalRecovery = if (
+            (combinedRecovery as?
+                V344UnifiedRecoveryInspector.Assessment.OwnerReview)?.checkpoint ==
+                    V344UnifiedRestoreStep.BEFORE_PERSONAL
+        ) withContext(Dispatchers.IO) {
+            nativeHandoff.inspectReadOnly()
+        } else null
     }
 
     Surface(
@@ -128,6 +149,28 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                         (if (review.targetRetained) "checksum retained" else "unverified"),
                     color = MutedGold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v344-recovery-evidence"),
+                )
+            }
+            if (nativePersonalRecovery != null) {
+                val stageText = when (val n = nativePersonalRecovery) {
+                    V360UnifiedPersonalV2RecoveryInspector.Assessment.NoHandoff ->
+                        "Personal v2: no durable handoff. Do not assume records were untouched."
+                    V360UnifiedPersonalV2RecoveryInspector.Assessment.UnreadableOrContradictory ->
+                        "Personal v2: inconsistent or unreadable native recovery evidence. Keep all copies."
+                    is V360UnifiedPersonalV2RecoveryInspector.Assessment.HandoffBeforeNativePrepare ->
+                        "Personal v2: handoff recorded; native import completion is not proven."
+                    is V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active ->
+                        "Personal v2: interrupted at ${n.checkpoint.name}; owner-reviewed repair required."
+                    is V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2CompletedAndArchived ->
+                        "Personal v2: native journal was archived. Live records and JPEGs still need full authentication."
+                    else -> "Personal v2: recovery still requires owner review."
+                }
+                Text(
+                    stageText,
+                    color = RecRed,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.testTag("v360-native-personal-recovery"),
                 )
             }
             if (!opened) {
