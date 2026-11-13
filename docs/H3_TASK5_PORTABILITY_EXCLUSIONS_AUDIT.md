@@ -30,7 +30,7 @@ The existing `V341UnifiedBackupManager` exports an encrypted outer ZIP with **tw
 
 `CreatorBackupManager` v10 fixed manifest declares:
 
-- **Included Creator sections (17):** `tasks`, `ideas`, `weeklySchedule`, `settings`, `smartEscalationConfig`, `postPublish`, `rewards`, `personalFrames`, `youtubeProjectLinks`, `youtubeMilestones`, `youtubePublishCheckpoints`, `projectPulseHistory`, `workflowStageTimeline`, `automationPreferences`, `creatorFocusSessions`. (**15 section names**; count canonical JSON/manifest, not separate encrypted files.)
+- **Included Creator sections (15):** `tasks`, `ideas`, `weeklySchedule`, `settings`, `smartEscalationConfig`, `postPublish`, `rewards`, `personalFrames`, `youtubeProjectLinks`, `youtubeMilestones`, `youtubePublishCheckpoints`, `projectPulseHistory`, `workflowStageTimeline`, `automationPreferences`, `creatorFocusSessions`. (canonical JSON/manifest sections, not separate encrypted files).
 - **Explicitly excluded Creator runtime sections (8):** `accountCredentials`, `oauthTokens`, `cloudSessions`, `youtubeAnalyticsCache`, `reminderOccurrenceTokens`, `alarmDeliveryLedger`, `activeSmartSessions`, `activeMediaServices`.
 
 *Do not mistake exclusion of alarm runtime tokens for exclusion of reminder definitions or actual Done records.* A saved Creator alarm URI, workspace `content://` asset reference and YouTube project link are user metadata, not proof of transferable external binary content.
