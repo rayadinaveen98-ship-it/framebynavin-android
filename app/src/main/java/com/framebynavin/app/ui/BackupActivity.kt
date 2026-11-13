@@ -168,8 +168,19 @@ private fun BackupScreen(onClose: () -> Unit) {
             Text("Your work stays on this phone. Export a copy to another location to protect it if the phone is lost or reset.", color = MutedText, fontSize = 12.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(20.dp))
 
+            // Package H: one encrypted, owner-selected file containing the
+            // existing Creator and Personal canonical archives. Separate
+            // legacy restore flows remain available until a cross-domain
+            // owner recovery journal has been accepted and device-tested.
+            V341UnifiedBackupPanel()
+            Spacer(Modifier.height(18.dp))
+            Text("EXISTING SEPARATE BACKUP & RECOVERY TOOLS",
+                color = MutedGold, fontSize = 10.sp,
+                fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(12.dp))
+
             BackupActionCard(
-                title = "Export backup",
+                title = "Export Creator backup",
                 body = "Includes projects, ideas, saved Voice Idea recordings, original Best Frames, workflows, PROJECT reminders and core settings. Personal Reminders require their own separate backup. Project attachments are links only—not the files. Companion choice, theme, app icon, launch sound, Calendar connection and sign-in are excluded. Not encrypted.",
                 icon = Icons.Outlined.CloudUpload,
                 button = "EXPORT BACKUP",
