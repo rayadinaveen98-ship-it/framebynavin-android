@@ -85,6 +85,8 @@ class V369PreNativeOriginalPolicyTest {
         originalVoiceBytes: Boolean = true,
         spacePhotoBytes: Boolean = true,
         consent: Boolean = true,
+        expectedDirection: V347OwnerRecoveryChoice =
+            V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL,
     ): Boolean = V369PreNativeOriginalPolicy.matchesOwnerOriginal(
         checkpoint = cp,
         decision = decision,
@@ -96,6 +98,7 @@ class V369PreNativeOriginalPolicyTest {
         originalVoiceFilesMatchEscrow = originalVoiceBytes,
         personalPhotosMatchLiveRows = spacePhotoBytes,
         ownerConfirmed = consent,
+        expectedDirection = expectedDirection,
     )
 
     @Test fun partialNewCopiesMayBeObservedOnlyIfEveryOriginalByteMatches() {
@@ -148,6 +151,19 @@ class V369PreNativeOriginalPolicyTest {
                 missingCopies = 1, alteredOrPartialCopies = 0,
             ),
         )))
+    }
+
+    @Test fun ownerForwardChoiceCanInspectOriginalButCannotMasqueradeAsReverse() {
+        val forward = ownerChoice(V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
+        assertTrue(accepts(
+            decision = forward,
+            expectedDirection = V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET,
+        ))
+        assertFalse(accepts(decision = forward))
+        assertFalse(accepts(
+            decision = ownerChoice(V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL),
+            expectedDirection = V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET,
+        ))
     }
 
     @Test fun evidenceCannotReleaseOrReplayAnything() {
