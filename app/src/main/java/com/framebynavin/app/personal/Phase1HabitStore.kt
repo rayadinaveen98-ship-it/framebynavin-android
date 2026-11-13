@@ -245,6 +245,20 @@ internal class Phase1HabitStore(context: Context) {
         return mutate { current -> Phase1HabitMergePolicy.addMissing(current, incoming) }
     }
 
+    /**
+     * Only under the separately journaled owner-approved Personal v2
+     * ORIGINAL inverse permit. Restore EXACT original 21-day challenges,
+     * including every per-date confirmation timestamp, rather than
+     * recomputing progress or clearing all challenge history.
+     */
+    internal suspend fun replaceFromApprovedV2OriginalRollback(
+        authenticatedOriginal: String,
+    ): List<Phase1HabitChallenge> {
+        StabilizationPersonalMutationGate.requireActiveRecovery(app)
+        val previous = validateImport(authenticatedOriginal)
+        return mutate { previous }
+    }
+
     suspend fun validatedPreviousRevision(): List<Phase1HabitChallenge>? =
         data.data.first()[lastGood]?.let { readChecked(it) }
 
