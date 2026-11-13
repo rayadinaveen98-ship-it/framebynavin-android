@@ -274,7 +274,9 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                         Text("VERIFY INTERRUPTED RECOVERY FILES · NO WRITE")
                     }
                 }
-                if (status != null && status != V343UnifiedRecoveryEscrow.Status.None) {
+                if (combinedRecovery !is
+                    V344UnifiedRecoveryInspector.Assessment.OwnerReview &&
+                    status != null && status != V343UnifiedRecoveryEscrow.Status.None) {
                     OutlinedButton(
                         enabled = !loading,
                         onClick = { confirmDiscard = true },
