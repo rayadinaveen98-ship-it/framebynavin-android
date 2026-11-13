@@ -65,7 +65,12 @@ internal object V341UnifiedOwnerArchive {
     fun write(creatorFile: File, personalFile: File, password: CharArray, output: OutputStream) {
         require(password.size >= 12) { "Unified backup passphrase must have at least 12 characters" }
         val creator = inspectFile(creatorFile, CREATOR, MAX_CREATOR_BYTES)
-        val personal = inspectFile(personalFile, PERSONAL, MAX_PERSONAL_BYTES)
+        var personal = inspectFile(personalFile, PERSONAL, MAX_PERSONAL_BYTES)
+        // All chunks use one derived key; never permit the two sections to
+        // reuse a GCM nonce even if two random 4-byte prefixes collide.
+        while (personal.noncePrefix.contentEquals(creator.noncePrefix)) {
+            personal = personal.copy(noncePrefix = ByteArray(4).also(random::nextBytes))
+        }
         val salt = ByteArray(16).also(random::nextBytes)
         val header = JSONObject().apply {
             put("format", FORMAT)
@@ -135,6 +140,9 @@ internal object V341UnifiedOwnerArchive {
                 val key = deriveKey(password, salt)
                 val creator = readSection(obj.getJSONObject("creator"), CREATOR, MAX_CREATOR_BYTES)
                 val personal = readSection(obj.getJSONObject("personal"), PERSONAL, MAX_PERSONAL_BYTES)
+                require(!creator.noncePrefix.contentEquals(personal.noncePrefix)) {
+                    "Unified archive reuses an authenticated encryption nonce"
+                }
                 val outputFiles = listOf(creator, personal).mapIndexed { i, section ->
                     require(zip.nextEntry?.name == section.entry) {
                         "Unified archive part is absent or out of order"
