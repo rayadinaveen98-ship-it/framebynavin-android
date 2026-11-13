@@ -209,6 +209,9 @@ internal class V343UnifiedRecoveryEscrow(
      */
     suspend fun discard(ownerConfirmed: Boolean): Boolean = withContext(Dispatchers.IO) {
         require(ownerConfirmed) { "Owner confirmation required" }
+        check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+            "A cross-domain journal is present: original escrow must remain recoverable"
+        }
         mutex.lock()
         try {
             if (!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS)) {
