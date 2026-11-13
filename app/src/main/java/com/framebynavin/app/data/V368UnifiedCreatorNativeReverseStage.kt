@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import android.content.Context
 import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import java.io.File
+import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -92,6 +93,157 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
     private val native = V364UnifiedCreatorPendingRecoveryProof(app)
     private val originalVoice = V367UnifiedCreatorOriginalVoiceSafety(app)
     private val decisions = V347OwnerRecoveryDecisionJournal(app)
+
+    /**
+     * Task 3, supported whole-account reverse case: H4 BEFORE_CREATOR
+     * guarantees Personal's write stage never began. Native Creator may be
+     * partly written, or still precisely ORIGINAL with preinstalled target
+     * Voice Idea files. Return ORIGINAL + ORIGINAL only after BOTH domains,
+     * original recordings, Space JPEGs and encrypted sources match H4.
+     *
+     * No imported target file is removed; H4/V347/V365, target ZIP and
+     * ORIGINAL encrypted rollback escrow remain durable and blocking. Task 4
+     * must separately decide verified journal/media release. This does not
+     * run if a Personal write or later H4 stage has started.
+     */
+    internal suspend fun restoreBothOriginalBeforePersonalWritesInternalOnly(
+        freshOwnerConsent: Boolean,
+        passphrase: CharArray,
+    ): V368CrossDomainOriginalReceipt = withContext(Dispatchers.IO) {
+        require(freshOwnerConsent && passphrase.size >= 12) {
+            "Explicit owner rollback consent and archive password are required"
+        }
+        val expected = journal.requireCheckpointReadOnly()
+        require(expected.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "This whole-domain rollback is only for BEFORE_CREATOR"
+        }
+        val direction = (decisions.readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("No intact owner reverse-original approval")
+        check(direction.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(direction, expected) &&
+            !IdeaProjectConversion(app).hasPendingRecovery()) {
+            "The original owner reverse decision or conversion evidence is unsafe"
+        }
+        val sealed = V345UnifiedAuthenticatedRestoreParts(app)
+            .authenticateForInterruptedRecovery(
+                ownerConfirmedReview = true, passphrase = passphrase,
+            )
+        check(V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(
+            sealed, expected,
+        )) {
+            "Authenticated owner ORIGINAL or TARGET escrow changed"
+        }
+        val voice = V366UnifiedCreatorVoiceRecoveryInspector(app)
+            .inspectOwnerReviewed(ownerConfirmed = true, passphrase = passphrase)
+        check(voice.transactionId == expected.transactionId &&
+            voice.originalMediaAuthenticated && voice.targetAllocationAuthenticated) {
+            "ORIGINAL Creator Voice Idea recordings were not authenticated"
+        }
+
+        // Preflight Personal independently of potentially corrupt Creator
+        // Best Frames. All Personal records, exact Done instants and Space
+        // photo BYTE hashes must still represent the ORIGINAL owner.
+        suspend fun inspectOriginalPersonal(): String =
+            StabilizationPersonalMutationGate.withPendingCombinedReadInspection(
+                app, expected,
+            ) {
+                CreatorDataGate.withPendingCombinedReadInspection(app, expected) {
+                    val personal = com.framebynavin.app.personal.V301LocalRecoveryReader(app)
+                        .readForInterruptedV2Recovery()
+                    val hash = V343UnifiedBaselineReader(app)
+                        .personalFingerprintForInterrupted(personal)
+                    check(hash == expected.personalOriginalSha256 &&
+                        V354UnifiedLiveSpacePhotoAudit(app)
+                            .inspect(personal.photos)
+                            .currentPhotoFilesMatchTheirLiveRows) {
+                        "Personal reminders, challenges, Done history or photos are not original"
+                    }
+                    hash
+                }
+            }
+
+        val beforePersonal = inspectOriginalPersonal()
+        val first = native.inspectReadOnly()
+        val nativeRewound = when (first) {
+            is V364UnifiedCreatorPendingRecoveryProof.Assessment.BoundOriginal -> {
+                restoreOriginalNativeInternalOnly(
+                    freshOwnerConsent = true, passphrase = passphrase,
+                )
+                true
+            }
+            is V364UnifiedCreatorPendingRecoveryProof.Assessment
+                .VoiceAllocatedBeforeNativeCreatorJournal -> false
+            else -> error("No authenticated, reversible native Creator crash state")
+        }
+        // An unrelated or torn native journal must not be reinterpreted as a
+        // clean completion. H4 is intentionally not advanced or deleted.
+        val afterNative = native.inspectReadOnly() as?
+            V364UnifiedCreatorPendingRecoveryProof.Assessment
+                .VoiceAllocatedBeforeNativeCreatorJournal
+            ?: error("Native Creator rollback left unresolved original recovery evidence")
+        check(afterNative.voice.transactionId == expected.transactionId &&
+            afterNative.voice == voice.installedCopies &&
+            journal.requireCheckpointReadOnly() == expected &&
+            decisions.readOnlyStatus() ==
+                V347OwnerRecoveryDecisionJournal.ReadState.Recorded(direction)) {
+            "Native Creator rollback changed owner decision or Voice allocation"
+        }
+
+        val (creatorHash, personalHash, frames) =
+            StabilizationPersonalMutationGate.withPendingCombinedReadInspection(
+                app, expected,
+            ) {
+                CreatorDataGate.withPendingCombinedReadInspection(app, expected) {
+                    val currentCreator = CreatorBackupManager(app)
+                        .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
+                    val currentPersonal =
+                        com.framebynavin.app.personal.V301LocalRecoveryReader(app)
+                            .readForInterruptedV2Recovery()
+                    val fingerprints = V343UnifiedBaselineReader(app)
+                        .fingerprintUnverifiedInterrupted(
+                            currentCreator, currentPersonal,
+                        )
+                    val originalFrames = CreatorHeroArchive.captureOriginalOrder(app)
+                    val inventory = originalVoice.inspectOriginalIdeaReferencesReadOnly(
+                        ideasJson = JSONObject(currentCreator).getString("ideas"),
+                        expectedAudio = voice.originalMediaHashes,
+                        voiceDir = File(app.filesDir, "voice_ideas"),
+                    )
+                    check(fingerprints.creatorSha256 == expected.creatorOriginalSha256 &&
+                        fingerprints.personalSha256 == expected.personalOriginalSha256 &&
+                        fingerprints.personalSha256 == beforePersonal &&
+                        V354UnifiedLiveSpacePhotoAudit(app)
+                            .inspect(currentPersonal.photos)
+                            .currentPhotoFilesMatchTheirLiveRows &&
+                        inventory.verifiedOriginalVoiceCount == voice.originalMediaCount) {
+                        "Creator or Personal ORIGINAL was not fully restored"
+                    }
+                    Triple(fingerprints.creatorSha256,
+                        fingerprints.personalSha256, JSONArray(originalFrames).length())
+                }
+            }
+        check(journal.requireCheckpointReadOnly() == expected &&
+            decisions.readOnlyStatus() ==
+                V347OwnerRecoveryDecisionJournal.ReadState.Recorded(direction) &&
+            V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(
+                V345UnifiedAuthenticatedRestoreParts(app)
+                    .authenticateForInterruptedRecovery(
+                        ownerConfirmedReview = true, passphrase = passphrase,
+                    ),
+                expected,
+            )) {
+            "Owner's rollback target or original encrypted escrow changed after verification"
+        }
+        V368CrossDomainOriginalReceipt(
+            transactionId = expected.transactionId,
+            originalCreatorFingerprint = creatorHash,
+            originalPersonalFingerprint = personalHash,
+            originalVoiceCount = voice.originalMediaCount,
+            originalBestFrames = frames,
+            nativeCreatorRewound = nativeRewound,
+        )
+    }
 
     /**
      * A strictly limited Creator-domain rollback. This is not a substitute
@@ -221,4 +373,27 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
             }
         }
     }
+}
+
+
+/** A verified original state is NOT authority to erase recovery evidence. */
+internal data class V368CrossDomainOriginalReceipt(
+    val transactionId: String,
+    val originalCreatorFingerprint: String,
+    val originalPersonalFingerprint: String,
+    val originalVoiceCount: Int,
+    val originalBestFrames: Int,
+    val nativeCreatorRewound: Boolean,
+) {
+    init {
+        require(transactionId.isNotBlank() &&
+            originalCreatorFingerprint.matches(Regex("[a-f0-9]{64}")) &&
+            originalPersonalFingerprint.matches(Regex("[a-f0-9]{64}")) &&
+            originalVoiceCount >= 0 && originalBestFrames in 0..10)
+    }
+    val bothOriginalsVerified: Boolean get() = true
+    val mayDeleteMedia: Boolean get() = false
+    val mayReleaseH4OrEscrow: Boolean get() = false
+    val mayEnableAlarms: Boolean get() = false
+    val mayClaimRestoredToOwner: Boolean get() = false
 }
