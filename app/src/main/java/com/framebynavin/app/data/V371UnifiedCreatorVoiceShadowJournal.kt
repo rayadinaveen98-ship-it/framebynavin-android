@@ -4,7 +4,10 @@ import android.content.Context
 import android.util.AtomicFile
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.channels.Channels
+import java.nio.channels.FileChannel
 import java.nio.file.Files
+import java.nio.file.StandardOpenOption
 import java.nio.file.LinkOption
 import java.security.MessageDigest
 import java.util.UUID
@@ -264,6 +267,116 @@ internal class V371UnifiedCreatorVoiceShadowJournal(
             planned = plan.entries.size, matching = matching, missing = missing,
             alteredOrPartial = damaged, unsafe = unsafe,
         )
+    }
+
+    /**
+     * H3 Task 2: install only MISSING immutable shadow copies. This method
+     * MUST run inside the owner's Personal missing-Voice fence AND the exact
+     * H4 Creator write permit. It cannot create a recovery journal, choose a
+     * recovery direction, replace original/partial bytes, or touch Creator
+     * records/Best Frames/alarms. Caller authenticates BOTH sealed archives,
+     * verifies live ORIGINAL Creator+Personal data and stages TARGET files.
+     *
+     * A crash mid-copy leaves a partial shadow as blocking evidence; never
+     * unlink/retry the same path automatically. Existing MATCHING shadows
+     * are verified but not rewritten (idempotent completed retry).
+     */
+    internal suspend fun installMissingShadowsForCurrentOwnerWriter(
+        plan: V371VoiceShadowPlan,
+        selectedTargetMedia: Map<String, File>,
+    ): V371VoiceShadowAudit {
+        check(CreatorDataGate.isJournalBoundCreatorWrite(app)) {
+            "Shadow Voice installation requires H4 Creator owner write authority"
+        }
+        val checkpoint = h4.requireCheckpointReadOnly()
+        check(checkpoint.step == V344UnifiedRestoreStep.BEFORE_CREATOR &&
+            checkpoint.transactionId == plan.transactionId &&
+            checkpoint.sourceSha256 == plan.sourceSha256 &&
+            checkpoint.escrowSha256 == plan.escrowSha256 &&
+            com.framebynavin.app.personal.StabilizationPersonalMutationGate
+                .isWithinCombinedCreatorMissingVoiceFence(app, checkpoint)) {
+            "Shadow Voice installation requires BOTH exclusive owner recovery fences"
+        }
+        val choice = (V347OwnerRecoveryDecisionJournal(app).readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("Owner recovery direction is absent or torn")
+        check(choice.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(choice, checkpoint)) {
+            "Shadow Voice installation needs the exact durable FORWARD_TARGET choice"
+        }
+        val original = allocations.inspectReadOnly()
+            ?: error("Immutable original Voice Idea allocation is missing")
+        V371VoiceShadowPolicy.validate(plan, original)
+        check(readStrict(original) == plan &&
+            selectedTargetMedia.keys == original.entries.map { it.ideaId }.toSet()) {
+            "Authenticated target audio or shadow journal is stale"
+        }
+        val folder = voiceRoot
+        check(folder.isDirectory &&
+            !Files.isSymbolicLink(folder.toPath()) &&
+            folder.canonicalFile.parentFile == app.filesDir.canonicalFile) {
+            "Unsafe Voice Idea output folder"
+        }
+        // Verify ALL sources and ALL original damaged bytes BEFORE the first
+        // CREATE_NEW. Never produce a partial success for a known-bad source.
+        plan.entries.forEach { entry ->
+            val source = requireNotNull(selectedTargetMedia[entry.ideaId])
+            check(Files.isRegularFile(source.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.isSymbolicLink(source.toPath()) &&
+                source.length() == entry.expectedBytes &&
+                sha256(source) == entry.expectedSha256) {
+                "Authenticated target recording changed before shadow copy"
+            }
+        }
+        val before = auditShadowReadOnly(plan)
+        check(before.unsafe == 0 && before.alteredOrPartial == 0 &&
+            before.matching + before.missing == before.planned) {
+            "A partial, altered or unsafe shadow cannot be overwritten or retried"
+        }
+        plan.entries.forEach { entry ->
+            val destination = File(folder, entry.shadowFile)
+            val source = requireNotNull(selectedTargetMedia[entry.ideaId])
+            // The previous audit established that any existing copy matches;
+            // never reopen an existing file in write mode, even after a race.
+            if (Files.exists(destination.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                check(Files.isRegularFile(destination.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                    !Files.isSymbolicLink(destination.toPath()) &&
+                    destination.canonicalFile.parentFile == folder.canonicalFile &&
+                    destination.length() == entry.expectedBytes &&
+                    sha256(destination) == entry.expectedSha256) {
+                    "Previously allocated shadow changed: preserve it for owner review"
+                }
+            } else {
+                check(destination.canonicalFile.parentFile == folder.canonicalFile) {
+                    "Shadow file would escape app-private media folder"
+                }
+                // Atomic CREATE_NEW: another owner file is never truncated.
+                // fsync precedes exposing any result, checksum verified after.
+                FileChannel.open(
+                    destination.toPath(),
+                    StandardOpenOption.CREATE_NEW,
+                    StandardOpenOption.WRITE,
+                ).use { channel ->
+                    source.inputStream().buffered().use { input ->
+                        input.copyTo(Channels.newOutputStream(channel), 64 * 1024)
+                    }
+                    channel.force(true)
+                }
+                check(destination.length() == entry.expectedBytes &&
+                    sha256(destination) == entry.expectedSha256) {
+                    "Incomplete shadow copy preserved; owner recovery blocked"
+                }
+            }
+        }
+        val after = auditShadowReadOnly(plan)
+        check(after.allVerified &&
+            h4.requireCheckpointReadOnly() == checkpoint &&
+            readStrict(original) == plan &&
+            V347OwnerRecoveryDecisionJournal(app).readOnlyStatus() ==
+                V347OwnerRecoveryDecisionJournal.ReadState.Recorded(choice)) {
+            "Shadow completion must not modify owner recovery evidence"
+        }
+        return after
     }
 
     private fun encode(p: V371VoiceShadowPlan): ByteArray {
