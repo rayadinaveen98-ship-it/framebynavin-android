@@ -217,6 +217,110 @@ internal class V344UnifiedRestoreJournal(
         }
     }
 
+    /**
+     * THE ONLY final H3 owner recovery release of the blocking H4 journal.
+     * Executed AFTER a durable V378 cross-domain/media proof and V379
+     * separate release journal show every other owner recovery marker and
+     * both encrypted ZIP directories were atomically retained in history.
+     *
+     * H4 is the LAST active journal renamed. No encrypted original,
+     * Creator recording, Best Frame or Personal JPEG is deleted.
+     *
+     * This method uses the SAME mutex as all H4 checkpoint changes; no
+     * concurrent stage advancement can race the final release decision.
+     */
+    internal suspend fun archiveFullyVerifiedCheckpoint(
+        expected: V344UnifiedRestoreCheckpoint,
+        proof: V377UnifiedFinalReadOnlyProof,
+        release: V379UnifiedReleaseRecord,
+        destination: File,
+        ownerConfirmed: Boolean,
+    ): Boolean = withContext(Dispatchers.IO) {
+        require(ownerConfirmed) { "Fresh owner approval is required to unfreeze recovery" }
+        mutex.lock()
+        try {
+            check(readStrict() == expected &&
+                proof.transactionId == expected.transactionId &&
+                proof.checkpointSha256 == V379UnifiedReleaseJournal.sha256(
+                    V344UnifiedRestoreCheckpointCodec.encode(expected),
+                ) &&
+                release.transactionId == expected.transactionId &&
+                release.checkpointSha256 == proof.checkpointSha256 &&
+                release.verificationSha256 ==
+                    V379UnifiedReleaseJournal.proofDigest(proof) &&
+                release.outcome == proof.outcome &&
+                release.step == V379ReleaseStep.READY_TO_ARCHIVE_H4 &&
+                (if (proof.outcome ==
+                    V377VerifiedOwnerOutcome.SELECTED_TARGET_RESTORED)
+                    expected.step == V344UnifiedRestoreStep.BOTH_VERIFIED &&
+                        proof.archivedNativePersonalVerified
+                 else expected.step != V344UnifiedRestoreStep.PREPARED_NO_WRITES)) {
+                "H4 release requires the identical verified owner outcome and journal"
+            }
+            check(V378UnifiedVerifiedEvidenceJournal(app).inspect() == proof &&
+                V379UnifiedReleaseJournal(app).inspect() == release) {
+                "Final verification or owner release evidence changed"
+            }
+            val history = requireNotNull(destination.parentFile)
+            check(history.isDirectory &&
+                !Files.isSymbolicLink(history.toPath()) &&
+                destination.name == ROOT_NAME &&
+                history.name == expected.transactionId &&
+                history.parentFile?.name ==
+                    "backlot-unified-retained-recovery-history-v1" &&
+                history.canonicalFile.parentFile ==
+                    File(app.filesDir,
+                        "backlot-unified-retained-recovery-history-v1").canonicalFile &&
+                !Files.exists(destination.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                "Unsafe or already occupied H4 retained history destination"
+            }
+            val requiredRetained = listOf(
+                "backlot-unified-owner-recovery-decision-v1",
+                "backlot-unified-owner-recovery-escrow-v1",
+                "backlot-unified-owner-restore-preparation-v1",
+            )
+            check(requiredRetained.all { name ->
+                val old = File(app.filesDir, name)
+                val archived = File(history, name)
+                !Files.exists(old.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                    archived.isDirectory &&
+                    !Files.isSymbolicLink(archived.toPath())
+            }) {
+                "Owner direction or encrypted original/selected backups were not retained"
+            }
+            check(!listOf("pending.json", "pending.json.new", "pending.json.bak")
+                .any { name ->
+                    Files.exists(
+                        File(app.filesDir, "creator_restore_recovery_v181/" + name)
+                            .toPath(), LinkOption.NOFOLLOW_LINKS,
+                    )
+                }) &&
+                !Files.exists(
+                    File(app.filesDir,
+                        "backlot-personal-active-restore-transaction-v2")
+                        .toPath(), LinkOption.NOFOLLOW_LINKS,
+                )) {
+                "An unfinished native Creator/Personal restore still blocks H4 release"
+            }
+            Files.move(
+                journalRoot.toPath(), destination.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+            V379AtomicOwnerHistory.forceDirectory(history)
+            V379AtomicOwnerHistory.forceDirectory(history.parentFile)
+            V379AtomicOwnerHistory.forceDirectory(app.filesDir)
+            check(!Files.exists(journalRoot.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                V344UnifiedRestoreCheckpointCodec.decode(
+                    File(destination, ACTIVE_NAME).readBytes(),
+                ) == expected) {
+                "Verified combined recovery was not durably retained"
+            }
+            true
+        } finally {
+            mutex.unlock()
+        }
+    }
+
     private fun readStrict(): V344UnifiedRestoreCheckpoint? {
         if (!hasBlockingEvidence()) return null
         check(journalRoot.isDirectory &&
