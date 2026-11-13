@@ -144,6 +144,35 @@ internal object V359PersonalV2HandoffCodec {
             )
     }.getOrDefault(false)
 
+    /**
+     * H4 advances beyond BEFORE_PERSONAL only after the independently
+     * authenticated native Personal v2 journal completed and was archived.
+     * This relation alone NEVER authorizes a rollback: caller must ALSO
+     * prove an archived, terminal v2 journal; BOTH encrypted archives;
+     * exact original/merged Personal digest; current V347 reverse choice
+     * and the complete live original-or-target state.
+     *
+     * The original handoff's H4 BEFORE_PERSONAL checksum is immutable.
+     * The older H4 format does not retain the intermediate checkpoint
+     * timestamp after advancement, so do not fabricate/rewrite that hash.
+     */
+    fun matchesCompletedCombined(
+        handoff: V359PersonalV2Handoff,
+        checkpoint: V344UnifiedRestoreCheckpoint,
+    ): Boolean = runCatching {
+        validate(handoff)
+        V344UnifiedRestorePolicy.validate(checkpoint)
+        checkpoint.step in setOf(
+            V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+            V344UnifiedRestoreStep.VERIFYING_BOTH,
+            V344UnifiedRestoreStep.BOTH_VERIFIED,
+        ) &&
+            handoff.combinedTransactionId == checkpoint.transactionId &&
+            handoff.selectedSourceSha256 == checkpoint.sourceSha256 &&
+            handoff.originalEscrowSha256 == checkpoint.escrowSha256 &&
+            checkpoint.updatedAtMillis >= handoff.createdAtMillis
+    }.getOrDefault(false)
+
     fun matchesV2(
         handoff: V359PersonalV2Handoff,
         checkpoint: Phase1V2RestoreCheckpoint,
