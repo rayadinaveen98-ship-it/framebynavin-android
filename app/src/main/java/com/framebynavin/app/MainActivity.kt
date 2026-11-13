@@ -87,6 +87,16 @@ class MainActivity : ComponentActivity() {
         startupError = null
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
+                // A torn combined restore must NOT be mistaken for an
+                // ordinary Creator recovery. Do not launch background
+                // reconcile/cloud workers before owner-reviewed evidence.
+                // BackupActivity stays accessible from the recovery screen.
+                check(!com.framebynavin.app.data.V344UnifiedRestoreJournal
+                    .hasPendingFor(applicationContext)) {
+                    "An interrupted combined restore needs owner review. " +
+                        "Do not retry automatic recovery. Open Backup Tools " +
+                        "to inspect the original and selected encrypted copies."
+                }
                 CreatorBackupManager(applicationContext).recoverPendingRestore()
                 VoiceIdeaRecorder.cleanupAbandonedWorkingFiles(applicationContext)
                 ReminderNotifications.ensureChannel(applicationContext)
