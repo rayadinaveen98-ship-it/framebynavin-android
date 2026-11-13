@@ -57,18 +57,19 @@ internal fun V340HomeSpacesEntry(
     refreshVersion: Int = 0,
 ) {
     val context = LocalContext.current.applicationContext
-    val database = remember(context, refreshVersion) {
+    val databaseResult = remember(context, refreshVersion) {
         runCatching {
             if (context.getDatabasePath(V289SpacesDatabase.FILE_NAME).isFile)
                 V289SpacesDatabase.open(context) else null
-        }.getOrNull()
+        }
     }
+    val database = databaseResult.getOrNull()
     DisposableEffect(database) {
         onDispose { database?.close() }
     }
     var spaces by remember(database) { mutableStateOf(emptyList<V289SpaceEntity>()) }
-    var loaded by remember(database) { mutableStateOf(database == null) }
-    var unavailable by remember(database) { mutableStateOf(false) }
+    var loaded by remember(databaseResult) { mutableStateOf(database == null) }
+    var unavailable by remember(databaseResult) { mutableStateOf(databaseResult.isFailure) }
     LaunchedEffect(database) {
         if (database != null) {
             try {
@@ -86,6 +87,24 @@ internal fun V340HomeSpacesEntry(
         }
     }
 
+    V340HomeSpacesCard(
+        spaces = spaces,
+        loaded = loaded,
+        unavailable = unavailable,
+        onOpenSpaces = onOpenSpaces,
+        modifier = modifier,
+    )
+}
+
+/** Pure, previewable presentation, also used for deterministic UI tests. */
+@Composable
+internal fun V340HomeSpacesCard(
+    spaces: List<V289SpaceEntity>,
+    loaded: Boolean,
+    unavailable: Boolean,
+    onOpenSpaces: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val snapshot = V340HomeSpacesPolicy.preview(spaces)
     val openOverview = { onOpenSpaces(null) }
 
