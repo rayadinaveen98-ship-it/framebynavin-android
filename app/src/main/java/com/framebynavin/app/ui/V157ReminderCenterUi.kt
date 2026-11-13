@@ -614,7 +614,11 @@ private fun V157ReminderGroup(
         val chosen = task.id in selected
         val pulse = ProjectPulseEngine.snapshot(task, now)
         val actionable = ReminderActionSafety.isActionable(task)
-        val snoozeAt = ReminderCenterPolicy.nextSnoozeAt(task, now, snoozeMinutes)
+        val effectiveSnoozeMinutes =
+            com.framebynavin.app.reminders.V280ReminderSnoozePolicy.effectiveCreatorMinutes(
+                task.snoozeMinutes, snoozeMinutes,
+            )
+        val snoozeAt = ReminderCenterPolicy.nextSnoozeAt(task, now, effectiveSnoozeMinutes)
         val smartWindowReady = snoozeAt != null &&
             ReminderCenterPolicy.validTargetWindow(task, now, snoozeAt, smartConfig.get(task))
         val canSnooze = actionable && onSnooze != null && smartWindowReady
@@ -709,14 +713,14 @@ private fun V157ReminderGroup(
                         if (canSnooze) {
                             OutlinedButton(
                                 modifier = Modifier.weight(1f).heightIn(min = 45.dp),
-                                onClick = { onSnooze?.invoke(task, snoozeMinutes) },
+                                onClick = { onSnooze?.invoke(task, effectiveSnoozeMinutes) },
                                 border = BorderStroke(1.dp, CinemaLine),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Outlined.Snooze, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("SNOOZE ${snoozeMinutes}m", fontSize = 11.sp, maxLines = 1)
+                                Text("SNOOZE ${effectiveSnoozeMinutes}m", fontSize = 11.sp, maxLines = 1)
                             }
                         }
                         if (canReschedule) {
