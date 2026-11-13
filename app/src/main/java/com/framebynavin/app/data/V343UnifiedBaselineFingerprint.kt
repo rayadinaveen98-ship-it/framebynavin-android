@@ -91,14 +91,31 @@ internal class V343UnifiedBaselineReader(context: Context) {
         return hashParts(creatorValues.map { (key, value) -> "$key=$value" })
     }
 
+    /**
+     * Original Personal records and photo-row fingerprint independent of
+     * CURRENT Creator Best Frames. Necessary while a crashed native Creator
+     * import may have replaced or corrupted its live slideshow; an otherwise
+     * valid Personal original must remain inspectable before native rewind.
+     */
+    internal fun personalFingerprintForInterrupted(
+        personal: V301LocalRecoverySnapshot,
+    ): String = fingerprintPersonal(personal, requireIntegrity = false)
+
     private fun hashReadOnlySnapshots(
         creatorRoot: JSONObject,
         local: V301LocalRecoverySnapshot,
         requireIntegrity: Boolean,
-    ): V343UnifiedBaselineFingerprint {
-        val creatorDigest = fingerprintCreatorRoot(
+    ): V343UnifiedBaselineFingerprint = V343UnifiedBaselineFingerprint(
+        creatorSha256 = fingerprintCreatorRoot(
             creatorRoot, CreatorHeroArchive.captureOriginalOrder(app),
-        )
+        ),
+        personalSha256 = fingerprintPersonal(local, requireIntegrity),
+    )
+
+    private fun fingerprintPersonal(
+        local: V301LocalRecoverySnapshot,
+        requireIntegrity: Boolean,
+    ): String {
         check((!requireIntegrity || local.localIntegrityVerified) &&
             local.components.singleActivityChallenges != null) {
             "A complete Personal v2 snapshot is required"
@@ -108,15 +125,10 @@ internal class V343UnifiedBaselineReader(context: Context) {
             "personal" to d.personal, "challenges" to d.challenges,
             "groups" to d.groups, "spaces" to d.spaces,
             "singleActivityChallenges" to requireNotNull(d.singleActivityChallenges),
-            // Private JPEG bytes and all record metadata are verified by
-            // V301LocalRecoveryReader before it returns these photo rows.
             "verifiedPhotoRows" to local.photos.sortedBy { it.id }
                 .joinToString("\n") { it.toString() },
         )
-        return V343UnifiedBaselineFingerprint(
-            creatorSha256 = creatorDigest,
-            personalSha256 = hashParts(personalValues.map { (key, value) -> "$key=$value" }),
-        )
+        return hashParts(personalValues.map { (key, value) -> "$key=$value" })
     }
 
     private fun hashParts(values: List<String>): String {
