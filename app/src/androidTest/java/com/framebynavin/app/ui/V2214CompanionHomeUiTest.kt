@@ -67,14 +67,16 @@ class V2214CompanionHomeUiTest {
                     }
                 }
             }
-            rule.onNodeWithTag("v2221-companion-avatar").assertIsDisplayed().performClick()
+            rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed().performClick()
+            rule.onNodeWithTag("v339-home-menu-SPARK").assertIsDisplayed().performClick()
             rule.onNodeWithTag("v2221-companion-sheet").assertExists()
             rule.onNodeWithTag("v2212-companion-card").assertIsDisplayed()
             rule.onNodeWithText("Open Project").assertExists()
             screenshot("project")
             rule.onNodeWithTag("v2212-companion-action").performClick()
             rule.runOnIdle { assertEquals("companion-home-test-project", opened) }
-            rule.onNodeWithTag("v2221-companion-avatar").performClick()
+            rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
+            rule.onNodeWithTag("v339-home-menu-SPARK").performClick()
             rule.onNodeWithTag("v2212-companion-dismiss").performClick()
             rule.onNodeWithTag("v2212-companion-card").assertDoesNotExist()
             rule.runOnIdle {
@@ -103,6 +105,7 @@ class V2214CompanionHomeUiTest {
                 }
             }
             rule.onNodeWithTag("v2212-companion-card").assertDoesNotExist()
+            rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed()
             rule.onNodeWithTag("v2221-companion-avatar").assertDoesNotExist()
         } finally { prefs().edit().clear().commit() }
     }
@@ -123,7 +126,8 @@ class V2214CompanionHomeUiTest {
                     )
                 }
             }
-            rule.onNodeWithTag("v2221-companion-avatar").assertIsDisplayed().performClick()
+            rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed().performClick()
+            rule.onNodeWithTag("v339-home-menu-SPARK").assertIsDisplayed().performClick()
             rule.onNodeWithTag("v2221-companion-sheet").assertExists()
             rule.onNodeWithTag("v2212-companion-card").assertIsDisplayed()
             rule.onNodeWithText("Open Ideas").assertExists()
