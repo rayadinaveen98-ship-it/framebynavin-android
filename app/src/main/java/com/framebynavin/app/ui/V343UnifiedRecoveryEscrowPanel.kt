@@ -170,8 +170,9 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                     V343UnifiedRecoveryEscrow.Status.NeedsOwnerReview ->
                         Text(
                             "An interrupted, modified or disconnected escrow was " +
-                                "detected. No Creator or Personal data was restored. " +
-                                "Do not discard unknown recovery evidence.",
+                                "detected. Live Creator and Personal records may be " +
+                                "incomplete if a restore had started. Do not discard " +
+                                "unknown recovery evidence.",
                             color = RecRed, fontSize = 11.sp,
                             modifier = Modifier.testTag("v343-escrow-interrupted"),
                         )
