@@ -43,7 +43,7 @@ internal class V343UnifiedBaselineReader(context: Context) {
         // createdAtMillis and payloadSha256 are random/current export-envelope
         // metadata and deliberately NOT treated as owner-data changes.
         val creatorValues = creatorSections.map { key ->
-            key to creatorRoot.getString(key)
+            key to creatorRoot.get(key).toString()
         } + ("originalBestFrames" to CreatorHeroArchive.captureOriginalOrder(app))
         val creatorDigest = hashParts(creatorValues.map { (key, value) -> "$key=$value" })
 
