@@ -195,6 +195,13 @@ internal class PersonalReminderStore(context: Context) {
                         prefs[completionLastGoodKey] = nextHistoryRaw
                     }
                 }
+                if (redactDeletedRecoveryCopies) {
+                    // Even if the PRIMARY already matched the original (a
+                    // crash after store replacement), a stale last-good
+                    // target must never bring back imported reminders/Done.
+                    prefs[lastGoodKey] = PersonalReminderCodec.encode(updated)
+                    prefs[completionLastGoodKey] = nextHistoryRaw
+                }
                 committed = updated
             }
             committed
