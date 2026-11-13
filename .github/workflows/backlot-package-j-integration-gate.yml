@@ -1,0 +1,96 @@
+name: Backlot Package J — H3 plus I Integration Gate (NOT RELEASE)
+
+on:
+  push:
+    branches:
+      - feature/backlot-i-device-reset-safety-20261113
+    paths:
+      - 'app/**'
+      - '.github/workflows/backlot-package-j-integration-gate.yml'
+      - 'docs/PACKAGE_I_UNIFIED_DEVICE_RESET_ACCEPTANCE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-package-j-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-unit:
+    name: H3 + I source compile, unit tests and owner-signed candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assert no production release or legacy APK substitution
+        run: |
+          set -euo pipefail
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          grep -Fq 'V383UnifiedDeviceResetPreflight.inspect(filesDir)' app/src/main/java/com/framebynavin/app/ui/FreshStartActivity.kt
+          grep -Fq 'clearApplicationUserData()' app/src/main/java/com/framebynavin/app/ui/FreshStartActivity.kt
+          test -f app/src/test/java/com/framebynavin/app/ui/FreshStartPolicyTest.kt
+          echo 'This is a personal owner preview, not Google Play or a certified restore.'
+      - name: Compile entire integrated Android source and run JVM regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/package-j
+          timeout --signal=TERM --kill-after=30s 6300s \
+            gradle :app:testDebugUnitTest :app:assembleDebug \
+              :app:assembleDebugAndroidTest :app:assemblePersonalStable \
+              --no-daemon --no-parallel --max-workers=1 \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              '-Dorg.gradle.jvmargs=-Xmx9g -XX:MaxMetaspaceSize=1500m -Dfile.encoding=UTF-8' \
+              --console=plain --stacktrace 2>&1 | tee output/package-j/BUILD.log
+      - name: Verify exact owner APK identity and media signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          mkdir -p output/package-j/owner-candidate
+          cp "$apk" output/package-j/owner-candidate/Backlot-H3-I-Integration-NOT-RELEASE.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs "$apk" > output/package-j/SIGNER.txt
+          "$aapt" dump badging "$apk" | head -n 7 > output/package-j/IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" output/package-j/IDENTITY.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/package-j/SIGNER.txt
+          echo 'NOT A RELEASE. Unified Restore All remains locked until device verification.' > output/package-j/RELEASE-BLOCKER.txt
+          git rev-parse HEAD > output/package-j/SOURCE-SHA.txt
+          (cd output/package-j/owner-candidate && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Upload build and unit result evidence (even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Package-J-Build-Unit-Evidence-NOT-RELEASE
+          path: |
+            output/package-j/BUILD.log
+            app/build/test-results/testDebugUnitTest/
+            output/package-j/SOURCE-SHA.txt
+            output/package-j/RELEASE-BLOCKER.txt
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload candidate binary for QA only
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Package-J-Owner-Signed-QA-APK-NOT-RELEASE
+          path: |
+            output/package-j/owner-candidate/
+            output/package-j/SIGNER.txt
+            output/package-j/IDENTITY.txt
+            output/package-j/SOURCE-SHA.txt
+            output/package-j/RELEASE-BLOCKER.txt
+          if-no-files-found: error
+          retention-days: 21
