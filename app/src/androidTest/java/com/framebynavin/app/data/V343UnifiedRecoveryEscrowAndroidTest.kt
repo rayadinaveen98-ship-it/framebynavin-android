@@ -130,6 +130,26 @@ class V343UnifiedRecoveryEscrowAndroidTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun escrowReadOnlyInspectionPreservesTornAtomicBackupBytes() = runBlocking {
+        val root = isolatedRoot()
+        try {
+            assertTrue(root.mkdir())
+            File(root, "original-owner-encrypted-unified.zip").writeText("synthetic")
+            val main = File(root, "escrow.json").apply {
+                writeBytes(V343UnifiedRecoveryCodec.encode(receipt()))
+            }
+            val backup = File(root, "escrow.json.bak").apply {
+                writeBytes(main.readBytes())
+            }
+            val bytes = backup.readBytes()
+            val manager = V343UnifiedRecoveryEscrow(app, root)
+            assertEquals(V343UnifiedRecoveryEscrow.Status.NeedsOwnerReview,
+                manager.status())
+            assertTrue(backup.exists())
+            assertTrue(bytes.contentEquals(backup.readBytes()))
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun unknownOriginalFileCannotBeRemovedByEscrowCleanup() = runBlocking {
         val root = isolatedRoot()
         try {
