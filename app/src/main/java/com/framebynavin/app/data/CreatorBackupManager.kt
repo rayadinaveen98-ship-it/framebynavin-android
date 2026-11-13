@@ -47,6 +47,8 @@ class CreatorBackupManager(private val context: Context) {
         val personalFramesIncluded: Boolean = false,
         /** Workspace asset locations are references only; media bytes are not packaged. */
         val externalProjectAssetCount: Int = 0,
+        /** Saved Creator custom ringtone URI strings are NOT backed-up sound bytes or grants. */
+        val deviceOnlyAlarmSoundReferenceCount: Int = 0,
     )
 
     private data class Snapshot(
@@ -314,8 +316,15 @@ class CreatorBackupManager(private val context: Context) {
         val taskArray = JSONArray(tasksRaw)
         var activeReminders = 0
         var externalProjectAssets = 0
+        var deviceOnlyAlarmSoundRefs = 0
         for (i in 0 until taskArray.length()) {
             val item = taskArray.getJSONObject(i)
+            // A selected Android alarm URI remains a reference only.
+            // Neither the custom file bytes nor source-device SAF grants
+            // are present in a portable Creator or unified ZIP.
+            if (item.optString("alarmSoundUri", "").isNotBlank()) {
+                deviceOnlyAlarmSoundRefs++
+            }
             // TaskStore exports workspace asset LOCATION strings, not the source files.
             // Count references so backup preview cannot imply that attachments are portable.
             val assets = item.optJSONObject("workspace")?.optJSONArray("assets")
@@ -345,6 +354,7 @@ class CreatorBackupManager(private val context: Context) {
             personalFrameCount = personalFrameCount,
             personalFramesIncluded = personalFramesRaw != null && !cloudMediaOmitted,
             externalProjectAssetCount = externalProjectAssets,
+            deviceOnlyAlarmSoundReferenceCount = deviceOnlyAlarmSoundRefs,
         )
     }
 
