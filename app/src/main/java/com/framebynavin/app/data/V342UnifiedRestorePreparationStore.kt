@@ -189,13 +189,13 @@ internal class V342UnifiedRestorePreparationStore(
             root.canonicalFile.parentFile != app.filesDir.canonicalFile) return null
         if (!manifest.isFile || Files.isSymbolicLink(manifest.toPath()) ||
             !archive.isFile || Files.isSymbolicLink(archive.toPath())) return null
-        val allowed = setOf(
-            ARCHIVE_NAME, MANIFEST_NAME,
-            "$MANIFEST_NAME.bak", "$MANIFEST_NAME.new",
-        )
+        // A .bak/.new is crash evidence, not an ordinary completed journal.
+        // A read-only inspector must neither promote nor delete it.
+        val allowed = setOf(ARCHIVE_NAME, MANIFEST_NAME)
         val children = root.listFiles() ?: return null
-        if (children.any { !it.isFile || Files.isSymbolicLink(it.toPath()) ||
-                it.name !in allowed || it.name == "$MANIFEST_NAME.new" }) return null
+        if (children.size != 2 ||
+            children.any { !it.isFile || Files.isSymbolicLink(it.toPath()) ||
+                it.name !in allowed }) return null
         // A checksum match is NOT encrypted authentication on restart.
         // Only inspectPrepared() may reauthenticate with owner passphrase.
         // Never read a user-corrupted multi-GB journal into memory.
@@ -203,7 +203,7 @@ internal class V342UnifiedRestorePreparationStore(
             "Prepared restore metadata exceeds safety limit"
         }
         val record = V342UnifiedPreparationCodec.decode(
-            AtomicFile(manifest).openRead().use { it.readBytes() }
+            manifest.inputStream().use { it.readBytes() }
         )
         if (archive.length() != record.sizeBytes) return null
         return record.takeIf { hashFile(archive) == it.sha256 }
