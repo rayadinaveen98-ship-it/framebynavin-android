@@ -23,6 +23,10 @@ internal class IdeaProjectConversion(context: Context, private val afterWrite: (
     private val ideas = IdeaVaultStore(this.context)
     private val rewards = CreatorRewardStore(this.context)
 
+    /** Read-only: a pending conversion must complete under its own recovery
+     * journal BEFORE any combined Creator+Personal restore is prepared. */
+    fun hasPendingRecovery(): Boolean = prefs.contains("pending")
+
     fun rememberedPlan(): ProjectAttentionPlan = runCatching {
         ProjectAttentionPlan.valueOf(prefs.getString("last_plan", ProjectAttentionPlan.OFF.name)!!)
     }.getOrDefault(ProjectAttentionPlan.OFF).takeIf { it in supportedPlans } ?: ProjectAttentionPlan.OFF
