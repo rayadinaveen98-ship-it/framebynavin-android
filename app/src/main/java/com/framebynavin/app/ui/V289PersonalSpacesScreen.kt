@@ -58,6 +58,7 @@ internal fun V289PersonalSpacesScreen(
     onClose: () -> Unit,
     databaseForTesting: V289SpacesDatabase? = null,
     onEditReminder: (String) -> Unit = {},
+    initialSelectedSpaceId: String? = null,
 ) {
     val context = LocalContext.current.applicationContext
     val database = remember(context, databaseForTesting) {
@@ -99,6 +100,26 @@ internal fun V289PersonalSpacesScreen(
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    // A Home preview may become stale between the tap and the DB query.
+    // Consume focus once; never redirect to an unrelated Space or reopen
+    // detail after the owner explicitly goes back to the overview.
+    var homeFocusHandled by remember(initialSelectedSpaceId) { mutableStateOf(false) }
+    var homeFocusNotice by remember(initialSelectedSpaceId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(spacesLoaded, spaces, initialSelectedSpaceId) {
+        if (!homeFocusHandled && spacesLoaded && !initialSelectedSpaceId.isNullOrBlank()) {
+            val matching = spaces.firstOrNull { it.id == initialSelectedSpaceId }
+            if (matching != null) {
+                entries = emptyList()
+                linkedReminders = emptyList()
+                photos = emptyList()
+                interruptedPhotos = emptyList()
+                selectedSpaceId = matching.id
+            } else {
+                homeFocusNotice = "This Space is no longer available. Showing your saved Spaces."
+            }
+            homeFocusHandled = true
+        }
+    }
     var newNoteText by remember(selectedSpaceId) { mutableStateOf("") }
     var allNotesVisible by remember(selectedSpaceId) { mutableStateOf(false) }
     var spaceActionsOpen by remember(selectedSpaceId) { mutableStateOf(false) }
@@ -271,6 +292,10 @@ internal fun V289PersonalSpacesScreen(
                             tint = BacklotPrimaryText)
                     }
                 }
+            }
+            if (homeFocusNotice != null) {
+                Text(homeFocusNotice.orEmpty(), color = BacklotSecondaryAccent,
+                    fontSize = 11.sp, modifier = Modifier.testTag("v340-space-focus-unavailable"))
             }
             if (error != null) {
                 Text(error.orEmpty(), color = BacklotAccent,
