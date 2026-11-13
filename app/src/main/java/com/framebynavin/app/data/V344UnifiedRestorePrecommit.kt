@@ -73,6 +73,41 @@ internal class V344UnifiedRestorePrecommit(context: Context) {
     private val escrow = V343UnifiedRecoveryEscrow(app)
 
     /**
+     * The highest-confidence READ-ONLY owner proof currently available.
+     * Combines a conflict-free local-data review with independent authentication
+     * and four canonical Creator/Personal section digests from BOTH retained
+     * archives. This is intentionally NOT an executable restore plan.
+     *
+     * Since the domain gates are released during the potentially long media
+     * scans, a future writer MUST revalidate under an exclusive write fence
+     * before committing even one record.
+     */
+    suspend fun inspectFullOwnerProof(
+        passphrase: CharArray,
+        ownerReviewed: Boolean,
+    ): V345UnifiedExecutionEvidence {
+        require(ownerReviewed && passphrase.size >= 12) {
+            "Explicit owner review with the archive passphrase is required"
+        }
+        val preflight = inspectOwnerReviewed(passphrase)
+        val files = V345UnifiedAuthenticatedRestoreParts(app).authenticate(
+            ownerConfirmedReview = true, passphrase = passphrase,
+        )
+        require(V345UnifiedAuthenticatedPairPolicy.matchesCheckpoint(
+            files, preflight.candidate,
+        )) {
+            "Authenticated Creator and Personal media do not match the owner recovery plan"
+        }
+        check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+            "Cross-domain recovery changed while validating the source files"
+        }
+        return V345UnifiedExecutionEvidence(
+            preflight = preflight,
+            allFourCanonicalSectionsAuthenticated = files,
+        )
+    }
+
+    /**
      * No live data writes, no journal preparation. A previous (even malformed)
      * H4 journal ALWAYS wins; an unresolved Creator or Personal local recovery
      * also blocks planning. All facts must be rechecked later under an
@@ -134,4 +169,13 @@ internal class V344UnifiedRestorePrecommit(context: Context) {
             sourceAndEscrowAuthenticated = true,
         )
     }
+}
+
+/** Neither value carries a File handle, approval token or mutation permit. */
+internal data class V345UnifiedExecutionEvidence(
+    val preflight: V344UnifiedPrecommitReview,
+    val allFourCanonicalSectionsAuthenticated: V345UnifiedAuthenticatedPairProof,
+) {
+    val mayCommitLiveRestore: Boolean get() = false
+    val mayAutoResumeOrRollback: Boolean get() = false
 }
