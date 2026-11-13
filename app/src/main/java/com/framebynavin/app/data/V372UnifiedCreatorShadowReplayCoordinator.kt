@@ -563,18 +563,18 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
         }
         // V364 independently SHA-verifies these exact bytes against the H4
         // original; do not trust a separately constructed source on faith.
+        check(sha256(nativeFile) == nativeOriginal.nativeOriginalSha256) {
+            "Retained native Creator original bytes changed after authentication"
+        }
         val originalCreatorJson = nativeFile.readText()
+        // The CURRENT slideshow may be partly replaced or even unreadable.
+        // V364 already SHA-verified this exact original frame checkpoint;
+        // do not touch the current slideshow order before native recovery.
+        val originalFrames = org.json.JSONObject(
+            File(nativeFile.parentFile, "pending.json").readText(),
+        ).getString("originalFrames")
         val expectedOriginal = V343UnifiedBaselineReader(app)
-            .creatorFingerprintFromNativeOriginal(
-                originalCreatorJson,
-                CreatorHeroArchive.captureOriginalOrder(app).let { liveFrames ->
-                    // Native original frames may not currently be selected.
-                    // Only use the H4-bound original checkpoint from V364,
-                    // not the live, possibly TARGET slideshow pointer.
-                    val pending = File(nativeFile.parentFile, "pending.json")
-                    org.json.JSONObject(pending.readText()).getString("originalFrames")
-                },
-            )
+            .creatorFingerprintFromNativeOriginal(originalCreatorJson, originalFrames)
         check(expectedOriginal == cp.creatorOriginalSha256) {
             "Native original Creator records/frames differ from encrypted owner baseline"
         }
