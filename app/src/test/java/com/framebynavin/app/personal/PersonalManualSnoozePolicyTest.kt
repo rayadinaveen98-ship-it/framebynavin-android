@@ -5,6 +5,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -61,7 +62,7 @@ class PersonalManualSnoozePolicyTest {
         val before = presented()
         val next = PersonalManualSnoozePolicy.apply(
             before, due, oldToken, newToken, at)
-        assertEquals(null, PersonalAutoRetryPolicy.nextAt(next, oldToken, at + 1L))
+        assertNull(PersonalAutoRetryPolicy.nextAt(next, oldToken, at + 1L))
         assertFalse(PersonalAutoRetryPolicy.canDeliver(
             next, oldToken, before.autoRetryScheduledAtMillis,
             before.autoRetryScheduledAtMillis))
