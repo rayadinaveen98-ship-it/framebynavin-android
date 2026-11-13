@@ -50,7 +50,7 @@ internal class V341UnifiedBackupManager(context: Context) {
 
                 val creatorPreview = creatorFile.inputStream().buffered().use(creator::validate)
                 val personalPreview = personalFile.inputStream().buffered().use {
-                    personal.verify(passphrase, it)
+                    personal.verify(passphrase, it, requireUnifiedPortable = true)
                 }
                 V341UnifiedOwnerArchive.write(
                     creatorFile, personalFile, passphrase, output,
@@ -74,7 +74,7 @@ internal class V341UnifiedBackupManager(context: Context) {
             V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir).use { staged ->
                 val creatorPreview = staged.creator.inputStream().buffered().use(creator::validate)
                 val personalPreview = staged.personal.inputStream().buffered().use {
-                    personal.verify(passphrase, it)
+                    personal.verify(passphrase, it, requireUnifiedPortable = true)
                 }
                 V341UnifiedBackupPreview(
                     creatorPreview, personalPreview,
@@ -97,7 +97,7 @@ internal class V341UnifiedBackupManager(context: Context) {
         V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir).use { staged ->
             val creatorPreview = staged.creator.inputStream().buffered().use(creator::validate)
             val personalPreview = staged.personal.inputStream().buffered().use {
-                personal.verify(passphrase, it)
+                personal.verify(passphrase, it, requireUnifiedPortable = true)
             }
             val personalDiff = staged.personal.inputStream().buffered().use {
                 Phase1V2ArchiveDryRun(app).check(it, passphrase)
