@@ -44,6 +44,7 @@ object CreatorDataGate {
     private class CombinedCreatorWritePermit(
         val app: Context,
         val expected: V344UnifiedRestoreCheckpoint,
+        val reverseCommittedOriginal: Boolean = false,
     ) : AbstractCoroutineContextElement(Key) {
         companion object Key : CoroutineContext.Key<CombinedCreatorWritePermit>
         @Volatile var active = false
@@ -69,7 +70,9 @@ object CreatorDataGate {
             transaction != null && transaction.state.active &&
             transaction.owner === context[Job] &&
             mutex.holdsLock(transaction.state.token) &&
-            scope.expected.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            (scope.expected.step == V344UnifiedRestoreStep.BEFORE_CREATOR ||
+                (scope.reverseCommittedOriginal &&
+                    scope.expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN))) {
             "Expired or unrelated combined Creator recovery write authority"
         }
         check(V344UnifiedRestoreJournal(scope.app).requireCheckpointReadOnly() ==
@@ -103,8 +106,59 @@ object CreatorDataGate {
             currentCoroutineContext()[CombinedCreatorWritePermit] == null) {
             "A combined Creator writer cannot inherit any existing Creator authority"
         }
+        return withScopedRecoveryCreatorWrite(
+            context, expected, reverseCommittedOriginal = false, action,
+        )
+    }
+
+    /**
+     * Exact H4 CREATOR_WRITTEN reverse-original write scope, NEVER a general
+     * recovery bypass. Caller must already hold the exclusive Personal
+     * read-only fence, prove no Personal writes began, reauthenticate ORIGINAL
+     * plus TARGET, and show durable owner REVERSE_ORIGINAL choice. H4 remains
+     * unchanged; a partially interrupted reverse retains its native journal.
+     */
+    internal suspend fun <T> withJournalBoundCommittedCreatorReverse(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN) {
+            "Creator original rollback requires explicit consent at CREATOR_WRITTEN"
+        }
+        check(com.framebynavin.app.personal.StabilizationPersonalMutationGate
+            .isWithinPendingCombinedReadInspection(context, expected)) {
+            "Creator reverse-original requires the outer Personal recovery lock"
+        }
+        val direction = (V347OwnerRecoveryDecisionJournal(context).readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("No valid original rollback direction")
+        check(direction.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(direction, expected)) {
+            "Committed Creator rollback cannot use a forward or stale owner choice"
+        }
+        return withScopedRecoveryCreatorWrite(
+            context, expected, reverseCommittedOriginal = true, action,
+        )
+    }
+
+    private suspend fun <T> withScopedRecoveryCreatorWrite(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+        reverseCommittedOriginal: Boolean,
+        action: suspend () -> T,
+    ): T {
+        check(currentCoroutineContext()[Transaction] == null &&
+            currentCoroutineContext()[CombinedReadInspection] == null &&
+            currentCoroutineContext()[CombinedCreatorWritePermit] == null) {
+            "A scoped Creator writer cannot inherit another Creator mutation authority"
+        }
         val app = context.applicationContext
-        val scope = CombinedCreatorWritePermit(app, expected)
+        val scope = CombinedCreatorWritePermit(
+            app, expected, reverseCommittedOriginal = reverseCommittedOriginal,
+        )
         val state = State()
         return mutex.withLock(state.token) {
             check(V344UnifiedRestoreJournal(app).requireCheckpointReadOnly() == expected) {
