@@ -116,6 +116,9 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
         require(freshOwnerConsent && passphrase.size >= 12) {
             "Explicit owner rollback consent and archive password are required"
         }
+        check(!V371UnifiedCreatorVoiceShadowJournal(app).hasBlockingEvidence()) {
+            "Unresolved Voice shadow evidence requires separate owner review"
+        }
         val expected = journal.requireCheckpointReadOnly()
         require(expected.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
             "This whole-domain rollback is only for BEFORE_CREATOR"
