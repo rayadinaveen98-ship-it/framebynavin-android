@@ -322,5 +322,11 @@ internal class V347OwnerRecoveryDecisionJournal(
     companion object {
         private const val ROOT = "backlot-unified-owner-recovery-decision-v1"
         private val guard = Mutex()
+
+        /** Even a torn/unreadable decision is blocking owner recovery evidence. */
+        fun hasPendingFor(context: Context): Boolean = Files.exists(
+            File(context.applicationContext.filesDir, ROOT).toPath(),
+            LinkOption.NOFOLLOW_LINKS,
+        )
     }
 }
