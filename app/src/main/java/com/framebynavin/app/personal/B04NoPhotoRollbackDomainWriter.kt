@@ -16,6 +16,71 @@ import com.framebynavin.app.personal.spaces.V289SpacesDatabase
 internal class B04NoPhotoRollbackDomainWriter(context: Context) {
     private val app = context.applicationContext
 
+    /**
+     * Reuse the established B4 checked Room-row inverse for Personal v2.
+     * Photo-row removals happen FIRST, separately and only for exact
+     * imported IDs; physical JPEG files are retained for Task 4.
+     */
+    internal suspend fun removeOnlyImportedPhotoRowsV2(
+        original: List<com.framebynavin.app.personal.spaces.V290SpacePhotoEntity>,
+        target: List<com.framebynavin.app.personal.spaces.V290SpacePhotoEntity>,
+        delta: Phase1V2OriginalRollbackDelta,
+    ) {
+        StabilizationPersonalMutationGate.requireActiveRecovery(app)
+        val prior = original.associateBy { it.id }
+        val merged = target.associateBy { it.id }
+        check(prior.size == original.size && merged.size == target.size &&
+            prior.all { (id, row) -> merged[id] == row } &&
+            merged.keys - prior.keys == delta.addedPhotoIds) {
+            "Photo-row removal is not an authenticated strictly additive v2 delta"
+        }
+        val db = V289SpacesDatabase.open(app)
+        try {
+            db.withTransaction {
+                val dao = db.spaces()
+                original.forEach { row ->
+                    check(dao.getPhoto(row.id) == row) {
+                        "Original private photo row changed; refuse v2 inverse"
+                    }
+                }
+                for (id in delta.addedPhotoIds) {
+                    val approved = requireNotNull(merged[id])
+                    when (val current = dao.getPhoto(id)) {
+                        null -> Unit // Resumed rollback after a committed delete.
+                        approved -> check(dao.deletePhoto(id) == 1) {
+                            "Imported private photo row could not be removed"
+                        }
+                        else -> error(
+                            "New photo metadata changed since owner-approved inverse",
+                        )
+                    }
+                }
+            }
+        } finally { db.close() }
+    }
+
+    internal suspend fun removeOnlyImportedSpacesForV2(
+        target: V300PersonalComponents,
+        combinedTransactionId: String,
+        delta: Phase1V2OriginalRollbackDelta,
+    ) {
+        removeOnlyImportedSpaces(
+            target,
+            B04NoPhotoRollbackDelta(
+                transactionId = combinedTransactionId,
+                originalDigest = delta.originalDigest,
+                targetDigest = delta.mergedTargetDigest,
+                newlyAddedReminderIds = delta.addedReminderIds,
+                newlyAddedCompletionKeys = delta.addedDoneKeys,
+                newlyAddedChallengeIds = delta.addedLegacyChallengeIds,
+                newlyAddedGroupIds = delta.addedGroupIds,
+                newlyAddedSpaceIds = delta.addedSpaceIds,
+                newlyAddedSpaceLinks = delta.addedSpaceLinkKeys,
+                newlyAddedSpaceEntryIds = delta.addedSpaceEntryIds,
+            ),
+        )
+    }
+
     suspend fun removeOnlyImportedSpaces(
         target: V300PersonalComponents,
         delta: B04NoPhotoRollbackDelta,
