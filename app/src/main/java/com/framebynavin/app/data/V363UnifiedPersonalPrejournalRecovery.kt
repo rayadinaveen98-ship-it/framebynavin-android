@@ -59,8 +59,9 @@ internal class V363UnifiedPersonalPrejournalRecovery(context: Context) {
         val handoff = (handoffs.inspectReadOnly() as?
             V359UnifiedPersonalV2HandoffJournal.Inspection.Bound)?.handoff
             ?: error("The exact, immutable Personal handoff is missing")
-        check(V359PersonalV2HandoffCodec.matchesCombined(handoff, expected) &&
-            handoff.personalV2TransactionId == status.v2TransactionId) {
+        check(V363PrejournalRecoveryPolicy.matches(
+            expected, handoff, status, ownerConfirmed,
+        )) {
             "The pending native Personal journal is not bound to this combined restore"
         }
 
@@ -206,4 +207,22 @@ internal data class V363PrejournalReceipt(
     val anyPersonalDataRestored: Boolean get() = false
     val mayResumeAutomatically: Boolean get() = false
     val mayReleaseOriginalEscrow: Boolean get() = false
+}
+
+/**
+ * Strict source-only gate. A handoff that already has any active/archived or
+ * torn native v2 checkpoint MUST NOT be re-prepared under another identity.
+ */
+internal object V363PrejournalRecoveryPolicy {
+    fun matches(
+        combined: V344UnifiedRestoreCheckpoint,
+        handoff: V359PersonalV2Handoff,
+        missing: V360UnifiedPersonalV2RecoveryInspector.Assessment
+            .HandoffBeforeNativePrepare,
+        freshOwnerConsent: Boolean,
+    ): Boolean =
+        freshOwnerConsent &&
+            combined.step == V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+            V359PersonalV2HandoffCodec.matchesCombined(handoff, combined) &&
+            missing.v2TransactionId == handoff.personalV2TransactionId
 }
