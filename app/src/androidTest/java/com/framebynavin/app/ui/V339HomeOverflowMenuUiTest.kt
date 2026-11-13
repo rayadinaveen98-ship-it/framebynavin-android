@@ -47,8 +47,8 @@ class V339HomeOverflowMenuUiTest {
         val trigger = rule.onNodeWithTag("v339-home-overflow-trigger")
         trigger.assertIsDisplayed()
         val bounds = trigger.getUnclippedBoundsInRoot()
-        assertTrue("Three-dot trigger is narrower than 48dp: $bounds", bounds.width >= 48.dp)
-        assertTrue("Three-dot trigger is shorter than 48dp: $bounds", bounds.height >= 48.dp)
+        assertTrue("Three-dot trigger is narrower than 48dp: $bounds", (bounds.right - bounds.left) >= 48.dp)
+        assertTrue("Three-dot trigger is shorter than 48dp: $bounds", (bounds.bottom - bounds.top) >= 48.dp)
         rule.onNodeWithTag("v2221-home-gallery").assertDoesNotExist()
         rule.onNodeWithTag("v339-home-action-indicator", useUnmergedTree = true).assertExists()
 
