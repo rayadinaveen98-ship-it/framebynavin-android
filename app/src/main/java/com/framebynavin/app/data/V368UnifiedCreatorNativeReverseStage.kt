@@ -292,10 +292,21 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
         )) {
             "Creator reverse requires untouched or already-reversed Personal records"
         }
+        // H4 BEFORE_PERSONAL may crash BEFORE the V359 native v2 handoff.
+        // This is safe only if no v1/v2 Personal evidence exists anywhere
+        // and original Personal data and JPEGs are byte-identical to H4.
+        // The Creator gate independently rechecks all of this under BOTH
+        // domain locks immediately before it writes any original records.
+        val noPersonalHandoff = expected.step ==
+            V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+            V359UnifiedPersonalV2HandoffJournal(app).inspectReadOnly() ==
+                V359UnifiedPersonalV2HandoffJournal.Inspection.NotPrepared &&
+            V360UnifiedPersonalV2RecoveryInspector(app).inspectReadOnly() ==
+                V360UnifiedPersonalV2RecoveryInspector.Assessment.NoHandoff
         // A previous Personal write MUST be independently reversed with its
         // own durable six-phase journal before a Creator record may change.
         val personalReversal = if (expected.step !=
-            V344UnifiedRestoreStep.CREATOR_WRITTEN) {
+            V344UnifiedRestoreStep.CREATOR_WRITTEN && !noPersonalHandoff) {
             val receipt = V374UnifiedPersonalOriginalRollbackInspector(app)
                 .inspectOwnerApproved(
                     ownerConfirmed = true, passphrase = passphrase,
@@ -474,16 +485,23 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                         }
                         suspend fun <T> withCorrectCreatorOwnerWriter(
                             operation: suspend () -> T,
-                        ): T = if (personalReversal == null) {
-                            CreatorDataGate.withJournalBoundCommittedCreatorReverse(
-                                app, expected, ownerConfirmed = true,
-                                action = operation,
-                            )
-                        } else {
-                            CreatorDataGate.withJournalBoundCreatorReverseAfterPersonalOriginal(
-                                app, expected, ownerConfirmed = true,
-                                action = operation,
-                            )
+                        ): T = when {
+                            expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN ->
+                                CreatorDataGate.withJournalBoundCommittedCreatorReverse(
+                                    app, expected, ownerConfirmed = true,
+                                    action = operation,
+                                )
+                            noPersonalHandoff ->
+                                CreatorDataGate
+                                    .withJournalBoundCreatorReverseBeforePersonalHandoff(
+                                        app, expected, ownerConfirmed = true,
+                                        action = operation,
+                                    )
+                            else ->
+                                CreatorDataGate.withJournalBoundCreatorReverseAfterPersonalOriginal(
+                                    app, expected, ownerConfirmed = true,
+                                    action = operation,
+                                )
                         }
                         withCorrectCreatorOwnerWriter {
                             val nativeRoot = File(
