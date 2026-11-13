@@ -103,6 +103,32 @@ class V339HomeOverflowMenuUiTest {
         }
     }
 
+    @Test fun closedMenuRetainsGoldSparkCueAndReadableMeaning() {
+        rule.setContent {
+            FrameByNavinTheme {
+                V339HomeOverflowMenu(
+                    reminderActionNeeded = false,
+                    sparkEnabled = true,
+                    sparkSuggestionAvailable = true,
+                    onOpenNotifications = {},
+                    onOpenSpark = {},
+                    onOpenGallery = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("v339-home-spark-indicator", useUnmergedTree = true)
+            .assertExists()
+        rule.onNodeWithTag("v339-home-action-indicator", useUnmergedTree = true)
+            .assertDoesNotExist()
+        rule.onNodeWithTag("v339-home-overflow-trigger")
+            .assert(
+                SemanticsMatcher.expectValue(
+                    androidx.compose.ui.semantics.SemanticsProperties.StateDescription,
+                    "Collapsed; a Spark suggestion is available",
+                )
+            )
+    }
+
     @Test fun collapsedMenuHidesTheThreeActionRows() {
         rule.setContent {
             FrameByNavinTheme {
