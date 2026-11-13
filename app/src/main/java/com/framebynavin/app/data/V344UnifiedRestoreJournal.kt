@@ -288,6 +288,22 @@ internal class V344UnifiedRestoreJournal(
             }) {
                 "Owner direction or encrypted original/selected backups were not retained"
             }
+            val lingeringRecovery = listOf(
+                "backlot-unified-personal-v2-handoff-v1",
+                "backlot-unified-creator-voice-install-v1",
+                "backlot-unified-creator-voice-shadow-v1",
+                "backlot-unified-creator-original-inverse-v1",
+                "backlot-unified-personal-v2-reverse-actions-v1",
+            )
+            check(lingeringRecovery.none { name ->
+                Files.exists(File(app.filesDir, name).toPath(),
+                    LinkOption.NOFOLLOW_LINKS)
+            } && !Files.exists(
+                com.framebynavin.app.personal.StabilizationPersonalMutationGate
+                    .journalRootFor(app).toPath(), LinkOption.NOFOLLOW_LINKS,
+            )) {
+                "A dependent Personal/Creator recovery journal was not retained"
+            }
             check(!listOf("pending.json", "pending.json.new", "pending.json.bak")
                 .any { name ->
                     Files.exists(
