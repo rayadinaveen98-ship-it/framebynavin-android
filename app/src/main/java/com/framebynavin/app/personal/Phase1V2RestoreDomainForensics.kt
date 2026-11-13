@@ -111,10 +111,20 @@ internal object Phase1V2RestoreDomainForensics {
         livePhotos: List<V290SpacePhotoEntity>,
     ): Phase1V2RestoreForensicAssessment {
         Phase1V2RestoreJournalCodec.validate(native)
-        require(native.originalDigest ==
-            Phase1V2RestoreFingerprint.calculate(original, originalPhotos) &&
-            native.targetDigest ==
-                Phase1V2RestoreFingerprint.calculate(target, targetPhotos)) {
+        // Corrupt JSON in an authenticated-component candidate must reject
+        // as an owner-archive validation failure, not escape as an untyped
+        // JSONObject parser error. This does not relax digest checks.
+        val fingerprintsMatch = try {
+            native.originalDigest ==
+                Phase1V2RestoreFingerprint.calculate(original, originalPhotos) &&
+                native.targetDigest ==
+                    Phase1V2RestoreFingerprint.calculate(target, targetPhotos)
+        } catch (invalid: org.json.JSONException) {
+            throw IllegalArgumentException(
+                "Malformed Personal inverse archive components", invalid,
+            )
+        }
+        require(fingerprintsMatch) {
             "Reverse journal original/target fingerprints differ from native owner escrow"
         }
         val mark = Phase1V2RestoreStep.BEFORE_PERSONAL
