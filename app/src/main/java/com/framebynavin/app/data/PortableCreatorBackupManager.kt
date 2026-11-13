@@ -115,6 +115,127 @@ class PortableCreatorBackupManager(context: Context) {
         }
     }
 
+    /**
+     * H3 Task 2: read-only Creator recovery payload preview, NOT an import.
+     *
+     * Reuses the existing portable envelope/Best Frames validation and
+     * checksum-rewriting logic. Selects original V365 recordings only when
+     * byte-matching; damaged V365 recordings must instead have distinct,
+     * fully verified V371 shadow recordings. Thus a target Creator Idea
+     * never references a known partial or tampered recording.
+     *
+     * No Creator/Personal store, Hero archive or live audio is written.
+     * The caller must separately authenticate both owner ZIPs, obtain a
+     * fresh owner FORWARD_TARGET direction, and recheck the original live
+     * cross-domain state under both exclusive recovery fences.
+     */
+    internal suspend fun previewRecoveredCreatorPortable(
+        staged: StagedPortableBackup,
+        allocation: V365VoiceCopyPlan,
+        shadow: V371VoiceShadowPlan? = null,
+    ): V373RecoveredCreatorPayload {
+        val checkpoint = V344UnifiedRestoreJournal(appContext)
+            .requireCheckpointReadOnly()
+        require(checkpoint.step == V344UnifiedRestoreStep.BEFORE_CREATOR &&
+            allocation.transactionId == checkpoint.transactionId &&
+            allocation.sourceSha256 == checkpoint.sourceSha256 &&
+            allocation.escrowSha256 == checkpoint.escrowSha256) {
+            "Creator replay payload is not bound to the exact H4 checkpoint"
+        }
+        require(staged.isArchive) {
+            "Creator recovery requires an authenticated portable Creator ZIP"
+        }
+        creatorBackup.verifyPortableJsonEnvelope(staged.backupJson)
+        val frames = PortableBestFrameMedia.verifyCompactPreview(
+            staged.backupJson, staged.bestFrames, staged.hasFrameManifest,
+        )
+        if (frames == null) creatorBackup.validate(staged.backupJson)
+        else creatorBackup.validatePortableCompact(staged.backupJson, frames)
+        verifyArchiveVoiceReferences(staged)
+        val voiceJournal = V365UnifiedCreatorVoiceInstallJournal(appContext)
+        require(voiceJournal.inspectReadOnly() == allocation) {
+            "Original Voice Idea allocation differs from durable owner evidence"
+        }
+        val shadowJournal = V371UnifiedCreatorVoiceShadowJournal(appContext)
+        require(if (shadow == null) !shadowJournal.hasBlockingEvidence()
+            else shadowJournal.inspectReadOnly() == shadow) {
+            "Unreviewed Voice Idea shadow evidence blocks Creator replay"
+        }
+        require(V366CreatorVoiceRecoveryPolicy.matchesTarget(
+            allocation, staged.mediaByIdeaId.mapValues { (_, file) ->
+                require(java.nio.file.Files.isRegularFile(
+                    file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS,
+                ) && !java.nio.file.Files.isSymbolicLink(file.toPath()) &&
+                    file.length() in 1L..(512L * 1024L * 1024L)) {
+                    "Untrusted staged Creator Voice media"
+                }
+                V366VoiceBytes(file.length(), sha256File(file))
+            },
+        )) {
+            "Staged portable audio differs from the authenticated allocation"
+        }
+        val originalAudit = voiceJournal.auditReadOnly(allocation)
+        val shadowAudit = shadow?.let { shadowJournal.auditShadowReadOnly(it) }
+        val selectedNames = V373RecoveredCreatorMediaPolicy.selectNames(
+            allocation, originalAudit, shadow, shadowAudit,
+        )
+        val ownedFolder = File(appContext.filesDir, VOICE_IDEA_DIRECTORY)
+        if (selectedNames.isNotEmpty()) {
+            require(ownedFolder.isDirectory &&
+                !java.nio.file.Files.isSymbolicLink(ownedFolder.toPath()) &&
+                ownedFolder.canonicalFile.parentFile ==
+                    appContext.filesDir.canonicalFile) {
+                "Recovered Voice Idea directory is unsafe"
+            }
+        }
+        val originalById = allocation.entries.associateBy { it.ideaId }
+        val installed = selectedNames.mapValues { (ideaId, selected) ->
+            val reference = requireNotNull(originalById[ideaId])
+            val file = File(ownedFolder, selected)
+            require(java.nio.file.Files.isRegularFile(
+                file.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS,
+            ) && !java.nio.file.Files.isSymbolicLink(file.toPath()) &&
+                file.canonicalFile.parentFile == ownedFolder.canonicalFile &&
+                file.length() == reference.sizeBytes &&
+                sha256File(file) == reference.sha256) {
+                "Recovered Voice Idea audio is missing, changed or outside private storage"
+            }
+            file
+        }
+        val raw = rewritePortableVoicePaths(staged.backupJson, installed, frames)
+        require(V344UnifiedRestoreJournal(appContext)
+            .requireCheckpointReadOnly() == checkpoint &&
+            voiceJournal.inspectReadOnly() == allocation &&
+            (if (shadow == null) !shadowJournal.hasBlockingEvidence()
+                else shadowJournal.inspectReadOnly() == shadow &&
+                    shadowJournal.auditShadowReadOnly(shadow).allVerified) &&
+            voiceJournal.auditReadOnly(allocation) == originalAudit) {
+            "Creator portable recovery evidence changed during payload preparation"
+        }
+        return V373RecoveredCreatorPayload(
+            transactionId = checkpoint.transactionId,
+            rewrittenCreatorJson = raw,
+            restoredVoiceIdeaCount = installed.size,
+            shadowVoiceIdeaCount = shadow?.entries?.size ?: 0,
+            verifiedPortableFrameCount = frames,
+        )
+    }
+
+    private fun sha256File(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { stream ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val n = stream.read(buffer)
+                if (n < 0) break
+                if (n > 0) digest.update(buffer, 0, n)
+            }
+        }
+        return digest.digest().joinToString("") {
+            "%02x".format(it.toInt() and 255)
+        }
+    }
+
     private fun fullyHydratedBackup(staged: StagedPortableBackup): String {
         // Verify the ORIGINAL portable envelope before any frame hydration
         // recomputes its checksum. Corrupted project/idea JSON must fail closed.
