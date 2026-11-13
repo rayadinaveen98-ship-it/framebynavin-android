@@ -49,11 +49,20 @@ internal class V343UnifiedBaselineReader(context: Context) {
     ): V343UnifiedBaselineFingerprint =
         hashReadOnlySnapshots(JSONObject(creatorRaw), personal, requireIntegrity = false)
 
-    private fun hashReadOnlySnapshots(
+    /**
+     * H3 Task 2: recompute the SAME original Creator domain fingerprint
+     * from a separately SHA-validated native pre-restore JSON and its
+     * durable original-Best-Frames checkpoint. No live reads or writes.
+     */
+    internal fun creatorFingerprintFromNativeOriginal(
+        nativeBackupRaw: String,
+        originalFrames: String,
+    ): String = fingerprintCreatorRoot(JSONObject(nativeBackupRaw), originalFrames)
+
+    private fun fingerprintCreatorRoot(
         creatorRoot: JSONObject,
-        local: V301LocalRecoverySnapshot,
-        requireIntegrity: Boolean,
-    ): V343UnifiedBaselineFingerprint {
+        originalFrames: String,
+    ): String {
         val creatorSections = listOf(
             "format", "schemaVersion", "tasks", "ideas", "weeklySchedule", "settings",
             "smartEscalationConfig", "postPublish", "rewards", "youtubeProjectLinks",
@@ -68,9 +77,18 @@ internal class V343UnifiedBaselineReader(context: Context) {
         // metadata and deliberately NOT treated as owner-data changes.
         val creatorValues = creatorSections.map { key ->
             key to creatorRoot.get(key).toString()
-        } + ("originalBestFrames" to CreatorHeroArchive.captureOriginalOrder(app))
-        val creatorDigest = hashParts(creatorValues.map { (key, value) -> "$key=$value" })
+        } + ("originalBestFrames" to originalFrames)
+        return hashParts(creatorValues.map { (key, value) -> "$key=$value" })
+    }
 
+    private fun hashReadOnlySnapshots(
+        creatorRoot: JSONObject,
+        local: V301LocalRecoverySnapshot,
+        requireIntegrity: Boolean,
+    ): V343UnifiedBaselineFingerprint {
+        val creatorDigest = fingerprintCreatorRoot(
+            creatorRoot, CreatorHeroArchive.captureOriginalOrder(app),
+        )
         check((!requireIntegrity || local.localIntegrityVerified) &&
             local.components.singleActivityChallenges != null) {
             "A complete Personal v2 snapshot is required"
