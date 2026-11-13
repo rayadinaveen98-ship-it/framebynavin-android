@@ -44,7 +44,7 @@ internal class V353UnifiedLiveCrashForensics(context: Context) {
             "Independent Creator or Personal restore evidence needs its own review"
         }
 
-        val current = StabilizationPersonalMutationGate
+        val (current, photoAudit) = StabilizationPersonalMutationGate
             .withPendingCombinedReadInspection(app, checkpoint) {
                 CreatorDataGate.withPendingCombinedReadInspection(app, checkpoint) {
                     val creatorJson = CreatorBackupManager(app)
@@ -57,8 +57,14 @@ internal class V353UnifiedLiveCrashForensics(context: Context) {
                     check(!personal.localIntegrityVerified) {
                         "Interrupted Personal snapshot cannot imply proven photo integrity"
                     }
-                    V343UnifiedBaselineReader(app)
+                    val fingerprints = V343UnifiedBaselineReader(app)
                         .fingerprintUnverifiedInterrupted(creatorJson, personal)
+                    // SHA-256 each current private JPEG under the SAME
+                    // Personal mutex. Orphan *.pending and unmatched files
+                    // remain intact and are reported, never auto-removed.
+                    val photos = V354UnifiedLiveSpacePhotoAudit(app)
+                        .inspect(personal.photos)
+                    fingerprints to photos
                 }
             }
 
@@ -76,6 +82,7 @@ internal class V353UnifiedLiveCrashForensics(context: Context) {
             personalCurrentMetadataSha256 = current.personalSha256,
             originalCreatorMetadataSha256 = checkpoint.creatorOriginalSha256,
             originalPersonalMetadataSha256 = checkpoint.personalOriginalSha256,
+            livePhotoAudit = photoAudit,
             privatePhotoByteIntegrityProven = false,
             mediaRollbackProven = false,
             mayWriteLiveData = false,
@@ -93,6 +100,7 @@ internal data class V353UnifiedLiveForensicReport(
     val personalCurrentMetadataSha256: String,
     val originalCreatorMetadataSha256: String,
     val originalPersonalMetadataSha256: String,
+    val livePhotoAudit: V354SpacePhotoAuditResult,
     val privatePhotoByteIntegrityProven: Boolean,
     val mediaRollbackProven: Boolean,
     val mayWriteLiveData: Boolean,
