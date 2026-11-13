@@ -995,7 +995,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     personalChallengeFocusId = null
                     showReminders = false
                 },
-                onCreator = { personalReminderSpace = false },
+                onCreator = {
+                    personalReminderSpace = false
+                    personalChallengeFocusId = null
+                },
                 onOpenActivity = { activityCenterOpen = true },
                 initialFocusReminderId = personalActivityFocusId,
                 initialFocusChallengeId = personalChallengeFocusId,
@@ -1045,10 +1048,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             },
             onPersonal = {
                 personalActivityFocusId = null
+                personalChallengeFocusId = null
                 personalReminderSpace = true
             },
             onPersonalItem = { id ->
                 personalActivityFocusId = id
+                personalChallengeFocusId = null
                 personalReminderSpace = true
             },
         )
