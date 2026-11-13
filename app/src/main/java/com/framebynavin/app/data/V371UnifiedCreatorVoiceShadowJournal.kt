@@ -145,6 +145,10 @@ internal class V371UnifiedCreatorVoiceShadowJournal(
             !hasBlockingEvidence()) {
             "Pre-existing or stale Creator shadow recovery evidence"
         }
+        check(com.framebynavin.app.personal.StabilizationPersonalMutationGate
+            .isWithinCombinedCreatorMissingVoiceFence(app, cp)) {
+            "Shadow allocation requires the outer Personal recovery fence"
+        }
         val choice = (V347OwnerRecoveryDecisionJournal(app).readOnlyStatus() as?
             V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
             ?: error("No durable owner recovery direction for Creator shadow media")
