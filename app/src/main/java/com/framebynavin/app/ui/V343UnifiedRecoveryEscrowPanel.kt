@@ -34,6 +34,8 @@ import com.framebynavin.app.data.V344UnifiedRestorePrecommit
 import com.framebynavin.app.data.V344UnifiedRecoveryInspector
 import com.framebynavin.app.data.V344UnifiedRecoveryCopy
 import com.framebynavin.app.data.V346UnifiedInterruptedRecoveryReview
+import com.framebynavin.app.data.V344UnifiedRestoreStep
+import com.framebynavin.app.data.V348UnifiedPrewriteAbort
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -59,6 +61,7 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     val precommit = remember(context) { V344UnifiedRestorePrecommit(context) }
     val recoveryInspector = remember(context) { V344UnifiedRecoveryInspector(context) }
     val interruptedVerifier = remember(context) { V346UnifiedInterruptedRecoveryReview(context) }
+    val prewriteAbort = remember(context) { V348UnifiedPrewriteAbort(context) }
     val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf(false) }
     var ownerPassword by remember { mutableStateOf("") }
@@ -68,6 +71,7 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     var error by remember { mutableStateOf(false) }
     var confirmCapture by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var confirmUnwrittenAbort by remember { mutableStateOf(false) }
     var combinedRecovery by remember {
         mutableStateOf<V344UnifiedRecoveryInspector.Assessment?>(null)
     }
@@ -274,6 +278,25 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                         Text("VERIFY INTERRUPTED RECOVERY FILES · NO WRITE")
                     }
                 }
+                val interrupted = combinedRecovery as?
+                    V344UnifiedRecoveryInspector.Assessment.OwnerReview
+                if (interrupted?.checkpoint ==
+                    V344UnifiedRestoreStep.PREPARED_NO_WRITES) {
+                    OutlinedButton(
+                        enabled = !loading && ownerPassword.length >= 12,
+                        onClick = { confirmUnwrittenAbort = true },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("v348-cancel-unwritten-recovery"),
+                    ) {
+                        Text("CANCEL UNSTARTED RESTORE · KEEP BACKUPS")
+                    }
+                    Text(
+                        "Only available before any Creator or Personal write " +
+                            "has begun. Original and selected encrypted backups " +
+                            "stay intact; the checkpoint is archived, never deleted.",
+                        color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
+                }
                 if (combinedRecovery !is
                     V344UnifiedRecoveryInspector.Assessment.OwnerReview &&
                     status != null && status != V343UnifiedRecoveryEscrow.Status.None) {
@@ -300,6 +323,59 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
             }
         }
     }
+
+    if (confirmUnwrittenAbort) AlertDialog(
+        onDismissRequest = { if (!loading) confirmUnwrittenAbort = false },
+        title = { Text("Cancel this unstarted recovery?") },
+        text = { Text(
+            "Backlot will reauthenticate BOTH encrypted backup files and " +
+                "confirm the shared journal is still PREPARED, before any " +
+                "Creator or Personal write. Only then will it atomically " +
+                "archive the journal and unblock normal edits. Your " +
+                "original backup, selected restore source, Creator projects, " +
+                "Personal reminders and photos are not deleted or replaced. " +
+                "If either domain might have been written, cancellation is refused."
+        ) },
+        confirmButton = {
+            TextButton(onClick = {
+                confirmUnwrittenAbort = false
+                val secret = ownerPassword.toCharArray()
+                ownerPassword = ""
+                scope.launch {
+                    loading = true
+                    try {
+                        val receipt = withContext(Dispatchers.IO) {
+                            prewriteAbort.abortOwnerApproved(
+                                passphrase = secret,
+                                ownerConfirmedAbort = true,
+                            )
+                        }
+                        error = false
+                        notice = "Unstarted combined restore cancelled safely " +
+                            "at ${receipt.abortedAtStep}. Checkpoint history " +
+                            "is retained, and neither owner-data domain was " +
+                            "changed. Your encrypted backups remain available."
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        error = true
+                        notice = "The recovery journal could not be proven safe " +
+                            "to cancel. Do not discard the original or selected " +
+                            "backup. Partial writes are never automatically reversed."
+                    } finally {
+                        secret.fill('\u0000')
+                        refresh()
+                        loading = false
+                    }
+                }
+            }) { Text("CONFIRM UNSTARTED CANCELLATION") }
+        },
+        dismissButton = {
+            TextButton(onClick = { confirmUnwrittenAbort = false }) {
+                Text("KEEP RECOVERY")
+            }
+        },
+    )
 
     if (confirmCapture) AlertDialog(
         onDismissRequest = { if (!loading) confirmCapture = false },
