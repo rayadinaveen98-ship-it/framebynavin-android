@@ -216,7 +216,12 @@ internal class Phase1HabitStore(context: Context) {
                         previousRaw ?: Phase1HabitCodec.encode(emptyList()) else encoded
                     prefs[primary] = encoded
                 }
-                result = updated
+                if (!preservePreviousForRecovery) {
+                // The stored original must also be the recovery copy after
+                // an idempotent owner inverse; never retain imported target.
+                prefs[lastGood] = encoded
+            }
+            result = updated
             }
             result
         }
