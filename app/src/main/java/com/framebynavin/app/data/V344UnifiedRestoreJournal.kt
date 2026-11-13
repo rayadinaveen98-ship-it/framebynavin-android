@@ -132,6 +132,32 @@ internal class V344UnifiedRestoreJournal(
     }
 
     /**
+     * Used only while durably recording an owner's recovery DIRECTION.
+     * The journal may not advance OR be archived between validating the
+     * checkpoint and persisting that decision. Callback is synchronous and
+     * must only write the tiny, separately owned decision journal; it may
+     * not run Creator or Personal data writers.
+     */
+    internal suspend fun <T> withCheckpointUnchanged(
+        expected: V344UnifiedRestoreCheckpoint,
+        writeDecisionOnly: () -> T,
+    ): T = withContext(Dispatchers.IO) {
+        mutex.lock()
+        try {
+            check(readStrict() == expected) {
+                "Owner recovery direction is based on a stale checkpoint"
+            }
+            val result = writeDecisionOnly()
+            check(readStrict() == expected) {
+                "Owner recovery checkpoint changed while recording direction"
+            }
+            result
+        } finally {
+            mutex.unlock()
+        }
+    }
+
+    /**
      * Archive only a provably UNWRITTEN recovery checkpoint.
      *
      * This method and checkpoint() share the SAME process mutex. The final
