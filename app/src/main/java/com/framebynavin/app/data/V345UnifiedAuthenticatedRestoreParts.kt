@@ -59,46 +59,59 @@ internal class V345UnifiedAuthenticatedRestoreParts(context: Context) {
             sha256(originalFile) == original.rollbackSha256) {
             "An encrypted source changed after owner selection"
         }
-        val target = targetFile.inputStream().buffered().use {
-            V341UnifiedOwnerArchive.stageAndVerify(it, passphrase, app.cacheDir)
-        }
-        target.use { targetParts ->
-            val baseline = originalFile.inputStream().buffered().use {
-                V341UnifiedOwnerArchive.stageAndVerify(it, passphrase, app.cacheDir)
-            }
-            baseline.use { originalParts ->
-                val targetCreator = targetParts.creator.inputStream().buffered()
-                    .use(creator::validate)
-                val targetPersonal = targetParts.personal.inputStream().buffered()
-                    .use { personal.verify(passphrase, it) }
-                val originalCreator = originalParts.creator.inputStream().buffered()
-                    .use(creator::validate)
-                val originalPersonal = originalParts.personal.inputStream().buffered()
-                    .use { personal.verify(passphrase, it) }
+        // Process one decrypted pair at a time. Holding BOTH unpacked
+        // owner archives simultaneously can exceed private cache on modest
+        // phones with large original photo and Voice Idea collections.
+        val targetProof = targetFile.inputStream().buffered().use { input ->
+            V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir)
+        }.use { inspectCanonical(it, passphrase) }
+        val originalProof = originalFile.inputStream().buffered().use { input ->
+            V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir)
+        }.use { inspectCanonical(it, passphrase) }
 
-                check(!V344UnifiedRestoreJournal.hasPendingFor(app) &&
-                    source.status() == selected &&
-                    escrow.inspectEscrowRecordReadOnly() == original) {
-                    "Recovery source or independent owner escrow changed during authentication"
-                }
-
-                V345UnifiedAuthenticatedPairProof(
-                    sourceId = selected.transactionId,
-                    sourceSha256 = selected.sha256,
-                    originalEscrowId = original.transactionId,
-                    originalEscrowSha256 = original.rollbackSha256,
-                    targetCreatorSha256 = sha256(targetParts.creator),
-                    targetPersonalSha256 = sha256(targetParts.personal),
-                    originalCreatorSha256 = sha256(originalParts.creator),
-                    originalPersonalSha256 = sha256(originalParts.personal),
-                    targetCreatorProjects = targetCreator.projectCount,
-                    originalCreatorProjects = originalCreator.projectCount,
-                    targetPersonalSummary = targetPersonal.label,
-                    originalPersonalSummary = originalPersonal.label,
-                    noMutationAuthority = true,
-                )
-            }
+        check(!V344UnifiedRestoreJournal.hasPendingFor(app) &&
+            source.status() == selected &&
+            escrow.inspectEscrowRecordReadOnly() == original) {
+            "Recovery source or independent owner escrow changed during authentication"
         }
+        V345UnifiedAuthenticatedPairProof(
+            sourceId = selected.transactionId,
+            sourceSha256 = selected.sha256,
+            originalEscrowId = original.transactionId,
+            originalEscrowSha256 = original.rollbackSha256,
+            targetCreatorSha256 = targetProof.creatorSha,
+            targetPersonalSha256 = targetProof.personalSha,
+            originalCreatorSha256 = originalProof.creatorSha,
+            originalPersonalSha256 = originalProof.personalSha,
+            targetCreatorProjects = targetProof.projects,
+            originalCreatorProjects = originalProof.projects,
+            targetPersonalSummary = targetProof.personalSummary,
+            originalPersonalSummary = originalProof.personalSummary,
+            noMutationAuthority = true,
+        )
+    }
+
+    private data class CanonicalInspection(
+        val creatorSha: String,
+        val personalSha: String,
+        val projects: Int,
+        val personalSummary: String,
+    )
+
+    private fun inspectCanonical(
+        staged: V341UnifiedOwnerArchive.Verified,
+        passphrase: CharArray,
+    ): CanonicalInspection {
+        val creatorPreview = staged.creator.inputStream().buffered().use(creator::validate)
+        val personalPreview = staged.personal.inputStream().buffered().use {
+            personal.verify(passphrase, it)
+        }
+        return CanonicalInspection(
+            creatorSha = sha256(staged.creator),
+            personalSha = sha256(staged.personal),
+            projects = creatorPreview.projectCount,
+            personalSummary = personalPreview.label,
+        )
     }
 
     private fun exactOwnerFile(folder: String, filename: String): File {
