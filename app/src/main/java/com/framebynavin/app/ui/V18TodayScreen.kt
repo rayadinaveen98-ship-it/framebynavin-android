@@ -146,6 +146,9 @@ internal fun PTodayScreen(
                 openEditorNonce = homeSlideshowRequestNonce,
                 onEditorRequestHandled = onHomeSlideshowRequestHandled,
                 companionAvatar = companionAvatar,
+                // The visible Home header uses the three-dot menu. The
+                // slideshow photo editor is still opened by the same nonce.
+                galleryInOverflow = true,
             )
             // V220.3: when connected channel Insights has usable ranked videos,
             // the existing Top 3 carousel must appear ABOVE the Up Next project.
