@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.V343UnifiedRecoveryEscrow
+import com.framebynavin.app.data.V344UnifiedRestorePrecommit
 import com.framebynavin.app.data.V344UnifiedRecoveryInspector
 import com.framebynavin.app.data.V344UnifiedRecoveryCopy
 import com.framebynavin.app.ui.theme.CinemaLine
@@ -54,6 +55,7 @@ import kotlinx.coroutines.withContext
 internal fun V343UnifiedRecoveryEscrowPanel() {
     val context = LocalContext.current.applicationContext
     val escrow = remember(context) { V343UnifiedRecoveryEscrow(context) }
+    val precommit = remember(context) { V344UnifiedRestorePrecommit(context) }
     val recoveryInspector = remember(context) { V344UnifiedRecoveryInspector(context) }
     val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf(false) }
@@ -200,25 +202,22 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                             scope.launch {
                                 loading = true
                                 try {
-                                    val review = withContext(Dispatchers.IO) {
-                                        escrow.inspectRetained(password)
+                                    val reviewed = withContext(Dispatchers.IO) {
+                                        precommit.inspectOwnerReviewed(password)
                                     }
-                                    error = !review.originalStillMatchesPhone ||
-                                        review.target.personalDiff.needsOwnerReview
-                                    notice = if (error)
-                                        "Encrypted originals and target were authenticated, " +
-                                            "but current data or Personal conflicts differ from " +
-                                            "the saved baseline. Combined restore remains blocked."
-                                    else
-                                        "Original and target archives are authenticated; " +
-                                            "Creator and Personal fingerprints still match. " +
-                                            "This does NOT authorize a combined restore."
+                                    error = false
+                                    notice = "Original and target archives are authenticated; " +
+                                        "Creator and Personal fingerprints still match. " +
+                                        "${reviewed.potentialPersonalAdditions} potential " +
+                                        "Personal additions were reviewed, but the shared " +
+                                        "write/rollback executor is NOT enabled."
                                 } catch (cancelled: CancellationException) {
                                     throw cancelled
                                 } catch (_: Exception) {
                                     error = true
-                                    notice = "Original escrow, prepared target or local records " +
-                                        "could not be reauthenticated; no restore ran."
+                                    notice = "Pre-commit evidence failed: original or target " +
+                                        "archive, local data, or an independent recovery " +
+                                        "checkpoint needs review. No restore ran."
                                 } finally {
                                     password.fill('\u0000')
                                     refresh()
