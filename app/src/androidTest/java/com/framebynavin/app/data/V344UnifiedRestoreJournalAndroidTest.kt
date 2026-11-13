@@ -39,6 +39,11 @@ class V344UnifiedRestoreJournalAndroidTest {
         updatedAtMillis = 1_800_000_000_000L,
     )
 
+    @Test fun productionApplicationInstallsTheProcessWideRecoveryInterlock() {
+        val application = app.applicationContext
+        assertTrue(application is com.framebynavin.app.BacklotRecoveryApplication)
+    }
+
     @Test fun codecBindsBothOwnerDomainsAndRejectsTamperedMetadata() {
         val saved = checkpoint()
         val bytes = V344UnifiedRestoreCheckpointCodec.encode(saved)
