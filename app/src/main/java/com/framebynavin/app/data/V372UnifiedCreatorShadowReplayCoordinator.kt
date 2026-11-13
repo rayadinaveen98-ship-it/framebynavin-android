@@ -453,60 +453,10 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
                                         )
                                     }
 
-                                val installedJson = CreatorBackupManager(app)
-                                    .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
-                                val recordFingerprint = V343UnifiedBaselineReader(app)
-                                check(recordFingerprint.creatorRecordsFingerprintForRecovery(
-                                    installedJson,
-                                ) == recordFingerprint.creatorRecordsFingerprintForRecovery(
-                                    preview.rewrittenCreatorJson,
-                                )) {
-                                    "Restored Creator records differ from approved TARGET"
-                                }
-                                check(V373RecoveredCreatorMediaPolicy.liveFramesMatchVerifiedTarget(
-                                    CreatorHeroArchive.captureOriginalOrder(app),
-                                    staged.bestFrames, preview.verifiedPortableFrameCount,
-                                )) {
-                                    "Restored Best Frame bytes or order differ from TARGET"
-                                }
-                                val expectedAudio = allocation.entries.associate { entry ->
-                                    entry.ideaId to V366VoiceBytes(
-                                        entry.sizeBytes, entry.sha256,
-                                    )
-                                }
-                                val installedVoice =
-                                    V367UnifiedCreatorOriginalVoiceSafety(app)
-                                        .inspectOriginalIdeaReferencesReadOnly(
-                                            ideasJson = org.json.JSONObject(installedJson)
-                                                .getString("ideas"),
-                                            expectedAudio = expectedAudio,
-                                            voiceDir = File(app.filesDir, "voice_ideas"),
-                                        )
-                                check(installedVoice.verifiedOriginalVoiceCount ==
-                                    allocation.entries.size &&
-                                    originalInstall.inspectReadOnly() == allocation &&
-                                    shadowInstall.inspectReadOnly() == shadow) {
-                                    "Restored Creator Voice Idea references are not authentic"
-                                }
-                                val stillPersonal = V301LocalRecoveryReader(app)
-                                    .readForInterruptedV2Recovery()
-                                val after = V343UnifiedBaselineReader(app)
-                                    .fingerprintUnverifiedInterrupted(
-                                        installedJson, stillPersonal,
-                                    )
-                                check(after.personalSha256 == cp.personalOriginalSha256 &&
-                                    V354UnifiedLiveSpacePhotoAudit(app)
-                                        .inspect(stillPersonal.photos)
-                                        .currentPhotoFilesMatchTheirLiveRows &&
-                                    h4.requireCheckpointReadOnly() == cp &&
-                                    ownerDecision.readOnlyStatus() ==
-                                        V347OwnerRecoveryDecisionJournal.ReadState.Recorded(
-                                            expected,
-                                        ) &&
-                                    sha256(source) == cp.sourceSha256 &&
-                                    sha256(rollback) == cp.escrowSha256) {
-                                    "Creator import modified Personal data or owner escrow"
-                                }
+                                verifyInstalledCreatorTargetInsideOwnerGate(
+                                    cp, preview, staged, allocation, shadow,
+                                    expected, source, rollback,
+                                )
                                 restored
                             }
                             // No Creator writer remains after this boundary;
@@ -537,6 +487,67 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
                     staged.cleanup()
                 }
             }
+        }
+    }
+
+    /**
+     * The single shared post-native and post-crash target verifier.
+     * Caller holds PERSONAL read fence then CREATOR owner writer. Returns
+     * no new write authority or journal release permission.
+     */
+    private suspend fun verifyInstalledCreatorTargetInsideOwnerGate(
+        cp: V344UnifiedRestoreCheckpoint,
+        preview: V373RecoveredCreatorPayload,
+        staged: StagedPortableBackup,
+        allocation: V365VoiceCopyPlan,
+        shadow: V371VoiceShadowPlan?,
+        decision: V347OwnerRecoveryDecision,
+        source: File,
+        rollback: File,
+    ) {
+        check(CreatorDataGate.isJournalBoundCreatorWrite(app) &&
+            StabilizationPersonalMutationGate
+                .isWithinCombinedCreatorMissingVoiceFence(app, cp)) {
+            "Installed Creator verification requires BOTH recovery domain locks"
+        }
+        val installedJson = CreatorBackupManager(app)
+            .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
+        val fingerprint = V343UnifiedBaselineReader(app)
+        check(fingerprint.creatorRecordsFingerprintForRecovery(installedJson) ==
+            fingerprint.creatorRecordsFingerprintForRecovery(
+                preview.rewrittenCreatorJson,
+            )) { "Restored Creator records differ from approved TARGET" }
+        check(V373RecoveredCreatorMediaPolicy.liveFramesMatchVerifiedTarget(
+            CreatorHeroArchive.captureOriginalOrder(app),
+            staged.bestFrames, preview.verifiedPortableFrameCount,
+        )) { "Restored Best Frame bytes or order differ from TARGET" }
+        val installedVoice = V367UnifiedCreatorOriginalVoiceSafety(app)
+            .inspectOriginalIdeaReferencesReadOnly(
+                ideasJson = org.json.JSONObject(installedJson).getString("ideas"),
+                expectedAudio = allocation.entries.associate {
+                    it.ideaId to V366VoiceBytes(it.sizeBytes, it.sha256)
+                },
+                voiceDir = File(app.filesDir, "voice_ideas"),
+            )
+        check(installedVoice.verifiedOriginalVoiceCount == allocation.entries.size &&
+            originalInstall.inspectReadOnly() == allocation &&
+            shadowInstall.inspectReadOnly() == shadow) {
+            "Restored Creator Voice Idea references are not authentic"
+        }
+        val personal = V301LocalRecoveryReader(app).readForInterruptedV2Recovery()
+        val current = fingerprint.fingerprintUnverifiedInterrupted(
+            installedJson, personal,
+        )
+        check(current.personalSha256 == cp.personalOriginalSha256 &&
+            V354UnifiedLiveSpacePhotoAudit(app)
+                .inspect(personal.photos).currentPhotoFilesMatchTheirLiveRows &&
+            h4.requireCheckpointReadOnly() == cp &&
+            ownerDecision.readOnlyStatus() ==
+                V347OwnerRecoveryDecisionJournal.ReadState.Recorded(decision) &&
+            !IdeaProjectConversion(app).hasPendingRecovery() &&
+            sha256(source) == cp.sourceSha256 &&
+            sha256(rollback) == cp.escrowSha256) {
+            "Installed Creator target, Personal baseline or owner escrow changed"
         }
     }
 
