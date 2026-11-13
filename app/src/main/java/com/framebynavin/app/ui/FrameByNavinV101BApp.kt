@@ -625,6 +625,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     bottomNavigationClearance = bottomNavClearanceDp.dp,
                     homeSlideshowRequestNonce = homeSlideshowRequestNonce,
                     onHomeSlideshowRequestHandled = { homeSlideshowRequestNonce = 0L },
+                    homeHeaderOverflowMenu = true,
                     companionAvatar = {
                         V2214HomeCompanion(
                             tasks = vm.tasks,
