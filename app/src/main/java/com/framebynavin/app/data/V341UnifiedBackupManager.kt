@@ -36,6 +36,13 @@ internal class V341UnifiedBackupManager(context: Context) {
             runCatching { V341UnifiedTempCleanup.prune(app.cacheDir) }
             val staging = createStageDirectory("backlot-unified-export-")
             try {
+                // Creator and Personal are captured sequentially. Refuse an
+                // apparently complete export when their source records drift
+                // between the start and end of the two-domain read. This is
+                // a fail-closed consistency check, not an atomic app-wide
+                // snapshot or a replacement for staged-media SHA validation.
+                val baselineReader = V343UnifiedBaselineReader(app)
+                val beforeSnapshot = baselineReader.capture()
                 val creatorFile = File(staging, "creator.fbnbackup")
                 val personalFile = File(staging, "personal-encrypted.zip")
 
@@ -51,6 +58,11 @@ internal class V341UnifiedBackupManager(context: Context) {
                 val creatorPreview = creatorFile.inputStream().buffered().use(creator::validate)
                 val personalPreview = personalFile.inputStream().buffered().use {
                     personal.verify(passphrase, it, requireUnifiedPortable = true)
+                }
+                check(V343UnifiedBaselinePolicy.noDrift(
+                    beforeSnapshot, baselineReader.capture(),
+                )) {
+                    "Creator or Personal data changed during unified backup; retry the export"
                 }
                 V341UnifiedOwnerArchive.write(
                     creatorFile, personalFile, passphrase, output,
