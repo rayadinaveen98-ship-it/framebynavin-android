@@ -268,6 +268,9 @@ internal class V375UnifiedPersonalOriginalRollbackExecutor(context: Context) {
                             live.components, live.photos,
                         )
                         check(digest == review.delta.originalDigest &&
+                            V343UnifiedBaselineReader(app)
+                                .personalFingerprintForInterrupted(live) ==
+                                    expected.personalOriginalSha256 &&
                             live.photos.sortedBy { it.id } ==
                                 review.originalPhotoRows.sortedBy { it.id } &&
                             h4.requireCheckpointReadOnly() == expected &&
