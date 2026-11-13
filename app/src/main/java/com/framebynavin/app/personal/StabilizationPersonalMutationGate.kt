@@ -639,22 +639,23 @@ internal object StabilizationPersonalMutationGate {
                     "Personal crash-forensic reads require an eligible combined checkpoint"
                 }
             }
-            val existing = currentCoroutineContext()[Permit]
-            if (existing != null) {
-                check(existing.active && existing.root == path) {
-                    "Personal owner's restore scope is stale"
-                }
-                return action()
-            }
-            // The existing v2 recovery permit carries the exact independently
-            // authenticated Personal journal and can be used ONLY while this
-            // outer combined Personal permission is still active.
+            // The active v2 recovery journal remains authoritative even
+            // when the initial ordinary owner Permit is also inherited.
+            // Check it BEFORE accepting the owner permit to prevent an
+            // independent/stale Personal v2 import from bypassing its journal.
             val v2 = currentCoroutineContext()[V2RecoveryWritePermit]
             if (v2 != null) {
                 check(v2.active && v2.legacyRoot == path) {
                     "Unrelated v2 restore cannot inherit combined Personal authority"
                 }
                 ensureMatchingV2RecoveryJournal(root, v2)
+                return action()
+            }
+            val existing = currentCoroutineContext()[Permit]
+            if (existing != null) {
+                check(existing.active && existing.root == path) {
+                    "Personal owner's restore scope is stale"
+                }
                 return action()
             }
             val owner = Permit(path)
