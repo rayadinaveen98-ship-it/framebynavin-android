@@ -4,7 +4,6 @@ import android.content.Context
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption
-import java.nio.file.StandardCopyOption
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -91,20 +90,14 @@ internal class V348UnifiedPrewriteAbort(
             check(!Files.exists(destination.toPath(), LinkOption.NOFOLLOW_LINKS)) {
                 "An immutable aborted transaction already exists"
             }
-            // Files.move must remain atomic. Never fall back to copy+delete:
-            // a partially moved journal would unblock ordinary writers.
-            val before = journal.requireCheckpointReadOnly()
-            check(before == checkpoint && !hasCompetingDomainJournal()) {
-                "Recovery changed before owner-approved cancellation"
-            }
-            // This single atomic move is the durable visibility boundary.
-            // All checkpoint and path validation happens BEFORE it. Do not
-            // perform a fallible check after it and then tell the owner the
-            // cancellation failed: the active freeze is already released.
-            // No Creator/Personal writes have ever been invoked here.
-            Files.move(
-                activeRoot.toPath(), destination.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
+            // Cancellation and checkpoint() use the EXACT SAME journal
+            // mutex. A BEFORE_CREATOR advancement cannot race the final
+            // owner-approved check and atomic evidence-preserving move.
+            journal.archiveUnwrittenCheckpoint(
+                expected = checkpoint,
+                destination = destination,
+                ownerConfirmed = true,
+                otherRecoveryPending = { hasCompetingDomainJournal() },
             )
             V348PrewriteAbortReceipt(checkpoint.transactionId,
                 checkpoint.step, destination.name)
@@ -132,6 +125,10 @@ internal class V348UnifiedPrewriteAbort(
     }
 
     private fun hasCompetingDomainJournal(): Boolean {
+        // A recorded forward/rollback direction cannot be silently bypassed
+        // by a late request to cancel an earlier PREPARED checkpoint.
+        if (V347OwnerRecoveryDecisionJournal.hasPendingFor(app) ||
+            IdeaProjectConversion(app).hasPendingRecovery()) return true
         val root = app.filesDir
         val creator = File(root, "creator_restore_recovery_v181/pending.json")
         val personal = com.framebynavin.app.personal.StabilizationPersonalMutationGate
