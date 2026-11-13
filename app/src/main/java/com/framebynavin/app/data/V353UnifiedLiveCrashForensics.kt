@@ -39,15 +39,15 @@ internal class V353UnifiedLiveCrashForensics(context: Context) {
             passphrase = passphrase,
         )
         val checkpoint = proof.journal
+        check(!proof.creatorStandaloneRecoveryMarker &&
+            !proof.personalStandaloneRecoveryMarker) {
+            "Independent Creator or Personal restore evidence needs its own review"
+        }
         // Derive the actual intended ADDITIVE Personal target from the
         // untouched ORIGINAL escrow and selected backup, not partially
         // written live records. Reuse the already authenticated V346 proof.
         val intendedPersonal = V356UnifiedPersonalRecoveryRecipeReader(app)
             .inspectVerified(proof, passphrase).personalRecipe
-        check(!proof.creatorStandaloneRecoveryMarker &&
-            !proof.personalStandaloneRecoveryMarker) {
-            "Independent Creator or Personal restore evidence needs its own review"
-        }
 
         val (current, photoAudit) = StabilizationPersonalMutationGate
             .withPendingCombinedReadInspection(app, checkpoint) {
