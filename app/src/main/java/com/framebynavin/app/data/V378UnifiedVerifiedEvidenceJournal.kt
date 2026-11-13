@@ -92,7 +92,8 @@ internal class V378UnifiedVerifiedEvidenceJournal(context: Context) {
             (if (proof.outcome == V377VerifiedOwnerOutcome.ORIGINAL_RESTORED)
                 decision.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL
             else decision.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
-                checkpoint.step == V344UnifiedRestoreStep.BOTH_VERIFIED)) {
+                checkpoint.step == V344UnifiedRestoreStep.BOTH_VERIFIED &&
+                proof.archivedNativePersonalVerified)) {
             "Outcome proof is not bound to the exact owner-approved final checkpoint"
         }
         check(!hasEvidence() &&
