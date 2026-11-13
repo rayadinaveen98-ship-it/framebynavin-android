@@ -475,6 +475,14 @@ class CreatorBackupManager(private val context: Context) {
     }
 
     private suspend fun recoverPendingRestoreUnlocked(): Boolean {
+        // An incomplete combined Creator+Personal transaction must be
+        // resolved as a whole, not silently recovered as Creator-only.
+        // This guard also protects normal Creator ZIP/cloud export and
+        // standalone restore entry points, which call this method first.
+        check(!V344UnifiedRestoreJournal.hasPendingFor(appContext)) {
+            "Cross-domain restore recovery is pending; Creator-only recovery " +
+                "must not overwrite combined owner evidence"
+        }
         val pending = pendingFile()
         if (!pending.isFile) return false
         val marker = JSONObject(AtomicFile(pending).openRead().bufferedReader().use { it.readText() })
