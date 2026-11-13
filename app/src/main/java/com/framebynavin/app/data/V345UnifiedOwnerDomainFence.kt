@@ -51,6 +51,27 @@ internal class V345UnifiedOwnerDomainFence(context: Context) {
             }
         }
 
+    /**
+     * H3 internal ONLY: hold the two independent owner mutexes through the
+     * last-moment verified ORIGINAL fingerprint and creation of PREPARED
+     * cross-domain journal. The supplied action must write ONLY the durable
+     * H4 checkpoint; it may not invoke Creator/Personal restore writers.
+     *
+     * After the checkpoint appears, ordinary writers are deliberately
+     * frozen on both stores. Do NOT expose this as a public "Start Restore"
+     * entry before owner-approved forward/rollback is implemented.
+     */
+    internal suspend fun <T> withExclusiveJournalReservation(
+        reserveJournalOnly: suspend () -> T,
+    ): T = withTimeout(45_000L) {
+        StabilizationPersonalMutationGate.withStableSnapshot(app) {
+            CreatorDataGate.transaction {
+                requireNoOtherRecovery()
+                reserveJournalOnly()
+            }
+        }
+    }
+
     private fun requireNoOtherRecovery() {
         check(!combined.hasBlockingEvidence()) {
             "Cross-domain recovery already exists: owner review required"
