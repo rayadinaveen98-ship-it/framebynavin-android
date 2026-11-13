@@ -626,6 +626,24 @@ internal object StabilizationPersonalMutationGate {
     }
 
     /**
+     * Internal Task 2 safety assertion, usable by the nested scoped Creator
+     * shadow-media writer. It does not acquire a second Personal mutex or
+     * create a read/write permit; it only verifies the inherited active fence.
+     */
+    internal suspend fun isWithinCombinedCreatorMissingVoiceFence(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+    ): Boolean {
+        val permit = currentCoroutineContext()[PreNativeCreatorMediaReadPermit]
+            ?: return false
+        return permit.active &&
+            permit.expected == expected &&
+            permit.root == journalRootFor(context).absoluteFile.normalize().path &&
+            com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+                .requireCheckpointReadOnly() == expected
+    }
+
+    /**
      * INTERNAL H3 Personal ADDITIVE forward stage. Requires CREATOR_WRITTEN,
      * owner approval, and the exact combined checkpoint. Holds Personal's
      * process mutex throughout the operation. Callers must also acquire
