@@ -158,6 +158,44 @@ internal object V347OwnerRecoveryDecisionPolicy {
             )
     }.getOrDefault(false)
 
+    /**
+     * FINAL READ-ONLY owner-direction provenance at a later H4 stage.
+     * Reconstruct the PRECISE original checkpoint, including its prior
+     * timestamp and SHA, instead of accepting matching transaction IDs
+     * alone. A REVERSE_ORIGINAL choice never carries to a different H4
+     * stage; only FORWARD_TARGET may be inspected at a later stage.
+     *
+     * No writer or journal release authority is returned.
+     */
+    fun remainsAuthenticForFinalReview(
+        choice: V347OwnerRecoveryDecision,
+        current: V344UnifiedRestoreCheckpoint,
+        sealed: V345UnifiedAuthenticatedPairProof,
+    ): Boolean = runCatching {
+        validate(choice)
+        V344UnifiedRestorePolicy.validate(current)
+        V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(sealed, current) &&
+            choice.transactionId == current.transactionId &&
+            choice.sourceId == current.sourceId &&
+            choice.sourceSha256 == current.sourceSha256 &&
+            choice.escrowId == current.escrowId &&
+            choice.escrowSha256 == current.escrowSha256 &&
+            choice.originalCreatorSha256 == sealed.originalCreatorSha256 &&
+            choice.originalPersonalSha256 == sealed.originalPersonalSha256 &&
+            choice.targetCreatorSha256 == sealed.targetCreatorSha256 &&
+            choice.targetPersonalSha256 == sealed.targetPersonalSha256 &&
+            choice.checkpointUpdatedAtMillis <= current.updatedAtMillis &&
+            choice.checkpointStep.ordinal <= current.step.ordinal &&
+            (choice.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET ||
+                choice.checkpointStep == current.step) &&
+            choice.checkpointSha256 == sha256(
+                V344UnifiedRestoreCheckpointCodec.encode(current.copy(
+                    step = choice.checkpointStep,
+                    updatedAtMillis = choice.checkpointUpdatedAtMillis,
+                ))
+            )
+    }.getOrDefault(false)
+
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
@@ -348,6 +386,34 @@ internal class V347OwnerRecoveryDecisionJournal(
                 }
                 decision
             }
+        } finally {
+            guard.unlock()
+        }
+    }
+
+    /**
+     * This specifically serves post-restore verification when the owner
+     * direction was recorded before Creator/Personal checkpoints advanced.
+     * The normal readOnlyStatus stays conservative for all mutation paths.
+     */
+    internal suspend fun inspectAuthenticatedForFinalReview(
+        checkpoint: V344UnifiedRestoreCheckpoint,
+        sealed: V345UnifiedAuthenticatedPairProof,
+    ): V347OwnerRecoveryDecision = withContext(Dispatchers.IO) {
+        guard.lock()
+        try {
+            check(crossDomain.requireCheckpointReadOnly() == checkpoint) {
+                "Recovery checkpoint changed during final owner direction review"
+            }
+            val choice = requireNotNull(readStrict()) {
+                "No original owner recovery choice was preserved"
+            }
+            check(V347OwnerRecoveryDecisionPolicy.remainsAuthenticForFinalReview(
+                choice, checkpoint, sealed,
+            )) {
+                "Final recovery direction is stale, changed or belongs to another archive"
+            }
+            choice
         } finally {
             guard.unlock()
         }
