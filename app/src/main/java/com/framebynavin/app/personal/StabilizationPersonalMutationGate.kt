@@ -481,6 +481,12 @@ internal object StabilizationPersonalMutationGate {
             }
             return action()
         }
+        // A combined Creator+Personal journal is not an ordinary Personal
+        // restore. Until the dedicated two-domain owner recovery permit
+        // exists, no normal Personal writer or snapshot may bypass it.
+        // The validated v1/v2 recovery permits above remain available for
+        // recovery of their own independently authenticated journals.
+        requireNoCombinedRestoreJournal(root)
         val inherited = currentCoroutineContext()[Permit]
         if (inherited != null) {
             check(inherited.active && inherited.root == path) {
@@ -494,6 +500,20 @@ internal object StabilizationPersonalMutationGate {
             val permit = Permit(path)
             try { withContext(permit) { action() } }
             finally { permit.active = false }
+        }
+    }
+
+    private fun requireNoCombinedRestoreJournal(personalJournalRoot: File) {
+        val appFiles = requireNotNull(personalJournalRoot.absoluteFile.parentFile) {
+            "Personal recovery root has no app-private parent"
+        }
+        val combined = File(
+            appFiles,
+            com.framebynavin.app.data.V344UnifiedRestoreJournal.ROOT_NAME,
+        )
+        check(!Files.exists(combined.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            "Combined Creator and Personal recovery needs owner review. " +
+                "Normal Personal writes and snapshots are paused."
         }
     }
 
