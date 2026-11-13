@@ -178,6 +178,10 @@ private fun BackupScreen(onClose: () -> Unit) {
             // verified owner review. Preparation is NOT a restore or a permit
             // to mutate Creator/Personal; a cross-domain escrow is still needed.
             V342UnifiedRestorePreparationPanel()
+            Spacer(Modifier.height(12.dp))
+            // H3: independent encrypted ORIGINAL baseline, owner-consented and
+            // checked against the H2 selected target. No combined restore yet.
+            V343UnifiedRecoveryEscrowPanel()
             Spacer(Modifier.height(18.dp))
             Text("EXISTING SEPARATE BACKUP & RECOVERY TOOLS",
                 color = MutedGold, fontSize = 10.sp,
