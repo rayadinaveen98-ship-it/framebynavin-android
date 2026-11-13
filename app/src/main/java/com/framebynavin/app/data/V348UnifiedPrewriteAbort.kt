@@ -97,32 +97,15 @@ internal class V348UnifiedPrewriteAbort(
             check(before == checkpoint && !hasCompetingDomainJournal()) {
                 "Recovery changed before owner-approved cancellation"
             }
+            // This single atomic move is the durable visibility boundary.
+            // All checkpoint and path validation happens BEFORE it. Do not
+            // perform a fallible check after it and then tell the owner the
+            // cancellation failed: the active freeze is already released.
+            // No Creator/Personal writes have ever been invoked here.
             Files.move(
                 activeRoot.toPath(), destination.toPath(),
                 StandardCopyOption.ATOMIC_MOVE,
             )
-            check(!Files.exists(activeRoot.toPath(), LinkOption.NOFOLLOW_LINKS) &&
-                destination.isDirectory && !Files.isSymbolicLink(destination.toPath())) {
-                "Aborted recovery journal cannot be safely confirmed"
-            }
-            // A completed history directory intentionally lives one level
-            // below app.filesDir, unlike the active journal root. Inspect it
-            // directly without invoking recovery code that requires an active
-            // journal or might mutate AtomicFile crash evidence.
-            val archivedFiles = destination.listFiles()
-                ?: error("Archived owner journal is unreadable")
-            check(archivedFiles.size == 1 &&
-                archivedFiles.single().name == "active.journal" &&
-                !Files.isSymbolicLink(archivedFiles.single().toPath()) &&
-                archivedFiles.single().length() in 1..V344UnifiedRestoreCheckpointCodec.MAX_BYTES.toLong()) {
-                "Archived checkpoint must contain exactly the intact owner journal"
-            }
-            val archived = V344UnifiedRestoreCheckpointCodec.decode(
-                archivedFiles.single().readBytes(),
-            )
-            check(archived == checkpoint) {
-                "Archived journal differs from the original owner checkpoint"
-            }
             V348PrewriteAbortReceipt(checkpoint.transactionId,
                 checkpoint.step, destination.name)
         } finally {
