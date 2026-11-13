@@ -375,7 +375,7 @@ class CreatorBackupManager(private val context: Context) {
             stopAndCancel(taskStore.load())
             smartSessions.clearAll()
             importSnapshot(decodeSnapshot(raw))
-            scheduleFuture(taskStore.load())
+            scheduleAfterRestoreIfStandalone()
             clearPending()
             preview
         } catch (error: Throwable) {
@@ -384,7 +384,7 @@ class CreatorBackupManager(private val context: Context) {
                     stopAndCancel(taskStore.load())
                     smartSessions.clearAll()
                     importSnapshot(decodeSnapshot(before))
-                    scheduleFuture(taskStore.load())
+                    scheduleAfterRestoreIfStandalone()
                     clearPending()
                 } catch (rollbackError: Throwable) {
                     error.addSuppressed(rollbackError)
@@ -427,7 +427,7 @@ class CreatorBackupManager(private val context: Context) {
                 stopAndCancel(taskStore.load())
                 smartSessions.clearAll()
                 importSnapshot(decodeSnapshot(raw).copy(heroJson = null))
-                scheduleFuture(taskStore.load())
+                scheduleAfterRestoreIfStandalone()
                 clearPending()
                 preview
             } catch (error: Throwable) {
@@ -437,7 +437,7 @@ class CreatorBackupManager(private val context: Context) {
                         smartSessions.clearAll()
                         importSnapshot(decodeSnapshot(before).copy(heroJson = null))
                         CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
-                        scheduleFuture(taskStore.load())
+                        scheduleAfterRestoreIfStandalone()
                         clearPending()
                     } catch (rollbackError: Throwable) {
                         error.addSuppressed(rollbackError)
@@ -487,7 +487,7 @@ class CreatorBackupManager(private val context: Context) {
             // Explicit test seam AFTER the new order is visible and BEFORE the
             // durable recovery marker is cleared. Production passes null.
             afterImagesCommittedForTest?.invoke()
-            scheduleFuture(taskStore.load())
+            scheduleAfterRestoreIfStandalone()
             clearPending()
             preview
         } catch (error: Throwable) {
@@ -497,7 +497,7 @@ class CreatorBackupManager(private val context: Context) {
                     smartSessions.clearAll()
                     importSnapshot(decodeSnapshot(before).copy(heroJson = null))
                     CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
-                    scheduleFuture(taskStore.load())
+                    scheduleAfterRestoreIfStandalone()
                     clearPending()
                 } catch (rollbackError: Throwable) {
                     error.addSuppressed(rollbackError)
@@ -552,9 +552,24 @@ class CreatorBackupManager(private val context: Context) {
         val snapshot = decodeSnapshot(raw)
         importSnapshot(if (oldFrames == null) snapshot else snapshot.copy(heroJson = null))
         if (oldFrames != null) CreatorHeroArchive.restoreOriginalOrder(appContext, oldFrames)
-        scheduleFuture(taskStore.load())
+        scheduleAfterRestoreIfStandalone()
         clearPending()
         return true
+    }
+
+    /**
+     * Combined Creator replacement is only HALF of the owner transaction.
+     * Do not reschedule project alarms before the Personal stage, original
+     * media/receipt checks and final H4 journal release are complete.
+     *
+     * Standalone Creator restore retains its unchanged scheduling behavior.
+     * Creator + Personal alarm reconciliation belongs to the final verified
+     * cross-domain release coordinator, not to either partial writer.
+     */
+    private suspend fun scheduleAfterRestoreIfStandalone() {
+        if (!CreatorDataGate.isJournalBoundCreatorWrite(appContext)) {
+            scheduleFuture(taskStore.load())
+        }
     }
 
     private fun recoveryDir(): File = File(appContext.filesDir, "creator_restore_recovery_v181").apply { mkdirs() }
