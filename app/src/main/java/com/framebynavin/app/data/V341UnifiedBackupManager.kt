@@ -2,6 +2,8 @@ package com.framebynavin.app.data
 
 import android.content.Context
 import com.framebynavin.app.personal.V300PersonalArchivePreview
+import com.framebynavin.app.personal.Phase1V2ArchiveDryRun
+import com.framebynavin.app.personal.Phase1V2ArchiveDryRunReport
 import com.framebynavin.app.personal.V300PersonalArchiveSource
 import java.io.File
 import java.io.InputStream
@@ -79,6 +81,33 @@ internal class V341UnifiedBackupManager(context: Context) {
             }
         }
 
+    /**
+     * Restore-planning is READ ONLY. After authenticating both parts, it
+     * compares incoming Personal records/photos with the CURRENT phone using
+     * the existing v2 nine-domain dry-run engine. Creator data is displayed
+     * as a replacement preview only. Never return a write authorization.
+     */
+    suspend fun inspectRestore(
+        passphrase: CharArray,
+        input: InputStream,
+    ): V341UnifiedRestoreInspection = withContext(Dispatchers.IO) {
+        V341UnifiedOwnerArchive.stageAndVerify(input, passphrase, app.cacheDir).use { staged ->
+            val creatorPreview = staged.creator.inputStream().buffered().use(creator::validate)
+            val personalPreview = staged.personal.inputStream().buffered().use {
+                personal.verify(passphrase, it)
+            }
+            val personalDiff = staged.personal.inputStream().buffered().use {
+                Phase1V2ArchiveDryRun(app).check(it, passphrase)
+            }
+            V341UnifiedRestoreInspection(
+                backup = V341UnifiedBackupPreview(
+                    creatorPreview, personalPreview, staged.creatorBytes, staged.personalBytes,
+                ),
+                personalDiff = personalDiff,
+            )
+        }
+    }
+
     private fun createStageDirectory(prefix: String): File {
         require(app.cacheDir.isDirectory) { "Private staging cache is not available" }
         return Files.createTempDirectory(app.cacheDir.toPath(), prefix).toFile()
@@ -91,3 +120,11 @@ internal data class V341UnifiedBackupPreview(
     val creatorBytes: Long,
     val personalBytes: Long,
 )
+
+/** No code in this data object permits a unified write or scheduled alarm. */
+internal data class V341UnifiedRestoreInspection(
+    val backup: V341UnifiedBackupPreview,
+    val personalDiff: Phase1V2ArchiveDryRunReport,
+) {
+    val canCommitUnifiedRestore: Boolean get() = false
+}
