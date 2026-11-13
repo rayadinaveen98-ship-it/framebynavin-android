@@ -30,6 +30,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.V343UnifiedRecoveryEscrow
+import com.framebynavin.app.data.V344UnifiedRecoveryInspector
+import com.framebynavin.app.data.V344UnifiedRecoveryCopy
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -52,6 +54,7 @@ import kotlinx.coroutines.withContext
 internal fun V343UnifiedRecoveryEscrowPanel() {
     val context = LocalContext.current.applicationContext
     val escrow = remember(context) { V343UnifiedRecoveryEscrow(context) }
+    val recoveryInspector = remember(context) { V344UnifiedRecoveryInspector(context) }
     val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf(false) }
     var ownerPassword by remember { mutableStateOf("") }
@@ -61,13 +64,22 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     var error by remember { mutableStateOf(false) }
     var confirmCapture by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var combinedRecovery by remember {
+        mutableStateOf<V344UnifiedRecoveryInspector.Assessment?>(null)
+    }
 
     LaunchedEffect(opened) {
         status = withContext(Dispatchers.IO) { escrow.status() }
+        combinedRecovery = withContext(Dispatchers.IO) {
+            recoveryInspector.inspect()
+        }
     }
 
     suspend fun refresh() {
         status = withContext(Dispatchers.IO) { escrow.status() }
+        combinedRecovery = withContext(Dispatchers.IO) {
+            recoveryInspector.inspect()
+        }
     }
 
     Surface(
@@ -91,6 +103,23 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                     "This is a recovery escrow, not a completed restore.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
             )
+            (combinedRecovery as?
+                V344UnifiedRecoveryInspector.Assessment.OwnerReview)?.let { review ->
+                Text(
+                    "INTERRUPTED COMBINED RECOVERY · " +
+                        V344UnifiedRecoveryCopy.describe(review.kind),
+                    color = RecRed, fontSize = 11.sp, lineHeight = 16.sp,
+                    modifier = Modifier.testTag("v344-recovery-owner-review"),
+                )
+                Text(
+                    "Original escrow: " +
+                        if (review.originalRetained) "checksum retained" else "unverified" +
+                        " · Target: " +
+                        if (review.targetRetained) "checksum retained" else "unverified",
+                    color = MutedGold, fontSize = 10.sp,
+                    modifier = Modifier.testTag("v344-recovery-evidence"),
+                )
+            }
             if (!opened) {
                 when (status) {
                     is V343UnifiedRecoveryEscrow.Status.BaselineRetained ->
