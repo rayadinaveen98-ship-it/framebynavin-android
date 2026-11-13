@@ -29,7 +29,9 @@ internal class V343UnifiedBaselineReader(context: Context) {
     suspend fun capture(): V343UnifiedBaselineFingerprint {
         // CreatorDataGate protects its canonical snapshot. Best Frames are
         // separately hash-checked by their own owner archive policy.
-        val creatorRoot = JSONObject(CreatorBackupManager(app).createCloudBackup())
+        val creatorRoot = JSONObject(
+            CreatorBackupManager(app).createCloudBackupForUnifiedReadOnlyBaseline()
+        )
         val creatorSections = listOf(
             "format", "schemaVersion", "tasks", "ideas", "weeklySchedule", "settings",
             "smartEscalationConfig", "postPublish", "rewards", "youtubeProjectLinks",
