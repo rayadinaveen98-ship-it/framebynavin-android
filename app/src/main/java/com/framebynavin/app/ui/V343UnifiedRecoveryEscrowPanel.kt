@@ -161,6 +161,10 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                         "Personal v2: handoff recorded; native import completion is not proven."
                     is V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active ->
                         "Personal v2: interrupted at ${n.checkpoint.name}; owner-reviewed repair required."
+                    is V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2TornAdjacent ->
+                        "Personal v2: adjacent durable ${n.durableStep.name} and pending " +
+                            "${n.pendingStep.name} checkpoints. Both files are preserved; " +
+                            "replay and rollback remain blocked until separately verified."
                     is V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2CompletedAndArchived ->
                         "Personal v2: native journal was archived. Live records and JPEGs still need full authentication."
                     else -> "Personal v2: recovery still requires owner review."
