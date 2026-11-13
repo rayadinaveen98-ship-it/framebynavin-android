@@ -73,8 +73,24 @@ internal class V381UnifiedVerifiedForwardCompletion(context: Context) {
                     V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET) {
                     "An original-reversal owner choice cannot finish forward restore"
                 }
-            V347OwnerRecoveryDecisionJournal.ReadState.NeedsOwnerReview ->
-                error("A torn or stale prior recovery decision requires owner review")
+            V347OwnerRecoveryDecisionJournal.ReadState.NeedsOwnerReview -> {
+                // An interrupted FORWARD_TARGET choice can legitimately be
+                // SHA-bound to BEFORE_CREATOR while H4 has already advanced
+                // beyond CREATOR_WRITTEN. Authenticate its exact original
+                // checkpoint and BOTH owner ZIPs instead of treating this
+                // protected, retained earlier choice as missing.
+                val pair = V345UnifiedAuthenticatedRestoreParts(app)
+                    .authenticateForInterruptedRecovery(
+                        ownerConfirmedReview = true, passphrase = passphrase,
+                    )
+                val originalChoice = choices.inspectAuthenticatedForFinalReview(
+                    cp, pair,
+                )
+                check(originalChoice.choice ==
+                    V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET) {
+                    "A reverse-original or unbound recovery direction cannot finish TARGET"
+                }
+            }
         }
         while (cp.step != V344UnifiedRestoreStep.BOTH_VERIFIED) {
             val checked = verifier.inspectOwnerApproved(
