@@ -39,12 +39,12 @@ class V350UnifiedJournalAbortRaceAndroidTest {
         updatedAtMillis = 1_900_000_000_000L,
     )
 
-    private fun roots() : Triple<File, File, File> {
+    private fun roots(): Pair<File, File> {
         val id = UUID.randomUUID()
         val journal = File(app.filesDir, "v350-test-journal-$id")
         val history = File(app.filesDir, "v350-test-history-$id")
         assertTrue(history.mkdir())
-        return Triple(journal, history, File(history, "placeholder"))
+        return journal to history
     }
 
     @Test fun ownerApprovedArchiveRetainsExactPreparedCheckpointWithoutCopyingLiveData() = runBlocking {
