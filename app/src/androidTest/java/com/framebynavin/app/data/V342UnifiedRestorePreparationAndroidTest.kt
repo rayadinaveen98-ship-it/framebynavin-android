@@ -2,6 +2,7 @@ package com.framebynavin.app.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
@@ -114,6 +115,38 @@ class V342UnifiedRestorePreparationAndroidTest {
                 runBlocking { store.inspectPrepared("owner-password-12345".toCharArray()) }
             }
             assertTrue(owned.exists())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun noSelectionConsentMeansAbsolutelyNoStaging() = runBlocking {
+        val root = newRoot()
+        try {
+            val store = V342UnifiedRestorePreparationStore(app, root)
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking {
+                    store.prepare(ByteArrayInputStream("synthetic".toByteArray()),
+                        "private-passphrase-123".toCharArray(), ownerRequested = false)
+                }
+            }
+            assertFalse(root.exists())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun malformedSourceIsQuarantinedUntilOwnerExplicitlyDiscards() = runBlocking {
+        val root = newRoot()
+        try {
+            val store = V342UnifiedRestorePreparationStore(app, root)
+            assertThrows(Exception::class.java) {
+                runBlocking {
+                    store.prepare(ByteArrayInputStream("not a ZIP".toByteArray()),
+                        "private-passphrase-123".toCharArray(), ownerRequested = true)
+                }
+            }
+            assertEquals(V342UnifiedRestorePreparationStore.Status.NeedsOwnerReview,
+                store.status())
+            assertTrue(File(root, "incoming-unified-encrypted.zip").isFile)
+            assertTrue(store.discard(ownerConfirmed = true))
+            assertFalse(root.exists())
         } finally { root.deleteRecursively() }
     }
 
