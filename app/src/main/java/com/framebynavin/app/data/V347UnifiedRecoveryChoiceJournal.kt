@@ -128,6 +128,36 @@ internal object V347OwnerRecoveryDecisionPolicy {
             )
     }.getOrDefault(false)
 
+    /**
+     * The one permitted owner-decision carry-forward after a VERIFIED
+     * Creator-domain replay. The journal still belongs to BEFORE_CREATOR,
+     * and can never authorize another write or escrow release.
+     *
+     * Rebuild the EXACT earlier H4 checkpoint and check its SHA first:
+     * a changed source, original hashes, creation time or jumped stage fails.
+     */
+    fun carriesAcrossCompletedCreator(
+        decision: V347OwnerRecoveryDecision,
+        current: V344UnifiedRestoreCheckpoint,
+    ): Boolean = runCatching {
+        validate(decision)
+        decision.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+            decision.checkpointStep == V344UnifiedRestoreStep.BEFORE_CREATOR &&
+            current.step == V344UnifiedRestoreStep.CREATOR_WRITTEN &&
+            current.updatedAtMillis > decision.checkpointUpdatedAtMillis &&
+            decision.transactionId == current.transactionId &&
+            decision.sourceId == current.sourceId &&
+            decision.sourceSha256 == current.sourceSha256 &&
+            decision.escrowId == current.escrowId &&
+            decision.escrowSha256 == current.escrowSha256 &&
+            decision.checkpointSha256 == sha256(
+                V344UnifiedRestoreCheckpointCodec.encode(current.copy(
+                    step = V344UnifiedRestoreStep.BEFORE_CREATOR,
+                    updatedAtMillis = decision.checkpointUpdatedAtMillis,
+                ))
+            )
+    }.getOrDefault(false)
+
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
@@ -234,6 +264,11 @@ internal class V347OwnerRecoveryDecisionJournal(
     sealed interface ReadState {
         data object None : ReadState
         data class Recorded(val choice: V347OwnerRecoveryDecision) : ReadState
+        /** H4 advanced exactly one Creator step; original owner decision retained. */
+        data class CreatorWrittenRetained(
+            val choice: V347OwnerRecoveryDecision,
+            val checkpoint: V344UnifiedRestoreCheckpoint,
+        ) : ReadState
         data object NeedsOwnerReview : ReadState
     }
 
@@ -247,10 +282,15 @@ internal class V347OwnerRecoveryDecisionJournal(
             val current = runCatching {
                 crossDomain.requireCheckpointReadOnly()
             }.getOrNull()
-            if (decision != null && current != null &&
-                V347OwnerRecoveryDecisionPolicy.remainsBound(decision, current)) {
-                ReadState.Recorded(decision)
-            } else ReadState.NeedsOwnerReview
+            when {
+                decision == null || current == null -> ReadState.NeedsOwnerReview
+                V347OwnerRecoveryDecisionPolicy.remainsBound(decision, current) ->
+                    ReadState.Recorded(decision)
+                V347OwnerRecoveryDecisionPolicy.carriesAcrossCompletedCreator(
+                    decision, current,
+                ) -> ReadState.CreatorWrittenRetained(decision, current)
+                else -> ReadState.NeedsOwnerReview
+            }
         } finally {
             guard.unlock()
         }
@@ -312,6 +352,22 @@ internal class V347OwnerRecoveryDecisionJournal(
             guard.unlock()
         }
     }
+
+    /**
+     * Synchronous integrity proof for V344's journal mutex callback, so
+     * checkpoint advancement cannot race a changed or removed owner choice.
+     * Caller MUST hold both domain owner fences and have independently
+     * verified all live Creator records, Voice media, Best Frame hashes and
+     * unchanged Personal/escrow evidence BEFORE calling V344.checkpoint.
+     */
+    internal fun matchesUnchangedForwardChoice(
+        expected: V344UnifiedRestoreCheckpoint,
+        decision: V347OwnerRecoveryDecision,
+    ): Boolean = runCatching {
+        readStrict() == decision &&
+            decision.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(decision, expected)
+    }.getOrDefault(false)
 
     private fun readStrict(): V347OwnerRecoveryDecision? {
         if (!root.isDirectory || Files.isSymbolicLink(root.toPath()) ||
