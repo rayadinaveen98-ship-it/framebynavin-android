@@ -504,6 +504,62 @@ internal object StabilizationPersonalMutationGate {
     }
 
     /**
+     * H3 Task 2: hold the PERSONAL process mutex while the separate, exact
+     * CreatorDataGate BEFORE_CREATOR writer restores a verified NATIVE Creator
+     * original. This is a dedicated recovery lock boundary, NOT the ordinary
+     * combined READ-ONLY forensic inspection permit. No Personal mutation or
+     * v1/v2 Personal recovery permit is granted inside this scope.
+     *
+     * The already-durable V347 owner decision must be REVERSE_ORIGINAL and
+     * remain bound to the exact H4 checkpoint before and after the action.
+     * Creator native rollback deliberately keeps H4 at BEFORE_CREATOR, all
+     * original/target escrows and Voice allocation; Task 3/4 owns release.
+     */
+    internal suspend fun <T> withCombinedCreatorNativeReverseFence(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Creator reverse recovery needs fresh consent at BEFORE_CREATOR"
+        }
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null) {
+            "Native Creator reverse cannot inherit a Personal writer or reader permit"
+        }
+        return processMutex.withLock {
+            val journal = com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+            val choices = com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal(context)
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Creator native recovery journal changed before acquiring Personal lock"
+            }
+            val direction = choices.readOnlyStatus() as?
+                com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal.ReadState.Recorded
+                ?: error("Owner has no intact, durable Creator reverse direction")
+            check(direction.choice.choice ==
+                com.framebynavin.app.data.V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+                com.framebynavin.app.data.V347OwnerRecoveryDecisionPolicy.remainsBound(
+                    direction.choice, expected,
+                )) {
+                "Creator reverse direction is unapproved or belongs to another checkpoint"
+            }
+            val result = action()
+            check(journal.requireCheckpointReadOnly() == expected &&
+                choices.readOnlyStatus() == direction) {
+                "Creator native rollback cannot advance combined recovery or change owner choice"
+            }
+            result
+        }
+    }
+
+    /**
      * INTERNAL H3 Personal ADDITIVE forward stage. Requires CREATOR_WRITTEN,
      * owner approval, and the exact combined checkpoint. Holds Personal's
      * process mutex throughout the operation. Callers must also acquire
