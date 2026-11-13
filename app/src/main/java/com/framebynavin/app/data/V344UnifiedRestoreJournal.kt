@@ -6,6 +6,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.LinkOption
+import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
@@ -125,6 +126,60 @@ internal class V344UnifiedRestoreJournal(
             writeAtomic(updated)
             check(readStrict() == updated) { "Updated restore journal is not durable" }
             updated
+        } finally {
+            mutex.unlock()
+        }
+    }
+
+    /**
+     * Archive only a provably UNWRITTEN recovery checkpoint.
+     *
+     * This method and checkpoint() share the SAME process mutex. The final
+     * PREPARED comparison, competing-journal check and atomic rename are one
+     * serialized operation: a concurrent BEFORE_CREATOR advancement cannot
+     * race an owner-approved cancellation after its last check.
+     *
+     * The caller separately authenticates both owner ZIPs; this method never
+     * touches Creator, Personal or their media and never deletes the checkpoint.
+     * An unsupported ATOMIC_MOVE fails with active evidence still in place.
+     */
+    internal suspend fun archiveUnwrittenCheckpoint(
+        expected: V344UnifiedRestoreCheckpoint,
+        destination: File,
+        ownerConfirmed: Boolean,
+        otherRecoveryPending: () -> Boolean,
+    ): Boolean = withContext(Dispatchers.IO) {
+        require(ownerConfirmed) { "Explicit owner consent required to archive recovery" }
+        mutex.lock()
+        try {
+            val current = requireNotNull(readStrict()) {
+                "No valid combined checkpoint is available for cancellation"
+            }
+            check(current == expected &&
+                current.step == V344UnifiedRestoreStep.PREPARED_NO_WRITES) {
+                "A Creator or Personal write may have started; cancel is forbidden"
+            }
+            val history = requireNotNull(destination.absoluteFile.parentFile) {
+                "Missing private history directory"
+            }
+            check(history.isDirectory &&
+                !Files.isSymbolicLink(history.toPath()) &&
+                history.canonicalFile.parentFile == app.filesDir.canonicalFile &&
+                destination.name == "${current.transactionId}-aborted" &&
+                !Files.exists(destination.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+                "Owner recovery history is not a new, owned destination"
+            }
+            check(!otherRecoveryPending()) {
+                "Another or newly recorded recovery choice is pending"
+            }
+            // Never fall back to copy/delete. Move is the single release
+            // boundary for the blocking journal; the immutable record stays.
+            Files.move(
+                journalRoot.toPath(),
+                destination.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+            true
         } finally {
             mutex.unlock()
         }
