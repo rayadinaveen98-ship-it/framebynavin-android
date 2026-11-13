@@ -36,6 +36,7 @@ import com.framebynavin.app.data.V344UnifiedRecoveryCopy
 import com.framebynavin.app.data.V346UnifiedInterruptedRecoveryReview
 import com.framebynavin.app.data.V344UnifiedRestoreStep
 import com.framebynavin.app.data.V348UnifiedPrewriteAbort
+import com.framebynavin.app.data.V353UnifiedLiveCrashForensics
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -62,6 +63,7 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     val recoveryInspector = remember(context) { V344UnifiedRecoveryInspector(context) }
     val interruptedVerifier = remember(context) { V346UnifiedInterruptedRecoveryReview(context) }
     val prewriteAbort = remember(context) { V348UnifiedPrewriteAbort(context) }
+    val liveForensics = remember(context) { V353UnifiedLiveCrashForensics(context) }
     val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf(false) }
     var ownerPassword by remember { mutableStateOf("") }
@@ -277,6 +279,53 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                             .testTag("v346-interrupted-recovery-verify"),
                     ) {
                         Text("VERIFY INTERRUPTED RECOVERY FILES · NO WRITE")
+                    }
+                }
+                if (combinedRecovery is
+                    V344UnifiedRecoveryInspector.Assessment.OwnerReview) {
+                    OutlinedButton(
+                        enabled = !loading && ownerPassword.length >= 12,
+                        onClick = {
+                            val secret = ownerPassword.toCharArray()
+                            ownerPassword = ""
+                            scope.launch {
+                                loading = true
+                                try {
+                                    val report = withContext(Dispatchers.IO) {
+                                        liveForensics.inspect(
+                                            ownerConfirmed = true,
+                                            passphrase = secret,
+                                        )
+                                    }
+                                    error = false
+                                    notice = "Live crash inventory at " +
+                                        "${report.checkpointStep.name}: Creator " +
+                                        "metadata " +
+                                        (if (report.creatorLiveMatchesOriginalMetadata)
+                                            "matches original" else "differs from original") +
+                                        "; Personal metadata " +
+                                        (if (report.personalLiveMatchesOriginalMetadata)
+                                            "matches original" else "differs from original") +
+                                        ". Space photo FILE BYTES remain unverified. " +
+                                        "Neither forward recovery nor rollback is enabled."
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    error = true
+                                    notice = "Could not safely inspect the current Creator " +
+                                        "or Personal records. The encrypted original and " +
+                                        "selected backup remain protected. No repair ran."
+                                } finally {
+                                    secret.fill('\u0000')
+                                    refresh()
+                                    loading = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("v353-combined-live-forensics"),
+                    ) {
+                        Text("INSPECT LIVE RECOVERY STATE · READ ONLY")
                     }
                 }
                 val interrupted = combinedRecovery as?
