@@ -219,7 +219,7 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
                 val dir = requireKnownTransactionDirectory(checkpoint.transactionId)
                 val originalFile = File(dir, "original-escrow-encrypted.zip")
                 val incomingFile = File(dir, "incoming-encrypted.zip")
-                V300EncryptedPersonalArchive.stageAndVerify(
+                return V300EncryptedPersonalArchive.stageAndVerify(
                     originalFile.inputStream(), escrowPassphrase, app.cacheDir,
                 ).use { original ->
                     V300EncryptedPersonalArchive.stageAndVerify(
