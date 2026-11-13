@@ -75,6 +75,9 @@ object CreatorDataGate {
                     scope.expected.step in setOf(
                         V344UnifiedRestoreStep.CREATOR_WRITTEN,
                         V344UnifiedRestoreStep.BEFORE_PERSONAL,
+                        V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+                        V344UnifiedRestoreStep.VERIFYING_BOTH,
+                        V344UnifiedRestoreStep.BOTH_VERIFIED,
                     )))) {
             "Expired or unrelated combined Creator recovery write authority"
         }
@@ -177,8 +180,13 @@ object CreatorDataGate {
         action: suspend () -> T,
     ): T {
         require(ownerConfirmed &&
-            expected.step == V344UnifiedRestoreStep.BEFORE_PERSONAL) {
-            "Creator rollback after Personal needs owner consent at BEFORE_PERSONAL"
+            expected.step in setOf(
+                V344UnifiedRestoreStep.BEFORE_PERSONAL,
+                V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+                V344UnifiedRestoreStep.VERIFYING_BOTH,
+                V344UnifiedRestoreStep.BOTH_VERIFIED,
+            )) {
+            "Creator rollback after Personal needs a supported owner-reviewed checkpoint"
         }
         check(com.framebynavin.app.personal.StabilizationPersonalMutationGate
             .isWithinPendingCombinedReadInspection(context, expected)) {
@@ -208,7 +216,11 @@ object CreatorDataGate {
         val handoff = (V359UnifiedPersonalV2HandoffJournal(context).inspectReadOnly() as?
             V359UnifiedPersonalV2HandoffJournal.Inspection.Bound)?.handoff
             ?: error("Native Personal inverse handoff is missing or torn")
-        check(V359PersonalV2HandoffCodec.matchesCombined(handoff, expected) &&
+        check((if (expected.step == V344UnifiedRestoreStep.BEFORE_PERSONAL)
+            V359PersonalV2HandoffCodec.matchesCombined(handoff, expected)
+        else V359PersonalV2HandoffCodec.matchesCompletedCombined(
+            handoff, expected,
+        )) &&
             handoff.personalV2TransactionId == inverse.nativeV2Id &&
             handoff.originalPersonalDigest == inverse.originalDigest &&
             handoff.mergedPersonalDigest == inverse.targetDigest) {
