@@ -48,9 +48,14 @@ internal class V362UnifiedActivePersonalResume(context: Context) {
         )
         check(selected.journal == expected &&
             !selected.creatorStandaloneRecoveryMarker &&
-            !selected.personalStandaloneRecoveryMarker) {
-            "Combined source or competing standalone recovery is untrusted"
+            selected.personalStandaloneRecoveryMarker) {
+            "An ACTIVE native Personal v2 journal is required for this exact recovery"
         }
+        // personalStandaloneRecoveryMarker reflects BOTH legacy and native
+        // v2 in the general read-only inspector. Here the subsequent V360
+        // strict inspector + V359 handoff binding prove that the single
+        // allowed pending marker is exactly THIS combined native v2.
+        // A legacy v1 journal is refused by V360 before a write permit opens.
         val recipe = V356UnifiedPersonalRecoveryRecipeReader(app)
             .inspectVerified(selected, passphrase).personalRecipe
         val native = nativeInspector.inspectReadOnly() as?
@@ -183,7 +188,9 @@ internal object V362ActiveResumePolicy {
             h4.step == V344UnifiedRestoreStep.BEFORE_PERSONAL &&
             V346InterruptedRecoveryProofPolicy.matches(ownerProof, h4) &&
             !ownerProof.creatorStandaloneRecoveryMarker &&
-            !ownerProof.personalStandaloneRecoveryMarker &&
+            ownerProof.personalStandaloneRecoveryMarker &&
+            // Only V360.NativeV2Active with exact V359 identity is permitted:
+            // a pending legacy Personal marker cannot ever satisfy this.
             recipe.noMutationAuthority &&
             recipe.allOriginalPhotoReferencesPreserved &&
             V359PersonalV2HandoffCodec.matchesCombined(handoff, h4) &&
