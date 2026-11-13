@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import android.content.Context
 import com.framebynavin.app.personal.Phase1V2OriginalRollbackDelta
 import com.framebynavin.app.personal.Phase1V2OriginalRollbackDeltaPolicy
+import com.framebynavin.app.personal.Phase1V2OriginalReverseJournal
 import com.framebynavin.app.personal.Phase1V2PhotoByteEvidence
 import com.framebynavin.app.personal.Phase1V2PhotoByteForensics
 import com.framebynavin.app.personal.Phase1V2RestoreDomainForensics
@@ -47,6 +48,11 @@ internal data class V374UnifiedPersonalOriginalRollbackReview(
     val delta: Phase1V2OriginalRollbackDelta,
     val currentDomains: Phase1V2RestoreForensicAssessment,
     val currentPhotoBytes: Phase1V2PhotoByteEvidence,
+    val originalComponents: V300PersonalComponents,
+    val targetComponents: V300PersonalComponents,
+    val originalPhotoRows: List<V290SpacePhotoEntity>,
+    val targetPhotoRows: List<V290SpacePhotoEntity>,
+    val reverseJournalAlreadyPrepared: Boolean,
     val creatorOriginalMayBeRestoredSeparately: Boolean = true,
 ) {
     val mayDeleteOwnerPhotos: Boolean get() = false
@@ -169,13 +175,36 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
                     }
                     val live = V301LocalRecoveryReader(app)
                         .readForInterruptedV2Recovery()
-                    val states = Phase1V2RestoreDomainForensics.inspect(
-                        checkpoint,
-                        original.first, target.combined, live.components,
-                        originalPhotos, target.photos, live.photos,
-                    )
+                    val reverse = Phase1V2OriginalReverseJournal(app).inspect()
+                    val states = if (reverse == null) {
+                        Phase1V2RestoreDomainForensics.inspect(
+                            checkpoint, original.first, target.combined,
+                            live.components, originalPhotos, target.photos,
+                            live.photos,
+                        )
+                    } else {
+                        check(reverse.combinedId == cp.transactionId &&
+                            reverse.nativeV2Id == checkpoint.transactionId &&
+                            reverse.nativeStep == checkpoint.step &&
+                            reverse.originalDigest == target.baselineDigest &&
+                            reverse.targetDigest == target.targetDigest &&
+                            reverse.combinedDigest ==
+                                V359PersonalV2HandoffCodec.sha256(
+                                    V344UnifiedRestoreCheckpointCodec.encode(cp)) &&
+                            reverse.ownerDecisionDigest ==
+                                V359PersonalV2HandoffCodec.sha256(
+                                    V347OwnerRecoveryDecisionCodec.encode(ownerChoice))) {
+                            "Inverse journal is not bound to original combined owner choice"
+                        }
+                        Phase1V2RestoreDomainForensics.inspectWithReverseJournal(
+                            checkpoint, original.first, target.combined,
+                            live.components, originalPhotos, target.photos,
+                            live.photos,
+                        )
+                    }
                     val bytes = Phase1V2PhotoByteForensics.inspect(
-                        checkpoint.step,
+                        if (reverse == null) checkpoint.step
+                        else Phase1V2RestoreStep.BEFORE_PHOTOS,
                         File(app.filesDir, "backlot-personal-space-photos"),
                         originalPhotos, target.photos, live.photos,
                     )
@@ -193,6 +222,12 @@ internal class V374UnifiedPersonalOriginalRollbackInspector(context: Context) {
             delta = delta,
             currentDomains = domains,
             currentPhotoBytes = photos,
+            originalComponents = original.first,
+            targetComponents = target.combined,
+            originalPhotoRows = originalPhotos,
+            targetPhotoRows = target.photos,
+            reverseJournalAlreadyPrepared =
+                Phase1V2OriginalReverseJournal(app).hasEvidence(),
         )
     }
 
