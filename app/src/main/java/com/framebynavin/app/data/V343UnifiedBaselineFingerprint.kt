@@ -2,6 +2,7 @@ package com.framebynavin.app.data
 
 import android.content.Context
 import com.framebynavin.app.personal.V301LocalRecoveryReader
+import com.framebynavin.app.personal.V301LocalRecoverySnapshot
 import java.security.MessageDigest
 import org.json.JSONObject
 
@@ -32,6 +33,27 @@ internal class V343UnifiedBaselineReader(context: Context) {
         val creatorRoot = JSONObject(
             CreatorBackupManager(app).createCloudBackupForUnifiedReadOnlyBaseline()
         )
+        val local = V301LocalRecoveryReader(app).readV2()
+        return hashReadOnlySnapshots(creatorRoot, local, requireIntegrity = true)
+    }
+
+    /**
+     * H3 interrupted recovery may have partially changed live Personal
+     * records/photos. Its V301 forensic reader explicitly reports
+     * localIntegrityVerified=false. The resulting hashes are EVIDENCE ONLY:
+     * never an assertion that a partial restore can be replayed or rolled back.
+     */
+    internal fun fingerprintUnverifiedInterrupted(
+        creatorRaw: String,
+        personal: V301LocalRecoverySnapshot,
+    ): V343UnifiedBaselineFingerprint =
+        hashReadOnlySnapshots(JSONObject(creatorRaw), personal, requireIntegrity = false)
+
+    private fun hashReadOnlySnapshots(
+        creatorRoot: JSONObject,
+        local: V301LocalRecoverySnapshot,
+        requireIntegrity: Boolean,
+    ): V343UnifiedBaselineFingerprint {
         val creatorSections = listOf(
             "format", "schemaVersion", "tasks", "ideas", "weeklySchedule", "settings",
             "smartEscalationConfig", "postPublish", "rewards", "youtubeProjectLinks",
@@ -49,10 +71,9 @@ internal class V343UnifiedBaselineReader(context: Context) {
         } + ("originalBestFrames" to CreatorHeroArchive.captureOriginalOrder(app))
         val creatorDigest = hashParts(creatorValues.map { (key, value) -> "$key=$value" })
 
-        val local = V301LocalRecoveryReader(app).readV2()
-        check(local.localIntegrityVerified &&
+        check((!requireIntegrity || local.localIntegrityVerified) &&
             local.components.singleActivityChallenges != null) {
-            "A fully verified Personal v2 state is required"
+            "A complete Personal v2 snapshot is required"
         }
         val d = local.components
         val personalValues = listOf(
