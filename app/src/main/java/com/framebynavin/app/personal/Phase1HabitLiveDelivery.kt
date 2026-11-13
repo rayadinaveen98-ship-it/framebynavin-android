@@ -125,6 +125,16 @@ internal object Phase1HabitNotification {
         return builder.build()
     }
 
+    /** Remove every posted notification for an archived/deleted/edited challenge. */
+    fun cancelAllPosted(context: Context, challenge: Phase1HabitChallenge) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        (0L..20L).forEach { offset ->
+            val day = challenge.startDate.plusDays(offset)
+            manager.cancel("backlot:habit:" + challenge.id + ":" + day,
+                challenge.id.hashCode())
+        }
+    }
+
     fun cancelPosted(context: Context, challenge: Phase1HabitChallenge, at: Long) {
         val day = LocalDate.ofInstant(Instant.ofEpochMilli(at), ZoneId.of(challenge.zoneId))
         context.getSystemService(NotificationManager::class.java).cancel(
@@ -145,6 +155,16 @@ internal class Phase1HabitAlarmScheduler(context: Context) {
                 .setData(Phase1HabitNotification.uri(id))
                 .putExtra(Phase1HabitNotification.ID, id)
                 .putExtra(Phase1HabitNotification.AT, at), flags)
+
+    /** Explicit removal after a durable edit/archive/delete, including orphaned IDs. */
+    fun cancelChallengePending(id: String) {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        pending(id, 0L, PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+            ?.let { existing ->
+                alarms.cancel(existing)
+                existing.cancel()
+            }
+    }
 
     suspend fun reconcile(now: Instant = Instant.now()): Unit =
         StabilizationPersonalMutationGate.withStableSnapshot(app) {
@@ -374,6 +394,19 @@ internal class Phase1HabitVoiceService : Service() {
 
     companion object {
         private var currentService: WeakReference<Phase1HabitVoiceService>? = null
+
+        /** Editing or removing a challenge must stop only that challenge's voice. */
+        fun stopChallenge(challengeId: String) {
+            currentService?.get()?.let { service ->
+                service.handler.post {
+                    if (service.currentChallengeId == challengeId) {
+                        service.generation++
+                        service.engine?.stop()
+                        service.stopSelf()
+                    }
+                }
+            }
+        }
 
         /** A Snooze action stops ONLY the exact playing 21-day occurrence. */
         fun stopMatching(challengeId: String, scheduledAt: Long) {
