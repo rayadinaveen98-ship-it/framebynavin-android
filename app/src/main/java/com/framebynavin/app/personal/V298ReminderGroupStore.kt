@@ -61,6 +61,7 @@ internal class V298ReminderGroupStore(context: Context) {
     }
 
     suspend fun mutate(
+        preservePreviousForRecovery: Boolean = true,
         change: (List<V298ReminderGroup>) -> List<V298ReminderGroup>,
     ): List<V298ReminderGroup> = StabilizationPersonalMutationGate.withOwnerMutation(app) {
         groupMutationMutex.withLock {
@@ -76,7 +77,9 @@ internal class V298ReminderGroupStore(context: Context) {
             val updated = change(current)
             val serialized = V298ReminderGroupCodec.encode(updated)
             if (updated != current) {
-                prefs[lastGood] = oldRaw ?: V298ReminderGroupCodec.encode(emptyList())
+                prefs[lastGood] = if (preservePreviousForRecovery)
+                    oldRaw ?: V298ReminderGroupCodec.encode(emptyList())
+                else serialized
                 prefs[primary] = serialized
             }
             result = updated
@@ -104,6 +107,15 @@ internal class V298ReminderGroupStore(context: Context) {
     suspend fun importMissingAfterApproval(raw: String): List<V298ReminderGroup> {
         val incoming = validateImport(raw)
         return mutate { current -> V298ReminderGroupMergePolicy.addMissing(current, incoming) }
+    }
+
+    /** Only the separately journaled original Personal v2 inverse may call. */
+    internal suspend fun replaceFromApprovedV2OriginalRollback(
+        authenticatedOriginal: String,
+    ): List<V298ReminderGroup> {
+        StabilizationPersonalMutationGate.requireActiveRecovery(app)
+        val verified = validateImport(authenticatedOriginal)
+        return mutate(preservePreviousForRecovery = false) { verified }
     }
 
     suspend fun validatedPreviousRevision(): List<V298ReminderGroup>? =
