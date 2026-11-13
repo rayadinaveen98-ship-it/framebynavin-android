@@ -103,13 +103,16 @@ class V371CreatorVoiceShadowJournalAndroidTest {
                 choose(context, cp, V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
 
                 val shadow = V371UnifiedCreatorVoiceShadowJournal(context)
-                val plan = CreatorDataGate.withJournalBoundCreatorWrite(
-                    context, cp, ownerConfirmed = true,
-                ) {
-                    shadow.reserveForCurrentCreatorWriter(
-                        base, mapOf("idea-1" to complete),
-                    )
-                }
+                val plan = StabilizationPersonalMutationGate
+                    .withCombinedCreatorMissingVoiceFence(context, cp, ownerConfirmed = true) {
+                        CreatorDataGate.withJournalBoundCreatorWrite(
+                            context, cp, ownerConfirmed = true,
+                        ) {
+                            shadow.reserveForCurrentCreatorWriter(
+                                base, mapOf("idea-1" to complete),
+                            )
+                        }
+                    }
                 assertTrue(shadow.hasBlockingEvidence())
                 assertEquals(base.entries.single().fileName, plan.entries.single().damagedFile)
                 assertTrue(damaged.readText() == "partial")
@@ -124,13 +127,16 @@ class V371CreatorVoiceShadowJournalAndroidTest {
                 assertEquals("partial", damaged.readText())
 
                 assertTrue(runCatching {
-                    CreatorDataGate.withJournalBoundCreatorWrite(
-                        context, cp, ownerConfirmed = true,
-                    ) {
-                        shadow.reserveForCurrentCreatorWriter(
-                            base, mapOf("idea-1" to complete),
-                        )
-                    }
+                    StabilizationPersonalMutationGate
+                        .withCombinedCreatorMissingVoiceFence(context, cp, ownerConfirmed = true) {
+                            CreatorDataGate.withJournalBoundCreatorWrite(
+                                context, cp, ownerConfirmed = true,
+                            ) {
+                                shadow.reserveForCurrentCreatorWriter(
+                                    base, mapOf("idea-1" to complete),
+                                )
+                            }
+                        }
                 }.isFailure)
                 assertEquals(plan, shadow.inspectReadOnly())
                 damaged.writeText("unexpected-owner-file-change")
@@ -197,11 +203,14 @@ class V371CreatorVoiceShadowJournalAndroidTest {
             partial.writeText("interrupted")
             choose(context, cp, V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)
             val shadow = V371UnifiedCreatorVoiceShadowJournal(context)
-            val plan = CreatorDataGate.withJournalBoundCreatorWrite(
-                context, cp, ownerConfirmed = true,
-            ) { shadow.reserveForCurrentCreatorWriter(
-                base, mapOf("idea-a" to source),
-            ) }
+            val plan = StabilizationPersonalMutationGate
+                .withCombinedCreatorMissingVoiceFence(context, cp, ownerConfirmed = true) {
+                    CreatorDataGate.withJournalBoundCreatorWrite(
+                        context, cp, ownerConfirmed = true,
+                    ) { shadow.reserveForCurrentCreatorWriter(
+                        base, mapOf("idea-a" to source),
+                    ) }
+                }
             val replacement = File(directory, plan.entries.single().shadowFile)
             assertFalse(replacement.exists())
             val first = StabilizationPersonalMutationGate
