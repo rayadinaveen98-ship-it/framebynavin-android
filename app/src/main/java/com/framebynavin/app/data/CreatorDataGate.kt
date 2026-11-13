@@ -255,7 +255,9 @@ object CreatorDataGate {
      * Called from the Personal-then-Creator lock order; does not call
      * standalone Creator recovery or reschedule project reminders.
      */
-    private class CombinedReadInspection : AbstractCoroutineContextElement(Key) {
+    private class CombinedReadInspection(
+        val expected: V344UnifiedRestoreCheckpoint,
+    ) : AbstractCoroutineContextElement(Key) {
         @Volatile var active = true
         companion object Key : CoroutineContext.Key<CombinedReadInspection>
     }
@@ -274,7 +276,7 @@ object CreatorDataGate {
             check(journal.requireCheckpointReadOnly() == expected) {
                 "Creator inspection requires the exact retained combined checkpoint"
             }
-            val permit = CombinedReadInspection()
+            val permit = CombinedReadInspection(expected)
             try {
                 withContext(permit) {
                     val result = readOnly()
@@ -287,6 +289,20 @@ object CreatorDataGate {
                 permit.active = false
             }
         }
+    }
+
+    /**
+     * Assert the caller STILL owns the Creator read-only process lock;
+     * a Personal inverse writer may change Personal records only while
+     * Creator is frozen inside the exact same H4 checkpoint.
+     */
+    internal suspend fun isWithinPendingCombinedReadInspection(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+    ): Boolean {
+        val token = currentCoroutineContext()[CombinedReadInspection] ?: return false
+        return token.active && token.expected == expected &&
+            V344UnifiedRestoreJournal(context).requireCheckpointReadOnly() == expected
     }
 
     /** Rebind ownership for an uncancellable rollback without releasing the data lock. */
