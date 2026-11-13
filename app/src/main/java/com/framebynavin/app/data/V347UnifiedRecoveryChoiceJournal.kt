@@ -221,11 +221,15 @@ internal object V347OwnerRecoveryDecisionCodec {
  * intentionally NO UI action to record this choice until a real, reviewed
  * forward/rollback implementation exists.
  */
-internal class V347OwnerRecoveryDecisionJournal(context: Context) {
+internal class V347OwnerRecoveryDecisionJournal(
+    context: Context,
+    rootForTesting: File? = null,
+    crossDomainForTesting: V344UnifiedRestoreJournal? = null,
+) {
     private val app = context.applicationContext
-    private val root = File(app.filesDir, ROOT)
+    private val root = rootForTesting ?: File(app.filesDir, ROOT)
     private val active get() = File(root, "owner-choice.json")
-    private val crossDomain = V344UnifiedRestoreJournal(app)
+    private val crossDomain = crossDomainForTesting ?: V344UnifiedRestoreJournal(app)
 
     sealed interface ReadState {
         data object None : ReadState
