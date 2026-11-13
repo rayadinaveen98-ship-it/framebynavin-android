@@ -26,24 +26,35 @@ import kotlinx.coroutines.withContext
 internal class V356UnifiedPersonalRecoveryRecipeReader(context: Context) {
     private val app = context.applicationContext
     private val journal = V344UnifiedRestoreJournal(app)
-    private val pair = V345UnifiedAuthenticatedRestoreParts(app)
 
     suspend fun inspect(
         ownerConfirmedReview: Boolean,
         passphrase: CharArray,
-    ): V356UnifiedPersonalRecoveryReceipt = withContext(Dispatchers.IO) {
+    ): V356UnifiedPersonalRecoveryReceipt {
         require(ownerConfirmedReview && passphrase.size >= 12) {
             "Fresh owner consent and encrypted owner archive passphrase required"
         }
-        val checkpoint = journal.requireCheckpointReadOnly()
-        // Validate both outer unified containers, both portable Creator ZIPs,
-        // both Personal encrypted ZIPs, and the exact selected/original IDs.
-        val authenticated = pair.authenticateForInterruptedRecovery(
-            ownerConfirmedReview = true, passphrase = passphrase,
+        val authenticated = V346UnifiedInterruptedRecoveryReview(app).inspect(
+            ownerConfirmedReview = true,
+            passphrase = passphrase,
         )
-        check(V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(
-            authenticated, checkpoint,
-        )) { "Recovery archive pair no longer belongs to the same transaction" }
+        return inspectVerified(authenticated, passphrase)
+    }
+
+    /**
+     * Reuse the already passphrase-authenticated V346 proof when called from
+     * the live crash review screen. No proof can grant write permission.
+     */
+    internal suspend fun inspectVerified(
+        prior: V346InterruptedRecoveryProof,
+        passphrase: CharArray,
+    ): V356UnifiedPersonalRecoveryReceipt = withContext(Dispatchers.IO) {
+        require(passphrase.size >= 12) { "Encrypted owner archive passphrase required" }
+        val checkpoint = journal.requireCheckpointReadOnly()
+        check(V346InterruptedRecoveryProofPolicy.matches(prior, checkpoint)) {
+            "Original+target archive proof does not match active combined journal"
+        }
+        val authenticated = prior.sealedArchives
 
         // Process the two large encrypted ZIPs in sequence to keep peak disk
         // usage bounded. Only retain immutable component text and photo ROWS
@@ -62,8 +73,11 @@ internal class V356UnifiedPersonalRecoveryRecipeReader(context: Context) {
             original.components, original.photos,
             incoming.components, incoming.photos,
         )
-        check(journal.requireCheckpointReadOnly() == checkpoint) {
-            "Combined recovery checkpoint changed while building additive Personal recipe"
+        check(journal.requireCheckpointReadOnly() == checkpoint &&
+            V345UnifiedAuthenticatedPairPolicy.matchesRecoveryCheckpoint(
+                authenticated, checkpoint,
+            )) {
+            "Combined recovery source or checkpoint changed while deriving Personal recipe"
         }
         V356UnifiedPersonalRecoveryReceipt(
             checkpointId = checkpoint.transactionId,
