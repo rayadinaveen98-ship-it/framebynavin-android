@@ -121,19 +121,29 @@ class CreatorBackupManager(private val context: Context) {
      */
     internal suspend fun createCloudBackupForUnifiedReadOnlyBaseline(): String =
         CreatorDataGate.transaction {
-            check(!File(appContext.filesDir,
-                "creator_restore_recovery_v181/pending.json").exists()) {
-                "Creator's separate restore must be resolved before a unified baseline"
-            }
-            check(!IdeaProjectConversion(appContext).hasPendingRecovery()) {
-                "A pending idea-to-project conversion is not a stable unified baseline"
-            }
-            encode(
-                snapshot(includeHero = false, readOnlyUnifiedFingerprint = true)
-                    .copy(heroJson = CLOUD_FRAMES_OMITTED),
-                System.currentTimeMillis(),
-            )
+            createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
         }
+
+    /**
+     * Only for the narrowly scoped V353 combined crash-forensics reader,
+     * which ALREADY holds CreatorDataGate's mutex WITHOUT a writable
+     * transaction context. No recovery, migration, timeline seeding,
+     * reminder scheduling or data import is performed here.
+     */
+    internal suspend fun createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate(): String {
+        check(!File(appContext.filesDir,
+            "creator_restore_recovery_v181/pending.json").exists()) {
+            "Creator's separate restore must be resolved before a unified baseline"
+        }
+        check(!IdeaProjectConversion(appContext).hasPendingRecovery()) {
+            "A pending idea-to-project conversion is not a stable unified baseline"
+        }
+        return encode(
+            snapshot(includeHero = false, readOnlyUnifiedFingerprint = true)
+                .copy(heroJson = CLOUD_FRAMES_OMITTED),
+            System.currentTimeMillis(),
+        )
+    }
 
     /**
      * Portable ZIP export must never build a giant canonical root JSON only
