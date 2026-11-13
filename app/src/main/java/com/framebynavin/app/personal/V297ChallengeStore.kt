@@ -57,6 +57,7 @@ internal class V297ChallengeStore(context: Context) {
     }
 
     suspend fun mutate(
+        preservePreviousForRecovery: Boolean = true,
         change: (List<V297Challenge>) -> List<V297Challenge>,
     ): List<V297Challenge> = StabilizationPersonalMutationGate.withOwnerMutation(app) {
         v297ChallengeMutex.withLock {
@@ -72,7 +73,9 @@ internal class V297ChallengeStore(context: Context) {
             val updated = change(previous)
             val encoded = V297ChallengeCodec.encode(updated)
             if (updated != previous) {
-                prefs[lastGood] = previousRaw ?: V297ChallengeCodec.encode(emptyList())
+                prefs[lastGood] = if (preservePreviousForRecovery)
+                    previousRaw ?: V297ChallengeCodec.encode(emptyList())
+                else encoded
                 prefs[primary] = encoded
             }
             result = updated
@@ -99,6 +102,15 @@ internal class V297ChallengeStore(context: Context) {
     suspend fun replaceFromApprovedImport(raw: String): List<V297Challenge> {
         val validated = validateImport(raw)
         return mutate { validated }
+    }
+
+    /** Only the separately journaled original Personal v2 inverse may call. */
+    internal suspend fun replaceFromApprovedV2OriginalRollback(
+        authenticatedOriginal: String,
+    ): List<V297Challenge> {
+        StabilizationPersonalMutationGate.requireActiveRecovery(app)
+        val verified = validateImport(authenticatedOriginal)
+        return mutate(preservePreviousForRecovery = false) { verified }
     }
 
     suspend fun validatedPreviousRevision(): List<V297Challenge>? =
