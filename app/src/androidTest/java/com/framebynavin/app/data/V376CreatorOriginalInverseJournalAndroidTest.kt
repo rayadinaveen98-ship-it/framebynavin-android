@@ -92,4 +92,61 @@ class V376CreatorOriginalInverseJournalAndroidTest {
             assertTrue(File(nativeRoot, "pending.json").isFile)
         } finally { dir.deleteRecursively() }
     }
+
+    @Test fun exactNativeJournalBeforeStateIsAcceptedWithoutRestoringAnyData() {
+        val dir = File(phone.filesDir, "synthetic-creator-inverse-" + UUID.randomUUID())
+        assertTrue(dir.mkdir())
+        try {
+            val context = isolated(dir)
+            val nativeRoot = File(dir, "creator_restore_recovery_v181")
+            assertTrue(nativeRoot.mkdir())
+            // Only synthetic JSON for a read-only fingerprint check. It is
+            // NEVER imported into Creator, Room or Personal stores.
+            val root = org.json.JSONObject()
+            listOf(
+                "format", "schemaVersion", "tasks", "ideas", "weeklySchedule",
+                "settings", "smartEscalationConfig", "postPublish", "rewards",
+                "youtubeProjectLinks", "youtubeMilestones",
+                "youtubePublishCheckpoints", "projectPulseHistory",
+                "workflowStageTimeline", "automationPreferences",
+                "creatorFocusSessions", "manifest",
+            ).forEach { root.put(it, "synthetic") }
+            val raw = root.toString()
+            val frames = "[]"
+            val fingerprint = V343UnifiedBaselineReader(context)
+                .creatorFingerprintFromNativeOriginal(raw, frames)
+            val witness = record().copy(
+                priorCreatorFingerprint = fingerprint,
+            )
+            val journal = V376CreatorOriginalInverseJournal(context)
+            journal.prepare(witness)
+            val name = "pre-restore-" + UUID.randomUUID() + ".fbnbackup"
+            val before = File(nativeRoot, name)
+            before.writeText(raw)
+            val pending = File(nativeRoot, "pending.json")
+            pending.writeText(org.json.JSONObject()
+                .put("file", name)
+                .put("sha256", V376CreatorOriginalInverseJournal.sha256(
+                    raw.toByteArray(Charsets.UTF_8),
+                ))
+                .put("originalFrames", frames)
+                .put("originalFramesSha256",
+                    V376CreatorOriginalInverseJournal.sha256(
+                        frames.toByteArray(Charsets.UTF_8),
+                    ))
+                .toString())
+            assertEquals(raw, journal.requireBoundNativePending(
+                witness, V343UnifiedBaselineReader(context),
+            ))
+            before.writeText(raw + " altered")
+            assertTrue(runCatching {
+                journal.requireBoundNativePending(
+                    witness, V343UnifiedBaselineReader(context),
+                )
+            }.isFailure)
+            assertTrue(pending.exists())
+            assertTrue(before.exists())
+        } finally { dir.deleteRecursively() }
+    }
+
 }
