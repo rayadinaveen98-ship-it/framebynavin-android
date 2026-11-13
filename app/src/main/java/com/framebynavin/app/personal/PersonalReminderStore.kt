@@ -123,7 +123,7 @@ internal class PersonalReminderStore(context: Context) {
 
     private fun encodeDeletionCleanup(ids: Set<String>): String {
         require(ids.size <= 1000) { "Too many pending Personal cleanup IDs" }
-        return JSONArray().also { array -> ids.sorted().forEach(array::put) }.toString()
+        return JSONArray().also { array -> ids.sorted().forEach { array.put(it) } }.toString()
     }
 
     suspend fun mutate(
