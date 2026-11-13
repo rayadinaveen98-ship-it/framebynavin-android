@@ -142,6 +142,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var creatorActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     var personalActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     var personalChallengeFocusId by rememberSaveable { mutableStateOf<String?>(null) }
+    // A Home Space route opens the original Personal workspace, not a new
+    // Room database or a duplicate direct Activity. An explicit revision
+    // refreshes Home when the owner returns from Personal edits.
+    var homeSpacesRequested by rememberSaveable { mutableStateOf(false) }
+    var homeSpaceFocusId by rememberSaveable { mutableStateOf<String?>(null) }
+    var homeSpacesRevision by remember { mutableIntStateOf(0) }
     // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
@@ -616,6 +622,19 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onStart = vm::startTask,
                     onAdvance = ::advanceWorkflowWithJourney,
                     onViewAllReminders = { showReminders = true },
+                    onOpenPersonalSpace = { requestedSpaceId ->
+                        // Routing to a Personal Space never changes Creator
+                        // tasks, acknowledgement tokens or active alerts.
+                        personalReminderSpace = true
+                        activityCenterOpen = false
+                        personalActivityFocusId = null
+                        personalChallengeFocusId = null
+                        creatorActivityFocusId = null
+                        homeSpacesRequested = true
+                        homeSpaceFocusId = requestedSpaceId
+                        showReminders = true
+                    },
+                    homeSpacesRevision = homeSpacesRevision,
                     onFocus = { focusTaskId = it },
                     onOpenIdeaVault = { tab = PTab.IDEAS },
                     onOpenInsights = { tab = PTab.INSIGHTS },
@@ -999,15 +1018,23 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onClose = {
                     personalActivityFocusId = null
                     personalChallengeFocusId = null
+                    homeSpacesRequested = false
+                    homeSpaceFocusId = null
+                    homeSpacesRevision++
                     showReminders = false
                 },
                 onCreator = {
                     personalReminderSpace = false
                     personalChallengeFocusId = null
+                    homeSpacesRequested = false
+                    homeSpaceFocusId = null
+                    homeSpacesRevision++
                 },
                 onOpenActivity = { activityCenterOpen = true },
                 initialFocusReminderId = personalActivityFocusId,
                 initialFocusChallengeId = personalChallengeFocusId,
+                initialOpenSpaces = homeSpacesRequested,
+                initialFocusSpaceId = homeSpaceFocusId,
             )
         } else {
         V131ReminderCenter(
