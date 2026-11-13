@@ -422,7 +422,10 @@ internal fun V18HeroGreetingBar(
     importing: Boolean,
     onPhotoClick: () -> Unit,
     companionAvatar: @Composable () -> Unit = {},
+    galleryInOverflow: Boolean = false,
 ) {
+    // V339: on the live Home screen the Gallery entry is moved to one
+    // overflow rail. Keep standalone Hero/legacy callers unchanged by default.
     // V335: the Home header now has an independent activity bell, optional
     // Spark icon and Gallery button. Wrap on ordinary compact phones rather
     // than squeezing the greeting or shrinking the 48dp touch targets.
@@ -438,7 +441,9 @@ internal fun V18HeroGreetingBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 companionAvatar()
-                V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
+                if (!galleryInOverflow) {
+                    V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
+                }
             }
         }
     } else {
@@ -449,7 +454,9 @@ internal fun V18HeroGreetingBar(
         ) {
             V18GreetingText(greeting, Modifier.weight(1f))
             companionAvatar()
-            V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
+            if (!galleryInOverflow) {
+                V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
+            }
         }
     }
 }
@@ -461,6 +468,7 @@ internal fun V18CinematicHomeHero(
     openEditorNonce: Long = 0L,
     onEditorRequestHandled: () -> Unit = {},
     companionAvatar: @Composable () -> Unit = {},
+    galleryInOverflow: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -618,6 +626,7 @@ internal fun V18CinematicHomeHero(
                 else manageExpanded = !manageExpanded
             },
             companionAvatar = companionAvatar,
+            galleryInOverflow = galleryInOverflow,
         )
 
         // Never reserve banner space on an empty collection; the greeting
