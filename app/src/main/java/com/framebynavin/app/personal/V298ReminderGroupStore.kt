@@ -82,6 +82,11 @@ internal class V298ReminderGroupStore(context: Context) {
                 else serialized
                 prefs[primary] = serialized
             }
+            if (!preservePreviousForRecovery) {
+                // The stored original must also be the recovery copy after
+                // an idempotent owner inverse; never retain imported target.
+                prefs[lastGood] = serialized
+            }
             result = updated
         }
         result
