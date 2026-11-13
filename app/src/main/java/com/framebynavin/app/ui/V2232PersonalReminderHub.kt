@@ -65,9 +65,12 @@ internal fun V2232PersonalReminderHub(
     onCreator: () -> Unit,
     onOpenActivity: () -> Unit = {},
     initialFocusReminderId: String? = null,
+    initialFocusChallengeId: String? = null,
 ) {
     val context = LocalContext.current
     val store = remember(context) { PersonalReminderStore(context) }
+    // A separate store remains authoritative for 21-day challenge alarms.
+    val challengeStore = remember(context) { Phase1HabitStore(context) }
     val commands = remember(context) { PersonalReminderCommands(context) }
     val personalLinkCreation = remember(context) { V310CreateAndLink(context) }
     val groupCatalog = remember(context) { V298ReminderGroupStore(context) }
@@ -79,6 +82,23 @@ internal fun V2232PersonalReminderHub(
     }
     val scope = rememberCoroutineScope()
     var reminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
+    var challenges by remember { mutableStateOf(emptyList<Phase1HabitChallenge>()) }
+    var challengeLoadError by remember { mutableStateOf<String?>(null) }
+    var challengesLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(challengeStore) {
+        try {
+            challengeStore.challengesFlow.collect { saved ->
+                challenges = saved
+                challengesLoaded = true
+                challengeLoadError = null
+            }
+        } catch (error: Exception) {
+            // A challenge read error must never masquerade as zero challenges.
+            challengesLoaded = true
+            challengeLoadError = "21-day challenge reminders could not be read. " +
+                "Your saved challenges were not reset."
+        }
+    }
     var loadError by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -110,6 +130,16 @@ internal fun V2232PersonalReminderHub(
     }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
     var challengesOpen by rememberSaveable { mutableStateOf(false) }
+    var challengeFocusId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(initialFocusChallengeId) {
+        if (!initialFocusChallengeId.isNullOrBlank()) {
+            challengeFocusId = initialFocusChallengeId
+            activityFocusId = null
+            personalPageName = "TODAY"
+            agendaScopeName = V285AgendaScope.ALL.name
+            challengesOpen = true
+        }
+    }
     var reminderGroupsOpen by rememberSaveable { mutableStateOf(false) }
     // Page switches reset their viewport; the two layouts must never share a scroll offset.
     val personalPageScroll = remember(personalPageName) { ScrollState(0) }
@@ -463,12 +493,17 @@ internal fun V2232PersonalReminderHub(
                         }
                     }
                 }
+            if (challengeLoadError != null) {
+                Text(challengeLoadError.orEmpty(), color = RecRed,
+                    modifier = Modifier.testTag("v337-challenge-load-error"))
+            }
             if (loadError != null) {
                 Text(loadError.orEmpty(), color = RecRed,
                     modifier = Modifier.testTag("v2232-personal-load-error"))
-            } else if (!loaded) {
+            } else if (!loaded || !challengesLoaded) {
                 CircularProgressIndicator(color = RecRed)
-            } else if (reminders.isEmpty()) {
+            } else if (reminders.isEmpty() &&
+                challenges.none { it.alertKind != null }) {
                 Surface(
                     color = CinemaSurface, shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(1.dp, CinemaLine),
@@ -488,7 +523,11 @@ internal fun V2232PersonalReminderHub(
                     }
                 }
             } else {
-                Text("YOUR REMINDERS · ${reminders.count { !it.paused }} ACTIVE · ${reminders.count { it.paused }} PAUSED",
+                val eligibleChallenges = challenges.filter { it.alertKind != null }
+                val activeChallengeCount = eligibleChallenges.count { !it.paused && !it.archived }
+                val pausedChallengeCount = eligibleChallenges.size - activeChallengeCount
+                Text("YOUR REMINDERS · ${reminders.count { !it.paused } + activeChallengeCount} ACTIVE · " +
+                    "${reminders.count { it.paused } + pausedChallengeCount} PAUSED / ARCHIVED",
                     color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
                 Row(
@@ -520,13 +559,20 @@ internal fun V2232PersonalReminderHub(
                 }
                 val filteredForActivity = if (activityFocusId == null) reminders
                     else reminders.filter { it.id == activityFocusId }
-                val agendaGroups = remember(filteredForActivity, agendaNowMillis, agendaScopeName) {
-                    V285PersonalAgendaFilter.groups(
-                        filteredForActivity, agendaNowMillis, V285AgendaScope.valueOf(agendaScopeName)
+                val challengeProjection = if (activityFocusId == null) challenges
+                    else emptyList()
+                val agendaGroups = remember(
+                    filteredForActivity, challengeProjection, agendaNowMillis, agendaScopeName,
+                ) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = filteredForActivity,
+                        challenges = challengeProjection,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.valueOf(agendaScopeName),
                     )
                 }
-                val visibleCount = agendaGroups.sumOf { it.items.size }
-                Text("$visibleCount shown · choose ALL for every saved reminder",
+                val visibleCount = agendaGroups.sumOf { it.entries.size }
+                Text("$visibleCount shown · choose ALL for paused, archived or finished alerts",
                     color = MutedText, fontSize = 10.sp,
                     modifier = Modifier.testTag("v285-agenda-count"))
                 if (agendaGroups.isEmpty()) {
@@ -542,29 +588,46 @@ internal fun V2232PersonalReminderHub(
                     ) {
                         Text(group.section.label, color = if (group.section == PersonalAgendaSection.NEEDS_ATTENTION)
                             RecRed else MutedText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text("${group.items.size}", color = MutedText, fontSize = 11.sp)
+                        Text("${group.entries.size}", color = MutedText, fontSize = 11.sp)
                     }
-                    group.items.forEach { item ->
-                        V2232PersonalItem(
-                            reminder = item,
-                            nowMillis = agendaNowMillis,
-                            busy = busy,
-                            expandedInitially = item.id == activityFocusId,
-                            onEdit = { editing = item; editorOpen = true },
-                            onPause = { perform { commands.setPaused(item.id, !item.paused) } },
-                            onDelete = { deleteTarget = item },
-                            onRespond = { action ->
-                                perform {
-                                    val result = coordinator.apply(
-                                        id = item.id, originalOccurrence = item.pendingOccurrenceMillis,
-                                        token = item.pendingToken, action = action,
-                                    )
-                                    check(result == PersonalApplyResult.ACCEPTED) {
-                                        "This notification is no longer active. Reopen the reminder."
-                                    }
-                                }
-                            },
-                        )
+                    group.entries.forEach { entry ->
+                        when (entry) {
+                            is V337AgendaEntry.Personal -> {
+                                val item = entry.record
+                                V2232PersonalItem(
+                                    reminder = item,
+                                    nowMillis = agendaNowMillis,
+                                    busy = busy,
+                                    expandedInitially = item.id == activityFocusId,
+                                    onEdit = { editing = item; editorOpen = true },
+                                    onPause = {
+                                        perform { commands.setPaused(item.id, !item.paused) }
+                                    },
+                                    onDelete = { deleteTarget = item },
+                                    onRespond = { action ->
+                                        perform {
+                                            val result = coordinator.apply(
+                                                id = item.id,
+                                                originalOccurrence = item.pendingOccurrenceMillis,
+                                                token = item.pendingToken,
+                                                action = action,
+                                            )
+                                            check(result == PersonalApplyResult.ACCEPTED) {
+                                                "This notification is no longer active. Reopen the reminder."
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                            is V337AgendaEntry.Challenge ->
+                                V337ChallengeReminderRow(
+                                    entry = entry,
+                                    onOpenChallenge = { id ->
+                                        challengeFocusId = id
+                                        challengesOpen = true
+                                    },
+                                )
+                        }
                     }
                 }
             }
@@ -591,9 +654,14 @@ internal fun V2232PersonalReminderHub(
 
     if (challengesOpen) {
         Phase1HabitLocalStoreReview(
-            onClose = { challengesOpen = false },
+            onClose = {
+                challengesOpen = false
+                challengeFocusId = null
+            },
+            initialChallengeId = challengeFocusId,
             onOpenLinkedSpace = { _ ->
                 challengesOpen = false
+                challengeFocusId = null
                 spacesOpen = true
             },
         )
