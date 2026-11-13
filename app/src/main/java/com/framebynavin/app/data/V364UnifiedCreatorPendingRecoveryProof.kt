@@ -106,7 +106,7 @@ internal class V364UnifiedCreatorPendingRecoveryProof(context: Context) {
             val copy = File(root, name)
             check(copy.isFile && !Files.isSymbolicLink(copy.toPath()) &&
                 copy.canonicalFile.parentFile == root.canonicalFile &&
-                copy.length() in 1..(128L * 1024L * 1024L)) {
+                copy.length() in 1L..(128L * 1024L * 1024L)) {
                 "Untrusted Creator native recovery backup"
             }
             val raw = copy.readText()
