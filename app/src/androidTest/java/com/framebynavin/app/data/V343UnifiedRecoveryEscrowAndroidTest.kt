@@ -114,6 +114,22 @@ class V343UnifiedRecoveryEscrowAndroidTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun tornAtomicJournalBackupCanNeverBeDiscardedAsOrdinaryStaging() = runBlocking {
+        val root = isolatedRoot()
+        try {
+            assertTrue(root.mkdir())
+            File(root, "original-owner-encrypted-unified.zip").writeText("synthetic")
+            File(root, "escrow.json.bak").writeBytes(
+                V343UnifiedRecoveryCodec.encode(receipt())
+            )
+            val manager = V343UnifiedRecoveryEscrow(app, root)
+            assertThrows(Exception::class.java) {
+                runBlocking { manager.discard(ownerConfirmed = true) }
+            }
+            assertTrue(File(root, "escrow.json.bak").isFile)
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun unknownOriginalFileCannotBeRemovedByEscrowCleanup() = runBlocking {
         val root = isolatedRoot()
         try {
