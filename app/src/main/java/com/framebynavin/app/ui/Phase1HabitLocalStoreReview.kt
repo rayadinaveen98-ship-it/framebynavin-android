@@ -253,6 +253,26 @@ internal fun Phase1HabitLocalStoreReview(
                         Text(message.orEmpty(), color = BacklotError,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
                     }
+                    if (selected.alertKind != null) {
+                        Phase1HabitAlertHealthPanel(
+                            challenge = selected,
+                            now = now,
+                            onRepair = {
+                                coroutineScope.launch {
+                                    message = runCatching {
+                                        Phase1HabitAlarmScheduler(context).reconcile()
+                                    }.fold(
+                                        onSuccess = {
+                                            "Alarm scheduling rechecked. Android delivery still needs device verification."
+                                        },
+                                        onFailure = {
+                                            "Could not re-arm one or more alarms. Your challenge data is unchanged."
+                                        },
+                                    )
+                                }
+                            },
+                        )
+                    }
                     FC13ChallengeDashboardPanel(
                         challenge = selected,
                         now = now,
