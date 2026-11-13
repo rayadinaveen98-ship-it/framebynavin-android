@@ -68,6 +68,14 @@ internal class V379UnifiedReleaseCoordinator(context: Context) {
             V380CombinedAlarmRearmSafetyNet.enqueueIfReleased(app)
             return@withContext record
         }
+        if (record?.step == V379ReleaseStep.READY_TO_ARCHIVE_H4 &&
+            !V344UnifiedRestoreJournal.hasPendingFor(app)) {
+            // Death after the final H4 ATOMIC_MOVE but before the release
+            // ledger's next checkpoint. V380 verifies retained H4/proof and
+            // finishes the exact remaining re-arm step idempotently.
+            V380CombinedAlarmRearmSafetyNet.enqueueIfReleased(app)
+            return@withContext record
+        }
         val expected = h4.requireCheckpointReadOnly()
         check(expected.transactionId == evidence.transactionId &&
             V379UnifiedReleaseJournal.sha256(
@@ -75,23 +83,56 @@ internal class V379UnifiedReleaseCoordinator(context: Context) {
             ) == evidence.checkpointSha256) {
             "H4 journal changed after the owner's completed live verification"
         }
-        // This is read-only and expensive. Do it before acquiring both
-        // long-lived owner store mutexes, except on restart after the signed
-        // ZIP roots have already been safely moved to retained history.
-        if (record == null || record.step.ordinal <
-            V379ReleaseStep.ENCRYPTED_ORIGINAL_AND_TARGET_RETAINED.ordinal) {
+        val ownerHistory = File(
+            File(app.filesDir,
+                "backlot-unified-retained-recovery-history-v1"),
+            expected.transactionId,
+        )
+        val activeDecision = Files.exists(
+            File(app.filesDir,
+                "backlot-unified-owner-recovery-decision-v1").toPath(),
+            LinkOption.NOFOLLOW_LINKS,
+        )
+        if (record == null || (activeDecision && record.step.ordinal <
+            V379ReleaseStep.ENCRYPTED_ORIGINAL_AND_TARGET_RETAINED.ordinal)) {
             val fresh = V377UnifiedFinalVerification(app).inspectOwnerApproved(
                 freshOwnerConsent = true, passphrase = passphrase,
             )
             check(fresh == evidence) {
                 "Creator, Personal, Voice or Space JPEG data drifted after completion proof"
             }
+        } else {
+            // A death AFTER the atomic move of V347 means that V377's
+            // active-choice lookup intentionally no longer works. Instead
+            // authenticate the exact retained choice bytes, owner ZIPs and
+            // fsynced V378+V379 receipts; H4 is still actively freezing all
+            // ordinary writes until its own LAST move.
+            val archived = File(ownerHistory,
+                "backlot-unified-owner-recovery-decision-v1")
+            val file = File(archived, "owner-choice.json")
+            check(archived.isDirectory &&
+                !Files.isSymbolicLink(archived.toPath()) &&
+                archived.list()?.toSet() == setOf(file.name) &&
+                Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.isSymbolicLink(file.toPath()) &&
+                file.length() in 1L..4096L) {
+                "Owner's retained recovery decision is missing or torn"
+            }
+            val old = V347OwnerRecoveryDecisionCodec.decode(file.readBytes())
+            check(V379UnifiedReleaseJournal.sha256(
+                V347OwnerRecoveryDecisionCodec.encode(old),
+            ) == evidence.ownerDirectionSha256 &&
+                old.transactionId == expected.transactionId &&
+                (if (evidence.outcome ==
+                    V377VerifiedOwnerOutcome.ORIGINAL_RESTORED)
+                    old.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL
+                else old.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET)) {
+                "Retained owner direction doesn't match final verified outcome"
+            }
+            verifyOwnerArchivesAtActiveOrHistory(
+                expected, ownerHistory, passphrase,
+            )
         }
-        val ownerHistory = File(
-            File(app.filesDir,
-                "backlot-unified-retained-recovery-history-v1"),
-            expected.transactionId,
-        )
         val activeRecovery = File(app.filesDir, "creator_restore_recovery_v181")
         check(listOf("pending.json", "pending.json.new", "pending.json.bak")
             .none { name -> Files.exists(
