@@ -560,6 +560,72 @@ internal object StabilizationPersonalMutationGate {
     }
 
     /**
+     * Task 2: read-only Personal snapshot while owner-approved Creator recovery
+     * fills MISSING, previously allocated TARGET Voice Idea files. This is NOT
+     * a Personal writer: all Personal mutations remain blocked by H4.
+     */
+    private class PreNativeCreatorMediaReadPermit(
+        val root: String,
+        val expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active: Boolean = true
+        companion object Key : CoroutineContext.Key<PreNativeCreatorMediaReadPermit>
+    }
+
+    internal suspend fun <T> withCombinedCreatorMissingVoiceFence(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Missing Voice repair requires fresh consent at BEFORE_CREATOR"
+        }
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null &&
+            currentCoroutineContext()[PreNativeCreatorMediaReadPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null) {
+            "Creator missing Voice repair cannot inherit a Personal writer/reader"
+        }
+        val root = journalRootFor(context).absoluteFile.normalize().path
+        return processMutex.withLock {
+            val checkpoint = com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+            val ownerChoice = com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal(context)
+            check(checkpoint.requireCheckpointReadOnly() == expected) {
+                "Stale H4 journal for pre-native Creator media repair"
+            }
+            val direction = ownerChoice.readOnlyStatus() as?
+                com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal.ReadState.Recorded
+                ?: error("Missing durable owner recovery direction")
+            check(direction.choice.choice ==
+                com.framebynavin.app.data.V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+                com.framebynavin.app.data.V347OwnerRecoveryDecisionPolicy.remainsBound(
+                    direction.choice, expected,
+                )) {
+                "Missing Voice repair requires the exact FORWARD_TARGET choice"
+            }
+            val permit = PreNativeCreatorMediaReadPermit(root, expected)
+            try {
+                withContext(permit) {
+                    val result = action()
+                    check(checkpoint.requireCheckpointReadOnly() == expected &&
+                        ownerChoice.readOnlyStatus() == direction) {
+                        "Creator Voice media repair changed H4/owner direction"
+                    }
+                    result
+                }
+            } finally {
+                permit.active = false
+            }
+        }
+    }
+
+    /**
      * INTERNAL H3 Personal ADDITIVE forward stage. Requires CREATOR_WRITTEN,
      * owner approval, and the exact combined checkpoint. Holds Personal's
      * process mutex throughout the operation. Callers must also acquire
@@ -855,6 +921,28 @@ internal object StabilizationPersonalMutationGate {
             val owner = Permit(path)
             return try { withContext(owner) { action() } }
             finally { owner.active = false }
+        }
+        val creatorMedia = currentCoroutineContext()[PreNativeCreatorMediaReadPermit]
+        if (creatorMedia != null) {
+            check(!ordinaryMutation && creatorMedia.active &&
+                creatorMedia.root == path &&
+                creatorMedia.expected.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_CREATOR) {
+                "Creator media recovery grants read-only Personal access only"
+            }
+            val h4File = File(
+                File(requireNotNull(root.parentFile),
+                    com.framebynavin.app.data.V344UnifiedRestoreJournal.ROOT_NAME),
+                "active.journal",
+            )
+            check(Files.isRegularFile(h4File.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.isSymbolicLink(h4File.toPath()) &&
+                com.framebynavin.app.data.V344UnifiedRestoreCheckpointCodec.decode(
+                    h4File.readBytes(),
+                ) == creatorMedia.expected) {
+                "H4 journal changed during read-only Personal media recovery"
+            }
+            return action()
         }
         val combinedRead = currentCoroutineContext()[CombinedReadInspectionPermit]
         if (combinedRead != null) {
