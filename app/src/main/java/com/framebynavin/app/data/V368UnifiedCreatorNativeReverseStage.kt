@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import android.content.Context
 import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import java.io.File
+import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import org.json.JSONArray
