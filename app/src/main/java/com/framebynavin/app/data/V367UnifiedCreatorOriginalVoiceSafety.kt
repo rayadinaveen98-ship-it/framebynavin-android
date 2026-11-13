@@ -127,6 +127,15 @@ internal class V367UnifiedCreatorOriginalVoiceSafety(context: Context) {
             }
             val path = idea.optString("audioLocalPath", "").trim()
             if (path.isEmpty()) continue
+            // Verify the UNRESOLVED filename before canonicalization: a
+            // symlink inside voice_ideas could otherwise resolve to another
+            // apparently safe owned file and conceal a substituted reference.
+            val rawFile = File(path)
+            check(rawFile.isAbsolute &&
+                Files.isRegularFile(rawFile.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+                !Files.isSymbolicLink(rawFile.toPath())) {
+                "Original Voice Idea reference is a symlink or nonregular file"
+            }
             val file = PortableVoiceExportPolicy.requireReadableOwnedRecording(
                 voiceDir, path,
             )
