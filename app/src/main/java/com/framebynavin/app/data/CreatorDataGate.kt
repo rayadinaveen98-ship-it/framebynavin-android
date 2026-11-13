@@ -72,7 +72,10 @@ object CreatorDataGate {
             mutex.holdsLock(transaction.state.token) &&
             (scope.expected.step == V344UnifiedRestoreStep.BEFORE_CREATOR ||
                 (scope.reverseCommittedOriginal &&
-                    scope.expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN))) {
+                    scope.expected.step in setOf(
+                        V344UnifiedRestoreStep.CREATOR_WRITTEN,
+                        V344UnifiedRestoreStep.BEFORE_PERSONAL,
+                    )))) {
             "Expired or unrelated combined Creator recovery write authority"
         }
         check(V344UnifiedRestoreJournal(scope.app).requireCheckpointReadOnly() ==
@@ -155,6 +158,65 @@ object CreatorDataGate {
         }
         return withScopedRecoveryCreatorWrite(
             context, expected, reverseCommittedOriginal = true, action = action,
+        )
+    }
+
+    /**
+     * H3 Task 3: Creator ORIGINAL may be written at H4 BEFORE_PERSONAL only
+     * AFTER an independent, fsynced Personal reverse journal confirms the
+     * complete original Personal store set. The Personal process mutex and
+     * Creator's read locks are separately enforced by the calling coordinator.
+     *
+     * Original JPEG bytes remain intact; imported JPEGs are retained as
+     * explicit evidence for Task 4. This scope never releases any journal.
+     */
+    internal suspend fun <T> withJournalBoundCreatorReverseAfterPersonalOriginal(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step == V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+            "Creator rollback after Personal needs owner consent at BEFORE_PERSONAL"
+        }
+        check(com.framebynavin.app.personal.StabilizationPersonalMutationGate
+            .isWithinPendingCombinedReadInspection(context, expected)) {
+            "Personal owner mutex must be held before Creator original rollback"
+        }
+        val inverse = com.framebynavin.app.personal.Phase1V2OriginalReverseJournal(
+            context,
+        ).inspect() ?: error("No durable original Personal rollback action journal")
+        check(inverse.step ==
+            com.framebynavin.app.personal.Phase1V2ReverseStep.ORIGINAL_RECORDS_VERIFIED &&
+            inverse.combinedId == expected.transactionId &&
+            inverse.combinedDigest == V359PersonalV2HandoffCodec.sha256(
+                V344UnifiedRestoreCheckpointCodec.encode(expected),
+            )) {
+            "Personal inverse must be fully verified before Creator writes"
+        }
+        val decision = (V347OwnerRecoveryDecisionJournal(context).readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("Owner reverse-original direction is missing")
+        check(decision.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(decision, expected) &&
+            inverse.ownerDecisionDigest == V359PersonalV2HandoffCodec.sha256(
+                V347OwnerRecoveryDecisionCodec.encode(decision),
+            )) {
+            "Creator inverse cannot inherit a stale or forward recovery decision"
+        }
+        val handoff = (V359UnifiedPersonalV2HandoffJournal(context).inspectReadOnly() as?
+            V359UnifiedPersonalV2HandoffJournal.Inspection.Bound)?.handoff
+            ?: error("Native Personal inverse handoff is missing or torn")
+        check(V359PersonalV2HandoffCodec.matchesCombined(handoff, expected) &&
+            handoff.personalV2TransactionId == inverse.nativeV2Id &&
+            handoff.originalPersonalDigest == inverse.originalDigest &&
+            handoff.mergedPersonalDigest == inverse.targetDigest) {
+            "Completed Personal inverse doesn't match authenticated native v2 owner journal"
+        }
+        return withScopedRecoveryCreatorWrite(
+            context, expected, reverseCommittedOriginal = true,
+            action = action,
         )
     }
 
