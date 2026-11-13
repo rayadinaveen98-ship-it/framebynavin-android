@@ -92,6 +92,33 @@ class V357CreatorWriteScopeAndroidTest {
         }
     }
 
+    @Test fun alreadyRecordedOwnerRollbackDirectionBlocksCreatorStageAdvance() = runBlocking {
+        val testRoot = File(app.filesDir, "v357-gate-" + UUID.randomUUID())
+        assertTrue(testRoot.mkdir())
+        val context = fakeContext(testRoot)
+        try {
+            CreatorDataGate.installUnifiedRecoveryFence(context)
+            val journal = V344UnifiedRestoreJournal(context)
+            val prepared = journal.prepare(checkpoint(), ownerApproved = true)
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking {
+                    journal.checkpoint(
+                        prepared,
+                        V344UnifiedRestoreStep.BEFORE_CREATOR,
+                        prepared.updatedAtMillis + 1L,
+                        otherRecoveryPending = { true },
+                    )
+                }
+            }
+            assertTrue(journal.requireCheckpointReadOnly() == prepared)
+            assertTrue(journal.hasBlockingEvidence())
+            // The denial leaves every live Creator and Personal record alone.
+        } finally {
+            CreatorDataGate.installUnifiedRecoveryFence(app)
+            testRoot.deleteRecursively()
+        }
+    }
+
     @Test fun staleJournalOrMissingConsentDoesNotGrantRecoveryWriter() = runBlocking {
         val testRoot = File(app.filesDir, "v357-gate-" + UUID.randomUUID())
         assertTrue(testRoot.mkdir())
