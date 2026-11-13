@@ -43,6 +43,17 @@ internal class V360UnifiedPersonalV2RecoveryInspector(
             val checkpoint: Phase1V2RestoreStep,
             val v2TransactionId: String,
         ) : Assessment
+        /**
+         * Durable and pending are individually valid, adjacent and bound to
+         * the SAME original encrypted owner transaction. The live domain
+         * might reflect EITHER checkpoint, so neither can be promoted here.
+         * No replay, rollback, rename, cleanup, alarm or journal release.
+         */
+        data class NativeV2TornAdjacent(
+            val durableStep: Phase1V2RestoreStep,
+            val pendingStep: Phase1V2RestoreStep,
+            val v2TransactionId: String,
+        ) : Assessment
         data class NativeV2CompletedAndArchived(
             val v2TransactionId: String,
             val originalDigest: String,
@@ -106,9 +117,30 @@ internal class V360UnifiedPersonalV2RecoveryInspector(
                 Files.isSymbolicLink(activeRoot.toPath())
             )) return Assessment.UnreadableOrContradictory
 
+        val nativeJournal = Phase1V2RestoreWriteAheadJournal(root)
         val native = runCatching {
-            Phase1V2RestoreWriteAheadJournal(root).inspectAfterRestart()
-        }.getOrNull() ?: return Assessment.UnreadableOrContradictory
+            nativeJournal.inspectAfterRestart()
+        }.getOrNull()
+        if (native == null) {
+            if (!hasActive) return Assessment.UnreadableOrContradictory
+            // A power loss during native checkpoint fsync can leave BOTH
+            // active.journal and active.pending. Inspect each WITHOUT
+            // renaming either, and bind BOTH to the same immutable V359
+            // handoff before even describing them as adjacent.
+            val torn = runCatching {
+                nativeJournal.inspectTornCheckpointReadOnly()
+            }.getOrNull() ?: return Assessment.UnreadableOrContradictory
+            if (!V359PersonalV2HandoffCodec.matchesV2(r, torn.durable) ||
+                !V359PersonalV2HandoffCodec.matchesV2(r, torn.pending) ||
+                cross.requireCheckpointReadOnly() != h4) {
+                return Assessment.UnreadableOrContradictory
+            }
+            return Assessment.NativeV2TornAdjacent(
+                durableStep = torn.durable.step,
+                pendingStep = torn.pending.step,
+                v2TransactionId = torn.durable.transactionId,
+            )
+        }
         if (!V359PersonalV2HandoffCodec.matchesV2(r, native) ||
             cross.requireCheckpointReadOnly() != h4) {
             return Assessment.UnreadableOrContradictory
