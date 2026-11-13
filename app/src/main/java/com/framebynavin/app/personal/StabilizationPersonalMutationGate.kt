@@ -644,6 +644,77 @@ internal object StabilizationPersonalMutationGate {
     }
 
     /**
+     * Fixed H3 Task 2 Creator replay completion boundary, not another
+     * Personal restore mode. Personal process mutex FIRST; Creator writer
+     * SECOND inside action. Read-only Personal preflight remains permitted
+     * only while H4 is BEFORE_CREATOR. The action may advance H4 exactly
+     * once to CREATOR_WRITTEN after the Creator writer has exited and the
+     * authenticated original owner decision has been verified.
+     *
+     * The retained owner choice is NOT deleted; the next H3 tasks must
+     * explicitly review it. Nothing here authorizes Personal writes.
+     */
+    internal suspend fun <T> withCombinedCreatorRecoveryFinishFence(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Creator stage completion requires fresh owner consent at BEFORE_CREATOR"
+        }
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null &&
+            currentCoroutineContext()[PreNativeCreatorMediaReadPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null) {
+            "Creator completion cannot inherit unrelated Personal mutation authority"
+        }
+        val root = journalRootFor(context).absoluteFile.normalize().path
+        return processMutex.withLock {
+            val journal = com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+            val decisions = com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal(context)
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Combined Creator replay checkpoint drifted before Personal lock"
+            }
+            val originalChoice = decisions.readOnlyStatus() as?
+                com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal.ReadState.Recorded
+                ?: error("No valid, durable owner forward-recovery direction")
+            check(originalChoice.choice.choice ==
+                com.framebynavin.app.data.V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+                com.framebynavin.app.data.V347OwnerRecoveryDecisionPolicy.remainsBound(
+                    originalChoice.choice, expected,
+                )) {
+                "Creator replay cannot use a reversed or stale owner decision"
+            }
+            val permit = PreNativeCreatorMediaReadPermit(root, expected)
+            try {
+                withContext(permit) {
+                    val result = action()
+                    val after = journal.requireCheckpointReadOnly()
+                    check(after.step ==
+                        com.framebynavin.app.data.V344UnifiedRestoreStep.CREATOR_WRITTEN &&
+                        after.transactionId == expected.transactionId &&
+                        after.sourceSha256 == expected.sourceSha256 &&
+                        after.escrowSha256 == expected.escrowSha256 &&
+                        decisions.readOnlyStatus() ==
+                            com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal
+                                .ReadState.CreatorWrittenRetained(originalChoice.choice, after)) {
+                        "Creator replay did not durably complete with its owner direction"
+                    }
+                    result
+                }
+            } finally {
+                permit.active = false
+            }
+        }
+    }
+
+    /**
      * INTERNAL H3 Personal ADDITIVE forward stage. Requires CREATOR_WRITTEN,
      * owner approval, and the exact combined checkpoint. Holds Personal's
      * process mutex throughout the operation. Callers must also acquire
