@@ -255,7 +255,9 @@ internal fun DashboardHabitReview(
         AccentLabel("PERSONAL / YOUR CHALLENGE")
         Text(habit.activity, color = BacklotPrimaryText,
             fontSize = 28.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold)
-        Hint("One action today. Your actual confirmations define your progress.")
+        Hint(if (habit.archived)
+            "Archived · read-only progress. Restore to resume daily actions and alerts."
+            else "One action today. Your actual confirmations define your progress.")
         ReviewPanel(featured = true) {
             Hint("YOU'RE ON")
             Text(
@@ -324,14 +326,15 @@ internal fun DashboardHabitReview(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Today's activity", color = BacklotPrimaryText,
                     fontWeight = FontWeight.Bold)
-                Text(if (doneToday) "DONE" else if (habit.paused) "PAUSED" else "TODAY",
+                Text(if (habit.archived) "ARCHIVED"
+                    else if (doneToday) "DONE" else if (habit.paused) "PAUSED" else "TODAY",
                     color = BacklotAccent, fontSize = 11.sp)
             }
             Hint(habit.activity + (habit.alertTime?.let {
                 " · " + it.format(timeFormat) + " preference"
             } ?: " · No alert"))
         }
-        if (dayNumber != null) {
+        if (dayNumber != null && !habit.archived) {
             if (doneToday) {
                 Button(onClick = onUndo,
                     modifier = Modifier.fillMaxWidth().height(50.dp)
@@ -359,9 +362,11 @@ internal fun DashboardHabitReview(
                 ZoneId.of(habit.zoneId)).toLocalTime().format(timeFormat) +
                 " · Android exact-alarm access affects delivery timing")
         }
-        OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()
-            .testTag("habit-pause")) {
-            Text(if (habit.paused) "Resume challenge" else "Pause challenge")
+        if (!habit.archived) {
+            OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()
+                .testTag("habit-pause")) {
+                Text(if (habit.paused) "Resume challenge" else "Pause challenge")
+            }
         }
         ReviewPanel {
             AccentLabel("LINKED PROGRESS")
