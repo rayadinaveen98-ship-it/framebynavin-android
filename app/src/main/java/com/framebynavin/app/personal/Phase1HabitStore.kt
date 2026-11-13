@@ -78,6 +78,79 @@ internal class Phase1HabitStore(context: Context) {
         current.toMutableList().apply { set(index, after) }
     }
 
+    /**
+     * Reviewed challenge edit: optimistic snapshot check keeps a concurrent Done,
+     * note or snooze from being overwritten by an older editor.
+     * Changing the start date is allowed only before any saved day history exists;
+     * a confirmed receipt is NEVER rebased, silently deleted or backdated.
+     */
+    suspend fun editReviewed(
+        id: String,
+        expected: Phase1HabitChallenge,
+        activity: String,
+        startDate: LocalDate,
+        alertTime: java.time.LocalTime?,
+        alertKind: Phase1HabitAlertKind?,
+        completionMode: Phase1HabitCompletionMode,
+    ): List<Phase1HabitChallenge> = mutate { current ->
+        val index = current.indexOfFirst { it.id == id }
+        require(index >= 0) { "Challenge was already removed" }
+        val before = current[index]
+        require(before == expected) {
+            "This challenge changed since you opened Edit. Reopen to protect your latest progress."
+        }
+        require(!before.archived) { "Restore an archived challenge before editing" }
+        require(startDate == before.startDate ||
+            (before.confirmations.isEmpty() && before.dayNotes.isEmpty())) {
+            "Change the start date only before recording any Done days or notes"
+        }
+        val scheduleChanged = startDate != before.startDate ||
+            alertTime != before.alertTime || alertKind != before.alertKind
+        val next = before.copy(
+            activity = activity.trim(),
+            startDate = startDate,
+            alertTime = alertTime,
+            alertKind = alertKind,
+            completionMode = completionMode,
+            snoozedDay = if (scheduleChanged) null else before.snoozedDay,
+            snoozedUntil = if (scheduleChanged) null else before.snoozedUntil,
+        ).checked()
+        // If Strict would invalidate a historical Flexible confirmation,
+        // checked() rejects the edit without changing any stored receipts.
+        require(next.confirmations == before.confirmations &&
+            next.dayNotes == before.dayNotes) { "Cannot silently rewrite challenge history" }
+        current.toMutableList().apply { set(index, next) }
+    }
+
+    /** Archives are reversible: preserve exact receipts, notes and owner links. */
+    suspend fun setArchivedReviewed(
+        id: String,
+        expected: Phase1HabitChallenge,
+        archived: Boolean,
+    ): List<Phase1HabitChallenge> = mutate { current ->
+        val index = current.indexOfFirst { it.id == id }
+        require(index >= 0) { "Challenge was already removed" }
+        val before = current[index]
+        require(before == expected) { "Challenge changed. Reopen before archiving/restoring." }
+        current.toMutableList().apply { set(index, before.setArchived(archived)) }
+    }
+
+    /**
+     * An explicit owner deletion removes one exact challenge and its history;
+     * it cannot delete any other ID, legacy challenge, Space or Personal reminder.
+     * The previous-revision slot is replaced after deletion to prevent an old
+     * deleted challenge from reappearing through recovery export.
+     */
+    suspend fun deleteReviewed(
+        id: String,
+        expected: Phase1HabitChallenge,
+    ): List<Phase1HabitChallenge> = mutate(preservePreviousForRecovery = false) { current ->
+        require(current.firstOrNull { it.id == id } == expected) {
+            "Challenge changed or was removed. Reopen before deleting."
+        }
+        current.filterNot { it.id == id }
+    }
+
     suspend fun confirmToday(id: String, at: Instant): List<Phase1HabitChallenge> =
         updateProgress(id) { it.confirmToday(at) }
 
@@ -141,6 +214,7 @@ internal class Phase1HabitStore(context: Context) {
         }
 
     private suspend fun mutate(
+        preservePreviousForRecovery: Boolean = true,
         change: (List<Phase1HabitChallenge>) -> List<Phase1HabitChallenge>,
     ): List<Phase1HabitChallenge> = StabilizationPersonalMutationGate.withOwnerMutation(app) {
         phase1HabitMutex.withLock {
@@ -156,7 +230,8 @@ internal class Phase1HabitStore(context: Context) {
                 val updated = change(previous)
                 val encoded = Phase1HabitCodec.encode(updated)
                 if (updated != previous) {
-                    prefs[lastGood] = previousRaw ?: Phase1HabitCodec.encode(emptyList())
+                    prefs[lastGood] = if (preservePreviousForRecovery)
+                        previousRaw ?: Phase1HabitCodec.encode(emptyList()) else encoded
                     prefs[primary] = encoded
                 }
                 result = updated
