@@ -154,3 +154,142 @@ internal object Phase1V2RestoreDomainForensics {
         }
     }
 }
+
+
+/**
+ * Task H3.3: strictly additive, authenticated Personal v2 inverse delta.
+ * This reuses the SAME five Personal domain codecs, exact Done-receipt
+ * identities and Space receipt codec as the forward restore.
+ *
+ * It describes ONLY records introduced by the selected owner archive.
+ * Immutable original records, original photo rows and their image bytes
+ * may never be removed or replaced during inverse recovery.
+ *
+ * This policy is deliberately NOT a write permit. A writer must separately
+ * authenticate BOTH encrypted owner archives including JPEG bytes, prove
+ * the exact combined/v2 handoff and active journals, hold Personal then
+ * Creator recovery gates and durably journal each inverse phase.
+ */
+internal data class Phase1V2OriginalRollbackDelta(
+    val originalDigest: String,
+    val mergedTargetDigest: String,
+    val addedReminderIds: Set<String>,
+    val addedDoneKeys: Set<String>,
+    val addedLegacyChallengeIds: Set<String>,
+    val addedHabitIds: Set<String>,
+    val addedGroupIds: Set<String>,
+    val addedSpaceIds: Set<String>,
+    val addedSpaceLinkKeys: Set<Pair<String, String>>,
+    val addedSpaceEntryIds: Set<String>,
+    val addedPhotoIds: Set<String>,
+) {
+    val mayWritePersonalData: Boolean get() = false
+    val mayDeleteOriginalPhotoBytes: Boolean get() = false
+    val mayReleaseH4: Boolean get() = false
+    val mayScheduleAlarms: Boolean get() = false
+}
+
+internal object Phase1V2OriginalRollbackDeltaPolicy {
+    fun calculate(
+        original: V300PersonalComponents,
+        target: V300PersonalComponents,
+        originalPhotos: List<V290SpacePhotoEntity>,
+        targetPhotos: List<V290SpacePhotoEntity>,
+        expectedOriginalDigest: String,
+        expectedTargetDigest: String,
+    ): Phase1V2OriginalRollbackDelta {
+        require(Phase1V2RestoreFingerprint.calculate(original, originalPhotos) ==
+            expectedOriginalDigest &&
+            Phase1V2RestoreFingerprint.calculate(target, targetPhotos) ==
+                expectedTargetDigest) {
+            "Inverse Personal delta is not bound to authenticated v2 owner archives"
+        }
+        fun <T, K> introduced(
+            before: List<T>, after: List<T>, key: (T) -> K, name: String,
+        ): Set<K> {
+            val old = before.associateBy(key)
+            val merged = after.associateBy(key)
+            require(old.size == before.size && merged.size == after.size) {
+                "Duplicate $name in authenticated inverse source"
+            }
+            require(old.all { (id, value) -> merged[id] == value }) {
+                "Owner's original $name was modified or removed by selected backup"
+            }
+            return merged.keys - old.keys
+        }
+        val priorPersonal = PersonalCompletionBackupCodec.decode(original.personal)
+        val mergedPersonal = PersonalCompletionBackupCodec.decode(target.personal)
+        val priorSpaces = V303SpaceReceiptArchiveCodec.decode(
+            original.spaces, priorPersonal,
+        )
+        val mergedSpaces = V303SpaceReceiptArchiveCodec.decode(
+            target.spaces, mergedPersonal,
+        )
+        val newReminders = introduced(
+            priorPersonal.reminders, mergedPersonal.reminders,
+            { it.id }, "Personal reminder",
+        )
+        val newDone = introduced(
+            priorPersonal.completions, mergedPersonal.completions,
+            { it.stableKey }, "Done history",
+        )
+        val newChallenges = introduced(
+            V297ChallengeCodec.decode(original.challenges),
+            V297ChallengeCodec.decode(target.challenges),
+            { it.id }, "legacy Challenge",
+        )
+        val newHabits = introduced(
+            Phase1HabitCodec.decode(requireNotNull(original.singleActivityChallenges)),
+            Phase1HabitCodec.decode(requireNotNull(target.singleActivityChallenges)),
+            { it.id }, "21-day Challenge",
+        )
+        val newGroups = introduced(
+            V298ReminderGroupCodec.decode(original.groups),
+            V298ReminderGroupCodec.decode(target.groups),
+            { it.id }, "reminder Group",
+        )
+        val newSpaces = introduced(
+            priorSpaces.spaces, mergedSpaces.spaces, { it.id }, "Space",
+        )
+        val newLinks = introduced(
+            priorSpaces.links, mergedSpaces.links,
+            { it.spaceId to it.reminderId }, "Space link",
+        )
+        val newEntries = introduced(
+            priorSpaces.entries, mergedSpaces.entries,
+            { it.id }, "Space journal entry",
+        )
+        val newPhotos = introduced(
+            originalPhotos, targetPhotos, { it.id }, "private Space JPEG",
+        )
+        val originalIds = priorPersonal.reminders.mapTo(HashSet()) { it.id }
+        val mergedIds = mergedPersonal.reminders.mapTo(HashSet()) { it.id }
+        require(priorSpaces.links.all { it.reminderId in originalIds } &&
+            mergedSpaces.links.all { it.reminderId in mergedIds } &&
+            V298ReminderGroupCodec.decode(target.groups).all {
+                group -> group.reminderIds.all { it in mergedIds }
+            } && mergedPersonal.completions.all {
+                it.reminderId in mergedIds
+            }) {
+            "Inverse Personal plan contains broken original or target reminder relations"
+        }
+        val spaces = mergedSpaces.spaces.mapTo(HashSet()) { it.id }
+        require(targetPhotos.all { it.spaceId in spaces } &&
+            originalPhotos.all { it.id !in newPhotos }) {
+            "Incoming Space photos alias or remove original owner photo rows"
+        }
+        return Phase1V2OriginalRollbackDelta(
+            originalDigest = expectedOriginalDigest,
+            mergedTargetDigest = expectedTargetDigest,
+            addedReminderIds = newReminders,
+            addedDoneKeys = newDone,
+            addedLegacyChallengeIds = newChallenges,
+            addedHabitIds = newHabits,
+            addedGroupIds = newGroups,
+            addedSpaceIds = newSpaces,
+            addedSpaceLinkKeys = newLinks,
+            addedSpaceEntryIds = newEntries,
+            addedPhotoIds = newPhotos,
+        )
+    }
+}
