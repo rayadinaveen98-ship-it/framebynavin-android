@@ -54,6 +54,7 @@ import kotlinx.coroutines.launch
 internal fun Phase1HabitLocalStoreReview(
     onClose: () -> Unit,
     onOpenLinkedSpace: (String) -> Unit = {},
+    initialChallengeId: String? = null,
 ) {
     val context = LocalContext.current
     val store = remember(context) { Phase1HabitStore(context) }
@@ -73,6 +74,9 @@ internal fun Phase1HabitLocalStoreReview(
     var deleteTarget by remember { mutableStateOf<Phase1HabitChallenge?>(null) }
 
     var chosenId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(initialChallengeId) {
+        if (!initialChallengeId.isNullOrBlank()) chosenId = initialChallengeId
+    }
     var creating by remember { mutableStateOf(false) }
     var title by remember { mutableStateOf("") }
     val zone = remember { ZoneId.systemDefault() }
@@ -118,8 +122,9 @@ internal fun Phase1HabitLocalStoreReview(
             delay(30_000L)
         }
     }
-    val selected = records.firstOrNull { it.id == chosenId }
-        ?: records.lastOrNull { !it.archived } ?: records.lastOrNull()
+    // A targeted deep link must not silently open a different challenge.
+    val selected = if (chosenId != null) records.firstOrNull { it.id == chosenId }
+        else records.lastOrNull { !it.archived } ?: records.lastOrNull()
 
     LaunchedEffect(linkDialog) {
         if (!linkDialog) return@LaunchedEffect
@@ -205,11 +210,21 @@ internal fun Phase1HabitLocalStoreReview(
                     }
                 }
                 if (!creating && selected == null) {
-                    if (message != null) {
-                        Text(message.orEmpty(), color = BacklotSecondaryText,
+                    if (chosenId != null && records.isNotEmpty()) {
+                        Text("The selected 21-day challenge is no longer available. " +
+                            "No other challenge was opened.",
+                            color = BacklotSecondaryText,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+                        TextButton(onClick = { chosenId = null }) {
+                            Text("VIEW OTHER CHALLENGES", color = BacklotAccent)
+                        }
+                    } else {
+                        if (message != null) {
+                            Text(message.orEmpty(), color = BacklotSecondaryText,
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+                        }
+                        EmptyHabitReview(onCreate = { creating = true })
                     }
-                    EmptyHabitReview(onCreate = { creating = true })
                 } else if (creating) {
                     CreateHabitReview(
                         title = title,
@@ -349,8 +364,7 @@ internal fun Phase1HabitLocalStoreReview(
             }
         }
     }
-    val currentChallenge = records.firstOrNull { it.id == chosenId }
-        ?: records.lastOrNull { !it.archived } ?: records.lastOrNull()
+    val currentChallenge = selected
     editTarget?.let { snapshot ->
         Phase1HabitEditDialog(
             challenge = snapshot, busy = saving, saveError = manageError,
