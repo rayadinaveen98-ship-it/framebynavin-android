@@ -61,8 +61,11 @@ object CreatorHeroArchive {
         return items.toString()
     }
 
-    /** Verify all previously saved originals BEFORE making their order visible. */
-    internal fun restoreOriginalOrder(context: Context, checkpoint: String) {
+    /** No-write verification of exactly the original Best Frame media. */
+    internal fun verifyOriginalOrderSourceFiles(
+        context: Context,
+        checkpoint: String,
+    ): List<String> {
         val items = JSONArray(checkpoint)
         require(items.length() <= 10) { "Too many original Best Frames in recovery" }
         val root = File(context.filesDir, DIRECTORY).canonicalFile
@@ -93,6 +96,12 @@ object CreatorHeroArchive {
             checkImageBounds(file)
             names += name
         }
+        return names
+    }
+
+    /** Verify all originals BEFORE making their order visible. */
+    internal fun restoreOriginalOrder(context: Context, checkpoint: String) {
+        val names = verifyOriginalOrderSourceFiles(context, checkpoint)
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(ORDER, names.joinToString("\n"))
             .putBoolean("alpha17_empty_hero_reset_done", true)
