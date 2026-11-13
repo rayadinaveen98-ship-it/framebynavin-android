@@ -174,6 +174,9 @@ internal class V359UnifiedPersonalV2HandoffJournal(
         data object UnreadableEvidence : Inspection
     }
 
+    fun hasBlockingEvidence(): Boolean =
+        Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS)
+
     fun inspectReadOnly(): Inspection {
         if (!Files.exists(root.toPath(), LinkOption.NOFOLLOW_LINKS))
             return Inspection.NotPrepared
