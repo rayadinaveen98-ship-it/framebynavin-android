@@ -81,7 +81,7 @@ internal class V362UnifiedActivePersonalResume(context: Context) {
                 !V347OwnerRecoveryDecisionJournal.hasPendingFor(app)) {
                 "Native v2 owner recovery advanced or changed before exclusive lock"
             }
-            CreatorDataGate.withPendingCombinedReadInspection(app, expected) {
+            val archived = CreatorDataGate.withPendingCombinedReadInspection(app, expected) {
                 val finished = Phase1V2OwnerRestoreCoordinator(app)
                     .resumeInspectedForCombined(
                         checkpoint = nativeCheckpoint,
@@ -117,23 +117,32 @@ internal class V362UnifiedActivePersonalResume(context: Context) {
                     "Archived native v2 recovery disagrees with combined owner records"
                 }
 
-                // Only the outer checkpoint changes; original escrow, both
-                // encrypted sources and alert delivery leases remain intact.
-                val next = combined.checkpoint(
-                    expected,
-                    V344UnifiedRestoreStep.PERSONAL_WRITTEN,
-                    maxOf(System.currentTimeMillis(), expected.updatedAtMillis + 1L),
-                    otherRecoveryPending = {
-                        V347OwnerRecoveryDecisionJournal.hasPendingFor(app)
-                    },
-                )
-                V362ActivePersonalResumeReceipt(
-                    combinedTransactionId = next.transactionId,
-                    nativeTransactionId = archived.v2TransactionId,
-                    installedPersonalDigest = recipe.mergedTargetDigest,
-                    stage = next.step,
-                )
+                // Return immutable native proof with H4 still unchanged.
+                // The Creator read gate requires this original H4 checkpoint
+                // on exit and cannot itself advance it.
+                archived
             }
+            check(nativeInspector.inspectReadOnly() == archived &&
+                combined.requireCheckpointReadOnly() == expected) {
+                "Native Personal completion evidence changed before H4 checkpoint"
+            }
+            // Creator read lock has been released; Personal's process mutex
+            // remains held. Ordinary Creator edits are still blocked by H4.
+            // No live records or media are modified by this checkpoint.
+            val next = combined.checkpoint(
+                expected,
+                V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+                maxOf(System.currentTimeMillis(), expected.updatedAtMillis + 1L),
+                otherRecoveryPending = {
+                    V347OwnerRecoveryDecisionJournal.hasPendingFor(app)
+                },
+            )
+            V362ActivePersonalResumeReceipt(
+                combinedTransactionId = next.transactionId,
+                nativeTransactionId = archived.v2TransactionId,
+                installedPersonalDigest = recipe.mergedTargetDigest,
+                stage = next.step,
+            )
         }
     }
 }
