@@ -80,6 +80,8 @@ internal object V369PreNativeOriginalPolicy {
         originalVoiceFilesMatchEscrow: Boolean,
         personalPhotosMatchLiveRows: Boolean,
         ownerConfirmed: Boolean,
+        expectedDirection: V347OwnerRecoveryChoice =
+            V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL,
     ): Boolean {
         val allocated =
             (native as? V364UnifiedCreatorPendingRecoveryProof.Assessment
@@ -87,7 +89,7 @@ internal object V369PreNativeOriginalPolicy {
         return ownerConfirmed &&
             checkpoint.step == V344UnifiedRestoreStep.BEFORE_CREATOR &&
             V347OwnerRecoveryDecisionPolicy.remainsBound(decision, checkpoint) &&
-            decision.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            decision.choice == expectedDirection &&
             V346InterruptedRecoveryProofPolicy.matches(proof, checkpoint) &&
             !proof.creatorStandaloneRecoveryMarker &&
             !proof.personalStandaloneRecoveryMarker &&
@@ -120,6 +122,8 @@ internal class V369UnifiedCreatorPreNativeOriginalInspector(context: Context) {
     internal suspend fun inspectInternalOwnerReviewed(
         freshOwnerConsent: Boolean,
         passphrase: CharArray,
+        expectedDirection: V347OwnerRecoveryChoice =
+            V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL,
     ): V369PreNativeOriginalReview = withContext(Dispatchers.IO) {
         require(freshOwnerConsent && passphrase.size >= 12) {
             "Fresh owner consent and the backup passphrase are required"
@@ -137,7 +141,7 @@ internal class V369UnifiedCreatorPreNativeOriginalInspector(context: Context) {
         val native = nativeInspector.inspectReadOnly()
         val decision = (ownerChoice.readOnlyStatus() as?
             V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
-            ?: error("No intact owner REVERSE_ORIGINAL recovery decision")
+            ?: error("No intact owner recovery direction")
         val plan = allocation.inspectReadOnly()
             ?: error("Creator audio allocation journal is missing")
 
@@ -197,6 +201,7 @@ internal class V369UnifiedCreatorPreNativeOriginalInspector(context: Context) {
                     personalPhotosMatchLiveRows =
                         photos.currentPhotoFilesMatchTheirLiveRows,
                     ownerConfirmed = freshOwnerConsent,
+                    expectedDirection = expectedDirection,
                 ) && observed == audio.installedCopies) {
                     "Creator/Personal original records or owned media changed after crash"
                 }
