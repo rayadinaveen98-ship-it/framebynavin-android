@@ -139,33 +139,19 @@ internal class V344UnifiedRestoreJournal(
         }
         val files = journalRoot.listFiles() ?: error("Recovery directory unreadable")
         check(files.isNotEmpty()) { "Empty recovery journal is not proof of safety" }
-        val allowed = setOf(ACTIVE_NAME, "$ACTIVE_NAME.bak")
-        check(files.all { file ->
-            file.isFile && !Files.isSymbolicLink(file.toPath()) &&
-                file.name in allowed
-        }) { "Unknown/torn recovery journal files need owner review" }
-        // An AtomicFile pending write can leave .bak. Its presence is
-        // potentially the last durable write-evidence; do not discard it.
-        check(!File(journalRoot, "$ACTIVE_NAME.new").exists()) {
-            "Torn recovery checkpoint needs owner review"
+        // Do not invoke AtomicFile.openRead here: on some Android releases
+        // it automatically promotes a .bak file, which would mutate owner
+        // crash evidence during a supposedly read-only inspection.
+        check(files.size == 1 && files.single().name == ACTIVE_NAME &&
+            !Files.isSymbolicLink(journal.toPath()) && journal.isFile) {
+            "Torn or ambiguous restore checkpoint needs owner review"
         }
-        val candidate = AtomicFile(journal)
-        val target = when {
-            journal.isFile -> journal
-            File(journalRoot, "$ACTIVE_NAME.bak").isFile ->
-                File(journalRoot, "$ACTIVE_NAME.bak")
-            else -> error("Recovery checkpoint is missing")
-        }
-        check(target.length() in 1..V344UnifiedRestoreCheckpointCodec.MAX_BYTES.toLong()) {
+        check(journal.length() in 1..V344UnifiedRestoreCheckpointCodec.MAX_BYTES.toLong()) {
             "Cross-domain recovery checkpoint exceeds safety limit"
         }
-        return V344UnifiedRestoreCheckpointCodec.decode(
-            candidate.openRead().use { source ->
-                // Check again after Android's AtomicFile has selected backup.
-                check(target.length() in 1..V344UnifiedRestoreCheckpointCodec.MAX_BYTES.toLong())
-                source.readBytes()
-            },
-        )
+        return V344UnifiedRestoreCheckpointCodec.decode(journal.inputStream().use { source ->
+            source.readBytes()
+        })
     }
 
     private fun writeAtomic(record: V344UnifiedRestoreCheckpoint) {
