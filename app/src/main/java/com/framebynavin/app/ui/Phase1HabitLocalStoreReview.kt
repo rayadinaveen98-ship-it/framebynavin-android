@@ -205,6 +205,10 @@ internal fun Phase1HabitLocalStoreReview(
                     }
                 }
                 if (!creating && selected == null) {
+                    if (message != null) {
+                        Text(message.orEmpty(), color = BacklotSecondaryText,
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+                    }
                     EmptyHabitReview(onCreate = { creating = true })
                 } else if (creating) {
                     CreateHabitReview(
