@@ -174,6 +174,9 @@ internal class V342UnifiedRestorePreparationStore(
             require(files.all {
                 it.isFile && !Files.isSymbolicLink(it.toPath()) && it.name in allowed
             }) { "Unexpected prepared files; cleanup blocked" }
+            check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+                "Combined recovery began while source discard was being reviewed"
+            }
             files.forEach { file ->
                 check(file.delete()) { "Prepared file could not be removed" }
             }
