@@ -135,4 +135,68 @@ class V368CreatorOriginalReversePolicyTest {
         assertFalse(r.mayScheduleAlarms)
         assertFalse(r.mayClaimEntireAppRestored)
     }
+
+    @Test fun wholeDomainReverseBeforePersonalRequiresBothOriginals() {
+        val decision = direction(V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL)
+        assertTrue(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+            cp, decision, native, voice, cp.personalOriginalSha256,
+        ))
+        assertTrue(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+            cp, decision,
+            V364UnifiedCreatorPendingRecoveryProof.Assessment
+                .VoiceAllocatedBeforeNativeCreatorJournal(audit),
+            voice, cp.personalOriginalSha256,
+        ))
+        assertFalse(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+            cp, decision, native, voice, "e".repeat(64),
+        ))
+        assertFalse(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+            cp, direction(V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET),
+            native, voice, cp.personalOriginalSha256,
+        ))
+    }
+
+    @Test fun reverseCannotPretendPersonalWritesNeverStarted() {
+        val decision = direction(V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL)
+        listOf(
+            V344UnifiedRestoreStep.PREPARED_NO_WRITES,
+            V344UnifiedRestoreStep.CREATOR_WRITTEN,
+            V344UnifiedRestoreStep.BEFORE_PERSONAL,
+            V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+            V344UnifiedRestoreStep.VERIFYING_BOTH,
+            V344UnifiedRestoreStep.BOTH_VERIFIED,
+        ).forEach { step ->
+            assertFalse(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+                cp.copy(step = step), decision, native, voice,
+                cp.personalOriginalSha256,
+            ))
+        }
+        assertFalse(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+            cp, decision,
+            V364UnifiedCreatorPendingRecoveryProof.Assessment
+                .UnreadableOrUnboundNativeEvidence,
+            voice, cp.personalOriginalSha256,
+        ))
+        assertFalse(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+            cp, decision, native.copy(originalCreatorFingerprint = "0".repeat(64)),
+            voice, cp.personalOriginalSha256,
+        ))
+    }
+
+    @Test fun wholeDomainOriginalReceiptCannotReleaseRecoveryFiles() {
+        val receipt = V368CrossDomainOriginalReceipt(
+            transactionId = cp.transactionId,
+            originalCreatorFingerprint = cp.creatorOriginalSha256,
+            originalPersonalFingerprint = cp.personalOriginalSha256,
+            originalVoiceCount = 1,
+            originalBestFrames = 2,
+            nativeCreatorRewound = true,
+        )
+        assertTrue(receipt.bothOriginalsVerified)
+        assertFalse(receipt.mayDeleteMedia)
+        assertFalse(receipt.mayReleaseH4OrEscrow)
+        assertFalse(receipt.mayEnableAlarms)
+        assertFalse(receipt.mayClaimRestoredToOwner)
+    }
+
 }
