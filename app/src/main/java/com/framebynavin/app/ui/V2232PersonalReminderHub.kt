@@ -524,10 +524,28 @@ internal fun V2232PersonalReminderHub(
                 }
             } else {
                 val eligibleChallenges = challenges.filter { it.alertKind != null }
-                val activeChallengeCount = eligibleChallenges.count { !it.paused && !it.archived }
-                val pausedChallengeCount = eligibleChallenges.size - activeChallengeCount
+                val challengeGroupsForCounts = remember(eligibleChallenges, agendaNowMillis) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = emptyList(),
+                        challenges = eligibleChallenges,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.ALL,
+                    )
+                }
+                val challengeSections = challengeGroupsForCounts.flatMap { it.entries }
+                val activeChallengeCount = challengeSections.count {
+                    it.section != PersonalAgendaSection.PAUSED &&
+                        it.section != PersonalAgendaSection.NO_UPCOMING
+                }
+                val pausedChallengeCount = challengeSections.count {
+                    it.section == PersonalAgendaSection.PAUSED
+                }
+                val finishedChallengeCount = challengeSections.count {
+                    it.section == PersonalAgendaSection.NO_UPCOMING
+                }
                 Text("YOUR REMINDERS · ${reminders.count { !it.paused } + activeChallengeCount} ACTIVE · " +
-                    "${reminders.count { it.paused } + pausedChallengeCount} PAUSED / ARCHIVED",
+                    "${reminders.count { it.paused } + pausedChallengeCount} PAUSED / ARCHIVED" +
+                    if (finishedChallengeCount > 0) " · $finishedChallengeCount ENDED" else "",
                     color = MutedText, fontWeight = FontWeight.Bold, fontSize = 10.sp,
                     modifier = Modifier.testTag("v2232-personal-count"))
                 Row(
