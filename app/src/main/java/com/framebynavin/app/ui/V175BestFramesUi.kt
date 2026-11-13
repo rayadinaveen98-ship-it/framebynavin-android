@@ -370,9 +370,9 @@ internal object V18HeroPlaybackPolicy {
 
 
 /**
- * The greeting is an independent, stable Home header; slideshow frames must
- * never make it disappear or place it over an image. Photo actions stay beside
- * the greeting for zero and multiple image states.
+ * The greeting remains a stable Home header and never overlays slideshow
+ * frames. The original photo shortcut is retained for standalone/legacy
+ * callers; the live app routes Gallery through its Home overflow menu.
  */
 @Composable
 private fun V18GreetingText(greeting: String, modifier: Modifier = Modifier) {
@@ -411,9 +411,9 @@ private fun V18HeroPhotoButton(
 }
 
 /**
- * V222.1 selected guide sits beside the existing Gallery +, never over media,
- * Top 3 or project actions. At narrow widths / large accessibility text both
- * actions wrap to their own line rather than compressing greeting or touch areas.
+ * The Home overflow entry retains a 48dp touch target beside the greeting.
+ * Standalone hero callers can still show the legacy Gallery +; at narrow widths
+ * or large accessibility text the actions wrap rather than shrink tap areas.
  */
 @Composable
 internal fun V18HeroGreetingBar(
@@ -426,9 +426,8 @@ internal fun V18HeroGreetingBar(
 ) {
     // V339: on the live Home screen the Gallery entry is moved to one
     // overflow rail. Keep standalone Hero/legacy callers unchanged by default.
-    // V335: the Home header now has an independent activity bell, optional
-    // Spark icon and Gallery button. Wrap on ordinary compact phones rather
-    // than squeezing the greeting or shrinking the 48dp touch targets.
+    // On live Home the three actions share one overflow trigger. Legacy callers
+    // still receive the original Gallery + by default. Never shrink tap targets.
     val wrapActions = LocalConfiguration.current.screenWidthDp < 440 ||
         LocalDensity.current.fontScale >= 1.55f
     if (wrapActions) {
