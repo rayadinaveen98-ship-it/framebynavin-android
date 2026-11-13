@@ -3,6 +3,7 @@ package com.framebynavin.app.data
 import com.framebynavin.app.personal.Phase1V2RestoreFingerprint
 import com.framebynavin.app.personal.Phase1V2RestoreTargetPolicy
 import com.framebynavin.app.personal.V300PersonalComponents
+import com.framebynavin.app.personal.V382UnifiedPortableSelectedPolicy
 import com.framebynavin.app.personal.V301LocalRecoverySnapshot
 import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
@@ -51,6 +52,10 @@ internal object V355UnifiedPersonalRecoveryRecipePolicy {
             authenticatedIncoming.singleActivityChallenges != null) {
             "Unified Personal recovery requires complete 21-day Done receipts"
         }
+        // SOURCE SELECTED is a portable transfer and cannot import another
+        // phone's in-flight leases or custom music grants. In contrast, the
+        // ORIGINAL rollback escrow is intentionally kept byte-identical.
+        V382UnifiedPortableSelectedPolicy.inspectSelected(authenticatedIncoming)
         val baseline = V301LocalRecoverySnapshot(
             components = authenticatedOriginal,
             photos = originalPhotos,
