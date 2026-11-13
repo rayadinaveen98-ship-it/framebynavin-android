@@ -169,7 +169,7 @@ class V2221CompanionHeaderUiTest {
         }
     }
 
-    @Test fun tappingPortraitOpensRealSuggestionAndNotNowSuppressesIt() {
+    @Test fun openingSparkFromHomeOverflowPreservesRealSuggestionAndDismissal() {
         HardeningTestEnvironment.requireCiEmulator()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val prefs = context.getSharedPreferences("backlot_companion_suggestions_v2212", 0)
@@ -196,9 +196,10 @@ class V2221CompanionHeaderUiTest {
                     )
                 }
             }
-            rule.onNodeWithTag("v2221-companion-avatar").assertIsDisplayed()
+            rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed()
             rule.onNodeWithTag("v2212-companion-card").assertDoesNotExist()
-            rule.onNodeWithTag("v2221-companion-avatar").performClick()
+            rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
+            rule.onNodeWithTag("v339-home-menu-SPARK").performClick()
             rule.onNodeWithTag("v2221-companion-sheet").assertExists()
             rule.onNodeWithTag("v2212-companion-card").assertExists()
             rule.onNodeWithTag("v2212-companion-why").performClick()
@@ -206,7 +207,8 @@ class V2221CompanionHeaderUiTest {
             capture("real-suggestion-sheet")
             rule.onNodeWithTag("v2212-companion-dismiss").performClick()
             rule.onNodeWithTag("v2212-companion-card").assertDoesNotExist()
-            rule.onNodeWithTag("v2221-companion-avatar").performClick()
+            rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
+            rule.onNodeWithTag("v339-home-menu-SPARK").performClick()
             rule.onNodeWithTag("v2221-companion-empty").assertExists()
             rule.onNodeWithTag("v2212-companion-card").assertDoesNotExist()
         } finally {
