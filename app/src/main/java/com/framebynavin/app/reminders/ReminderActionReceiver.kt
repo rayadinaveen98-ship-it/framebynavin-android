@@ -158,7 +158,11 @@ class ReminderActionReceiver : BroadcastReceiver() {
                                 }
                                 ReminderConstants.ACTION_SNOOZE -> {
                                     response = ProjectPulseResponse.SNOOZED
-                                    resumeAt = now + V280ReminderSnoozePolicy.effectiveCreatorMinutes(task.snoozeMinutes, defaultSnoozeMinutes) * 60_000L
+                                    resumeAt = V280ReminderSnoozePolicy.nextAtMillis(
+                                        now,
+                                        V280ReminderSnoozePolicy.effectiveCreatorMinutes(
+                                            task.snoozeMinutes, defaultSnoozeMinutes),
+                                    )
                                     val isSmart = task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled
                                     if (isSmart && ProjectPulseEngine.isStageCheckIn(task)) {
                                         // Keep Smart's final target intact; only repeat the reached delivery stage.
