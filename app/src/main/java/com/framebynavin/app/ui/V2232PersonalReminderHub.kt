@@ -837,14 +837,15 @@ internal fun V2232PersonalReminderHub(
             title = { Text("Delete ${tickets.size} Personal reminders?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("This permanently removes the selected Personal reminders " +
-                        "and their local completion history. The associated alerts " +
-                        "will be canceled. Challenge reminders, Spaces and Creator " +
-                        "projects are not selected or deleted.")
+                    Text("Remove the selected Personal reminders and their local " +
+                        "completion history from this device? Android alerts will be canceled. " +
+                        "Challenge reminders, Spaces and Creator projects are not deleted. " +
+                        "Existing exported backups or cloud copies are not changed.")
                     Text(tickets.take(4).joinToString("\n") { "• ${it.title}" } +
                         if (tickets.size > 4) "\n… and ${tickets.size - 4} more" else "",
                         color = MutedText)
-                    Text("You cannot undo this action.", color = RecRed)
+                    Text("There is no in-app Undo. An older backup may still contain them.",
+                        color = RecRed)
                 }
             },
             confirmButton = {
@@ -885,9 +886,10 @@ internal fun V2232PersonalReminderHub(
             onDismissRequest = { if (!busy) deleteTarget = null },
             title = { Text("Delete personal reminder?") },
             text = {
-                Text("Delete \"${item.title}\" and its Personal completion history? " +
+                Text("Remove \"${item.title}\" and its local Personal completion history? " +
                     "Its scheduled alerts will be canceled. Other Personal reminders, " +
-                    "21-day challenges, Spaces and Creator projects stay unchanged.")
+                    "21-day challenges, Spaces and Creator projects stay unchanged. " +
+                    "Existing exported backups or cloud copies are not changed.")
             },
             confirmButton = {
                 TextButton(enabled = !busy, onClick = {
@@ -981,6 +983,15 @@ private fun V2232PersonalItem(
                 }
                 if (!selectionMode) {
                     IconButton(
+                        onClick = onDelete,
+                        enabled = !busy,
+                        modifier = Modifier.testTag("v338-personal-delete-visible"),
+                    ) {
+                        Icon(Icons.Outlined.DeleteOutline,
+                            contentDescription = "Delete Personal reminder",
+                            tint = RecRed)
+                    }
+                    IconButton(
                         onClick = { expanded = !expanded },
                         modifier = Modifier.testTag("v288-personal-expand"),
                     ) {
@@ -1031,9 +1042,6 @@ private fun V2232PersonalItem(
                     TextButton(enabled = !busy, onClick = onPause) {
                         Text(if (reminder.paused) "RESUME" else "PAUSE",
                             color = MutedText)
-                    }
-                    TextButton(enabled = !busy, onClick = onDelete) {
-                        Text("DELETE", color = RecRed)
                     }
                 }
             }
