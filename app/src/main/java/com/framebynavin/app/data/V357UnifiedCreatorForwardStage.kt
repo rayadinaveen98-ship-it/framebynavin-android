@@ -62,13 +62,14 @@ internal class V357UnifiedCreatorForwardStage(context: Context) {
         val live = inspector.inspect(
             ownerConfirmed = true, passphrase = passphrase,
         )
-        check(live.transactionId == originalCheckpoint.transactionId &&
-            live.checkpointStep == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
-            live.creatorLiveMatchesOriginalMetadata &&
-            live.personalLiveMatchesOriginalMetadata &&
-            live.livePhotoAudit.currentPhotoFilesMatchTheirLiveRows &&
-            live.intendedPersonalRecipe.allOriginalPhotoReferencesPreserved) {
-            "Live original Creator, Personal or photo state changed before Creator stage"
+        check(V357CreatorForwardStartPolicy.mayBegin(
+            checkpoint = originalCheckpoint,
+            authenticated = proven,
+            live = live,
+            freshOwnerConsent = ownerConfirmedStart,
+        )) {
+            "The original Creator, Personal or photo state changed, or owner " +
+                "recovery evidence is not eligible to begin the Creator stage"
         }
 
         val selectedFile = exactSelectedSourceFile()
@@ -180,4 +181,32 @@ internal data class V357CreatorForwardReceipt(
 
     val mayReleaseRecoveryEscrow: Boolean get() = false
     val mayNotifyOwnerCombinedSuccess: Boolean get() = false
+}
+
+/**
+ * Pure, deny-by-default Creator execution precondition. No callback or Token
+ * is returned. Only the actual V357 internal source-bound method can open a
+ * Creator writer after this policy, under its two owner-domain mutexes.
+ */
+internal object V357CreatorForwardStartPolicy {
+    fun mayBegin(
+        checkpoint: V344UnifiedRestoreCheckpoint,
+        authenticated: V346InterruptedRecoveryProof,
+        live: V353UnifiedLiveForensicReport,
+        freshOwnerConsent: Boolean,
+    ): Boolean =
+        freshOwnerConsent &&
+            checkpoint.step == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
+            V346InterruptedRecoveryProofPolicy.matches(authenticated, checkpoint) &&
+            !authenticated.creatorStandaloneRecoveryMarker &&
+            !authenticated.personalStandaloneRecoveryMarker &&
+            live.transactionId == checkpoint.transactionId &&
+            live.checkpointStep == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
+            live.creatorLiveMatchesOriginalMetadata &&
+            live.personalLiveMatchesOriginalMetadata &&
+            live.livePhotoAudit.currentPhotoFilesMatchTheirLiveRows &&
+            live.intendedPersonalRecipe.allOriginalPhotoReferencesPreserved &&
+            live.intendedPersonalRecipe.noMutationAuthority &&
+            !live.mayWriteLiveData &&
+            !live.mayReleaseRecoveryJournals
 }
