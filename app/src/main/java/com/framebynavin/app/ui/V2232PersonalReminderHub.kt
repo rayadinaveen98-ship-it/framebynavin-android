@@ -923,6 +923,9 @@ private fun V2232PersonalItem(
     nowMillis: Long,
     busy: Boolean,
     expandedInitially: Boolean = false,
+    selectionMode: Boolean = false,
+    selectedForDeletion: Boolean = false,
+    onToggleSelection: () -> Unit = {},
     onEdit: () -> Unit,
     onPause: () -> Unit,
     onDelete: () -> Unit,
@@ -951,6 +954,15 @@ private fun V2232PersonalItem(
             verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (selectionMode) {
+                    Checkbox(
+                        checked = selectedForDeletion,
+                        onCheckedChange = { onToggleSelection() },
+                        enabled = !busy,
+                        modifier = Modifier.testTag("v338-personal-select-row"),
+                    )
+                    Spacer(Modifier.width(5.dp))
+                }
                 V288PersonalReminderIcon(reminder)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -967,18 +979,20 @@ private fun V2232PersonalItem(
                         fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                IconButton(
-                    onClick = { expanded = !expanded },
-                    modifier = Modifier.testTag("v288-personal-expand"),
-                ) {
-                    Icon(if (expanded) Icons.Outlined.ExpandLess
-                        else Icons.Outlined.MoreVert,
-                        contentDescription = if (expanded) "Hide reminder details"
-                            else "Show reminder options",
-                        tint = MutedText)
+                if (!selectionMode) {
+                    IconButton(
+                        onClick = { expanded = !expanded },
+                        modifier = Modifier.testTag("v288-personal-expand"),
+                    ) {
+                        Icon(if (expanded) Icons.Outlined.ExpandLess
+                            else Icons.Outlined.MoreVert,
+                            contentDescription = if (expanded) "Hide reminder details"
+                                else "Show reminder options",
+                            tint = MutedText)
+                    }
                 }
             }
-            if (actionReady) {
+            if (actionReady && !selectionMode) {
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     OutlinedButton(
                         enabled = !busy,
@@ -992,7 +1006,7 @@ private fun V2232PersonalItem(
                     ) { Text("SNOOZE ${reminder.snoozeMinutes}m", fontSize = 11.sp) }
                 }
             }
-            if (expanded) {
+            if (expanded && !selectionMode) {
                 if (reminder.notes.isNotBlank()) {
                     Text(reminder.notes, color = ProjectorIvory, fontSize = 12.sp,
                         maxLines = 4, overflow = TextOverflow.Ellipsis,
