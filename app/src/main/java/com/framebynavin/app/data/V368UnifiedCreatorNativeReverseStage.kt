@@ -300,9 +300,11 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                 .inspectOwnerApproved(
                     ownerConfirmed = true, passphrase = passphrase,
                 )
-            val retained = com.framebynavin.app.personal
-                .Phase1V2OriginalReverseJournal(app).inspect()
-            check(retained?.step == com.framebynavin.app.personal
+            val retained = requireNotNull(
+                com.framebynavin.app.personal
+                    .Phase1V2OriginalReverseJournal(app).inspect(),
+            ) { "No intact original Personal inverse journal" }
+            check(retained.step == com.framebynavin.app.personal
                 .Phase1V2ReverseStep.ORIGINAL_RECORDS_VERIFIED &&
                 receipt.transactionId == expected.transactionId &&
                 retained.originalDigest == receipt.delta.originalDigest &&
