@@ -1,6 +1,7 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -62,8 +63,9 @@ class V335HomeNotificationEntryUiTest {
                 )
             }
         }
-        rule.onNodeWithTag("v2221-companion-avatar").assertDoesNotExist()
-        rule.onNodeWithTag("v335-home-notification-entry").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("v339-home-overflow-trigger").assertIsDisplayed().performClick()
+        rule.onNodeWithTag("v339-home-menu-SPARK").assertIsNotEnabled()
+        rule.onNodeWithTag("v339-home-menu-NOTIFICATION_CENTER").assertIsDisplayed().performClick()
         rule.runOnIdle {
             assertEquals(1, notifications)
             assertEquals(0, reminders)
