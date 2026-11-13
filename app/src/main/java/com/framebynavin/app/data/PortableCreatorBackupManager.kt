@@ -7,6 +7,9 @@ import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.MessageDigest
+import java.nio.channels.Channels
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 import java.util.UUID
 
 /**
@@ -205,8 +208,20 @@ class PortableCreatorBackupManager(context: Context) {
                 // Track the destination before any bytes are written so a partial write or a
                 // post-copy integrity failure is removed by the common rollback path below.
                 installed[ideaId] = destination
-                staged.inputStream().buffered().use { input ->
-                    destination.outputStream().buffered().use(input::copyTo)
+                // CREATE_NEW is atomic: neither an unrelated older recording
+                // nor another reserved owner file can ever be truncated.
+                // Flush the completed byte copy before making its path
+                // visible in the rewritten Creator records.
+                FileChannel.open(
+                    destination.toPath(),
+                    StandardOpenOption.CREATE_NEW,
+                    StandardOpenOption.WRITE,
+                ).use { channel ->
+                    staged.inputStream().buffered().use { input ->
+                        val output = Channels.newOutputStream(channel)
+                        input.copyTo(output, 64 * 1024)
+                    }
+                    channel.force(true)
                 }
                 PortableVoiceMediaIntegrity.verifyInstalledCopy(staged, destination)
             }
