@@ -196,9 +196,9 @@ internal class V377UnifiedFinalVerification(context: Context) {
                                 h4.requireCheckpointReadOnly() == cp &&
                                 sha(ownerArchive(
                                     selectedCreatorFolder, selectedCreatorFile,
-                                )) == if (outcome ==
+                                )) == (if (outcome ==
                                     V377VerifiedOwnerOutcome.ORIGINAL_RESTORED)
-                                    cp.escrowSha256 else cp.sourceSha256 &&
+                                    cp.escrowSha256 else cp.sourceSha256) &&
                                 !IdeaProjectConversion(app).hasPendingRecovery()) {
                                 "Owner choice, encrypted source or conversion journal changed"
                             }
