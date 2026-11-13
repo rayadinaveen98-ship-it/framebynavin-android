@@ -81,6 +81,9 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
         require(freshOwnerConsent && passphrase.size >= 12) {
             "Explicit owner confirmation and encrypted archive passphrase required"
         }
+        check(!V371UnifiedCreatorVoiceShadowJournal(app).hasBlockingEvidence()) {
+            "Shadow Voice Idea recovery evidence requires separate owner review"
+        }
         val cp = journal.requireCheckpointReadOnly()
         require(cp.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
             "Missing Voice replay requires interrupted BEFORE_CREATOR"
@@ -159,7 +162,8 @@ internal class V370UnifiedCreatorMissingVoiceReplay(context: Context) {
                         CreatorDataGate.withJournalBoundCreatorWrite(
                             app, cp, ownerConfirmed = true,
                         ) {
-                            check(!IdeaProjectConversion(app).hasPendingRecovery() &&
+                            check(!V371UnifiedCreatorVoiceShadowJournal(app).hasBlockingEvidence() &&
+                                !IdeaProjectConversion(app).hasPendingRecovery() &&
                                 journal.requireCheckpointReadOnly() == cp &&
                                 native.inspectReadOnly() is
                                     V364UnifiedCreatorPendingRecoveryProof.Assessment
