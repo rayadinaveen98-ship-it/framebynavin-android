@@ -187,7 +187,7 @@ internal class V371UnifiedCreatorVoiceShadowJournal(
                     damagedFile = e.fileName,
                     damagedBytes = size,
                     damagedSha256 = digest,
-                    shadowFile = "voice_idea_" + UUID.randomUUID().toString() + ".m4a",
+                    shadowFile = reserveUnusedShadowName(directory),
                     expectedBytes = e.sizeBytes,
                     expectedSha256 = e.sha256,
                 )
@@ -220,6 +220,21 @@ internal class V371UnifiedCreatorVoiceShadowJournal(
             "Shadow reservations changed during durable write"
         }
         return plan
+    }
+
+    /**
+     * Reserve a pathname that is provably absent, including symlinks and
+     * dangling symlinks. The later CREATE_NEW write is still mandatory:
+     * an absence check alone is never an overwrite-safety guarantee.
+     */
+    private fun reserveUnusedShadowName(folder: File): String {
+        repeat(40) {
+            val candidate = "voice_idea_" + UUID.randomUUID().toString() + ".m4a"
+            if (!Files.exists(
+                    File(folder, candidate).toPath(), LinkOption.NOFOLLOW_LINKS,
+                )) return candidate
+        }
+        error("Unable to reserve a fresh Voice Idea shadow destination")
     }
 
     /** Inspect only SHADOW bytes; original damaged files are never touched. */
