@@ -58,6 +58,8 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
         ownerConfirmedAdditions: Boolean,
         acknowledgedNonPortableAlarmsAndSongs: Boolean,
         deferPostRestoreReconcileForUnified: Boolean = false,
+        combinedCheckpointForUnified:
+            com.framebynavin.app.data.V344UnifiedRestoreCheckpoint? = null,
     ): Finished = withContext(Dispatchers.IO) {
         require(ownerConfirmedAdditions && acknowledgedNonPortableAlarmsAndSongs) {
             "Owner must review all Personal changes and device-only alarm/music limitations"
@@ -66,6 +68,11 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
             "Encrypted archive and private recovery escrow require passphrases"
         }
         if (deferPostRestoreReconcileForUnified) {
+            check(combinedCheckpointForUnified != null &&
+                combinedCheckpointForUnified.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+                "Unified Personal restore requires exact BEFORE_PERSONAL owner checkpoint"
+            }
             check(com.framebynavin.app.data.V344UnifiedRestoreJournal.hasPendingFor(app)) {
                 "Suppress Personal alarm reconciliation only under a combined recovery journal"
             }
@@ -104,7 +111,7 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
                     // No live domain write has occurred before this marker.
                     val stamp = System.currentTimeMillis().coerceAtLeast(1L)
                     val journal = Phase1V2RestoreWriteAheadJournal(v2Root)
-                    val record = journal.prepare(Phase1V2RestoreCheckpoint(
+                    val expectedV2 = Phase1V2RestoreCheckpoint(
                         transactionId = txn,
                         preparedId = preparedId,
                         escrowId = escrowId,
@@ -112,7 +119,16 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
                         targetDigest = target.targetDigest,
                         step = Phase1V2RestoreStep.PREPARED,
                         createdAtMillis = stamp, updatedAtMillis = stamp,
-                    ), ownerRequested = true)
+                    )
+                    if (combinedCheckpointForUnified != null) {
+                        // Durably bind the native v2 identity and exact
+                        // original/target digests to BEFORE_PERSONAL BEFORE
+                        // the v2 data-writing journal is ever prepared.
+                        // A death here retains both ZIPs for owner review.
+                        com.framebynavin.app.data.V359UnifiedPersonalV2HandoffJournal(app)
+                            .recordBeforeV2Prepare(combinedCheckpointForUnified, expectedV2)
+                    }
+                    val record = journal.prepare(expectedV2, ownerRequested = true)
                     journalPrepared = true
                     StabilizationPersonalMutationGate.withPreparedV2OwnerRecovery(
                         legacyRoot, record,
@@ -127,7 +143,10 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
             } catch (failure: Throwable) {
                 // Before the marker, no domain has been touched. After it,
                 // NEVER erase any ZIP or journal needed for owner recovery.
-                if (!journalPrepared && !v2Root.exists()) dir.deleteRecursively()
+                if (!journalPrepared && !v2Root.exists() &&
+                    !com.framebynavin.app.data.V359UnifiedPersonalV2HandoffJournal(app)
+                        .hasBlockingEvidence()
+                ) dir.deleteRecursively()
                 throw failure
             }
         }
