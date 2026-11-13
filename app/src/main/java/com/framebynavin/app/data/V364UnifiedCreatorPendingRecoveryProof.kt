@@ -56,7 +56,7 @@ internal class V364UnifiedCreatorPendingRecoveryProof(context: Context) {
         }
     }
 
-    fun inspectReadOnly(): Assessment {
+    suspend fun inspectReadOnly(): Assessment {
         val checkpoint = runCatching {
             h4.requireCheckpointReadOnly()
         }.getOrNull() ?: return Assessment.UnreadableOrUnboundNativeEvidence
