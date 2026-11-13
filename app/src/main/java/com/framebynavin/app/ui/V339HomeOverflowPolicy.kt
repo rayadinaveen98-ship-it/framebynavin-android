@@ -21,6 +21,17 @@ internal object V339HomeOverflowPolicy {
     fun enabled(action: V339HomeOverflowAction, sparkEnabled: Boolean): Boolean =
         action != V339HomeOverflowAction.SPARK || sparkEnabled
 
+    /** Only one closed-button dot; recorded actions outrank Spark suggestions. */
+    fun collapsedIndicator(
+        needsReminderAction: Boolean,
+        hasSparkSuggestion: Boolean,
+        sparkEnabled: Boolean,
+    ): V339HomeOverflowAction? = when {
+        needsReminderAction -> V339HomeOverflowAction.NOTIFICATION_CENTER
+        sparkEnabled && hasSparkSuggestion -> V339HomeOverflowAction.SPARK
+        else -> null
+    }
+
     /** Badge conveys an outstanding action or suggestion, never "unread". */
     fun hasIndicator(
         action: V339HomeOverflowAction,
