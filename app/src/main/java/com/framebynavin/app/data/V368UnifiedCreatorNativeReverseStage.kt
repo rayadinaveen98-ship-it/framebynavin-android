@@ -507,12 +507,14 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                             val nativeRoot = File(
                                 app.filesDir, "creator_restore_recovery_v181",
                             )
-                            check(listOf("pending.json", "pending.json.new",
-                                "pending.json.bak").none {
-                                    Files.exists(
-                                        File(nativeRoot, it).toPath(),
-                                        LinkOption.NOFOLLOW_LINKS,
-                                    )
+                            val pending = File(nativeRoot, "pending.json")
+                            val pendingExists = Files.exists(
+                                pending.toPath(), LinkOption.NOFOLLOW_LINKS,
+                            )
+                            check(listOf("pending.json.new", "pending.json.bak")
+                                .none {
+                                    Files.exists(File(nativeRoot, it).toPath(),
+                                        LinkOption.NOFOLLOW_LINKS)
                                 } &&
                                 !IdeaProjectConversion(app).hasPendingRecovery() &&
                                 journal.requireCheckpointReadOnly() == expected &&
@@ -522,19 +524,80 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
                                     ) &&
                                 sha(originalFile) == expected.escrowSha256 &&
                                 sha(selectedFile) == expected.sourceSha256) {
-                                "Competing native Creator recovery, H4 or owner ZIP changed"
+                                "Competing/torn native Creator recovery or owner escrow changed"
+                            }
+                            val witnessJournal = V376CreatorOriginalInverseJournal(app)
+                            val existingWitness = witnessJournal.inspect()
+                            val reader = V343UnifiedBaselineReader(app)
+                            val expectedOwnerCheckpointSha =
+                                V376CreatorOriginalInverseJournal.sha256(
+                                    V344UnifiedRestoreCheckpointCodec.encode(expected),
+                                )
+                            val expectedDirectionSha =
+                                V376CreatorOriginalInverseJournal.sha256(
+                                    V347OwnerRecoveryDecisionCodec.encode(decision),
+                                )
+                            if (existingWitness == null) {
+                                check(!pendingExists) {
+                                    "Unbound Creator pending marker cannot be replayed as owner's reverse"
+                                }
+                            } else {
+                                check(existingWitness.transactionId ==
+                                    expected.transactionId &&
+                                    existingWitness.checkpointSha256 ==
+                                        expectedOwnerCheckpointSha &&
+                                    existingWitness.reverseDecisionSha256 ==
+                                        expectedDirectionSha &&
+                                    existingWitness.originalEscrowSha256 ==
+                                        expected.escrowSha256 &&
+                                    existingWitness.originalCreatorFingerprint ==
+                                        expected.creatorOriginalSha256) {
+                                    "Durable Creator reverse witness is not owner-approved"
+                                }
+                                if (pendingExists) {
+                                    // The native marker MUST point to the exact
+                                    // pre-inverse Creator data SHA+Best Frame order
+                                    // durably recorded before any previous write.
+                                    witnessJournal.requireBoundNativePending(
+                                        existingWitness, reader,
+                                    )
+                                    check(CreatorBackupManager(app)
+                                        .recoverPendingRestore()) {
+                                        "Native Creator rollback did not recover its prior state"
+                                    }
+                                }
                             }
                             val currentCreator = CreatorBackupManager(app)
                                 .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
-                            val currentFrameFingerprint = runCatching {
-                                V343UnifiedBaselineReader(app)
-                                    .creatorFingerprintFromNativeOriginal(
-                                        currentCreator,
-                                        CreatorHeroArchive.captureOriginalOrder(app),
-                                    )
-                            }.getOrNull()
+                            val currentFrameFingerprint =
+                                reader.creatorFingerprintFromNativeOriginal(
+                                    currentCreator,
+                                    CreatorHeroArchive.captureOriginalOrder(app),
+                                )
+                            if (existingWitness != null) {
+                                check(currentFrameFingerprint in setOf(
+                                    existingWitness.priorCreatorFingerprint,
+                                    expected.creatorOriginalSha256,
+                                )) {
+                                    "Restarted Creator reverse is neither its exact prior nor original"
+                                }
+                            }
                             val requiredWrite = currentFrameFingerprint !=
                                 expected.creatorOriginalSha256
+                            if (requiredWrite && existingWitness == null) {
+                                witnessJournal.prepare(V376CreatorInverseWitness(
+                                    transactionId = expected.transactionId,
+                                    checkpointSha256 = expectedOwnerCheckpointSha,
+                                    reverseDecisionSha256 = expectedDirectionSha,
+                                    originalEscrowSha256 = expected.escrowSha256,
+                                    priorCreatorFingerprint = currentFrameFingerprint,
+                                    originalCreatorFingerprint =
+                                        expected.creatorOriginalSha256,
+                                ))
+                            }
+                            // A crash after native import but before H4 Task 4
+                            // results in ORIGINAL live data and a retained
+                            // witness: no second import occurs on cold retry.
                             if (requiredWrite) {
                                 val manager = CreatorBackupManager(app)
                                 if (frameCount != null) {
