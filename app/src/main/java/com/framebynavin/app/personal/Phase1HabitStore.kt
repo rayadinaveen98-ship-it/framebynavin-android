@@ -130,10 +130,7 @@ internal class Phase1HabitStore(context: Context) {
         id: String,
         expected: Phase1HabitChallenge,
     ): List<Phase1HabitChallenge> = mutate(preservePreviousForRecovery = false) { current ->
-        require(current.firstOrNull { it.id == id } == expected) {
-            "Challenge changed or was removed. Reopen before deleting."
-        }
-        current.filterNot { it.id == id }
+        Phase1HabitManagementPolicy.deleteReviewed(current, id, expected)
     }
 
     suspend fun confirmToday(id: String, at: Instant): List<Phase1HabitChallenge> =
