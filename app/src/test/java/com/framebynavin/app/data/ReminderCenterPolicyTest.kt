@@ -69,12 +69,17 @@ class ReminderCenterPolicyTest {
         assertEquals(now + 2 * hour + 10 * 60_000L,
             ReminderCenterPolicy.nextSnoozeAt(task(), now, 10))
         // A late/already-fired reminder moves forward from the present.
-        assertEquals(now + 7 * 60_000L, ReminderCenterPolicy.nextSnoozeAt(
+        // A requested ten-minute delay may not silently become seven minutes.
+        assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(
             nearDue.copy(reminderAtMillis = now - 60_000L), now, 10))
+        assertEquals(now + 5 * 60_000L, ReminderCenterPolicy.nextSnoozeAt(
+            nearDue.copy(reminderAtMillis = now - 60_000L), now, 5))
         assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(
             nearDue.copy(reminderAtMillis = now + 7 * 60_000L), now, 10))
         assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(task(), now, 0))
         assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(task(), now, 121))
+        assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(task(), now, 6))
+        assertEquals(null, ReminderCenterPolicy.nextSnoozeAt(task(), now, 29))
     }
 
     @Test fun pauseDoesNotPromiseTwoHoursWhenFutureDeadlineIsEarlier() {
