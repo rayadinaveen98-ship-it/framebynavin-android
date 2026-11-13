@@ -54,6 +54,9 @@ object CreatorDataGate {
 
     suspend fun <T> transaction(block: suspend () -> T): T {
         val context = currentCoroutineContext()
+        check(context[CombinedReadInspection] == null) {
+            "A read-only Creator recovery inspection cannot open a writer transaction"
+        }
         val inherited = context[Transaction]
         if (inherited != null && inherited.state.active && mutex.holdsLock(inherited.state.token)) {
             check(inherited.owner === context[Job]) {
@@ -74,6 +77,50 @@ object CreatorDataGate {
                 } finally {
                     state.active = false
                 }
+            }
+        }
+    }
+
+    /**
+     * H3 read-only inspection while the combined journal freezes all normal
+     * Creator mutations. This holds the Creator mutex, but deliberately
+     * installs NO writable CreatorDataGate.Transaction token. Ordinary
+     * CreatorDataGate.transaction calls remain forbidden and must not be
+     * used inside this snapshot-only callback.
+     *
+     * Called from the Personal-then-Creator lock order; does not call
+     * standalone Creator recovery or reschedule project reminders.
+     */
+    private class CombinedReadInspection : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<CombinedReadInspection>
+    }
+
+    internal suspend fun <T> withPendingCombinedReadInspection(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+        readOnly: suspend () -> T,
+    ): T {
+        check(currentCoroutineContext()[Transaction] == null &&
+            currentCoroutineContext()[CombinedReadInspection] == null) {
+            "Combined Creator inspection cannot inherit a write or inspection transaction"
+        }
+        return mutex.withLock {
+            val journal = V344UnifiedRestoreJournal(context)
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Creator inspection requires the exact retained combined checkpoint"
+            }
+            val permit = CombinedReadInspection()
+            try {
+                withContext(permit) {
+                    val result = readOnly()
+                    check(journal.requireCheckpointReadOnly() == expected) {
+                        "Combined recovery checkpoint changed during Creator inspection"
+                    }
+                    result
+                }
+            } finally {
+                permit.active = false
             }
         }
     }
