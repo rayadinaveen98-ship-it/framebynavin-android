@@ -10,6 +10,8 @@ class V280ReminderSnoozePolicyTest {
         assertEquals(30, V280ReminderSnoozePolicy.effectiveCreatorMinutes(30, 15))
         assertEquals(15, V280ReminderSnoozePolicy.effectiveCreatorMinutes(0, 15))
         assertEquals(10, V280ReminderSnoozePolicy.effectiveCreatorMinutes(999, 10))
+        assertEquals(10, V280ReminderSnoozePolicy.effectiveCreatorMinutes(0, 6))
+        assertEquals(10, V280ReminderSnoozePolicy.effectiveCreatorMinutes(7, 90))
     }
 
     @Test fun userSnoozeStartsAtResponseTime() {
@@ -21,8 +23,10 @@ class V280ReminderSnoozePolicyTest {
     }
 
     @Test fun invalidMinutesNeverSchedule() {
-        assertThrows(IllegalArgumentException::class.java) {
-            V280ReminderSnoozePolicy.nextAtMillis(100L, 0)
+        for (invalid in listOf(0, 6, 7, 29, 31, 120)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                V280ReminderSnoozePolicy.nextAtMillis(100L, invalid)
+            }
         }
     }
 }
