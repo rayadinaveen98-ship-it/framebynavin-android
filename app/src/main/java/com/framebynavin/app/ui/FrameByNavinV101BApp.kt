@@ -232,6 +232,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
+    // A global Back, project jump or deep link may bypass Personal's own
+    // onClose callback. Clear Home-only focus when its host is gone so a later
+    // ordinary Personal visit cannot unexpectedly reopen an old Space.
+    LaunchedEffect(showReminders) {
+        if (!showReminders && homeSpacesRequested) {
+            homeSpacesRequested = false
+            homeSpaceFocusId = null
+            homeSpacesRevision++
+        }
+    }
     BackHandler(enabled = guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
         when {
             // Real surfaces always get first chance to close. A Back press inside Quick Capture or
