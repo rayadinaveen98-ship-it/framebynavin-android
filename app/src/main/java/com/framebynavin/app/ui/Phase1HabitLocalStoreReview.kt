@@ -471,7 +471,29 @@ internal fun Phase1HabitLocalStoreReview(
     }
     detailDay?.let { day ->
         currentChallenge?.let { challenge ->
-            FC13ChallengeDayDialog(
+            if (challenge.archived) {
+                val receipt = challenge.confirmations[day]
+                val note = challenge.dayNotes[day]
+                AlertDialog(
+                    onDismissRequest = { detailDay = null },
+                    title = { Text("Archived day · $day") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Text(if (receipt != null) "Confirmed on $receipt"
+                                else "No completion recorded for this date.")
+                            Text(if (note.isNullOrBlank()) "No saved note."
+                                else "Saved note: $note")
+                            Text("Read-only archive. Restore this challenge to make changes.")
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { detailDay = null }) {
+                            Text("CLOSE", color = BacklotAccent)
+                        }
+                    },
+                )
+            } else {
+                FC13ChallengeDayDialog(
                 challenge = challenge,
                 day = day,
                 now = now,
@@ -513,7 +535,8 @@ internal fun Phase1HabitLocalStoreReview(
                         }
                     }
                 },
-            )
+                )
+            }
         }
     }
 }
