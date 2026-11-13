@@ -38,7 +38,7 @@ internal class V342UnifiedRestorePreparationStore(
 
     sealed interface Status {
         data object None : Status
-        data class VerifiedSource(
+        data class ChecksumMatched(
             val transactionId: String,
             val selectedAtMillis: Long,
             val sizeBytes: Long,
@@ -116,7 +116,7 @@ internal class V342UnifiedRestorePreparationStore(
             } else {
                 val record = runCatching { readRecordAndVerifyFiles() }.getOrNull()
                 if (record == null) Status.NeedsOwnerReview
-                else Status.VerifiedSource(
+                else Status.ChecksumMatched(
                     record.transactionId, record.selectedAtMillis,
                     record.sizeBytes, record.sha256,
                 )
@@ -186,6 +186,15 @@ internal class V342UnifiedRestorePreparationStore(
             root.canonicalFile.parentFile != app.filesDir.canonicalFile) return null
         if (!manifest.isFile || Files.isSymbolicLink(manifest.toPath()) ||
             !archive.isFile || Files.isSymbolicLink(archive.toPath())) return null
+        val allowed = setOf(
+            ARCHIVE_NAME, MANIFEST_NAME,
+            "$MANIFEST_NAME.bak", "$MANIFEST_NAME.new",
+        )
+        val children = root.listFiles() ?: return null
+        if (children.any { !it.isFile || Files.isSymbolicLink(it.toPath()) ||
+                it.name !in allowed || it.name == "$MANIFEST_NAME.new" }) return null
+        // A checksum match is NOT encrypted authentication on restart.
+        // Only inspectPrepared() may reauthenticate with owner passphrase.
         // Never read a user-corrupted multi-GB journal into memory.
         require(manifest.length() in 1..2048) {
             "Prepared restore metadata exceeds safety limit"
