@@ -453,6 +453,56 @@ internal object StabilizationPersonalMutationGate {
         }
     }
 
+    /**
+     * H3 exclusive PERSONAL fence while the authenticated CREATOR stage is
+     * committed under a separate, exact BEFORE_CREATOR CreatorDataGate scope.
+     *
+     * No Personal write permit is installed. Any nested ordinary Personal
+     * mutation will still be forbidden by the combined V344 journal. This
+     * lock only prevents an unrelated already-running Personal operation
+     * from racing a Creator replacement before a combined checkpoint.
+     *
+     * The cross-domain journal may advance PREPARED -> BEFORE_CREATOR ->
+     * CREATOR_WRITTEN while this process mutex remains held. No callbacks
+     * from UI, backup export or normal alarm delivery invoke this method.
+     */
+    internal suspend fun <T> withCombinedCreatorStageFence(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        action: suspend () -> T,
+    ): T {
+        require(expected.step ==
+            com.framebynavin.app.data.V344UnifiedRestoreStep.PREPARED_NO_WRITES) {
+            "Creator stage requires a prepared, unwritten combined checkpoint"
+        }
+        check(currentCoroutineContext()[Permit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[CombinedReadInspectionPermit] == null &&
+            currentCoroutineContext()[V2InspectionPermit] == null &&
+            currentCoroutineContext()[InspectionPermit] == null) {
+            "Combined Creator stage may not inherit Personal writer or reader authority"
+        }
+        return processMutex.withLock {
+            val journal = com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+            check(journal.requireCheckpointReadOnly() == expected) {
+                "Combined Creator stage no longer matches the owner-approved journal"
+            }
+            val result = action()
+            val after = journal.requireCheckpointReadOnly()
+            check(after.transactionId == expected.transactionId &&
+                after.sourceId == expected.sourceId &&
+                after.sourceSha256 == expected.sourceSha256 &&
+                after.escrowId == expected.escrowId &&
+                after.escrowSha256 == expected.escrowSha256 &&
+                after.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.CREATOR_WRITTEN) {
+                "Creator replacement did not reach the durable combined checkpoint"
+            }
+            result
+        }
+    }
+
     internal fun journalRootFor(context: Context): File =
         File(context.applicationContext.filesDir, ACTIVE)
 
