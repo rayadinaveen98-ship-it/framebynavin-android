@@ -88,8 +88,13 @@ internal class V375UnifiedPersonalOriginalRollbackExecutor(context: Context) {
             "Fresh explicit ORIGINAL rollback approval and archive passphrase required"
         }
         val expected = h4.requireCheckpointReadOnly()
-        check(expected.step == V344UnifiedRestoreStep.BEFORE_PERSONAL) {
-            "Only Personal's interrupted before-write stage is eligible for v2 inverse"
+        check(expected.step in setOf(
+            V344UnifiedRestoreStep.BEFORE_PERSONAL,
+            V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+            V344UnifiedRestoreStep.VERIFYING_BOTH,
+            V344UnifiedRestoreStep.BOTH_VERIFIED,
+        )) {
+            "Original Personal inverse requires an authenticated post-Creator checkpoint"
         }
         val review = V374UnifiedPersonalOriginalRollbackInspector(app)
             .inspectOwnerApproved(ownerConfirmed = true, passphrase = passphrase)
