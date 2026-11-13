@@ -76,6 +76,9 @@ internal class V345UnifiedOwnerDomainFence(context: Context) {
         check(!combined.hasBlockingEvidence()) {
             "Cross-domain recovery already exists: owner review required"
         }
+        check(!IdeaProjectConversion(app).hasPendingRecovery()) {
+            "An interrupted Creator idea-to-project conversion needs its own recovery"
+        }
         val pendingCreator = File(
             app.filesDir, "creator_restore_recovery_v181/pending.json"
         )
