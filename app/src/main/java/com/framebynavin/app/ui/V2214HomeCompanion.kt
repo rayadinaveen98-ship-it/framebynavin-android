@@ -102,6 +102,7 @@ internal fun V2214HomeCompanion(
     onOpenIdeas: () -> Unit,
     onOpenActivity: () -> Unit = onOpenReminders,
     onOpenPersonal: () -> Unit = onOpenReminders,
+    onOpenGallery: () -> Unit = {},
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
@@ -232,26 +233,19 @@ internal fun V2214HomeCompanion(
     val actionCount = activityFeed.count {
         it.bucket == V306ActivityBucket.NEEDS_ACTION
     }
-    Row(
+    V339HomeOverflowMenu(
+        reminderActionNeeded = actionCount > 0,
+        sparkEnabled = sparkVisible,
+        // A suggestion dot is gold, not an "unread" notification.
+        sparkSuggestionAvailable = decision != null && !quietThisVisit,
+        onOpenNotifications = onOpenActivity,
+        onOpenSpark = {
+            talkingToSpark = false
+            sheetOpen = true
+        },
+        onOpenGallery = onOpenGallery,
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        V335HomeNotificationButton(
-            needsAction = actionCount > 0,
-            onClick = onOpenActivity,
-        )
-        if (sparkVisible) {
-            V2221CompanionPortrait(
-                guide = identity,
-                // Spark is a separate, optional surface. Only a genuine
-                // suggestion affects its gold indicator. No unread semantics.
-                hasActionableActivity = false,
-                hasSuggestion = decision != null && !quietThisVisit,
-                onClick = { talkingToSpark = false; sheetOpen = true },
-            )
-        }
-    }
+    )
 
     if (sparkVisible && sheetOpen) {
         ModalBottomSheet(
