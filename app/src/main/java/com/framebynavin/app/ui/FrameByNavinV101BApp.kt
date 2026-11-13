@@ -640,6 +640,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                                 activityCenterOpen = false
                                 showReminders = true
                             },
+                            onOpenGallery = {
+                                // Existing Home slideshow editor owns photo intake,
+                                // persistence, selection and removal. No new Gallery store.
+                                homeSlideshowRequestNonce += 1L
+                            },
                             onOpenProject = ::openProject,
                             onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
                             enabled = companionEnabled,
