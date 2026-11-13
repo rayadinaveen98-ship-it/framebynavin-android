@@ -5,6 +5,7 @@ import com.framebynavin.app.personal.StabilizationPersonalMutationGate
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption
+import kotlinx.coroutines.withTimeout
 
 /**
  * A consistent gate-acquisition order for Creator + Personal.
@@ -37,12 +38,16 @@ internal class V345UnifiedOwnerDomainFence(context: Context) {
      * installed in this callback.
      */
     suspend fun <T> withExclusiveReadCheck(readOnlyCheck: () -> T): T =
-        StabilizationPersonalMutationGate.withStableSnapshot(app) {
-            CreatorDataGate.transaction {
-                requireNoOtherRecovery()
-                val answer = readOnlyCheck()
-                requireNoOtherRecovery()
-                answer
+        withTimeout(5_000L) {
+            // Fail closed rather than wait forever if a legacy workflow has
+            // the reverse lock order or an editor is still finishing a write.
+            StabilizationPersonalMutationGate.withStableSnapshot(app) {
+                CreatorDataGate.transaction {
+                    requireNoOtherRecovery()
+                    val answer = readOnlyCheck()
+                    requireNoOtherRecovery()
+                    answer
+                }
             }
         }
 
