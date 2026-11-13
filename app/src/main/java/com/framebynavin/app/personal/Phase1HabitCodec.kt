@@ -34,6 +34,7 @@ internal object Phase1HabitCodec {
                 put("alertTime", valid.alertTime?.toString() ?: JSONObject.NULL)
                 put("alertKind", valid.alertKind?.name ?: JSONObject.NULL)
                 put("paused", valid.paused)
+                put("archived", valid.archived)
                 put("snoozedDay", valid.snoozedDay?.toString() ?: JSONObject.NULL)
                 put("snoozedUntil", valid.snoozedUntil?.toString() ?: JSONObject.NULL)
                 put("completionMode", valid.completionMode.name)
@@ -109,6 +110,8 @@ internal object Phase1HabitCodec {
                     alertKind = if (item.isNull("alertKind")) null
                         else Phase1HabitAlertKind.valueOf(item.getString("alertKind")),
                     paused = item.getBoolean("paused"),
+                    // Owner archives created before management launched remain active.
+                    archived = item.optBoolean("archived", false),
                     // Backward compatible: older owner archives have no snooze keys.
                     snoozedDay = if (!item.has("snoozedDay") || item.isNull("snoozedDay"))
                         null else LocalDate.parse(item.getString("snoozedDay")),
