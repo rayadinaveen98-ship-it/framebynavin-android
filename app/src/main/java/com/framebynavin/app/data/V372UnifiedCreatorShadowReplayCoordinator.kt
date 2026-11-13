@@ -593,9 +593,11 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
                 }
                 val personal = V301LocalRecoveryReader(app)
                     .readForInterruptedV2Recovery()
-                val before = V343UnifiedBaselineReader(app)
-                    .fingerprintUnverifiedInterrupted(originalCreatorJson, personal)
-                check(before.personalSha256 == cp.personalOriginalSha256 &&
+                // The live Creator slideshow may be corrupt BEFORE a native
+                // rollback. Fingerprint Personal without touching its frames.
+                val beforePersonal = V343UnifiedBaselineReader(app)
+                    .personalFingerprintForInterrupted(personal)
+                check(beforePersonal == cp.personalOriginalSha256 &&
                     V354UnifiedLiveSpacePhotoAudit(app)
                         .inspect(personal.photos).currentPhotoFilesMatchTheirLiveRows &&
                     V367UnifiedCreatorOriginalVoiceSafety(app)
