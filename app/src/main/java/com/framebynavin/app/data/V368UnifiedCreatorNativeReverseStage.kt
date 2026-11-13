@@ -136,8 +136,8 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
         // PERSONAL first, CREATOR second. The H4 checkpoint must remain
         // BEFORE_CREATOR throughout; native recovery may clear only its OWN
         // pending restore marker, never the combined H4 transaction.
-        StabilizationPersonalMutationGate.withPendingCombinedReadInspection(
-            app, checkpoint,
+        StabilizationPersonalMutationGate.withCombinedCreatorNativeReverseFence(
+            app, checkpoint, ownerConfirmed = true,
         ) {
             CreatorDataGate.withJournalBoundCreatorWrite(
                 app, checkpoint, ownerConfirmed = true,
