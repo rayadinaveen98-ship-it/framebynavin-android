@@ -100,6 +100,68 @@ internal class V376CreatorOriginalInverseJournal(context: Context) {
     }
 
     /**
+     * Read-only native pending.json review for a crashed ORIGINAL import.
+     * The native pre-restore backup MUST represent the EXACT Creator state
+     * captured BEFORE this inverse import. No unknown/torn .new/.bak marker,
+     * symlink, substituted backup or changed original Best Frame order is
+     * accepted. The existing CreatorBackupManager owns actual restoration.
+     */
+    fun requireBoundNativePending(
+        expected: V376CreatorInverseWitness,
+        reader: V343UnifiedBaselineReader,
+    ): String {
+        check(inspect() == expected) {
+            "Creator inverse witness disappeared during native recovery"
+        }
+        val nativeRoot = File(app.filesDir, "creator_restore_recovery_v181")
+        val pending = File(nativeRoot, "pending.json")
+        check(nativeRoot.isDirectory &&
+            !Files.isSymbolicLink(nativeRoot.toPath()) &&
+            nativeRoot.canonicalFile.parentFile == app.filesDir.canonicalFile &&
+            !Files.exists(
+                File(nativeRoot, "pending.json.new").toPath(),
+                LinkOption.NOFOLLOW_LINKS,
+            ) && !Files.exists(
+                File(nativeRoot, "pending.json.bak").toPath(),
+                LinkOption.NOFOLLOW_LINKS,
+            ) &&
+            Files.isRegularFile(pending.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+            !Files.isSymbolicLink(pending.toPath()) &&
+            pending.length() in 1L..4096L) {
+            "Creator native rollback is torn, symlinked, absent or unrelated"
+        }
+        val marker = JSONObject(pending.readText())
+        check(marker.keys().asSequence().toSet() == setOf(
+            "file", "sha256", "originalFrames", "originalFramesSha256",
+        )) {
+            "Creator native rollback does not contain its original image proof"
+        }
+        val fileName = marker.getString("file")
+        val frames = marker.getString("originalFrames")
+        check(fileName.matches(Regex("pre-restore-[a-zA-Z0-9_-]+\\.fbnbackup")) &&
+            marker.getString("originalFramesSha256") ==
+                sha256(frames.toByteArray(Charsets.UTF_8))) {
+            "Original Creator pending frame order or path has changed"
+        }
+        val before = File(nativeRoot, fileName)
+        check(Files.isRegularFile(before.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+            !Files.isSymbolicLink(before.toPath()) &&
+            before.canonicalFile.parentFile == nativeRoot.canonicalFile &&
+            before.length() in 1L..(128L * 1024L * 1024L)) {
+            "Creator rollback's retained pre-import snapshot is unsafe"
+        }
+        val raw = before.readText()
+        check(sha256(raw.toByteArray(Charsets.UTF_8)) ==
+            marker.getString("sha256") &&
+            V376CreatorInversePolicy.matchesPendingBeforeState(
+                expected, reader.creatorFingerprintFromNativeOriginal(raw, frames),
+            )) {
+            "Native Creator journal is not the exact approved original inverse"
+        }
+        return raw
+    }
+
+    /**
      * Fsync the witness BEFORE asking the native Creator import to prepare
      * pending.json. No existing/torn witness can be replaced, even after
      * process restart. A crash after mkdir is deliberately blocking.
