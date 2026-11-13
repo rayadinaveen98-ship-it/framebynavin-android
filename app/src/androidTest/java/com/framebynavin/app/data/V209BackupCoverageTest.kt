@@ -31,6 +31,7 @@ class V209BackupCoverageTest {
         val original = core.createBackup()
         val id = "v209-coverage-${UUID.randomUUID()}"
         val externalUri = "content://com.example.v209.invalid/owner-media-${UUID.randomUUID()}.mp4"
+        val localSound = "content://com.example.v209.invalid/owner-alarm-${UUID.randomUUID()}.mp3"
         try {
             val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
             val imageBytes = ByteArrayOutputStream().use { output ->
@@ -52,6 +53,7 @@ class V209BackupCoverageTest {
                 platform = "YouTube",
                 contentType = "Long-form",
                 dueLabel = "Tomorrow",
+                alarmSoundUri = localSound,
                 workspace = CreatorContentWorkspace(
                     assets = listOf(CreatorProjectAsset(
                         label = "Source footage",
@@ -68,6 +70,7 @@ class V209BackupCoverageTest {
             assertTrue(preview.personalFramesIncluded)
             assertEquals(1, preview.personalFrameCount)
             assertTrue(preview.externalProjectAssetCount >= 1)
+            assertTrue(preview.deviceOnlyAlarmSoundReferenceCount >= 1)
 
             val entries = mutableListOf<String>()
             var backedUpJson = ""
@@ -82,6 +85,10 @@ class V209BackupCoverageTest {
             // A URI is stored as a reference but no project attachment file is embedded.
             assertTrue(entries.contains("backlot.json"))
             assertFalse(entries.any { it.startsWith("project_assets/") })
+            // An Android picked custom alarm URI is not an included recording.
+            assertFalse(entries.any {
+                it.startsWith("alarm_sounds/") || it.startsWith("custom_ringtones/")
+            })
             // Core JSON nests serialized project JSON as a string. Its escaped
             // representation is not the URI itself; compare the decoded value.
             val backupRoot = JSONObject(backedUpJson)
@@ -92,6 +99,7 @@ class V209BackupCoverageTest {
             val savedAssetLocation = restoredProjectJson.getJSONObject("workspace")
                 .getJSONArray("assets").getJSONObject(0).getString("location")
             assertEquals(externalUri, savedAssetLocation)
+            assertEquals(localSound, restoredProjectJson.getString("alarmSoundUri"))
             assertTrue(entries.contains("best_frames/frame-0.img"))
             assertTrue(entries.contains("best_frames.tsv"))
             val packedFrames = JSONObject(backupRoot.getString("personalFrames"))
