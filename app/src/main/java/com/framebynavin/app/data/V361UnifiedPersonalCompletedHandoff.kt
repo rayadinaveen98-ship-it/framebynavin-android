@@ -114,6 +114,14 @@ internal class V361UnifiedPersonalCompletedHandoff(context: Context) {
                 "differ from the fully authenticated v2 merged target"
         }
 
+        // The only eligible native state is still ARCHIVED and exactly
+        // bound to this transaction. A newly active, missing or substituted
+        // v2 journal cannot be treated as a successfully completed import.
+        check(native.inspectReadOnly() == nativeState &&
+            h4.requireCheckpointReadOnly() == expected) {
+            "Native Personal recovery evidence changed after live verification"
+        }
+
         // Reconfirm immutable native journal history and the owner's
         // recovery direction INSIDE H4's serialized journal advancement.
         val advanced = h4.checkpoint(
