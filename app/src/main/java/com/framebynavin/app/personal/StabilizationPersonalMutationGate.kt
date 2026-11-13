@@ -285,8 +285,12 @@ internal object StabilizationPersonalMutationGate {
         val inverse = currentCoroutineContext()[CombinedPersonalOriginalReversePermit]
         if (inverse != null) {
             check(inverse.active &&
-                inverse.expected.step ==
-                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+                inverse.expected.step in setOf(
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL,
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.VERIFYING_BOTH,
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BOTH_VERIFIED,
+                ) &&
                 Phase1V2OriginalReverseJournal(context).inspect()?.let {
                     it.combinedId == inverse.initial.combinedId &&
                     it.combinedDigest == inverse.initial.combinedDigest &&
@@ -514,9 +518,13 @@ internal object StabilizationPersonalMutationGate {
         action: suspend () -> T,
     ): T {
         require(ownerConfirmed &&
-            expected.step ==
-                com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL) {
-            "Personal rollback requires explicit owner approval at BEFORE_PERSONAL"
+            expected.step in setOf(
+                com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL,
+                com.framebynavin.app.data.V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+                com.framebynavin.app.data.V344UnifiedRestoreStep.VERIFYING_BOTH,
+                com.framebynavin.app.data.V344UnifiedRestoreStep.BOTH_VERIFIED,
+            )) {
+            "Personal rollback requires owner approval at a verified Personal stage"
         }
         val root = journalRootFor(context).absoluteFile.normalize().path
         val inspection = currentCoroutineContext()[CombinedReadInspectionPermit]
@@ -1027,8 +1035,12 @@ internal object StabilizationPersonalMutationGate {
         val inverse = currentCoroutineContext()[CombinedPersonalOriginalReversePermit]
         if (inverse != null) {
             check(inverse.active && inverse.root == path &&
-                inverse.expected.step ==
-                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+                inverse.expected.step in setOf(
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL,
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.VERIFYING_BOTH,
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BOTH_VERIFIED,
+                ) &&
                 com.framebynavin.app.data.V344UnifiedRestoreJournal(
                     inverse.app,
                 ).requireCheckpointReadOnly() == inverse.expected &&
