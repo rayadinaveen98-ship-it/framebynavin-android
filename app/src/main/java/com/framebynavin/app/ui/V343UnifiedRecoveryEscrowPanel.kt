@@ -33,6 +33,7 @@ import com.framebynavin.app.data.V343UnifiedRecoveryEscrow
 import com.framebynavin.app.data.V344UnifiedRestorePrecommit
 import com.framebynavin.app.data.V344UnifiedRecoveryInspector
 import com.framebynavin.app.data.V344UnifiedRecoveryCopy
+import com.framebynavin.app.data.V346UnifiedInterruptedRecoveryReview
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -57,6 +58,7 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
     val escrow = remember(context) { V343UnifiedRecoveryEscrow(context) }
     val precommit = remember(context) { V344UnifiedRestorePrecommit(context) }
     val recoveryInspector = remember(context) { V344UnifiedRecoveryInspector(context) }
+    val interruptedVerifier = remember(context) { V346UnifiedInterruptedRecoveryReview(context) }
     val scope = rememberCoroutineScope()
     var opened by remember { mutableStateOf(false) }
     var ownerPassword by remember { mutableStateOf("") }
@@ -193,7 +195,8 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                         modifier = Modifier.fillMaxWidth().testTag("v343-escrow-create"),
                     ) { Text("KEEP VERIFIED ORIGINAL COPY · NO RESTORE") }
                 }
-                if (status is V343UnifiedRecoveryEscrow.Status.BaselineRetained) {
+                if (status is V343UnifiedRecoveryEscrow.Status.BaselineRetained &&
+                    combinedRecovery !is V344UnifiedRecoveryInspector.Assessment.OwnerReview) {
                     OutlinedButton(
                         enabled = !loading && ownerPassword.length >= 12,
                         onClick = {
@@ -227,6 +230,49 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                         },
                         modifier = Modifier.fillMaxWidth().testTag("v343-escrow-review"),
                     ) { Text("REAUTHENTICATE BOTH COPIES · NO WRITE") }
+                }
+                if (combinedRecovery is
+                    V344UnifiedRecoveryInspector.Assessment.OwnerReview) {
+                    OutlinedButton(
+                        enabled = !loading && ownerPassword.length >= 12,
+                        onClick = {
+                            val secret = ownerPassword.toCharArray()
+                            ownerPassword = ""
+                            scope.launch {
+                                loading = true
+                                try {
+                                    val proof = withContext(Dispatchers.IO) {
+                                        interruptedVerifier.inspect(
+                                            ownerConfirmedReview = true,
+                                            passphrase = secret,
+                                        )
+                                    }
+                                    error = false
+                                    notice = "Both sealed Creator and Personal archive copies " +
+                                        "were authenticated for the interrupted " +
+                                        "${proof.journal.step.name} checkpoint. " +
+                                        "Actual live records may be partially changed; " +
+                                        "resume and rollback remain disabled."
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    error = true
+                                    notice = "The interrupted recovery journal or sealed " +
+                                        "source copies failed authentication. Both " +
+                                        "original and target remain protected; " +
+                                        "no live data was changed."
+                                } finally {
+                                    secret.fill('\u0000')
+                                    refresh()
+                                    loading = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("v346-interrupted-recovery-verify"),
+                    ) {
+                        Text("VERIFY INTERRUPTED RECOVERY FILES · NO WRITE")
+                    }
                 }
                 if (status != null && status != V343UnifiedRecoveryEscrow.Status.None) {
                     OutlinedButton(
