@@ -58,6 +58,7 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         // Optional follow-up preferences must NEVER break the core reminder scheduler.
         val followUpSettings = runCatching { followUps.current() }
             .getOrDefault(PersonalFollowUpSettings())
+        val unscheduled = mutableListOf<String>()
         store.load().forEach { original ->
             if (original.paused) {
                 cancelPending(original.id)
@@ -146,7 +147,14 @@ internal class PersonalDeliveryCoordinator(context: Context) {
                     )
                 }.first { it.id == record.id }
             }
-            if (record.presentedToken.isBlank()) arm(record)
+            if (record.presentedToken.isBlank() && !arm(record)) {
+                unscheduled.add(record.id)
+            }
+        }
+        // Each reminder has been attempted: one failure must not starve the
+        // other 3+ alarms. The caller can still queue a deferred repair.
+        check(unscheduled.isEmpty()) {
+            "Android did not accept ${unscheduled.size} Personal alarm(s)."
         }
     }
 
@@ -257,28 +265,31 @@ internal class PersonalDeliveryCoordinator(context: Context) {
         }
     }
 
-    private fun arm(reminder: PersonalReminder) {
+    private fun arm(reminder: PersonalReminder): Boolean {
         val intent = fireIntent(
             reminder.id,
             reminder.pendingOccurrenceMillis,
             reminder.pendingFireAtMillis,
             reminder.pendingToken,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        ) ?: return
+        ) ?: return false
         val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
         val time = reminder.pendingFireAtMillis
         // When exact permission is missing Android may deliver this late.
         // Never claim precise or ringing Voice/Alarm presentation as a result.
-        runCatching {
+        val scheduled = runCatching {
             if (exact) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, time, intent)
             else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, time, intent)
-        }.onFailure {
-            android.util.Log.w("BacklotPersonal", "Could not schedule personal occurrence", it)
-        }
-        // Independent best-effort watchdog: a posted notification needs an
-        // expiration wakeup even if the app is not opened for days. Android may
-        // defer this in Doze; reconcile remains idempotent on eventual delivery.
+        }.fold(
+            onSuccess = { true },
+            onFailure = {
+                android.util.Log.w("BacklotPersonal", "Could not schedule personal occurrence", it)
+                false
+            },
+        )
+        // A best-effort recovery watchdog is separate from the actual alarm.
         armRecovery(reminder)
+        return scheduled
     }
 
     private fun armRecovery(reminder: PersonalReminder) {
@@ -481,8 +492,22 @@ internal class PersonalDeliveryCoordinator(context: Context) {
             PersonalPlaybackService.stopMatching(id, token)
             cancelPending(id)
             PersonalReminderNotifications.cancel(app, id)
-            reconcile(nowMillis)
-            V224WidgetUpdater.refresh(app)
+            // The owner response is already durable. Android registration or
+            // widget failure must never cause a "Snooze was not saved" error.
+            runCatching { reconcile(nowMillis) }.onFailure { error ->
+                android.util.Log.w("BacklotPersonal",
+                    "Response saved; post-commit alarm re-arm needs attention", error)
+                runCatching { PersonalSnoozeRearmSafetyNet.enqueue(app) }
+                    .onFailure {
+                        android.util.Log.w("BacklotPersonal",
+                            "Could not enqueue immediate Personal re-arm retry", it)
+                    }
+            }
+            runCatching { V224WidgetUpdater.refresh(app) }
+                .onFailure {
+                    android.util.Log.w("BacklotPersonal",
+                        "Response saved; widget refresh needs attention", it)
+                }
         }
         return result
     }
