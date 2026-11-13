@@ -165,6 +165,15 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
 
         val beforePersonal = inspectOriginalPersonal()
         val first = native.inspectReadOnly()
+        check(V368CrossDomainOriginalPolicy.canReverseBeforePersonal(
+            checkpoint = expected,
+            decision = direction,
+            native = first,
+            voice = voice,
+            originalPersonalFingerprint = beforePersonal,
+        )) {
+            "Creator or Personal original rollback evidence is stale or incomplete"
+        }
         val nativeRewound = when (first) {
             is V364UnifiedCreatorPendingRecoveryProof.Assessment.BoundOriginal -> {
                 restoreOriginalNativeInternalOnly(
@@ -396,4 +405,39 @@ internal data class V368CrossDomainOriginalReceipt(
     val mayReleaseH4OrEscrow: Boolean get() = false
     val mayEnableAlarms: Boolean get() = false
     val mayClaimRestoredToOwner: Boolean get() = false
+}
+
+
+/**
+ * Task 3: this is the ONLY H4 stage where Personal can be proven unchanged
+ * without running an inverse Personal writer. An interrupted Creator restore
+ * must have a bound original native marker OR an immutable pre-native Voice
+ * allocation; an invalid or unrelated journal is never considered original.
+ */
+internal object V368CrossDomainOriginalPolicy {
+    fun canReverseBeforePersonal(
+        checkpoint: V344UnifiedRestoreCheckpoint,
+        decision: V347OwnerRecoveryDecision,
+        native: V364UnifiedCreatorPendingRecoveryProof.Assessment,
+        voice: V366CreatorVoiceRecoveryProof,
+        originalPersonalFingerprint: String,
+    ): Boolean =
+        checkpoint.step == V344UnifiedRestoreStep.BEFORE_CREATOR &&
+            decision.choice == V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(decision, checkpoint) &&
+            originalPersonalFingerprint == checkpoint.personalOriginalSha256 &&
+            voice.transactionId == checkpoint.transactionId &&
+            voice.originalMediaAuthenticated && voice.targetAllocationAuthenticated &&
+            voice.noMutationAuthority &&
+            when (native) {
+                is V364UnifiedCreatorPendingRecoveryProof.Assessment.BoundOriginal ->
+                    native.combinedTransactionId == checkpoint.transactionId &&
+                        native.originalCreatorFingerprint ==
+                            checkpoint.creatorOriginalSha256 &&
+                        native.voice == voice.installedCopies
+                is V364UnifiedCreatorPendingRecoveryProof.Assessment
+                    .VoiceAllocatedBeforeNativeCreatorJournal ->
+                    native.voice == voice.installedCopies
+                else -> false
+            }
 }
