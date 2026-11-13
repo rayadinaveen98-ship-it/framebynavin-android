@@ -154,6 +154,9 @@ internal class V342UnifiedRestorePreparationStore(
      */
     suspend fun discard(ownerConfirmed: Boolean): Boolean = withContext(Dispatchers.IO) {
         require(ownerConfirmed) { "Owner consent required to discard preparation" }
+        check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+            "A cross-domain journal is present: the selected target is recovery evidence"
+        }
         lock.lock()
         try {
             if (!Files.exists(root.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
