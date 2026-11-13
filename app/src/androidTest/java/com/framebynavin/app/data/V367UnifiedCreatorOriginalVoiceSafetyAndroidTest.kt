@@ -105,4 +105,34 @@ class V367UnifiedCreatorOriginalVoiceSafetyAndroidTest {
             root.deleteRecursively()
         }
     }
+
+    @Test fun canonicalOwnedTargetReachedThroughSymlinkIsStillRejected() {
+        val root = File(device.filesDir, "v367-original-voice-" + UUID.randomUUID())
+        assertTrue(root.mkdir())
+        try {
+            val context = isolated(root)
+            val folder = File(root, "voice_ideas")
+            assertTrue(folder.mkdir())
+            val original = File(folder, "voice_idea_" + UUID.randomUUID() + ".m4a")
+            original.writeText("symlink-preflight-synthetic-media")
+            val alias = File(folder, "voice_idea_" + UUID.randomUUID() + ".m4a")
+            java.nio.file.Files.createSymbolicLink(
+                alias.toPath(), original.toPath(),
+            )
+            val expected = mapOf("a" to V366VoiceBytes(
+                original.length(), sha(original.readBytes()),
+            ))
+            val json = JSONArray().put(JSONObject()
+                .put("id", "a").put("audioLocalPath", alias.absolutePath))
+                .toString()
+            val reader = V367UnifiedCreatorOriginalVoiceSafety(context)
+            assertTrue(runCatching {
+                reader.inspectOriginalIdeaReferencesReadOnly(json, expected, folder)
+            }.isFailure)
+            assertTrue(original.isFile)
+            assertTrue(java.nio.file.Files.isSymbolicLink(alias.toPath()))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
 }
