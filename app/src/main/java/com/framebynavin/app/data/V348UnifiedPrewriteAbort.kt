@@ -81,12 +81,10 @@ internal class V348UnifiedPrewriteAbort(
         gate.lock()
         try {
             val checkpoint = journal.requireCheckpointReadOnly()
-            check(checkpoint.step == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
-                V346InterruptedRecoveryProofPolicy.matches(proof, checkpoint)) {
-                "An incomplete or already-started restore cannot be discarded"
-            }
-            check(!hasCompetingDomainJournal()) {
-                "Another Creator or Personal restore has a pending journal"
+            check(V348PrewriteAbortPolicy.isSafeToArchive(
+                proof, checkpoint, hasCompetingDomainJournal(),
+            )) {
+                "An incomplete, unsafe or already-started restore cannot be cancelled"
             }
             requireStrictPaths()
             val destination = File(historyRoot, "${checkpoint.transactionId}-aborted")
@@ -177,4 +175,21 @@ internal data class V348PrewriteAbortReceipt(
             runCatching { UUID.fromString(transactionId).toString() == transactionId }
                 .getOrDefault(false)) { "Only authentic unwritten recovery is abortable" }
     }
+}
+
+/**
+ * Pure evidence rule. The archive step accepts only an authenticated,
+ * unchanged PREPARED checkpoint; even a BEFORE_CREATOR marker is too late.
+ */
+internal object V348PrewriteAbortPolicy {
+    fun isSafeToArchive(
+        proof: V346InterruptedRecoveryProof,
+        current: V344UnifiedRestoreCheckpoint,
+        competingDomainJournal: Boolean,
+    ): Boolean =
+        !competingDomainJournal &&
+            current.step == V344UnifiedRestoreStep.PREPARED_NO_WRITES &&
+            V346InterruptedRecoveryProofPolicy.matches(proof, current) &&
+            !proof.creatorStandaloneRecoveryMarker &&
+            !proof.personalStandaloneRecoveryMarker
 }
