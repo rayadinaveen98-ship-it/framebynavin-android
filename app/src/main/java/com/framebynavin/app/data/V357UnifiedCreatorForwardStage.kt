@@ -101,6 +101,9 @@ internal class V357UnifiedCreatorForwardStage(context: Context) {
                             originalCheckpoint,
                             V344UnifiedRestoreStep.BEFORE_CREATOR,
                             nextStamp(originalCheckpoint.updatedAtMillis),
+                            otherRecoveryPending = {
+                                V347OwnerRecoveryDecisionJournal.hasPendingFor(app)
+                            },
                         )
                         val result = CreatorDataGate.withJournalBoundCreatorWrite(
                             app, beforeCreator, ownerConfirmed = true,
