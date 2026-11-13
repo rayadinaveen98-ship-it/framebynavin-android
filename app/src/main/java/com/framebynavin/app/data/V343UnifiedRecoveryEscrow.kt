@@ -280,14 +280,15 @@ internal class V343UnifiedRecoveryEscrow(
             !rollback.isFile || Files.isSymbolicLink(rollback.toPath()) ||
             !journal.isFile || Files.isSymbolicLink(journal.toPath()) ||
             journal.length() !in 1..4096L) return null
-        val permitted = setOf(
-            ROLLBACK_NAME, JOURNAL_NAME, "$JOURNAL_NAME.bak",
-        )
+        // Never auto-promote a torn AtomicFile .bak checkpoint while reading;
+        // preserve it for explicit owner recovery inspection.
+        val permitted = setOf(ROLLBACK_NAME, JOURNAL_NAME)
         val children = root.listFiles() ?: return null
-        if (children.any { !it.isFile || Files.isSymbolicLink(it.toPath()) ||
-            it.name !in permitted }) return null
+        if (children.size != 2 ||
+            children.any { !it.isFile || Files.isSymbolicLink(it.toPath()) ||
+                it.name !in permitted }) return null
         val record = V343UnifiedRecoveryCodec.decode(
-            AtomicFile(journal).openRead().use { it.readBytes() }
+            journal.inputStream().use { it.readBytes() }
         )
         if (rollback.length() != record.rollbackBytes) return null
         if (sha256File(rollback) != record.rollbackSha256) return null
