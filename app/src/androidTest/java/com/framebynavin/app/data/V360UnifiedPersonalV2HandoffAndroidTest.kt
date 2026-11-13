@@ -266,4 +266,45 @@ class V360UnifiedPersonalV2HandoffAndroidTest {
             )
         } finally { p.root.deleteRecursively() }
     }
+
+    @Test fun noHandoffWithNoNativePersonalEvidenceIsReadOnlyOriginalCandidate() =
+        runBlocking {
+            val root = File(app.filesDir, "v360-no-handoff-" + UUID.randomUUID())
+            assertTrue(root.mkdir())
+            try {
+                val context = fake(root)
+                combinedBeforePersonal(context)
+                assertEquals(
+                    V360UnifiedPersonalV2RecoveryInspector.Assessment.NoHandoff,
+                    V360UnifiedPersonalV2RecoveryInspector(context).inspectReadOnly(),
+                )
+                assertFalse(V359UnifiedPersonalV2HandoffJournal(context)
+                    .hasBlockingEvidence())
+            } finally { root.deleteRecursively() }
+        }
+
+    @Test fun orphanNativePersonalEvidenceWithoutHandoffNeverCountsAsUnwritten() =
+        runBlocking {
+            listOf(
+                "backlot-personal-active-restore-transaction",
+                Phase1V2RecoveryRoots.ACTIVE_NAME,
+                "backlot-personal-v2-encrypted-transactions",
+                "backlot-personal-v2-completed-journals",
+            ).forEach { orphanName ->
+                val root = File(app.filesDir, "v360-no-handoff-" + UUID.randomUUID())
+                assertTrue(root.mkdir())
+                try {
+                    val context = fake(root)
+                    combinedBeforePersonal(context)
+                    assertTrue(File(root, orphanName).mkdir())
+                    assertEquals(
+                        V360UnifiedPersonalV2RecoveryInspector.Assessment
+                            .UnreadableOrContradictory,
+                        V360UnifiedPersonalV2RecoveryInspector(context).inspectReadOnly(),
+                    )
+                    assertTrue(File(root, orphanName).exists())
+                } finally { root.deleteRecursively() }
+            }
+        }
+
 }
