@@ -66,6 +66,8 @@ internal fun V2232PersonalReminderHub(
     onOpenActivity: () -> Unit = {},
     initialFocusReminderId: String? = null,
     initialFocusChallengeId: String? = null,
+    initialOpenSpaces: Boolean = false,
+    initialFocusSpaceId: String? = null,
 ) {
     val context = LocalContext.current
     val store = remember(context) { PersonalReminderStore(context) }
@@ -135,6 +137,14 @@ internal fun V2232PersonalReminderHub(
         }
     }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
+    // A Home Space link opens the very same owner workspace and retains the
+    // exact requested Space ID. No Creator workflow or reminder is touched.
+    LaunchedEffect(initialOpenSpaces, initialFocusSpaceId) {
+        if (initialOpenSpaces) {
+            personalPageName = "TODAY"
+            spacesOpen = true
+        }
+    }
     var challengesOpen by rememberSaveable { mutableStateOf(false) }
     var challengeFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(initialFocusChallengeId) {
@@ -774,6 +784,7 @@ internal fun V2232PersonalReminderHub(
     if (spacesOpen) {
         V289PersonalSpacesScreen(
             onClose = { spacesOpen = false },
+            initialSelectedSpaceId = if (initialOpenSpaces) initialFocusSpaceId else null,
             onEditReminder = { id ->
                 reminders.firstOrNull { it.id == id }?.let { reminder ->
                     editing = reminder
