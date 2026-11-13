@@ -299,15 +299,21 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                                     }
                                     error = false
                                     notice = "Live crash inventory at " +
-                                        "${report.checkpointStep.name}: Creator " +
-                                        "metadata " +
+                                        "${report.checkpointStep.name}: Creator metadata " +
                                         (if (report.creatorLiveMatchesOriginalMetadata)
                                             "matches original" else "differs from original") +
                                         "; Personal metadata " +
                                         (if (report.personalLiveMatchesOriginalMetadata)
                                             "matches original" else "differs from original") +
-                                        ". Space photo FILE BYTES remain unverified. " +
-                                        "Neither forward recovery nor rollback is enabled."
+                                        ". Current Space JPEG checksum matches: " +
+                                        "${report.livePhotoAudit.matchedBytes}/" +
+                                        "${report.livePhotoAudit.rows}, missing: " +
+                                        "${report.livePhotoAudit.missing}, changed: " +
+                                        "${report.livePhotoAudit.modified}, " +
+                                        "orphaned: ${report.livePhotoAudit.unreferenced}, " +
+                                        "unsafe: ${report.livePhotoAudit.unsafeOrUnverifiable}. " +
+                                        "Current JPEG checks DO NOT prove original-versus-target " +
+                                        "rollback safety. Restore and rollback remain disabled."
                                 } catch (cancelled: CancellationException) {
                                     throw cancelled
                                 } catch (_: Exception) {
