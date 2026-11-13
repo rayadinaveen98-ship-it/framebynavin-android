@@ -101,6 +101,10 @@ internal fun PTodayScreen(
     onHomeSlideshowRequestHandled: () -> Unit = {},
     companionAvatar: @Composable () -> Unit = {},
     homeHeaderOverflowMenu: Boolean = false,
+    // Optional on legacy/isolated Today previews. Live Home supplies the
+    // actual route into the original Personal Spaces owner workspace.
+    onOpenPersonalSpace: ((String?) -> Unit)? = null,
+    homeSpacesRevision: Int = 0,
 ) {
     // V222 pre-Play cold-start fix: CreatorViewModel.tasks is a mutableStateListOf.
     // The list object keeps its identity while DataStore loads projects into it,
@@ -271,6 +275,16 @@ internal fun PTodayScreen(
             // One tap opens the existing V157 Center with unchanged safe actions.
             Spacer(Modifier.height(12.dp))
             V219ReminderHomeEntry(tasks = tasks, onOpenHub = onViewAllReminders)
+
+            // Personal Spaces immediately follow the Reminder Hub. This is
+            // read-only Home data; Space editing stays inside Personal.
+            onOpenPersonalSpace?.let { openSpace ->
+                Spacer(Modifier.height(10.dp))
+                V340HomeSpacesEntry(
+                    onOpenSpaces = openSpace,
+                    refreshVersion = homeSpacesRevision,
+                )
+            }
 
             // Creator-only, unobtrusive progress strip after the actionable Up Next and Reminders.
             Spacer(Modifier.height(10.dp))
