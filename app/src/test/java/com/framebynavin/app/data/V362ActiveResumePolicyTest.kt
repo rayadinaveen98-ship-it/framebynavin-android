@@ -38,7 +38,9 @@ class V362ActiveResumePolicyTest {
             ),
             recoveryKind = V344UnifiedRestorePolicy.classify(j.step),
             creatorStandaloneRecoveryMarker = false,
-            personalStandaloneRecoveryMarker = false,
+            // The active native v2 Personal journal is EXPECTED to be
+            // pending. Its exact identity is checked by V359 + V360.
+            personalStandaloneRecoveryMarker = true,
         )
 
     private fun recipe() = V355UnifiedPersonalRecoveryRecipe(
@@ -108,7 +110,7 @@ class V362ActiveResumePolicyTest {
             target, active, mapping, true,
         ))
         assertFalse(V362ActiveResumePolicy.eligible(
-            j, selected.copy(personalStandaloneRecoveryMarker = true),
+            j, selected.copy(personalStandaloneRecoveryMarker = false),
             target, active, mapping, true,
         ))
     }
