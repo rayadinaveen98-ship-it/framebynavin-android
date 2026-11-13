@@ -282,6 +282,23 @@ internal object StabilizationPersonalMutationGate {
 
     /** Reject any direct restore domain call outside the journaled write scope. */
     internal suspend fun requireActiveRecovery(context: Context) {
+        val inverse = currentCoroutineContext()[CombinedPersonalOriginalReversePermit]
+        if (inverse != null) {
+            check(inverse.active &&
+                inverse.expected.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+                Phase1V2OriginalReverseJournal(context).inspect()?.let {
+                    it.combinedId == inverse.initial.combinedId &&
+                    it.combinedDigest == inverse.initial.combinedDigest &&
+                    it.ownerDecisionDigest == inverse.initial.ownerDecisionDigest &&
+                    it.nativeV2Id == inverse.initial.nativeV2Id &&
+                    it.originalDigest == inverse.initial.originalDigest &&
+                    it.targetDigest == inverse.initial.targetDigest
+                } == true) {
+                "Scoped original Personal rollback journal disappeared or changed"
+            }
+            return
+        }
         val root = journalRootFor(context)
         val path = root.absoluteFile.normalize().path
         val v2 = currentCoroutineContext()[V2RecoveryWritePermit]
@@ -470,6 +487,95 @@ internal object StabilizationPersonalMutationGate {
             active.root == journalRootFor(context).absoluteFile.normalize().path &&
             com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
                 .requireCheckpointReadOnly() == expected
+    }
+
+    /**
+     * Personal v2 ORIGINAL inverse: the owner already holds the Personal
+     * process mutex via withPendingCombinedReadInspection, plus the Creator
+     * read-only mutex; ONLY the durable reverse action journal grants the
+     * nested Personal store mutation. No Creator writes, normal UI writes,
+     * media cleanup, reminder scheduling or H4 release are permitted.
+     */
+    private class CombinedPersonalOriginalReversePermit(
+        val root: String,
+        val expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        val initial: Phase1V2ReverseRecord,
+        val app: Context,
+    ) : AbstractCoroutineContextElement(Key) {
+        @Volatile var active = true
+        companion object Key : CoroutineContext.Key<CombinedPersonalOriginalReversePermit>
+    }
+
+    internal suspend fun <T> withOwnerApprovedCombinedPersonalOriginalReverse(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+        originalRecord: Phase1V2ReverseRecord,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+            "Personal rollback requires explicit owner approval at BEFORE_PERSONAL"
+        }
+        val root = journalRootFor(context).absoluteFile.normalize().path
+        val inspection = currentCoroutineContext()[CombinedReadInspectionPermit]
+            ?: error("Original Personal rollback requires the outer Personal owner mutex")
+        check(inspection.active && inspection.root == root &&
+            inspection.expected == expected &&
+            currentCoroutineContext()[CombinedPersonalOriginalReversePermit] == null &&
+            currentCoroutineContext()[V2RecoveryWritePermit] == null &&
+            currentCoroutineContext()[RecoveryPermit] == null &&
+            com.framebynavin.app.data.CreatorDataGate
+                .isWithinPendingCombinedReadInspection(context, expected)) {
+            "Personal original inverse requires both exact read-locked domains"
+        }
+        val decision = (com.framebynavin.app.data
+            .V347OwnerRecoveryDecisionJournal(context).readOnlyStatus() as?
+            com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal.ReadState.Recorded
+            )?.choice ?: error("Missing intact original owner rollback direction")
+        check(decision.choice ==
+            com.framebynavin.app.data.V347OwnerRecoveryChoice.REQUEST_REVERSE_ORIGINAL &&
+            com.framebynavin.app.data.V347OwnerRecoveryDecisionPolicy.remainsBound(
+                decision, expected,
+            ) &&
+            originalRecord.combinedId == expected.transactionId &&
+            originalRecord.combinedDigest ==
+                com.framebynavin.app.data.V359PersonalV2HandoffCodec.sha256(
+                    com.framebynavin.app.data.V344UnifiedRestoreCheckpointCodec.encode(
+                        expected,
+                    ),
+                ) &&
+            originalRecord.ownerDecisionDigest ==
+                com.framebynavin.app.data.V359PersonalV2HandoffCodec.sha256(
+                    com.framebynavin.app.data.V347OwnerRecoveryDecisionCodec.encode(
+                        decision,
+                    ),
+                ) &&
+            Phase1V2OriginalReverseJournal(context).inspect() == originalRecord) {
+            "Durable inverse action journal differs from original owner consent/escrow"
+        }
+        val permit = CombinedPersonalOriginalReversePermit(
+            root, expected, originalRecord, context.applicationContext,
+        )
+        return try {
+            withContext(permit) {
+                val result = action()
+                check(com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+                    .requireCheckpointReadOnly() == expected &&
+                    com.framebynavin.app.data.CreatorDataGate
+                        .isWithinPendingCombinedReadInspection(context, expected) &&
+                    com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal(context)
+                        .readOnlyStatus() ==
+                        com.framebynavin.app.data.V347OwnerRecoveryDecisionJournal.ReadState
+                            .Recorded(decision)) {
+                    "Personal rollback changed H4 or owner direction"
+                }
+                result
+            }
+        } finally {
+            permit.active = false
+        }
     }
 
     /**
@@ -918,6 +1024,26 @@ internal object StabilizationPersonalMutationGate {
         root: File, ordinaryMutation: Boolean, action: suspend () -> T,
     ): T {
         val path = root.absoluteFile.normalize().path
+        val inverse = currentCoroutineContext()[CombinedPersonalOriginalReversePermit]
+        if (inverse != null) {
+            check(inverse.active && inverse.root == path &&
+                inverse.expected.step ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+                com.framebynavin.app.data.V344UnifiedRestoreJournal(
+                    inverse.app,
+                ).requireCheckpointReadOnly() == inverse.expected &&
+                Phase1V2OriginalReverseJournal(inverse.app).inspect()?.let {
+                    it.combinedId == inverse.initial.combinedId &&
+                    it.combinedDigest == inverse.initial.combinedDigest &&
+                    it.ownerDecisionDigest == inverse.initial.ownerDecisionDigest &&
+                    it.nativeV2Id == inverse.initial.nativeV2Id &&
+                    it.originalDigest == inverse.initial.originalDigest &&
+                    it.targetDigest == inverse.initial.targetDigest
+                } == true) {
+                "Personal reverse permit expired or owner recovery changed"
+            }
+            return action()
+        }
         val combinedResume = currentCoroutineContext()[CombinedPersonalV2ResumePermit]
         if (combinedResume != null) {
             check(combinedResume.active && combinedResume.root == path) {
