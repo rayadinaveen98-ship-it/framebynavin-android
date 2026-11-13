@@ -223,12 +223,14 @@ internal class PersonalReminderCommands(context: Context) {
     }
 
     suspend fun delete(id: String) {
-        // Stored record is removed first. A delivery racing before cancel then
-        // fails lookup and cannot post a valid notification.
-        store.delete(id)
-        delivery.cancelPending(id)
-        PersonalPlaybackService.stopForReminder(id)
-        PersonalReminderNotifications.cancel(app, id)
-        V224WidgetUpdater.refresh(app)
+        // Keep older Personal delete entry points on the same durable, audited
+        // path as the new list UI. Deletion remains idempotent if already absent.
+        val saved = store.load().firstOrNull { it.id == id } ?: return
+        val outcome = deleteManyReviewed(listOf(PersonalBulkDeletePolicy.ticket(saved)))
+        if (outcome.cleanupWarning != null) {
+            // Already removed from DataStore; callers must not retry as a
+            // "new" reminder operation or claim the delete never happened.
+            throw IllegalStateException(outcome.cleanupWarning)
+        }
     }
 }
