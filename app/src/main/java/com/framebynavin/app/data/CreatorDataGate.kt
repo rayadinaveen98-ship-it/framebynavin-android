@@ -107,7 +107,7 @@ object CreatorDataGate {
             "A combined Creator writer cannot inherit any existing Creator authority"
         }
         return withScopedRecoveryCreatorWrite(
-            context, expected, reverseCommittedOriginal = false, action,
+            context, expected, reverseCommittedOriginal = false, action = action,
         )
     }
 
@@ -132,6 +132,20 @@ object CreatorDataGate {
             .isWithinPendingCombinedReadInspection(context, expected)) {
             "Creator reverse-original requires the outer Personal recovery lock"
         }
+        // H4 CREATOR_WRITTEN means Personal's writer has never started.
+        // Unrelated or torn Personal recovery evidence is NOT an exception:
+        // no Creator rollback can run while a Personal v1/v2/handoff exists.
+        val legacy = com.framebynavin.app.personal
+            .StabilizationPersonalMutationGate.journalRootFor(context)
+        check(!Files.exists(legacy.toPath(), LinkOption.NOFOLLOW_LINKS) &&
+            !Files.exists(
+                com.framebynavin.app.personal.Phase1V2RecoveryRoots
+                    .alongsideLegacy(legacy).toPath(),
+                LinkOption.NOFOLLOW_LINKS,
+            ) &&
+            !V359UnifiedPersonalV2HandoffJournal(context).hasBlockingEvidence()) {
+            "A separate or already-started Personal restore blocks Creator-only reversal"
+        }
         val direction = (V347OwnerRecoveryDecisionJournal(context).readOnlyStatus() as?
             V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
             ?: error("No valid original rollback direction")
@@ -140,7 +154,7 @@ object CreatorDataGate {
             "Committed Creator rollback cannot use a forward or stale owner choice"
         }
         return withScopedRecoveryCreatorWrite(
-            context, expected, reverseCommittedOriginal = true, action,
+            context, expected, reverseCommittedOriginal = true, action = action,
         )
     }
 
