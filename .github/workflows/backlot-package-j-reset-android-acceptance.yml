@@ -99,18 +99,7 @@ jobs:
           ram-size: 3072M
           disable-animations: true
           emulator-boot-timeout: 900
-          script: |
-            set -eu
-            mkdir -p output/package-j-reset/device-results
-            adb install -r output/package-j-reset/app-debug.apk
-            adb install -r output/package-j-reset/app-debug-androidTest.apk
-            adb shell am instrument -w -r \
-              -e class com.framebynavin.app.ui.V383DeviceResetSafetyAndroidTest \
-              -e hardeningTestEnvironment ci-emulator \
-              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
-              | tee output/package-j-reset/device-results/RESET-SAFETY.log
-            ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|shortMsg=|Process crashed' output/package-j-reset/device-results/RESET-SAFETY.log
-            grep -Eq '^OK \([1-9][0-9]* tests?\)' output/package-j-reset/device-results/RESET-SAFETY.log
+          script: bash .github/scripts/backlot-j-reset-android15.sh
       - name: Save real emulator test evidence
         if: always()
         uses: actions/upload-artifact@v4
