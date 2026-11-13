@@ -266,6 +266,9 @@ internal class V343UnifiedRecoveryEscrow(
                     "A recovery journal may have live writes; do not erase its escrow"
                 }
             }
+            check(!V344UnifiedRestoreJournal.hasPendingFor(app)) {
+                "Combined recovery began while original escrow discard was being reviewed"
+            }
             files.forEach { require(it.delete()) { "Could not remove escrow file" } }
             require(root.delete()) { "Could not remove escrow directory" }
             true
