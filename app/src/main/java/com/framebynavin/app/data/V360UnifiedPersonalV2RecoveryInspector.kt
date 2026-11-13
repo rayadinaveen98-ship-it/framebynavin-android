@@ -69,7 +69,23 @@ internal class V360UnifiedPersonalV2RecoveryInspector(
         }
         val stored = binding.inspectReadOnly()
         if (stored == V359UnifiedPersonalV2HandoffJournal.Inspection.NotPrepared) {
-            return Assessment.NoHandoff
+            // Missing handoff does NOT prove that Personal never wrote.
+            // A crash before its fsynced handoff may leave native v2/v1
+            // journal or encrypted transaction directories; preserve every
+            // orphan as blocking evidence rather than claiming NoHandoff.
+            val legacy = StabilizationPersonalMutationGate.journalRootFor(app)
+            val active = Phase1V2RecoveryRoots.alongsideLegacy(legacy)
+            val transactions = File(
+                app.filesDir, "backlot-personal-v2-encrypted-transactions",
+            )
+            val finished = File(
+                app.filesDir, "backlot-personal-v2-completed-journals",
+            )
+            val unexpected = listOf(legacy, active, transactions, finished)
+                .any { Files.exists(it.toPath(), LinkOption.NOFOLLOW_LINKS) }
+            return if (!unexpected &&
+                cross.requireCheckpointReadOnly() == h4) Assessment.NoHandoff
+            else Assessment.UnreadableOrContradictory
         }
         val r = (stored as?
             V359UnifiedPersonalV2HandoffJournal.Inspection.Bound)?.handoff
