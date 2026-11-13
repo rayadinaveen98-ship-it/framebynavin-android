@@ -179,9 +179,20 @@ class MainActivity : ComponentActivity() {
             com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL,
         )
         if (action !in supported) return null
+        // A challenge notification uses a private, explicit "backlot-habit://open/<id>"
+        // URI. Pass the exact source ID through the existing in-memory navigation
+        // envelope; never interpret it as a CreatorTask.
+        val challengeId = if (
+            action == com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL &&
+            intent.data?.scheme == "backlot-habit" &&
+            intent.data?.host == "open"
+        ) intent.data?.lastPathSegment?.takeIf {
+            it.matches(Regex("[A-Za-z0-9_-]{1,100}"))
+        } else null
         return CreatorWidgetLaunch(
             action = action,
-            taskId = intent.getStringExtra(CreatorWidgetContract.EXTRA_TASK_ID).orEmpty(),
+            taskId = challengeId?.let { "challenge:" + it }
+                ?: intent.getStringExtra(CreatorWidgetContract.EXTRA_TASK_ID).orEmpty(),
             ideaId = intent.getStringExtra(CreatorWidgetContract.EXTRA_IDEA_ID).orEmpty(),
             ideaMode = intent.getStringExtra(CreatorWidgetContract.EXTRA_IDEA_MODE).orEmpty(),
         )
