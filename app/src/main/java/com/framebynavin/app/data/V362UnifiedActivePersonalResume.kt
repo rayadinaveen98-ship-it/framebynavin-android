@@ -60,10 +60,10 @@ internal class V362UnifiedActivePersonalResume(context: Context) {
             V359UnifiedPersonalV2HandoffJournal(app).inspectReadOnly() as?
                 V359UnifiedPersonalV2HandoffJournal.Inspection.Bound
         )?.handoff ?: error("Combined Personal handoff is missing or damaged")
-        check(V359PersonalV2HandoffCodec.matchesCombined(record, expected) &&
-            record.personalV2TransactionId == native.v2TransactionId &&
-            record.originalPersonalDigest == recipe.originalDigest &&
-            record.mergedPersonalDigest == recipe.mergedTargetDigest) {
+        check(V362ActiveResumePolicy.eligible(
+            expected, selected, recipe, native, record,
+            ownerConfirmedForwardRecovery,
+        )) {
             "The native Personal journal is not bound to the original selected transaction"
         }
 
@@ -163,4 +163,31 @@ internal data class V362ActivePersonalResumeReceipt(
     val canReleaseOriginalEscrow: Boolean get() = false
     val combinedRestoreComplete: Boolean get() = false
     val canRestartAlarms: Boolean get() = false
+}
+
+/**
+ * Pure source/owner handoff gate. This is NOT a writer token; actual native
+ * stage authorization remains in the Personal process mutex and the native
+ * encrypted-ZIP/record/photo forensics of the existing v2 recovery engine.
+ */
+internal object V362ActiveResumePolicy {
+    fun eligible(
+        h4: V344UnifiedRestoreCheckpoint,
+        ownerProof: V346InterruptedRecoveryProof,
+        recipe: V355UnifiedPersonalRecoveryRecipe,
+        native: V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2Active,
+        handoff: V359PersonalV2Handoff,
+        freshOwnerConsent: Boolean,
+    ): Boolean =
+        freshOwnerConsent &&
+            h4.step == V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+            V346InterruptedRecoveryProofPolicy.matches(ownerProof, h4) &&
+            !ownerProof.creatorStandaloneRecoveryMarker &&
+            !ownerProof.personalStandaloneRecoveryMarker &&
+            recipe.noMutationAuthority &&
+            recipe.allOriginalPhotoReferencesPreserved &&
+            V359PersonalV2HandoffCodec.matchesCombined(handoff, h4) &&
+            handoff.personalV2TransactionId == native.v2TransactionId &&
+            handoff.originalPersonalDigest == recipe.originalDigest &&
+            handoff.mergedPersonalDigest == recipe.mergedTargetDigest
 }
