@@ -75,15 +75,36 @@ class PortableCreatorBackupManager(context: Context) {
             if (frameCount == null) creatorBackup.validate(original)
             else creatorBackup.validatePortableCompact(original, frameCount)
             verifyArchiveVoiceReferences(staged)
-            if (!staged.isArchive) return creatorBackup.restore(original)
+            if (!staged.isArchive) {
+                check(!V344UnifiedRestoreJournal.hasPendingFor(appContext)) {
+                    "Combined Creator restore requires a portable media archive, not raw JSON"
+                }
+                return creatorBackup.restore(original)
+            }
 
-            val installed = installVoiceMedia(original, staged.mediaByIdeaId)
+            // A combined Creator restore may crash AFTER a Voice Idea copy but
+            // BEFORE CreatorBackupManager writes its native recovery journal.
+            // Reserve the entire immutable SHA-bound destination plan BEFORE
+            // copying a single byte. Standalone imports are unchanged.
+            val combinedPlan = if (V344UnifiedRestoreJournal.hasPendingFor(appContext)) {
+                V365UnifiedCreatorVoiceInstallJournal(appContext)
+                    .reserveForCurrentCreatorWriter(staged.mediaByIdeaId)
+            } else null
+            val installed = installVoiceMedia(
+                original, staged.mediaByIdeaId, combinedPlan,
+            )
             return try {
                 val rewritten = rewritePortableVoicePaths(original, installed, frameCount)
                 if (frameCount == null) creatorBackup.restore(rewritten)
                 else creatorBackup.restorePortableCompact(rewritten, staged.bestFrames)
             } catch (error: Throwable) {
-                installed.values.forEach { runCatching { it.delete() } }
+                // During combined H4 recovery, preserve planned files even
+                // after an in-process error. Original escrow and journal-bound
+                // media reconciliation (Task 2/3) must decide their fate.
+                // Existing standalone restore keeps its cleanup semantics.
+                if (combinedPlan == null) {
+                    installed.values.forEach { runCatching { it.delete() } }
+                }
                 throw error
             }
         } finally {
@@ -146,7 +167,11 @@ class PortableCreatorBackupManager(context: Context) {
         return result
     }
 
-    private fun installVoiceMedia(raw: String, stagedByIdeaId: Map<String, File>): Map<String, File> {
+    private fun installVoiceMedia(
+        raw: String,
+        stagedByIdeaId: Map<String, File>,
+        combinedPlan: V365VoiceCopyPlan? = null,
+    ): Map<String, File> {
         val ideas = JSONArray(JSONObject(raw).getString("ideas"))
         val expectedIds = buildSet {
             for (index in 0 until ideas.length()) {
@@ -159,10 +184,24 @@ class PortableCreatorBackupManager(context: Context) {
         require(stagedByIdeaId.keys.all { it in expectedIds }) { "Voice media does not match backup ideas" }
 
         val voiceDir = File(appContext.filesDir, VOICE_IDEA_DIRECTORY).apply { mkdirs() }.canonicalFile
+        require(voiceDir.parentFile == appContext.filesDir.canonicalFile &&
+            voiceDir.isDirectory && !java.nio.file.Files.isSymbolicLink(voiceDir.toPath())) {
+            "Voice Idea import directory is not an app-private regular folder"
+        }
+        val destinations = combinedPlan?.entries?.associate { it.ideaId to it.fileName }
+        require(destinations == null || destinations.keys == stagedByIdeaId.keys) {
+            "Durable Voice Idea allocation does not match the staged portable archive"
+        }
         val installed = linkedMapOf<String, File>()
         try {
             stagedByIdeaId.forEach { (ideaId, staged) ->
-                val destination = uniqueVoiceDestination(voiceDir)
+                val destination = if (destinations != null) {
+                    File(voiceDir, requireNotNull(destinations[ideaId]))
+                } else uniqueVoiceDestination(voiceDir)
+                check(!destination.exists() &&
+                    destination.canonicalFile.parentFile == voiceDir) {
+                    "Reserved Voice Idea path already contains owner data"
+                }
                 // Track the destination before any bytes are written so a partial write or a
                 // post-copy integrity failure is removed by the common rollback path below.
                 installed[ideaId] = destination
@@ -173,7 +212,11 @@ class PortableCreatorBackupManager(context: Context) {
             }
             return installed
         } catch (error: Throwable) {
-            installed.values.forEach { runCatching { it.delete() } }
+            // For an H4 restore preserve partial/complete copies together
+            // with V365's pre-copy manifest for owner-reviewed repair.
+            if (combinedPlan == null) {
+                installed.values.forEach { runCatching { it.delete() } }
+            }
             throw error
         }
     }
