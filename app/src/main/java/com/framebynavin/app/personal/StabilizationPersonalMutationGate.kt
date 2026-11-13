@@ -520,7 +520,11 @@ internal object StabilizationPersonalMutationGate {
      * callers must already hold withOwnerMutation around the full operation.
      */
     internal fun requireNoPendingRecovery(context: Context) {
-        ensureNoRecoveryJournal(journalRootFor(context))
+        val root = journalRootFor(context)
+        // Synchronous JPEG finalize/delete helpers must respect the SAME
+        // combined recovery marker as the asynchronous Room/data stores.
+        requireNoCombinedRestoreJournal(root)
+        ensureNoRecoveryJournal(root)
     }
 
     private fun ensureMatchingRecoveryJournal(
