@@ -4,12 +4,12 @@ import android.content.Context
 import android.util.AtomicFile
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FilterOutputStream
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.security.DigestOutputStream
 import java.security.MessageDigest
 import java.util.UUID
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
@@ -87,11 +87,13 @@ internal class V343UnifiedRecoveryEscrow(
             // Both verification and journal durability are required to advance.
             val digest = MessageDigest.getInstance("SHA-256")
             FileOutputStream(rollback).use { file ->
-                DigestOutputStream(file, digest).use { output ->
-                    manager.export(passphrase, output)
-                    output.flush()
-                    file.fd.sync()
+                // Canonical ZIP export closes its OutputStream. Keep our own
+                // file descriptor open until fsync has reached durable bytes.
+                val nonClosing = object : FilterOutputStream(file) {
+                    override fun close() { flush() }
                 }
+                manager.export(passphrase, DigestOutputStream(nonClosing, digest))
+                file.fd.sync()
             }
             val size = rollback.length()
             check(size in 1..MAX_ROLLBACK_BYTES) { "Owner rollback escrow is too large" }
@@ -229,10 +231,13 @@ internal class V343UnifiedRecoveryEscrow(
             // An interrupted/no-journal escrow may contain the ONLY original
             // owner snapshot; explicit discard of that partial file remains
             // allowed only while no future cross-domain commit exists.
-            val record = runCatching { readAndVerify() }.getOrNull()
-            require(record == null ||
-                record.state == V343UnifiedRecoveryState.ESCROW_VERIFIED_NO_WRITE) {
-                "A recovery journal may have live writes; do not erase its escrow"
+            if (journal.exists()) {
+                val record = requireNotNull(readAndVerify()) {
+                    "An unreadable recovery journal must never release escrow bytes"
+                }
+                require(record.state == V343UnifiedRecoveryState.ESCROW_VERIFIED_NO_WRITE) {
+                    "A recovery journal may have live writes; do not erase its escrow"
+                }
             }
             files.forEach { require(it.delete()) { "Could not remove escrow file" } }
             require(root.delete()) { "Could not remove escrow directory" }
