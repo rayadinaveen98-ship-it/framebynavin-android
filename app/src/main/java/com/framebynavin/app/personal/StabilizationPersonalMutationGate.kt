@@ -454,6 +454,25 @@ internal object StabilizationPersonalMutationGate {
     }
 
     /**
+     * Read-only outer Personal owner fence for a scoped ORIGINAL Creator
+     * rollback after H4 CREATOR_WRITTEN. Does not grant Personal writes.
+     * The Creator writer must separately verify both sealed archives and
+     * the exact reverse-original choice.
+     */
+    internal suspend fun isWithinPendingCombinedReadInspection(
+        context: Context,
+        expected: com.framebynavin.app.data.V344UnifiedRestoreCheckpoint,
+    ): Boolean {
+        val active = currentCoroutineContext()[CombinedReadInspectionPermit]
+            ?: return false
+        return active.active &&
+            active.expected == expected &&
+            active.root == journalRootFor(context).absoluteFile.normalize().path &&
+            com.framebynavin.app.data.V344UnifiedRestoreJournal(context)
+                .requireCheckpointReadOnly() == expected
+    }
+
+    /**
      * H3 exclusive PERSONAL fence while the authenticated CREATOR stage is
      * committed under a separate, exact BEFORE_CREATOR CreatorDataGate scope.
      *
