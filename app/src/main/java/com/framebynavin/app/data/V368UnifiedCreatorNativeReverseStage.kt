@@ -283,14 +283,19 @@ internal class V368UnifiedCreatorNativeReverseStage(context: Context) {
             "Original Creator rollback requires fresh owner consent and passphrase"
         }
         val expected = journal.requireCheckpointReadOnly()
-        require(expected.step == V344UnifiedRestoreStep.CREATOR_WRITTEN ||
-            expected.step == V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+        require(expected.step in setOf(
+            V344UnifiedRestoreStep.CREATOR_WRITTEN,
+            V344UnifiedRestoreStep.BEFORE_PERSONAL,
+            V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+            V344UnifiedRestoreStep.VERIFYING_BOTH,
+            V344UnifiedRestoreStep.BOTH_VERIFIED,
+        )) {
             "Creator reverse requires untouched or already-reversed Personal records"
         }
         // A previous Personal write MUST be independently reversed with its
         // own durable six-phase journal before a Creator record may change.
-        val personalReversal = if (expected.step ==
-            V344UnifiedRestoreStep.BEFORE_PERSONAL) {
+        val personalReversal = if (expected.step !=
+            V344UnifiedRestoreStep.CREATOR_WRITTEN) {
             val receipt = V374UnifiedPersonalOriginalRollbackInspector(app)
                 .inspectOwnerApproved(
                     ownerConfirmed = true, passphrase = passphrase,
