@@ -487,12 +487,15 @@ internal object StabilizationPersonalMutationGate {
         next: com.framebynavin.app.data.V344UnifiedRestoreStep,
         action: suspend () -> T,
     ): T {
-        val steps = com.framebynavin.app.data.V344UnifiedRestoreStep
         require(
-            (expected.step == steps.PERSONAL_WRITTEN &&
-                next == steps.VERIFYING_BOTH) ||
-            (expected.step == steps.VERIFYING_BOTH &&
-                next == steps.BOTH_VERIFIED)
+            (expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.PERSONAL_WRITTEN &&
+                next ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.VERIFYING_BOTH) ||
+            (expected.step ==
+                com.framebynavin.app.data.V344UnifiedRestoreStep.VERIFYING_BOTH &&
+                next ==
+                    com.framebynavin.app.data.V344UnifiedRestoreStep.BOTH_VERIFIED)
         ) {
             "Personal checkpoint fence accepts only verification steps"
         }
