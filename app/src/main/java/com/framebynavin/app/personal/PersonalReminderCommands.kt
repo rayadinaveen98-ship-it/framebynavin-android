@@ -153,11 +153,23 @@ internal class PersonalReminderCommands(context: Context) {
                 updatedAtMillis = System.currentTimeMillis(),
             )
         }
-        delivery.cancelPending(id)
-        PersonalPlaybackService.stopForReminder(id)
-        PersonalReminderNotifications.cancel(app, id)
-        delivery.reconcile()
-        V224WidgetUpdater.refresh(app)
+        // Store.update is durable. A later Android error must not be
+        // misreported to the user as an unsaved editor change.
+        try {
+            delivery.cancelPending(id)
+            PersonalPlaybackService.stopForReminder(id)
+            PersonalReminderNotifications.cancel(app, id)
+            delivery.reconcile()
+            V224WidgetUpdater.refresh(app)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            runCatching { PersonalSnoozeRearmSafetyNet.enqueue(app) }
+            throw IllegalStateException(
+                "Reminder edits saved, but Android alarm scheduling or cleanup needs attention. " +
+                    "Recovery has been requested.", failure,
+            )
+        }
     }
 
     suspend fun setPaused(id: String, paused: Boolean) {
@@ -177,11 +189,23 @@ internal class PersonalReminderCommands(context: Context) {
                 updatedAtMillis = System.currentTimeMillis(),
             )
         }
-        delivery.cancelPending(id)
-        PersonalPlaybackService.stopForReminder(id)
-        PersonalReminderNotifications.cancel(app, id)
-        if (!paused) delivery.reconcile()
-        V224WidgetUpdater.refresh(app)
+        // The pause state has already been committed. Retain it even if
+        // Android rejects the follow-up cancellation/resume re-arm.
+        try {
+            delivery.cancelPending(id)
+            PersonalPlaybackService.stopForReminder(id)
+            PersonalReminderNotifications.cancel(app, id)
+            if (!paused) delivery.reconcile()
+            V224WidgetUpdater.refresh(app)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            runCatching { PersonalSnoozeRearmSafetyNet.enqueue(app) }
+            throw IllegalStateException(
+                "Pause/resume saved, but Android alert cleanup or scheduling needs attention. " +
+                    "Recovery has been requested.", failure,
+            )
+        }
     }
 
     /**
