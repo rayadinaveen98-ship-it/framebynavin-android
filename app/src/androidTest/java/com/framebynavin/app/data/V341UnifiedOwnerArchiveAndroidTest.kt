@@ -63,7 +63,9 @@ class V341UnifiedOwnerArchiveAndroidTest {
 
     @Test fun truncatedEncryptedArchiveFailsClosed() {
         val bytes = archive("creator bytes".toByteArray(), "private journal".toByteArray())
-        val truncated = bytes.copyOf(bytes.size - 24)
+        // Cut into the authenticated body, not merely ZIP's optional central
+        // directory, which ZipInputStream deliberately does not consume.
+        val truncated = bytes.copyOf(bytes.size / 2)
         assertThrows(Exception::class.java) {
             V341UnifiedOwnerArchive.stageAndVerify(
                 ByteArrayInputStream(truncated), password, cache)
