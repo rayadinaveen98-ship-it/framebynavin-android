@@ -178,6 +178,44 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
         }
         val finished = StabilizationPersonalMutationGate
             .withPendingV2RecoveryInspection(app) { checkpoint ->
+                resumeInspectedV2(checkpoint, escrowPassphrase, selectedPassphrase)
+            }
+        runCatching {
+            PersonalDeliveryCoordinator(app).reconcile()
+            Phase1HabitAlarmScheduler(app).reconcile()
+        }
+        finished
+    }
+
+    /**
+     * Combined H4 recovery already holds the exclusive Personal v2 INSPECTION
+     * mutex and supplies its exact native checkpoint. Do not acquire the same
+     * process mutex a second time, and do not reschedule reminders before the
+     * combined transaction has been completely verified and released.
+     *
+     * This method is callable only by the separate H4-bound resume fence;
+     * the native v2 writer still enforces its authenticated forward-recovery
+     * permit, exact journals and media byte checks.
+     */
+    internal suspend fun resumeInspectedForCombined(
+        checkpoint: Phase1V2RestoreCheckpoint,
+        escrowPassphrase: CharArray,
+        selectedPassphrase: CharArray,
+    ): Finished {
+        require(escrowPassphrase.size >= 12 && selectedPassphrase.size >= 12) {
+            "Both Personal recovery passphrases must be authenticated again"
+        }
+        check(com.framebynavin.app.data.V344UnifiedRestoreJournal.hasPendingFor(app)) {
+            "Combined Personal resume requires an active owner recovery journal"
+        }
+        return resumeInspectedV2(checkpoint, escrowPassphrase, selectedPassphrase)
+    }
+
+    private suspend fun resumeInspectedV2(
+        checkpoint: Phase1V2RestoreCheckpoint,
+        escrowPassphrase: CharArray,
+        selectedPassphrase: CharArray,
+    ): Finished {
                 val dir = requireKnownTransactionDirectory(checkpoint.transactionId)
                 val originalFile = File(dir, "original-escrow-encrypted.zip")
                 val incomingFile = File(dir, "incoming-encrypted.zip")
@@ -226,12 +264,6 @@ internal class Phase1V2OwnerRestoreCoordinator(context: Context) {
                         )
                     }
                 }
-            }
-        runCatching {
-            PersonalDeliveryCoordinator(app).reconcile()
-            Phase1HabitAlarmScheduler(app).reconcile()
-        }
-        finished
     }
 
     /** Reapplying any BEFORE_* stage is idempotent; after WRITTEN skip it. */
