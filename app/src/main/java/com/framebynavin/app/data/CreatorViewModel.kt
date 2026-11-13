@@ -1151,6 +1151,10 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private fun scheduleTask(task: CreatorTask) = deferTaskEffect { scheduleTaskNow(task) }
 
     private fun scheduleTaskNow(task: CreatorTask) {
+        // A new owner schedule invalidates the previous optional audible
+        // retry as well as its normal alarm/Smart stage.
+        com.framebynavin.app.reminders.V283CreatorAutoRetry.cancel(
+            getApplication<Application>(), task.id)
         scheduler.cancel(task.id)
         smartScheduler.cancel(task.id)
         com.framebynavin.app.reminders.V179ReminderFollowUps.cancel(getApplication<Application>(), task.id)
@@ -1169,6 +1173,8 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
     private fun cancelTaskAlerts(taskId: String) = deferTaskEffect { cancelTaskAlertsNow(taskId) }
 
     private fun cancelTaskAlertsNow(taskId: String) {
+        com.framebynavin.app.reminders.V283CreatorAutoRetry.cancel(
+            getApplication<Application>(), taskId)
         scheduler.cancel(taskId)
         smartScheduler.cancel(taskId)
         com.framebynavin.app.reminders.V179ReminderFollowUps.cancel(getApplication<Application>(), taskId)
