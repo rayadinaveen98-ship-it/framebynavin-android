@@ -35,12 +35,108 @@ object CreatorDataGate {
         )
     }
 
-    private fun requireNoCombinedRestoreJournal() {
-        val path = unifiedRecoveryDirectory ?: return
-        check(!Files.exists(path.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-            "A Creator + Personal restore was interrupted. Ordinary Creator " +
-                "writes are paused until owner-approved recovery is available."
+    /**
+     * Only this private, short-lived Creator-only scope can cross a pending
+     * combined recovery journal. A BEFORE_CREATOR stage can represent a
+     * partially applied Creator restore, hence the exact journal must match
+     * every time a nested Creator transaction opens.
+     */
+    private class CombinedCreatorWritePermit(
+        val app: Context,
+        val expected: V344UnifiedRestoreCheckpoint,
+    ) : AbstractCoroutineContextElement(Key) {
+        companion object Key : CoroutineContext.Key<CombinedCreatorWritePermit>
+        @Volatile var active = false
+        @Volatile var owner: Job? = null
+    }
+
+    private suspend fun requireNoCombinedRestoreJournalUnlessScoped() {
+        val scope = currentCoroutineContext()[CombinedCreatorWritePermit]
+        val path = unifiedRecoveryDirectory
+        val pending = path != null &&
+            Files.exists(path.toPath(), LinkOption.NOFOLLOW_LINKS)
+        if (scope == null) {
+            check(!pending) {
+                "A combined Creator + Personal restore needs owner-reviewed recovery; " +
+                    "ordinary Creator transactions remain frozen"
+            }
+            return
         }
+        val context = currentCoroutineContext()
+        val transaction = context[Transaction]
+        check(pending && scope.active &&
+            scope.owner === context[Job] &&
+            transaction != null && transaction.state.active &&
+            transaction.owner === context[Job] &&
+            mutex.holdsLock(transaction.state.token) &&
+            scope.expected.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Expired or unrelated combined Creator recovery write authority"
+        }
+        check(V344UnifiedRestoreJournal(scope.app).requireCheckpointReadOnly() ==
+            scope.expected) {
+            "Combined recovery checkpoint changed; Creator writes must stop"
+        }
+    }
+
+    /**
+     * The only H3 Creator-only write window, RESERVED for a future fixed
+     * PortableCreatorBackupManager.restore(source) integration. It neither
+     * prepares a journal nor calls any restore itself. A caller must first
+     * authenticate BOTH owner archives and write BEFORE_CREATOR durably.
+     *
+     * Same mutex and Job ownership as ordinary Creator transactions, but
+     * ordinary unrelated coroutines cannot inherit this special authority.
+     * Personal's mutex must be held outside this call.
+     */
+    internal suspend fun <T> withJournalBoundCreatorWrite(
+        context: Context,
+        expected: V344UnifiedRestoreCheckpoint,
+        ownerConfirmed: Boolean,
+        action: suspend () -> T,
+    ): T {
+        require(ownerConfirmed &&
+            expected.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Creator recovery requires explicit consent at BEFORE_CREATOR"
+        }
+        check(currentCoroutineContext()[Transaction] == null &&
+            currentCoroutineContext()[CombinedReadInspection] == null &&
+            currentCoroutineContext()[CombinedCreatorWritePermit] == null) {
+            "A combined Creator writer cannot inherit any existing Creator authority"
+        }
+        val app = context.applicationContext
+        val scope = CombinedCreatorWritePermit(app, expected)
+        val state = State()
+        return mutex.withLock(state.token) {
+            check(V344UnifiedRestoreJournal(app).requireCheckpointReadOnly() == expected) {
+                "Creator restore checkpoint is no longer the owner-approved stage"
+            }
+            withContext(Transaction(state) + scope) {
+                val job = currentCoroutineContext()[Job]
+                val marker = currentCoroutineContext()[Transaction]!!
+                marker.owner = job
+                scope.owner = job
+                scope.active = true
+                state.active = true
+                try {
+                    requireNoCombinedRestoreJournalUnlessScoped()
+                    val result = action()
+                    requireNoCombinedRestoreJournalUnlessScoped()
+                    result
+                } finally {
+                    scope.active = false
+                    state.active = false
+                    scope.owner = null
+                }
+            }
+        }
+    }
+
+    /** For the existing Creator emergency rollback, not ordinary callers. */
+    internal suspend fun isJournalBoundCreatorWrite(context: Context): Boolean {
+        if (!V344UnifiedRestoreJournal.hasPendingFor(context)) return false
+        val scope = currentCoroutineContext()[CombinedCreatorWritePermit] ?: return false
+        requireNoCombinedRestoreJournalUnlessScoped()
+        return scope.app.filesDir == context.applicationContext.filesDir
     }
     private class State(val token: Any = Any()) {
         // The token is valid only while its outer transaction holds the mutex.
@@ -62,12 +158,12 @@ object CreatorDataGate {
             check(inherited.owner === context[Job]) {
                 "A child coroutine cannot inherit a writable transaction. Use a separate transaction after the parent finishes."
             }
-            requireNoCombinedRestoreJournal()
+            requireNoCombinedRestoreJournalUnlessScoped()
             return block()
         }
         val state = State()
         return mutex.withLock(state.token) {
-            requireNoCombinedRestoreJournal()
+            requireNoCombinedRestoreJournalUnlessScoped()
             withContext(Transaction(state)) {
                 val marker = currentCoroutineContext()[Transaction]!!
                 marker.owner = currentCoroutineContext()[Job]
@@ -133,9 +229,22 @@ object CreatorDataGate {
             return withContext(NonCancellable) { block() }
         }
         check(marker.owner === context[Job]) { "Rollback must be entered by the transaction owner." }
-        return withContext(NonCancellable + Transaction(marker.state)) {
-            currentCoroutineContext()[Transaction]!!.owner = currentCoroutineContext()[Job]
-            block()
+        val scope = context[CombinedCreatorWritePermit]
+        if (scope != null) {
+            check(scope.active && scope.owner === context[Job]) {
+                "Combined Creator rollback must be owned by the same recovery coroutine"
+            }
+        }
+        return try {
+            withContext(NonCancellable + Transaction(marker.state)) {
+                val rebound = currentCoroutineContext()[Job]
+                currentCoroutineContext()[Transaction]!!.owner = rebound
+                if (scope != null) scope.owner = rebound
+                block()
+            }
+        } finally {
+            marker.owner = context[Job]
+            if (scope != null) scope.owner = context[Job]
         }
     }
 
