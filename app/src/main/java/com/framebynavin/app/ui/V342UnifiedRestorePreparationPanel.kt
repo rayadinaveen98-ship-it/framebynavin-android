@@ -152,11 +152,12 @@ internal fun V342UnifiedRestorePreparationPanel() {
                         Text("No prepared restore source on this phone.",
                             color = MutedText, fontSize = 11.sp,
                             modifier = Modifier.testTag("v342-preparation-none"))
-                    is V342UnifiedRestorePreparationStore.Status.VerifiedSource ->
+                    is V342UnifiedRestorePreparationStore.Status.ChecksumMatched ->
                         Text(
-                            "Verified local encrypted source is retained (" +
-                                "${value.sizeBytes / 1024L} KiB). It cannot restore " +
-                                "records until a safe cross-domain recovery path exists.",
+                            "Stored encrypted source matches its saved checksum (" +
+                                "${value.sizeBytes / 1024L} KiB). Re-enter your " +
+                                "passphrase to authenticate its contents against today's " +
+                                "Personal records. No restore is enabled.",
                             color = ProjectorIvory, fontSize = 11.sp,
                             modifier = Modifier.testTag("v342-preparation-verified"),
                         )
@@ -190,7 +191,7 @@ internal fun V342UnifiedRestorePreparationPanel() {
                     onClick = { prepareConfirmation = true },
                     modifier = Modifier.fillMaxWidth().testTag("v342-prepare-file"),
                 ) { Text("PREPARE ENCRYPTED SOURCE · NO RESTORE") }
-                if (status is V342UnifiedRestorePreparationStore.Status.VerifiedSource) {
+                if (status is V342UnifiedRestorePreparationStore.Status.ChecksumMatched) {
                     OutlinedButton(
                         enabled = !loading && passphrase.length >= 12,
                         onClick = {
