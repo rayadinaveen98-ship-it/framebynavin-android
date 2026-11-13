@@ -491,6 +491,162 @@ internal class V372UnifiedCreatorShadowReplayCoordinator(context: Context) {
     }
 
     /**
+     * The native Creator pending.json still exists after a crash. Under a
+     * fresh FORWARD_TARGET owner choice we FIRST rewind native Creator data
+     * to the authenticated ORIGINAL, so the normal recovered forward import
+     * can subsequently run from a proven starting point.
+     *
+     * This deliberately does NOT import TARGET in the same operation:
+     * a crash immediately after rewinding remains a valid H4 BEFORE_CREATOR
+     * original-state checkpoint and V369 can safely review it. Target Voice
+     * files, partial/shadow copies, both encrypted ZIPs, V347 and V365 remain
+     * untouched. The native pending marker alone is cleared by the existing
+     * CreatorBackupManager recovery engine only after its own rollback.
+     */
+    internal suspend fun rewindInterruptedNativeCreatorForForwardInternalOnly(
+        freshOwnerConsent: Boolean,
+        passphrase: CharArray,
+    ): V368CreatorOriginalReverseReceipt = withContext(Dispatchers.IO) {
+        require(freshOwnerConsent && passphrase.size >= 12) {
+            "Native Creator recovery needs explicit owner consent and passphrase"
+        }
+        val cp = h4.requireCheckpointReadOnly()
+        check(cp.step == V344UnifiedRestoreStep.BEFORE_CREATOR) {
+            "Native Creator recovery requires interrupted BEFORE_CREATOR"
+        }
+        val proof = V346UnifiedInterruptedRecoveryReview(app).inspect(
+            ownerConfirmedReview = true, passphrase = passphrase,
+        )
+        val audio = V366UnifiedCreatorVoiceRecoveryInspector(app)
+            .inspectOwnerReviewed(ownerConfirmed = true, passphrase = passphrase)
+        val nativeOriginal = native.inspectReadOnly() as?
+            V364UnifiedCreatorPendingRecoveryProof.Assessment.BoundOriginal
+            ?: error("Native Creator original recovery proof is missing or torn")
+        val originalVoice = V367UnifiedCreatorOriginalVoiceSafety(app)
+            .inspectNativeOriginalReadOnly(nativeOriginal, audio)
+        val decision = (ownerDecision.readOnlyStatus() as?
+            V347OwnerRecoveryDecisionJournal.ReadState.Recorded)?.choice
+            ?: error("No intact owner-approved forward recovery direction")
+        check(proof.journal == cp &&
+            V346InterruptedRecoveryProofPolicy.matches(proof, cp) &&
+            proof.creatorStandaloneRecoveryMarker &&
+            !proof.personalStandaloneRecoveryMarker &&
+            nativeOriginal.combinedTransactionId == cp.transactionId &&
+            nativeOriginal.originalCreatorFingerprint == cp.creatorOriginalSha256 &&
+            nativeOriginal.voice == audio.installedCopies &&
+            originalVoice.verifiedOriginalVoiceCount == audio.originalMediaCount &&
+            decision.choice == V347OwnerRecoveryChoice.REQUEST_FORWARD_TARGET &&
+            V347OwnerRecoveryDecisionPolicy.remainsBound(decision, cp) &&
+            !IdeaProjectConversion(app).hasPendingRecovery()) {
+            "Native Creator rewind is not bound to the authenticated owner transaction"
+        }
+        val source = ownerFile(
+            "backlot-unified-owner-restore-preparation-v1",
+            "incoming-unified-encrypted.zip",
+        )
+        val rollback = ownerFile(
+            "backlot-unified-owner-recovery-escrow-v1",
+            "original-owner-encrypted-unified.zip",
+        )
+        check(sha256(source) == cp.sourceSha256 &&
+            sha256(rollback) == cp.escrowSha256) {
+            "Encrypted owner target/original escrow changed before native rewind"
+        }
+        val nativeFile = File(
+            File(app.filesDir, "creator_restore_recovery_v181"),
+            nativeOriginal.nativeOriginalFileName,
+        )
+        check(nativeFile.isFile && !Files.isSymbolicLink(nativeFile.toPath()) &&
+            nativeFile.canonicalFile.parentFile ==
+                File(app.filesDir, "creator_restore_recovery_v181").canonicalFile) {
+            "Untrusted native Creator original rollback source"
+        }
+        // V364 independently SHA-verifies these exact bytes against the H4
+        // original; do not trust a separately constructed source on faith.
+        val originalCreatorJson = nativeFile.readText()
+        val expectedOriginal = V343UnifiedBaselineReader(app)
+            .creatorFingerprintFromNativeOriginal(
+                originalCreatorJson,
+                CreatorHeroArchive.captureOriginalOrder(app).let { liveFrames ->
+                    // Native original frames may not currently be selected.
+                    // Only use the H4-bound original checkpoint from V364,
+                    // not the live, possibly TARGET slideshow pointer.
+                    val pending = File(nativeFile.parentFile, "pending.json")
+                    org.json.JSONObject(pending.readText()).getString("originalFrames")
+                },
+            )
+        check(expectedOriginal == cp.creatorOriginalSha256) {
+            "Native original Creator records/frames differ from encrypted owner baseline"
+        }
+        StabilizationPersonalMutationGate.withCombinedCreatorMissingVoiceFence(
+            app, cp, ownerConfirmed = true,
+        ) {
+            CreatorDataGate.withJournalBoundCreatorWrite(
+                app, cp, ownerConfirmed = true,
+            ) {
+                check(h4.requireCheckpointReadOnly() == cp &&
+                    ownerDecision.readOnlyStatus() ==
+                        V347OwnerRecoveryDecisionJournal.ReadState.Recorded(decision) &&
+                    native.inspectReadOnly() == nativeOriginal &&
+                    !IdeaProjectConversion(app).hasPendingRecovery()) {
+                    "Native Creator original changed before exclusive rollback"
+                }
+                val personal = V301LocalRecoveryReader(app)
+                    .readForInterruptedV2Recovery()
+                val before = V343UnifiedBaselineReader(app)
+                    .fingerprintUnverifiedInterrupted(originalCreatorJson, personal)
+                check(before.personalSha256 == cp.personalOriginalSha256 &&
+                    V354UnifiedLiveSpacePhotoAudit(app)
+                        .inspect(personal.photos).currentPhotoFilesMatchTheirLiveRows &&
+                    V367UnifiedCreatorOriginalVoiceSafety(app)
+                        .inspectNativeOriginalReadOnly(nativeOriginal, audio) ==
+                            originalVoice &&
+                    sha256(source) == cp.sourceSha256 &&
+                    sha256(rollback) == cp.escrowSha256) {
+                    "Original Personal, Creator Voice or encrypted source changed"
+                }
+                check(CreatorBackupManager(app).recoverPendingRestore()) {
+                    "Existing native Creator recovery did not restore its original"
+                }
+                val restoredJson = CreatorBackupManager(app)
+                    .createCloudBackupForUnifiedReadOnlyBaselineInsideOwnerGate()
+                val restoredPersonal = V301LocalRecoveryReader(app)
+                    .readForInterruptedV2Recovery()
+                val after = V343UnifiedBaselineReader(app)
+                    .fingerprintUnverifiedInterrupted(restoredJson, restoredPersonal)
+                check(after.creatorSha256 == cp.creatorOriginalSha256 &&
+                    after.personalSha256 == cp.personalOriginalSha256 &&
+                    V354UnifiedLiveSpacePhotoAudit(app)
+                        .inspect(restoredPersonal.photos).currentPhotoFilesMatchTheirLiveRows &&
+                    V367UnifiedCreatorOriginalVoiceSafety(app)
+                        .inspectOriginalIdeaReferencesReadOnly(
+                            ideasJson = org.json.JSONObject(restoredJson).getString("ideas"),
+                            expectedAudio = audio.originalMediaHashes,
+                            voiceDir = File(app.filesDir, "voice_ideas"),
+                        ).verifiedOriginalVoiceCount == audio.originalMediaCount &&
+                    h4.requireCheckpointReadOnly() == cp &&
+                    native.inspectReadOnly() is
+                        V364UnifiedCreatorPendingRecoveryProof.Assessment
+                            .VoiceAllocatedBeforeNativeCreatorJournal &&
+                    ownerDecision.readOnlyStatus() ==
+                        V347OwnerRecoveryDecisionJournal.ReadState.Recorded(decision) &&
+                    sha256(source) == cp.sourceSha256 &&
+                    sha256(rollback) == cp.escrowSha256) {
+                    "Native rewind did not reproduce the exact original Creator/Personal data"
+                }
+                V368CreatorOriginalReverseReceipt(
+                    transactionId = cp.transactionId,
+                    verifiedCreatorOriginalSha256 = after.creatorSha256,
+                    verifiedVoiceIdeaCount = audio.originalMediaCount,
+                    verifiedOriginalBestFrames =
+                        nativeOriginal.verifiedOriginalBestFrameCount,
+                    restoredNativeOriginal = true,
+                )
+            }
+        }
+    }
+
+    /**
      * Crash gap: native Creator import has already cleared pending.json but
      * H4 still says BEFORE_CREATOR. DO NOT re-import. After fresh owner
      * confirmation, verify the entire live TARGET plus ORIGINAL Personal,
