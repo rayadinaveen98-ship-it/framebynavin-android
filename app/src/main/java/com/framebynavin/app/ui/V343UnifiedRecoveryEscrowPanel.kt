@@ -312,8 +312,15 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
                                         "${report.livePhotoAudit.modified}, " +
                                         "orphaned: ${report.livePhotoAudit.unreferenced}, " +
                                         "unsafe: ${report.livePhotoAudit.unsafeOrUnverifiable}. " +
-                                        "Current JPEG checks DO NOT prove original-versus-target " +
-                                        "rollback safety. Restore and rollback remain disabled."
+                                        "Authenticated Personal merge: " +
+                                        "${report.intendedPersonalRecipe.incomingAdditions} " +
+                                        "potential additions, " +
+                                        "${report.intendedPersonalRecipe.newPhotoCount} new " +
+                                        "photo references, while preserving " +
+                                        "${report.intendedPersonalRecipe.originalPhotoCount} " +
+                                        "original photo references. Current JPEG checks DO NOT " +
+                                        "prove original-versus-target rollback safety. " +
+                                        "Restore and rollback remain disabled."
                                 } catch (cancelled: CancellationException) {
                                     throw cancelled
                                 } catch (_: Exception) {
