@@ -111,4 +111,40 @@ class V359UnifiedPersonalHandoffPolicyTest {
             receipt.copy(stage = V344UnifiedRestoreStep.BOTH_VERIFIED)
         }
     }
+
+    @Test fun archivedNativeInverseMayRemainBoundAcrossLaterH4StagesOnly() {
+        val before = h4()
+        val native = native().copy(
+            step = Phase1V2RestoreStep.VERIFYING,
+            updatedAtMillis = 1_900_000_000_050L,
+        )
+        val handoff = bound(before, native)
+        listOf(
+            V344UnifiedRestoreStep.PERSONAL_WRITTEN,
+            V344UnifiedRestoreStep.VERIFYING_BOTH,
+            V344UnifiedRestoreStep.BOTH_VERIFIED,
+        ).forEach { stage ->
+            val later = before.copy(
+                step = stage,
+                updatedAtMillis = 1_900_000_000_100L,
+            )
+            assertTrue(V359PersonalV2HandoffCodec.matchesCompletedCombined(
+                handoff, later,
+            ))
+            assertFalse(V359PersonalV2HandoffCodec.matchesCombined(handoff, later))
+            assertFalse(V359PersonalV2HandoffCodec.matchesCompletedCombined(
+                handoff, later.copy(sourceSha256 = "0".repeat(64)),
+            ))
+            assertFalse(V359PersonalV2HandoffCodec.matchesCompletedCombined(
+                handoff, later.copy(transactionId = UUID.randomUUID().toString()),
+            ))
+        }
+        assertFalse(V359PersonalV2HandoffCodec.matchesCompletedCombined(
+            handoff, before,
+        ))
+        assertFalse(V359PersonalV2HandoffCodec.matchesCompletedCombined(
+            handoff, before.copy(step = V344UnifiedRestoreStep.BEFORE_CREATOR),
+        ))
+    }
+
 }
