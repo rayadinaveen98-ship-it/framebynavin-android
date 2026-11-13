@@ -141,6 +141,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var activityCenterOpen by rememberSaveable { mutableStateOf(false) }
     var creatorActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     var personalActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
+    var personalChallengeFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
@@ -554,6 +555,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL -> {
                 overlay = POverlay.NONE
                 personalReminderSpace = true
+                personalActivityFocusId = null
+                personalChallengeFocusId = launch.taskId
+                    .takeIf { it.startsWith("challenge:") }
+                    ?.removePrefix("challenge:")
                 showReminders = true
             }
         }
@@ -972,11 +977,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 },
                 onOpenPersonal = {
                     personalActivityFocusId = null
+                    personalChallengeFocusId = null
                     activityCenterOpen = false
                     personalReminderSpace = true
                 },
                 onOpenPersonalItem = { id ->
                     personalActivityFocusId = id
+                    personalChallengeFocusId = null
                     activityCenterOpen = false
                     personalReminderSpace = true
                 },
@@ -985,11 +992,13 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             V2232PersonalReminderHub(
                 onClose = {
                     personalActivityFocusId = null
+                    personalChallengeFocusId = null
                     showReminders = false
                 },
                 onCreator = { personalReminderSpace = false },
                 onOpenActivity = { activityCenterOpen = true },
                 initialFocusReminderId = personalActivityFocusId,
+                initialFocusChallengeId = personalChallengeFocusId,
             )
         } else {
         V131ReminderCenter(
