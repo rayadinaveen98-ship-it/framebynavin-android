@@ -109,9 +109,15 @@ internal class V361UnifiedPersonalCompletedHandoff(context: Context) {
                     )
                 }
             }
-        check(localDigest == recipe.mergedTargetDigest) {
-            "Current Personal records, exact Done instants or private photos " +
-                "differ from the fully authenticated v2 merged target"
+        check(V361CompletedPersonalCheckpointPolicy.mayAdvance(
+            checkpoint = expected,
+            archived = nativeState,
+            recipe = recipe,
+            livePersonalDigest = localDigest,
+            ownerConfirmed = ownerConfirmedNoReplay,
+        )) {
+            "Authenticated archived Personal v2, owner approval and fully " +
+                "verified live Personal/photo target are not all aligned"
         }
 
         // The only eligible native state is still ARCHIVED and exactly
@@ -195,4 +201,28 @@ internal data class V361CompletedPersonalHandoffReceipt(
     val mayReleaseOriginalEscrow: Boolean get() = false
     val mayStartReminders: Boolean get() = false
     val combinedRestoreComplete: Boolean get() = false
+}
+
+/**
+ * Pure assessment, NOT a restore permission. The caller still must inspect
+ * both outer owner archives, two inner native v2 ZIPs, current exact Done
+ * receipts/Space-photo bytes and H4 checkpoint under their real locks.
+ */
+internal object V361CompletedPersonalCheckpointPolicy {
+    fun mayAdvance(
+        checkpoint: V344UnifiedRestoreCheckpoint,
+        archived:
+            V360UnifiedPersonalV2RecoveryInspector.Assessment.NativeV2CompletedAndArchived,
+        recipe: V355UnifiedPersonalRecoveryRecipe,
+        livePersonalDigest: String,
+        ownerConfirmed: Boolean,
+    ): Boolean =
+        ownerConfirmed &&
+            checkpoint.step == V344UnifiedRestoreStep.BEFORE_PERSONAL &&
+            recipe.noMutationAuthority &&
+            recipe.allOriginalPhotoReferencesPreserved &&
+            archived.originalDigest == recipe.originalDigest &&
+            archived.mergedDigest == recipe.mergedTargetDigest &&
+            livePersonalDigest == recipe.mergedTargetDigest &&
+            livePersonalDigest.matches(Regex("[0-9a-f]{64}"))
 }
