@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import org.junit.Assert.assertEquals
@@ -47,8 +48,8 @@ class V339HomeOverflowMenuUiTest {
         val trigger = rule.onNodeWithTag("v339-home-overflow-trigger")
         trigger.assertIsDisplayed()
         val bounds = trigger.getUnclippedBoundsInRoot()
-        assertTrue("Three-dot trigger is narrower than 48dp: $bounds", bounds.width >= 48.dp)
-        assertTrue("Three-dot trigger is shorter than 48dp: $bounds", bounds.height >= 48.dp)
+        assertTrue("Three-dot trigger is narrower than 48dp: $bounds", bounds.width.value >= 48f)
+        assertTrue("Three-dot trigger is shorter than 48dp: $bounds", bounds.height.value >= 48f)
         rule.onNodeWithTag("v2221-home-gallery").assertDoesNotExist()
         rule.onNodeWithTag("v339-home-action-indicator", useUnmergedTree = true).assertExists()
 
