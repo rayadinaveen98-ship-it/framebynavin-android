@@ -1,7 +1,7 @@
 package com.framebynavin.app.data
 
 import android.content.Context
-import com.framebynavin.app.widget.CreatorWidgetUpdater
+import com.framebynavin.app.widget.V392WidgetUpdater
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -87,7 +87,9 @@ class TaskStore(private val context: Context) {
             // Core task persistence stays authoritative. Timeline evidence is a best-effort sidecar.
             runCatching { workflowTimeline.recordTransitions(previous, tasks) }
         }
-        CreatorWidgetUpdater.updateAll(context, tasks)
+        // Launcher widget refresh is an explicit broadcast after the durable
+        // Creator mutation, not an extra DataStore read inside this transaction.
+        V392WidgetUpdater.requestRefresh(context)
     }
 
     /**
