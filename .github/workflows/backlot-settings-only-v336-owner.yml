@@ -1,0 +1,92 @@
+name: Backlot Settings-only APK V336 (owner sideload QA)
+on:
+  push:
+    branches:
+      - fix/backlot-settings-hide-backup-only-20261114
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-settings-only-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signed-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify minimal UI-only scope and preserved erase route
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          ! grep -Fq 'Backup & storage' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
+          ! grep -Fq 'BACKUP & SYNC' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          ! grep -Fq 'LOCAL BACKUP' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'Start fresh on this phone' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
+          grep -Fq 'FreshStartActivity::class.java' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
+      - name: Build owner-compatible personalStable APK
+        run: |
+          set -euo pipefail
+          mkdir -p output/settings-only
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:assemblePersonalStable --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' --console=plain 2>&1 | tee output/settings-only/BUILD.log
+      - name: Verify signed identity and package
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/settings-only/Backlot-V336-Settings-Cleanup-Owner.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs output/settings-only/Backlot-V336-Settings-Cleanup-Owner.apk > output/settings-only/SIGNER.txt
+          "$aapt" dump badging output/settings-only/Backlot-V336-Settings-Cleanup-Owner.apk | head -n 9 > output/settings-only/IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" output/settings-only/IDENTITY.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/settings-only/SIGNER.txt
+          sha256sum output/settings-only/Backlot-V336-Settings-Cleanup-Owner.apk > output/settings-only/SHA256SUMS.txt
+          git rev-parse HEAD > output/settings-only/SOURCE-SHA.txt
+          echo "Signed with the existing PUBLIC personalStable preview key, not a Play Store release key." > output/settings-only/SIGNING-NOTE.txt
+      - name: Upload APK or diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Settings-Cleanup-Owner-APK
+          path: output/settings-only/
+          retention-days: 30
+          if-no-files-found: warn
+
+  jvm-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Run JVM unit regression tests
+        run: |
+          set -euo pipefail
+          mkdir -p output/settings-tests
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:testDebugUnitTest --no-daemon --no-parallel --max-workers=1 -Pkotlin.compiler.execution.strategy=in-process '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' --console=plain 2>&1 | tee output/settings-tests/TEST.log
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Settings-Cleanup-Unit-Results
+          path: |
+            output/settings-tests/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 21
+          if-no-files-found: warn

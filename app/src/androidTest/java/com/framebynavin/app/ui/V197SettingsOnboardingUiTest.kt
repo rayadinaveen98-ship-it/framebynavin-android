@@ -108,6 +108,6 @@ class V197SettingsOnboardingUiTest {
         rule.onNodeWithText("Advanced").performClick()
         rule.onNodeWithText("ADVANCED").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Backup & storage").assertExists()
+        rule.onNodeWithText("Backup & storage").assertDoesNotExist()
     }
 }

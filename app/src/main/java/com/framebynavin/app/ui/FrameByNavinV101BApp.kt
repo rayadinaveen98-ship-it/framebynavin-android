@@ -1692,29 +1692,6 @@ private fun PSettingsScreen(
             }
 
             Spacer(Modifier.height(22.dp))
-            PSettingsHeading("BACKUP & SYNC", "Keep a safe cloud copy of your work.")
-            Spacer(Modifier.height(8.dp))
-            Surface(
-                onClick = onCloudSync,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = CinemaSurface,
-                border = BorderStroke(1.dp, CinemaLine),
-            ) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(34.dp).background(RecRed.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.CloudSync, null, tint = RecRed, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Cloud Sync", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Google account · cloud backups", color = MutedText, fontSize = 8.7.sp)
-                    }
-                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
-                }
-            }
-
-            Spacer(Modifier.height(22.dp))
             PSettingsHeading("YOUTUBE CONNECTION", "See how your YouTube videos are doing.")
             Spacer(Modifier.height(8.dp))
             Surface(
@@ -1732,29 +1709,6 @@ private fun PSettingsScreen(
                     Column(Modifier.weight(1f)) {
                         Text("YouTube Analytics", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                         Text("Connect YouTube and match published videos to projects", color = MutedText, fontSize = 8.7.sp)
-                    }
-                    Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
-                }
-            }
-
-            Spacer(Modifier.height(22.dp))
-            PSettingsHeading("LOCAL BACKUP", "Save or restore a copy of your app data.")
-            Spacer(Modifier.height(8.dp))
-            Surface(
-                onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = CinemaSurface,
-                border = BorderStroke(1.dp, CinemaLine),
-            ) {
-                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(34.dp).background(MutedGold.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.SaveAlt, null, tint = MutedGold, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Data & Backup", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Projects, reminders, ideas, weekly plan and settings", color = MutedText, fontSize = 8.7.sp)
                     }
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
                 }

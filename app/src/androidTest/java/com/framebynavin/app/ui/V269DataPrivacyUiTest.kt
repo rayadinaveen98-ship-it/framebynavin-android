@@ -24,12 +24,13 @@ import org.junit.runner.RunWith
 class V269DataPrivacyUiTest {
     @get:Rule val rule = createAndroidComposeRule<V269DataPrivacyActivity>()
 
-    @Test fun creatorAndPersonalBackupAreSeparateAndDiscoverable() {
+    @Test fun creatorPersonalAndCloudBackupEntryPointsAreWithdrawn() {
         rule.onNodeWithTag("v269-privacy-root").assertExists()
         rule.onNodeWithText("Data & Privacy").assertExists()
-        rule.onNodeWithTag("v269-creator-backup").performScrollTo().assertExists()
-        rule.onNodeWithTag("v269-personal-backup").performScrollTo().assertExists()
-        rule.onNodeWithTag("v269-cloud-account").performScrollTo().assertExists()
+        rule.onNodeWithTag("v269-creator-backup").assertDoesNotExist()
+        rule.onNodeWithTag("v269-personal-backup").assertDoesNotExist()
+        rule.onNodeWithTag("v269-cloud-account").assertDoesNotExist()
+        rule.onNodeWithText("Connected account & cloud").assertExists()
     }
 
     @Test fun noMisleadingFullAccountDeletionActionIsExposed() {

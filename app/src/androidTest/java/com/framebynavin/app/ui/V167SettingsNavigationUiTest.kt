@@ -66,7 +66,7 @@ class V167SettingsNavigationUiTest {
         rule.onNodeWithText("Account").performClick()
         rule.runOnIdle { assertEquals(1, opened) }
         rule.onNodeWithText("Connections").assertDoesNotExist()
-        rule.onNodeWithText("Backup & storage").assertExists()
+        rule.onNodeWithText("Backup & storage").assertDoesNotExist()
     }
 
     @Test fun personalizationBackReturnsToParentThenHome() {
@@ -78,30 +78,27 @@ class V167SettingsNavigationUiTest {
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("Companion").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Backup & storage").assertExists()
+        rule.onNodeWithText("Backup & storage").assertDoesNotExist()
     }
 
-    @Test fun backupsRemainAvailableWithoutConnectionsPage() {
+    @Test fun backupRoutesAreAbsentAndAdvancedKeepsEraseLocalData() {
         show()
-        rule.onNodeWithText("Backup & storage").performClick()
-        rule.onNodeWithText("Cloud Sync").assertExists()
-        rule.onNodeWithText("Local Data & Backup").assertExists()
-        rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Planning & integrations").assertExists()
+        rule.onNodeWithText("Backup & storage").assertDoesNotExist()
+        rule.onNodeWithText("Cloud Sync").assertDoesNotExist()
+        rule.onNodeWithText("Local Data & Backup").assertDoesNotExist()
+        rule.onNodeWithText("Advanced").performScrollTo().performClick()
+        rule.onNodeWithText("Start fresh on this phone").assertExists()
+        // This test must never start or confirm a real device erase.
     }
 
-    @Test fun privacyAndAdvancedAreSeparateAndDeviceResetIsNotInBackup() {
+    @Test fun privacyAndAdvancedRemainSeparated() {
         show()
-        rule.onNodeWithText("Backup & storage").performScrollTo().performClick()
-        rule.onNodeWithText("Start fresh on this phone").assertDoesNotExist()
-        rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("Privacy & permissions").performScrollTo().performClick()
         rule.onNodeWithText("Data & privacy").assertExists()
         rule.onNodeWithText("Notification permissions").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithText("Advanced").performScrollTo().performClick()
         rule.onNodeWithText("Start fresh on this phone").assertExists()
-        // Deliberately never tap the destructive action in a navigation test.
     }
 
     @Test fun remindersAndCalendarStillHaveTheirPriorControls() {
