@@ -1,0 +1,94 @@
+name: Backlot Stage 1 - 21-day voice cadence owner QA
+on:
+  push:
+    branches:
+      - fix/backlot-phase1-habit-voice-cadence-20261114
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-stage1-habit-voice-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  voice-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Verify Stage 1 source scope
+        run: |
+          set -euo pipefail
+          git diff --name-only origin/fix/backlot-settings-hide-backup-only-20261114...HEAD > stage1-changes.txt
+          cat stage1-changes.txt
+          if grep -Ev '^(.github/workflows/backlot-stage1-habit-voice-qa.yml|app/src/main/java/com/framebynavin/app/personal/(Phase1HabitLiveDelivery.kt|Phase1HabitVoicePlaybackPolicy.kt)|app/src/test/java/com/framebynavin/app/personal/Phase1HabitVoicePlaybackPolicyTest.kt)$' stage1-changes.txt; then
+            echo 'Out-of-scope file changed' >&2
+            exit 1
+          fi
+          grep -Fq 'Phase1HabitVoicePlaybackPolicy.REPEAT_GAP_MILLIS' app/src/main/java/com/framebynavin/app/personal/Phase1HabitLiveDelivery.kt
+          grep -Fq 'Phase1HabitVoicePlaybackPolicy.WATCHDOG_MILLIS' app/src/main/java/com/framebynavin/app/personal/Phase1HabitLiveDelivery.kt
+          ! grep -Fq '30_000L' app/src/main/java/com/framebynavin/app/personal/Phase1HabitLiveDelivery.kt
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+
+      - name: Focused 21-day and Personal voice tests
+        run: |
+          set -euo pipefail
+          mkdir -p output/stage1-voice
+          gradle :app:testDebugUnitTest \
+            --tests com.framebynavin.app.personal.Phase1HabitVoicePlaybackPolicyTest \
+            --tests com.framebynavin.app.personal.Phase1HabitLiveDeliveryPolicyTest \
+            --tests com.framebynavin.app.personal.PersonalPlaybackPolicyTest \
+            --tests com.framebynavin.app.personal.V271PersonalVoiceRepeatTest \
+            --tests com.framebynavin.app.personal.Phase1HabitPolicyTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/stage1-voice/TEST.log
+
+      - name: Build owner-compatible APK with identical app identity
+        run: |
+          set -euo pipefail
+          gradle :app:assemblePersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/stage1-voice/BUILD.log
+
+      - name: Verify APK signature, package and SHA256
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/stage1-voice/Backlot-V336-Stage1-21Day-Voice-Owner.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs output/stage1-voice/Backlot-V336-Stage1-21Day-Voice-Owner.apk > output/stage1-voice/SIGNER.txt
+          "$aapt" dump badging output/stage1-voice/Backlot-V336-Stage1-21Day-Voice-Owner.apk | head -n 9 > output/stage1-voice/IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" output/stage1-voice/IDENTITY.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/stage1-voice/SIGNER.txt
+          sha256sum output/stage1-voice/Backlot-V336-Stage1-21Day-Voice-Owner.apk > output/stage1-voice/SHA256SUMS.txt
+          git rev-parse HEAD > output/stage1-voice/SOURCE-SHA.txt
+          cp stage1-changes.txt output/stage1-voice/CHANGED-FILES.txt
+          echo 'Owner QA preview only. Physical Android TTS / repeated speech not yet accepted.' > output/stage1-voice/STATUS.txt
+
+      - name: Upload stage1 APK and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Stage1-21Day-Voice-Owner
+          path: |
+            output/stage1-voice/
+            app/build/test-results/testDebugUnitTest/
+            stage1-changes.txt
+          retention-days: 30
+          if-no-files-found: warn
