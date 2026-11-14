@@ -152,7 +152,8 @@ internal fun ReminderCheckInScreen(
             label = "v231-reminder-backdrop-transition",
         ) { showingActions ->
             if (showingActions) {
-                V336DirectorBackdrop(
+                V391ReminderBackdrop(
+                    kind = kind,
                     lowPower = lowPower,
                     motionEnabled = motionEnabled,
                     modifier = Modifier.fillMaxSize(),
