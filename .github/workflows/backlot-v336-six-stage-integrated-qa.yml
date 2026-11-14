@@ -1,0 +1,117 @@
+name: Backlot V336 Integrated Owner QA - Stages 1 to 6
+on:
+  push:
+    branches:
+      - feature/backlot-stage6-first-run-journey-20261114
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v336-six-stage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify integrated owner scope and preserved identity
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          grep -Fq 'FreshStartActivity::class.java' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
+          ! grep -Fq 'Backup & storage' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
+          grep -Fq 'V393FocusChoiceScreen' app/src/main/java/com/framebynavin/app/ui/FrameByNavinV101BApp.kt
+          grep -Fq 'V391ReminderVisualBackdrop' app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt
+          grep -Fq 'V391ReminderVisualBackdrop' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          grep -Fq 'Phase1HabitVoicePlaybackPolicy.WATCHDOG_MILLIS' app/src/main/java/com/framebynavin/app/personal/Phase1HabitLiveDelivery.kt
+          for file in welcome point present listen think celebrate; do
+            test -s app/src/main/res/drawable-nodpi/guide_mira_$file.webp
+          done
+          for widget in V392TodayHubWidgetProvider V392NextReminderWidgetProvider V392ChallengePulseWidgetProvider; do
+            grep -Fq "$widget" app/src/main/AndroidManifest.xml
+          done
+          if grep -Eq '(V224QuickCaptureWidgetProvider|V224TodayFocusWidgetProvider|V224MyDayWidgetProvider|CreatorCompactWidgetProvider|CreatorLargeWidgetProvider|QuickIdeaWidgetProvider|NewProjectWidgetProvider|CurrentProjectWidgetProvider|NextReminderWidgetProvider|ContentCalendarWidgetProvider|DailyBriefWidgetProvider|CreatorInsightsWidgetProvider)' app/src/main/AndroidManifest.xml; then
+            echo 'Legacy widget provider still registered' >&2; exit 1
+          fi
+          echo 'Owner scope, three new widgets, two companions, scene engine and erasedata retention checked.'
+
+  unit-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Full JVM tests plus Android instrumentation source compilation
+        run: |
+          set -euo pipefail
+          mkdir -p output/six-stage-unit
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/six-stage-unit/TEST.log
+      - name: Upload detailed QA findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-Six-Stage-Unit-AndroidCompile-Evidence
+          path: |
+            output/six-stage-unit/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 21
+          if-no-files-found: warn
+
+  signed-owner-apk:
+    needs: source-scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build existing-key signed personalStable
+        run: |
+          set -euo pipefail
+          mkdir -p output/six-stage-apk
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:assemblePersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/six-stage-apk/BUILD.log
+      - name: Verify signed APK package identity and checksum
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/six-stage-apk/Backlot-V336-All-6-Stages-Owner.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs output/six-stage-apk/Backlot-V336-All-6-Stages-Owner.apk > output/six-stage-apk/SIGNER.txt
+          "$aapt" dump badging output/six-stage-apk/Backlot-V336-All-6-Stages-Owner.apk | head -n 9 > output/six-stage-apk/IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" output/six-stage-apk/IDENTITY.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/six-stage-apk/SIGNER.txt
+          sha256sum output/six-stage-apk/Backlot-V336-All-6-Stages-Owner.apk > output/six-stage-apk/SHA256SUMS.txt
+          git rev-parse HEAD > output/six-stage-apk/SOURCE-SHA.txt
+          echo 'Signed owner QA preview only. Requires JVM, Android UI and physical-device acceptance.' > output/six-stage-apk/STATUS.txt
+      - name: Upload APK or compiler diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V336-All-6-Stages-Owner-QA-APK
+          path: output/six-stage-apk/
+          retention-days: 30
+          if-no-files-found: warn

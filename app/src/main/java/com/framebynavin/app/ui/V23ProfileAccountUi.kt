@@ -145,10 +145,12 @@ internal fun V23ProfileAccountScreen(
             V23InfoRow("Platforms", creatorProfile.platforms.sorted().joinToString().ifBlank { "Not set" }, Icons.Outlined.Hub)
             V23InfoRow("Primary goal", creatorProfile.primaryGoal.ifBlank { "Not set" }, Icons.Outlined.TrackChanges)
             V23InfoRow("Publishing target", "${creatorProfile.weeklyPublishingTarget} / week", Icons.Outlined.CalendarMonth)
-            OutlinedButton(onClick = { showCreatorEditor = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, CinemaLine)) {
+            OutlinedButton(onClick = {
+                if (creatorProfile.isComplete) showCreatorEditor = true else onEditCreatorSetup()
+            }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, CinemaLine)) {
                 Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("EDIT CREATOR DETAILS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(if (creatorProfile.isComplete) "EDIT CREATOR DETAILS" else "COMPLETE CREATOR SETUP", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(24.dp))

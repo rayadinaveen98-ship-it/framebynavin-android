@@ -119,6 +119,9 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Home screen widgets", "Today Hub, Next Reminder and Challenge Pulse", Icons.Outlined.Widgets, MutedGold) {
                     context.startActivity(Intent(context, V392WidgetGalleryActivity::class.java))
                 }
+                V144CategoryCard("Your focus", "Creator, Personal or Both", Icons.Outlined.Tune, MutedGold) {
+                    sectionName = V167SettingsSection.FOCUS.name
+                }
                 V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
@@ -133,6 +136,10 @@ internal fun V144SettingsHub(
 
             V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
                 V127AppearanceSettings(showGuidePicker = false)
+            }
+
+            V167SettingsSection.FOCUS -> V144SettingsPage("YOUR FOCUS", "Choose how Backlot helps you", ::navigateBack) {
+                V393FocusSettingsPicker()
             }
 
             V167SettingsSection.REMINDER_VISUALS -> V144SettingsPage("REMINDER SCENES", "Voice and Alarm visuals", ::navigateBack) {
