@@ -70,6 +70,23 @@
         </receiver>
 
 
+        <!-- V392 replacement family. All twelve legacy providers stay unregistered. -->
+        <receiver android:name=".widget.V392TodayHubWidgetProvider" android:exported="false"
+            android:label="Backlot Today Hub">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v392_today_info" />
+        </receiver>
+        <receiver android:name=".widget.V392NextReminderWidgetProvider" android:exported="false"
+            android:label="Backlot Next Reminder">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v392_next_info" />
+        </receiver>
+        <receiver android:name=".widget.V392ChallengePulseWidgetProvider" android:exported="false"
+            android:label="Backlot Challenge Pulse">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v392_challenge_info" />
+        </receiver>
+
         <!-- All 12 legacy Android home-screen widget providers retired.
              Keep project/idea/reminder data and internal deep-link handlers intact.
              A new, independent widget family will be registered in a later stage. -->
