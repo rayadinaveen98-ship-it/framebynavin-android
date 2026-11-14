@@ -11,7 +11,7 @@ internal enum class V167SettingsSection {
 internal object V167SettingsNavigationPolicy {
     val homeSections = listOf(
         "Account", "Appearance & sound", "Notifications & alarms",
-        "Planning & integrations", "Backup & storage",
+        "Planning & integrations",
         "Privacy & permissions", "Help & about", "Advanced",
     )
 
@@ -23,5 +23,5 @@ internal object V167SettingsNavigationPolicy {
     }
 
     fun fromSavedName(value: String?): V167SettingsSection =
-        V167SettingsSection.entries.firstOrNull { it.name == value } ?: V167SettingsSection.HOME
+        V167SettingsSection.entries.firstOrNull { it.name == value && it != V167SettingsSection.DATA } ?: V167SettingsSection.HOME
 }
