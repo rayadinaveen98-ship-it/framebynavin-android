@@ -204,6 +204,9 @@ internal class PersonalReminderStore(context: Context) {
                 }
                 committed = updated
             }
+            // After the atomic edit, request a launcher refresh without reading
+            // Personal data or exposing reminder titles in the broadcast.
+            runCatching { com.framebynavin.app.widget.V392WidgetRefresh.request(app) }
             committed
             }
         }
