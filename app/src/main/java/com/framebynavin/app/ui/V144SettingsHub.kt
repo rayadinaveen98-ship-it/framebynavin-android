@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.QuietHoursPolicy
+import com.framebynavin.app.reminders.V391ReminderScenesPicker
 import com.framebynavin.app.reminders.V205NudgePausePolicy
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
@@ -118,6 +119,9 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
+                V144CategoryCard("Reminder scenes", "Animated Voice and Alarm backgrounds", Icons.Outlined.AutoAwesome, MutedGold) {
+                    sectionName = V167SettingsSection.REMINDER_VISUALS.name
+                }
                 V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
                     sectionName = V167SettingsSection.VOICE.name
                 }
@@ -126,6 +130,10 @@ internal fun V144SettingsHub(
 
             V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
                 V127AppearanceSettings(showGuidePicker = false)
+            }
+
+            V167SettingsSection.REMINDER_VISUALS -> V144SettingsPage("REMINDER SCENES", "Voice and Alarm visuals", ::navigateBack) {
+                V391ReminderScenesPicker()
             }
 
             V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {
