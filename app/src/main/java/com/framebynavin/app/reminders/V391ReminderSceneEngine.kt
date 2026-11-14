@@ -113,14 +113,14 @@ internal fun V391ReminderBackdrop(
     val t = V336MotionTime(motionEnabled, lowPower)
     Canvas(modifier.fillMaxSize().testTag("v391-scene-${scene.name}")) {
         val base = when (scene) {
-            V391ReminderScene.AURORA_SILK -> listOf(0xFF070812, 0xFF1C1133, 0xFF150B20, 0xFF070812)
-            V391ReminderScene.LIQUID_CHROME -> listOf(0xFF070A13, 0xFF19232D, 0xFF10131E, 0xFF070A13)
-            V391ReminderScene.CELESTIAL_DRIFT -> listOf(0xFF060717, 0xFF14172F, 0xFF0D0D20, 0xFF050712)
-            V391ReminderScene.CRIMSON_PULSE -> listOf(0xFF100508, 0xFF2A0A18, 0xFF18060C, 0xFF090408)
-            V391ReminderScene.GLASSWAVE -> listOf(0xFF040F16, 0xFF0B2730, 0xFF071D25, 0xFF030B11)
-            V391ReminderScene.EMBER_FIELD -> listOf(0xFF0D0807, 0xFF21100C, 0xFF1D0B0A, 0xFF0B0708)
+            V391ReminderScene.AURORA_SILK -> listOf(Color(0xFF070812), Color(0xFF1C1133), Color(0xFF150B20), Color(0xFF070812))
+            V391ReminderScene.LIQUID_CHROME -> listOf(Color(0xFF070A13), Color(0xFF19232D), Color(0xFF10131E), Color(0xFF070A13))
+            V391ReminderScene.CELESTIAL_DRIFT -> listOf(Color(0xFF060717), Color(0xFF14172F), Color(0xFF0D0D20), Color(0xFF050712))
+            V391ReminderScene.CRIMSON_PULSE -> listOf(Color(0xFF100508), Color(0xFF2A0A18), Color(0xFF18060C), Color(0xFF090408))
+            V391ReminderScene.GLASSWAVE -> listOf(Color(0xFF040F16), Color(0xFF0B2730), Color(0xFF071D25), Color(0xFF030B11))
+            V391ReminderScene.EMBER_FIELD -> listOf(Color(0xFF0D0807), Color(0xFF21100C), Color(0xFF1D0B0A), Color(0xFF0B0708))
             V391ReminderScene.DIRECTOR -> error("Handled before Canvas")
-        }.map { Color(it) }
+        }
         drawRect(Brush.verticalGradient(base))
         val w = size.width
         val h = size.height
