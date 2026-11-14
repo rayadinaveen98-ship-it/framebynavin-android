@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="14dp"
+    android:background="@drawable/widget_v392_challenge_background">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="BACKLOT  /  21 DAYS" android:textColor="#E9B3C1"
+        android:textSize="10sp" android:textStyle="bold"/>
+    <TextView android:id="@+id/v392_challenge_day" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="9dp"
+        android:text="Day 1" android:textSize="23sp"
+        android:textColor="#FFF8F0" android:textStyle="bold" android:maxLines="1"/>
+    <TextView android:id="@+id/v392_challenge_progress" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1"
+        android:gravity="center_vertical" android:textColor="#E6C9BA"
+        android:textSize="12sp" android:maxLines="2"
+        android:text="Your progress"/>
+    <TextView android:id="@+id/v392_challenge_open" android:layout_width="match_parent"
+        android:layout_height="35dp" android:gravity="center"
+        android:background="@drawable/widget_v392_button" android:text="OPEN CHALLENGE"
+        android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold"
+        android:contentDescription="Open selected 21-day challenge"/>
+</LinearLayout>
