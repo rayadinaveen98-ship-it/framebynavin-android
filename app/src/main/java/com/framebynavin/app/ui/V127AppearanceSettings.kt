@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -19,23 +18,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.ui.theme.*
-import com.framebynavin.app.widget.CreatorWidgetUpdater
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = rememberCoroutineScope()
     val selected = VisualExperiencePrefs.currentTheme
-
-    fun refreshWidgets() {
-        scope.launch(Dispatchers.IO) {
-            CreatorWidgetUpdater.updateAll(context.applicationContext, TaskStore(context.applicationContext).load())
-        }
-    }
 
     Column(Modifier.fillMaxWidth()) {
         if (showGuidePicker) {
@@ -60,7 +47,6 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
                 active = theme == selected,
                 onSelect = {
                     VisualExperiencePrefs.setTheme(theme)
-                    refreshWidgets()
                 },
             )
             Spacer(Modifier.height(9.dp))
