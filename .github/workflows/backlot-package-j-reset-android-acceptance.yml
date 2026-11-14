@@ -7,6 +7,7 @@ on:
     paths:
       - 'app/**'
       - '.github/workflows/backlot-package-j-reset-android-acceptance.yml'
+      - '.github/scripts/backlot-j-reset-android15.sh'
   workflow_dispatch:
 
 permissions:
