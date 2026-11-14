@@ -114,45 +114,12 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                 )
             }
 
-            V269PrivacyCard("Back up before changing devices") {
-                Text(V269DataPrivacyPolicy.CREATOR_SCOPE, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().testTag("v269-creator-backup"),
-                ) {
-                    Icon(Icons.Outlined.FolderOpen, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("CREATOR BACKUP")
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(V269DataPrivacyPolicy.PERSONAL_SCOPE, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = { context.startActivity(Intent(context, PersonalBackupActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().testTag("v269-personal-backup"),
-                ) {
-                    Icon(Icons.Outlined.Lock, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("PERSONAL BACKUP")
-                }
-            }
-
             V269PrivacyCard("Connected account & cloud") {
                 Text(
                     session?.email?.let { "Connected: $it" } ?: "No Creator cloud account is connected.",
                     color = ProjectorIvory, fontSize = 12.sp,
                 )
                 Text(V269DataPrivacyPolicy.CLOUD_SCOPE, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().testTag("v269-cloud-account"),
-                ) {
-                    Icon(Icons.Outlined.Cloud, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("MANAGE CREATOR CLOUD")
-                }
                 if (session != null) {
                     Spacer(Modifier.height(6.dp))
                     TextButton(
