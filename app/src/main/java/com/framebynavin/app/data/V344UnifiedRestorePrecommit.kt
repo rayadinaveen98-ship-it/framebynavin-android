@@ -124,8 +124,9 @@ internal class V344UnifiedRestorePrecommit(context: Context) {
             ?: error("Prepare the exact encrypted owner target first")
         val original = escrow.inspectEscrowRecordReadOnly()
         val verified = escrow.inspectRetained(passphrase)
-        require(!verified.target.personalDiff.needsOwnerReview &&
-            verified.target.personalDiff.conflicts == 0) {
+        require(V385UnifiedPersonalTargetReviewPolicy.conflictFreeAndVerified(
+            verified.target.personalDiff,
+        )) {
             "The current Personal data has conflicts or incomplete integrity evidence"
         }
         val creatorPending = Files.exists(

@@ -74,8 +74,9 @@ internal class V342UnifiedRestorePreparationStore(
             val inspection = archive.inputStream().buffered().use {
                 manager.inspectRestore(password, it)
             }
-            check(!inspection.personalDiff.needsOwnerReview &&
-                inspection.personalDiff.conflicts == 0) {
+            check(V385UnifiedPersonalTargetReviewPolicy.conflictFreeAndVerified(
+                inspection.personalDiff,
+            )) {
                 "Personal records conflict or local integrity is unverified. " +
                     "Review differences before preparing this archive."
             }

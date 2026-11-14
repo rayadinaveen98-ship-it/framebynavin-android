@@ -73,8 +73,9 @@ internal class V343UnifiedRecoveryEscrow(
             val prepared = selected.status() as? V342UnifiedRestorePreparationStore.Status.ChecksumMatched
                 ?: error("First prepare and verify one encrypted restore source")
             val targetReview = selected.inspectPrepared(passphrase)
-            check(!targetReview.personalDiff.needsOwnerReview &&
-                targetReview.personalDiff.conflicts == 0) {
+            check(V385UnifiedPersonalTargetReviewPolicy.conflictFreeAndVerified(
+                targetReview.personalDiff,
+            )) {
                 "The prepared archive conflicts with current Personal records"
             }
             val before = V343UnifiedBaselineReader(app).capture()
