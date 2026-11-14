@@ -92,7 +92,7 @@ import java.util.Calendar
 import java.util.Locale
 
 internal enum class PTab { TODAY, IDEAS, CREATE, CALENDAR, INSIGHTS }
-private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_PROGRESS, PROGRESS_JOURNEY }
+private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_SETUP, CREATOR_PROGRESS, PROGRESS_JOURNEY }
 
 /** In-memory only: a restored Activity cannot auto-confirm an earlier stage. */
 private data class CW5PendingStageApproval(
@@ -122,6 +122,7 @@ private data class PPermissions(
 @Composable
 fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: CreatorWidgetLaunch? = null) {
     val context = LocalContext.current
+    V393FirstRunPrefs.initialize(context)
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
@@ -589,6 +590,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     ) {
         if (
             guidedTourStepName == null &&
+            !V393FirstRunPrefs.shouldDeferCreatorSetup() &&
             CreatorGuidedTourPolicy.shouldStart(
                 accountOnboardingComplete = settings.accountOnboardingComplete,
                 creatorSetupComplete = settings.onboardingComplete,
@@ -842,12 +844,29 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.PROFILE -> V23ProfileAccountScreen(
                 creatorProfile = settings.creatorProfile,
                 onClose = { overlay = POverlay.SETTINGS },
-                onEditCreatorSetup = {}, // profile changes no longer re-enter onboarding
+                onEditCreatorSetup = { overlay = POverlay.CREATOR_SETUP },
                 onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
                 onSaveCreatorProfile = { revised ->
                     val saved = settingsStore.saveCreatorProfileEdits(revised)
                     if (saved) settings = settingsStore.snapshot()
                     saved
+                },
+            )
+            POverlay.CREATOR_SETUP -> V18CreatorOnboarding(
+                profile = settings.creatorProfile,
+                notificationsReady = permissions.notifications,
+                preciseTimingReady = permissions.preciseTiming,
+                fullScreenReady = permissions.fullScreen,
+                batteryReady = permissions.batteryAccess,
+                onNotifications = ::requestNotifications,
+                onPreciseTiming = ::requestPreciseTiming,
+                onFullScreen = ::requestFullScreen,
+                onBattery = ::openBatterySettings,
+                onFinish = { profile ->
+                    val saved = settingsStore.completeCreatorSetup(profile)
+                    settings = settingsStore.snapshot()
+                    if (saved) overlay = POverlay.SETTINGS
+                    saved && settings.onboardingComplete && settings.creatorProfile.isComplete
                 },
             )
             POverlay.PROGRESS_JOURNEY -> V282ProgressJourneyScreen(
@@ -1237,7 +1256,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    if (!settings.accountOnboardingComplete) {
+    if (!settings.accountOnboardingComplete &&
+        !settings.onboardingComplete && !settings.creatorProfile.isComplete &&
+        V393FirstRunPrefs.focus == null
+    ) {
+        V393FocusChoiceScreen(onSelected = { V393FirstRunPrefs.choose(context, it) })
+    } else if (!settings.accountOnboardingComplete) {
         V23AccountOnboarding(
             onComplete = { displayName ->
                 if (displayName.isNotBlank()) {
@@ -1277,7 +1301,27 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         // New creators choose the companion before the restored five-page setup.
         // Do NOT show this gate to existing users whose setup is complete.
         V144GuideChoiceGate()
-    } else if (V151SetupPolicy.needsCreatorSetup(
+    } else if (V393FirstRunPrefs.focus != null && !V393FirstRunPrefs.firstActionComplete) {
+        V393FirstActionScreen(
+            focus = requireNotNull(V393FirstRunPrefs.focus),
+            onAction = { action ->
+                V393FirstRunPrefs.finishIntro(context)
+                guidedTourStepName = null
+                when (action) {
+                    V393FirstAction.CREATE_PROJECT -> openComposer()
+                    V393FirstAction.CAPTURE_IDEA -> showQuickCapture = true
+                    V393FirstAction.OPEN_PERSONAL -> {
+                        personalReminderSpace = true
+                        showReminders = true
+                    }
+                    V393FirstAction.EXPLORE -> {
+                        overlay = POverlay.NONE
+                        tab = PTab.TODAY
+                    }
+                }
+            },
+        )
+    } else if (!V393FirstRunPrefs.shouldDeferCreatorSetup() && V151SetupPolicy.needsCreatorSetup(
         onboardingComplete = settings.onboardingComplete,
         profileComplete = settings.creatorProfile.isComplete,
     )) {
