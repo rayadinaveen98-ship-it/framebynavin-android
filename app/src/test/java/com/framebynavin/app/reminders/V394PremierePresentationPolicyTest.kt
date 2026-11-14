@@ -18,6 +18,20 @@ class V394PremierePresentationPolicyTest {
         assertTrue(V394PremierePresentationPolicy.personal(true, false, true))
     }
 
+    @Test fun visualMotionRespectsAccessibilityAndBatterySaver() {
+        assertTrue(V394PremiereMotionPolicy.animate(true, false))
+        assertFalse(V394PremiereMotionPolicy.animate(false, false))
+        assertFalse(V394PremiereMotionPolicy.animate(true, true))
+        assertFalse(V394PremiereMotionPolicy.animate(false, true))
+    }
+
+    @Test fun denserAtmosphereStillHasBoundedBatterySaverBudget() {
+        assertTrue(V394PremiereMotionPolicy.particleCount(false) >= 80)
+        assertTrue(V394PremiereMotionPolicy.particleCount(true) <= 24)
+        assertTrue(V394PremiereMotionPolicy.particleCount(true) <
+            V394PremiereMotionPolicy.particleCount(false))
+    }
+
     @Test fun challengeCannotAutomaticallyOpenFullScreenFromVoiceNotification() {
         assertFalse(V394PremierePresentationPolicy.automaticChallengeScreen())
     }
