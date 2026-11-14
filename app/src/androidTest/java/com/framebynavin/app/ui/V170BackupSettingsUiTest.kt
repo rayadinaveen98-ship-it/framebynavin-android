@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.data.CreatorOsSettings
 import org.junit.Rule
@@ -30,20 +31,18 @@ class V170BackupSettingsUiTest {
         }
     }
 
-    @Test fun backupAndCloudDestinationsAreStillAvailableAfterS5() {
+    @Test fun settingsDoNotExposeBackupRestoreOrCloudButtons() {
         show()
-        rule.onNodeWithText("Backup & storage").performClick()
-        rule.onNodeWithText("Cloud Sync").assertExists()
-        rule.onNodeWithText("Local Data & Backup").assertExists()
-        rule.onNodeWithText("Exported files are not encrypted: keep them private.", substring = true)
-            .assertExists()
+        rule.onNodeWithText("Backup & storage").assertDoesNotExist()
+        rule.onNodeWithText("Cloud Sync").assertDoesNotExist()
+        rule.onNodeWithText("Local Data & Backup").assertDoesNotExist()
+        rule.onNodeWithText("Account").assertExists()
+        rule.onNodeWithText("Advanced").assertExists()
     }
 
-    @Test fun backFromBackupStillExposesOtherSettingsWithoutResettingData() {
+    @Test fun eraseLocalDataRemainsInAdvanced() {
         show()
-        rule.onNodeWithText("Backup & storage").performClick()
-        rule.onNodeWithText("Cloud Sync").assertExists()
-        rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Account").assertExists()
+        rule.onNodeWithText("Advanced").performScrollTo().performClick()
+        rule.onNodeWithText("Start fresh on this phone").assertExists()
     }
 }
