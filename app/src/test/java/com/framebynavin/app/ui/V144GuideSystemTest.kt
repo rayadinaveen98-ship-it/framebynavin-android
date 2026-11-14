@@ -10,13 +10,14 @@ import org.junit.Test
 class V144GuideSystemTest {
 
     @Test
-    fun `new companion chooser shows only Spark`() {
+    fun `new companion chooser shows Spark and Mira only`() {
         assertEquals(
-            listOf(V144GuideIdentity.FUNNY),
+            listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.MIRA),
             V145SelectableGuides,
         )
         assertTrue(V145SelectableGuides.all { it.description.isNotBlank() })
         assertEquals("Spark", V144GuideIdentity.FUNNY.displayName)
+        assertEquals("Mira", V144GuideIdentity.MIRA.displayName)
     }
 
     @Test
@@ -24,6 +25,7 @@ class V144GuideSystemTest {
         assertEquals(V144GuideIdentity.FRAME, v145NormalizeSavedGuide("FRAME"))
         assertEquals(V144GuideIdentity.NAVI, v145NormalizeSavedGuide("NAVI"))
         assertEquals(V144GuideIdentity.FUNNY, v145NormalizeSavedGuide("FUNNY"))
+        assertEquals(V144GuideIdentity.MIRA, v145NormalizeSavedGuide("MIRA"))
         assertEquals(V144GuideIdentity.CUTE, v145NormalizeSavedGuide("CUTE"))
         assertNull(v145NormalizeSavedGuide(null))
         assertNull(v145NormalizeSavedGuide("UNKNOWN"))
