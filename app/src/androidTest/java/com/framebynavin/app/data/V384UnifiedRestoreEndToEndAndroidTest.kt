@@ -115,10 +115,14 @@ class V384UnifiedRestoreEndToEndAndroidTest {
                 val review = zip.inputStream().buffered().use {
                     manager.inspectRestore(secret, it)
                 }
-                assertFalse(review.personalDiff.needsOwnerReview)
+                // Incoming 21-day plans explicitly need OWNER review, but
+                // non-conflicting additions are safe to prepare after consent.
+                assertTrue(review.personalDiff.needsOwnerReview)
                 assertEquals(0, review.personalDiff.conflicts)
                 assertTrue("The selected Personal ZIP must add real missing records",
                     review.personalDiff.proposedAdditions >= 2)
+                assertTrue(V385UnifiedPersonalTargetReviewPolicy
+                    .conflictFreeAndVerified(review.personalDiff))
 
                 zip.inputStream().buffered().use { chosen ->
                     V342UnifiedRestorePreparationStore(app).prepare(
