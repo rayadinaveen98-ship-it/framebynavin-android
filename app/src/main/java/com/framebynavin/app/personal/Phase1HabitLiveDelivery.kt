@@ -348,9 +348,12 @@ internal class Phase1HabitVoiceService : Service() {
                 stopSelf(startId)
                 return@TextToSpeech
             }
+            // Each completed utterance is acknowledged once. A duplicate or stale
+            // TTS callback must never add an extra announcement.
+            var lastCompletedIndex = -1
             fun speak(index: Int) {
                 if (current != generation) return
-                if (index >= 3) { stopSelf(startId); return }
+                if (index !in 0 until Phase1HabitVoicePlaybackPolicy.REPEAT_COUNT) return
                 if (tts.speak("It's time for " + activity, TextToSpeech.QUEUE_FLUSH,
                     null, current.toString() + "-" + index) != TextToSpeech.SUCCESS) {
                     Phase1HabitDeliveryLedger.recordAsync(this, id, at,
@@ -364,8 +367,25 @@ internal class Phase1HabitVoiceService : Service() {
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) = Unit
                 override fun onDone(utteranceId: String?) {
-                    val n = utteranceId?.substringAfterLast('-')?.toIntOrNull() ?: return
-                    handler.post { speak(n + 1) }
+                    // Require this exact service generation. A stale callback
+                    // from the previous challenge cannot advance current speech.
+                    val prefix = "$current-"
+                    if (utteranceId?.startsWith(prefix) != true) return
+                    val completed = utteranceId.removePrefix(prefix).toIntOrNull() ?: return
+                    handler.post {
+                        if (current != generation || completed != lastCompletedIndex + 1) return@post
+                        lastCompletedIndex = completed
+                        val next = Phase1HabitVoicePlaybackPolicy.nextIndex(completed)
+                        if (next == null) {
+                            // The separately posted challenge notification remains
+                            // actionable after the foreground audio stops.
+                            stopSelf(startId)
+                        } else {
+                            handler.postDelayed({
+                                if (current == generation && lastCompletedIndex == completed) speak(next)
+                            }, Phase1HabitVoicePlaybackPolicy.REPEAT_GAP_MILLIS)
+                        }
+                    }
                 }
                 @Deprecated("Android TextToSpeech")
                 override fun onError(utteranceId: String?) {
@@ -377,7 +397,10 @@ internal class Phase1HabitVoiceService : Service() {
             })
             speak(0)
         }
-        handler.postDelayed({ if (current == generation) stopSelf(startId) }, 30_000L)
+        // Watchdog is a safety bound, NOT the desired audible lifetime.
+        // Allow full sentences, TTS initialization, and inter-repeat gaps.
+        handler.postDelayed({ if (current == generation) stopSelf(startId) },
+            Phase1HabitVoicePlaybackPolicy.WATCHDOG_MILLIS)
         return START_NOT_STICKY
     }
     override fun onDestroy() {
