@@ -371,7 +371,7 @@ internal class Phase1HabitVoiceService : Service() {
                     // from the previous challenge cannot advance current speech.
                     val prefix = "$current-"
                     if (utteranceId?.startsWith(prefix) != true) return
-                    val completed = utteranceId.removePrefix(prefix).toIntOrNull() ?: return
+                    val completed = utteranceId?.removePrefix(prefix)?.toIntOrNull() ?: return
                     handler.post {
                         if (current != generation || completed != lastCompletedIndex + 1) return@post
                         lastCompletedIndex = completed
