@@ -21,6 +21,15 @@ Use these exact five gates and update only when new test evidence exists.
 - Test above is an initial *identical existing data* case, not proof for imported foreign records, crashes, live cloud state or actual deletion. This change expands it to non-empty owner data and real saved Done/Focus receipts; **new results are pending**.
 - Unified export drift guard added in `V341UnifiedBackupManager`; signed build passed. Consistency check does **not** make Creator+Personal one atomic snapshot.
 
+## Evidence update — 2026-11-14 (current development turn)
+
+- **Passed:** Actions [43552052418](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/43552052418): Android 15 `OK (3 tests)`, including nonempty Creator Focus, Personal reminder and exact 21-day Done receipt through a completed H4 forward restore.
+- **New test committed, pending CI:** A genuinely different Personal target with absent incoming reminder and 21-day challenge must produce additions while preserving the existing reminder and exact Done receipt. Creator Focus is also absent on the destination and must be restored. Failure is a release blocker, never silently waived.
+- **New reset tests committed, pending CI:** Real Android 15 system `pm clear` on a disposable emulator only *after* the safe UI/restore tests, checking that app-private sentinels and retained recovery history disappear while an external file persists. This proves Android's local system wipe lifecycle but does **not** prove the irreversible UI button invokes it; that remains for disposable device acceptance.
+- **New UI test committed, pending CI:** Five separately tagged owner acknowledgements + exact typed phrase open the final review dialog. The test deliberately presses **CANCEL**, never the final erase button.
+- **Current successor CI:** [43556183954](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/43556183954). This run must pass before any of these new checks count as accepted.
+- **Current conclusion:** Backup/restore internals compile and the previously tested nonempty *identical-target* flow passes. Incoming additions, interruption recovery, live UI execution, and irreversible deletion validation remain blocked on evidence. Restore All stays disabled.
+
 ## Execution plan — no new stages
 
 **A. Lock backup contract.** Verify Creator v10 + Personal v2 sections, all app-owned originals (Voice Ideas, Best Frames, private Space photos), exact Done instants, nonempty challenge and Focus records. Verify no silent omission, wrong password, changed ciphertext, partial ZIP, provider write failure and mutation during export. Re-open the saved file independently. Show user meaningful exclusions: third-party video/attachments, document URI grants, custom external sounds, Google/YouTube sessions, device alarm/notification permissions.
