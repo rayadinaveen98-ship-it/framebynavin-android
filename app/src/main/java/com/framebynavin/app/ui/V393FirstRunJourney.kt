@@ -65,6 +65,15 @@ internal object V393FirstRunPrefs {
         firstActionComplete = false
     }
 
+    fun updateFocus(context: Context, selected: V393Focus) {
+        initialize(context)
+        // Settings changes never replay first-run or overwrite an existing profile.
+        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            .edit().putString(FOCUS, selected.name).putBoolean(ACTION_COMPLETE, true).apply()
+        focus = selected
+        firstActionComplete = true
+    }
+
     fun finishIntro(context: Context) {
         initialize(context)
         check(focus != null) { "Choose a Backlot focus before finishing the first run" }
@@ -175,6 +184,34 @@ internal fun V393FirstActionScreen(
             }
             Text("Creator goals and advanced permissions can be configured later when you need them.",
                 color=MutedText,fontSize=12.sp,lineHeight=17.sp)
+        }
+    }
+}
+
+/** Existing users can change their chosen focus without repeating onboarding. */
+@Composable
+internal fun V393FocusSettingsPicker() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    V393FirstRunPrefs.initialize(context)
+    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Text("YOUR BACKLOT FOCUS",color=ProjectorIvory,fontSize=18.sp,fontWeight=FontWeight.Bold)
+        Text("This changes your starting preference, never hides features or deletes data.",
+            color=MutedText,fontSize=12.sp,lineHeight=18.sp)
+        for (item in V393Focus.entries) {
+            val active = V393FirstRunPrefs.focus == item
+            Surface(modifier=Modifier.fillMaxWidth().clickable {
+                    V393FirstRunPrefs.updateFocus(context,item)
+                }.testTag("v393-settings-"+item.name.lowercase()),
+                color=if(active) CinemaSurface else CinemaBlack,
+                shape=RoundedCornerShape(16.dp),
+                border=BorderStroke(if(active) 2.dp else 1.dp,
+                    if(active) RecRed else CinemaLine)) {
+                Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                    Text(item.label+(if(active) " · SELECTED" else ""),color=ProjectorIvory,
+                        fontSize=16.sp,fontWeight=FontWeight.Bold)
+                    Text(item.explanation,color=MutedText,fontSize=12.sp)
+                }
+            }
         }
     }
 }
