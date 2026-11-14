@@ -40,6 +40,9 @@ jobs:
           ! grep -Fq 'Backup & storage' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
           ! grep -Fq 'V167SettingsSection.DATA' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
           ! grep -Fq 'Cloud Sync' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
+          ! grep -Fq 'v289-backup-open' app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt
+          ! grep -Fq 'V289SpacesOwnerBackupFile.writeToSelectedFile' app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt
+          ! grep -Fq 'V289SpacesMetadataRecovery(context, database).mergeVerifiedMetadata' app/src/main/java/com/framebynavin/app/ui/V289PersonalSpacesScreen.kt
           ! grep -Fq 'Sign in to back up your work' app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
           ! grep -Fq 'Your account can back up your work automatically' app/src/main/java/com/framebynavin/app/ui/V23AccountOnboarding.kt
           ! grep -Fq 'BackupActivity' app/src/main/AndroidManifest.xml

@@ -148,7 +148,7 @@ class V289PersonalSpacesUiTest {
         }
     }
 
-    @Test fun manualBackupDialogWarnsAboutPlaintextAndRequiresExplicitPicker() {
+    @Test fun spacesBackupExportImportControlsAreWithdrawn() {
         HardeningTestEnvironment.requireCiEmulator()
         val personalBefore = runBlocking { PersonalReminderStore(app).load() }
         val db = Room.inMemoryDatabaseBuilder(app, V289SpacesDatabase::class.java).build()
@@ -164,12 +164,13 @@ class V289PersonalSpacesUiTest {
             rule.waitUntil(12_000) {
                 rule.onAllNodesWithTag("v289-spaces-empty").fetchSemanticsNodes().isNotEmpty()
             }
-            rule.onNodeWithTag("v289-backup-open").performClick()
-            rule.onNodeWithTag("v289-backup-plaintext-warning").assertExists()
-            rule.onNodeWithTag("v289-backup-export").assertExists().assertIsEnabled()
-            rule.onNodeWithTag("v289-backup-import").assertExists().assertIsEnabled()
+            rule.onNodeWithTag("v289-backup-open").assertDoesNotExist()
+            rule.onNodeWithTag("v289-backup-plaintext-warning").assertDoesNotExist()
+            rule.onNodeWithTag("v289-backup-export").assertDoesNotExist()
+            rule.onNodeWithTag("v289-backup-import").assertDoesNotExist()
             rule.onNodeWithTag("v289-backup-import-confirm").assertDoesNotExist()
-            // Merely opening the backup dialog cannot create a file or import data.
+            rule.onNodeWithTag("v289-create-open").assertExists().assertIsEnabled()
+            // Spaces and local reminders are untouched by removing backup controls.
             assertTrue(runBlocking { db.spaces().loadSpaces().isEmpty() })
             assertEquals(personalBefore, runBlocking { PersonalReminderStore(app).load() })
         } finally {
