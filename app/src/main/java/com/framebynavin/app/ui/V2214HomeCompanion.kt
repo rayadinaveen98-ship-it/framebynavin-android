@@ -375,7 +375,7 @@ internal fun V2214HomeCompanion(
                     modifier = Modifier.testTag("v2292-spark-open-chat")
                         .fillMaxWidth(),
                 ) {
-                    Text("ASK SPARK · OFFLINE", color = MutedGold, fontSize = 12.sp)
+                    Text("ASK ${V144GuidePrefs.currentGuide.displayName.uppercase()} · OFFLINE", color = MutedGold, fontSize = 12.sp)
                 }
                 }
                 Spacer(Modifier.height(6.dp))
@@ -403,7 +403,7 @@ internal fun V2221CompanionPortrait(
     }
     val state = when {
         hasActionableActivity -> "A reminder needs attention"
-        hasSuggestion -> "A Spark suggestion is available"
+        hasSuggestion -> "A ${guide.displayName} suggestion is available"
         else -> "No current attention indicator"
     }
     Surface(
