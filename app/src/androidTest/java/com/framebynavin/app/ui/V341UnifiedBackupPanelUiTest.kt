@@ -1,48 +1,40 @@
 package com.framebynavin.app.ui
 
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.framebynavin.app.data.CreatorOsSettings
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Backup UI entry-point only. Does not invoke Android file pickers or make any
- * export, restore, notification or database mutation.
- */
+/** Former unified backup UI cannot be reached from current Settings. */
 @RunWith(AndroidJUnit4::class)
 class V341UnifiedBackupPanelUiTest {
-    @get:Rule val rule = createAndroidComposeRule<BackupActivity>()
+    @get:Rule val rule = createComposeRule()
 
-    @Test fun verifiedUnifiedBackupIsPrimaryAndLegacyRecoveryRemainsAvailable() {
-        rule.onNodeWithTag("v341-unified-backup")
-            .performScrollTo()
-            .assertIsDisplayed()
-        rule.onNodeWithTag("v341-unified-export").assertIsNotEnabled()
-        rule.onNodeWithTag("v341-unified-inspect").assertIsNotEnabled()
-        rule.onNodeWithTag("v341-unified-restore-review").assertIsNotEnabled()
-        rule.onNodeWithTag("v341-unified-restore-gate").assertExists()
-        rule.onNodeWithText("EXISTING SEPARATE BACKUP & RECOVERY TOOLS")
-            .assertExists()
-    }
-
-    @Test fun exportAndReadOnlyReviewRequireAnOwnerPassphrase() {
-        rule.onNodeWithTag("v341-unified-backup")
-            .performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("v341-unified-passphrase")
-            .performTextInput("a-persistent-private-passphrase")
-        rule.onNodeWithTag("v341-unified-export").assertIsEnabled()
-        rule.onNodeWithTag("v341-unified-inspect").assertIsEnabled()
-        rule.onNodeWithTag("v341-unified-restore-review").assertIsEnabled()
-        // No restore-all confirmation or write action is exposed by this panel.
-        rule.onNodeWithTag("v341-unified-restore-gate").assertExists()
+    @Test fun backupControlsAbsentAndAdvancedEraseStillPresent() {
+        rule.setContent {
+            V144SettingsHub(
+                settings = CreatorOsSettings(), tasks = emptyList(),
+                weeklyAutoPlanEnabled = false,
+                notificationsReady = false, preciseTimingReady = false,
+                fullScreenReady = false, batteryReady = false,
+                onClose = {}, onProfile = {}, onVoice = {},
+                onAlarmTimeout = {}, onSnooze = {},
+                onWeeklyAutoPlan = {}, onContextNudges = {},
+                onNotifications = {}, onPreciseTiming = {},
+                onFullScreen = {}, onBattery = {},
+                onReplayTour = {}, onCloudSync = {}, onYouTube = {},
+            )
+        }
+        rule.onNodeWithText("Backup & storage").assertDoesNotExist()
+        rule.onNodeWithText("Cloud Sync").assertDoesNotExist()
+        rule.onNodeWithText("Local Data & Backup").assertDoesNotExist()
+        rule.onNodeWithText("Advanced").performScrollTo()
+            .performClick()
+        rule.onNodeWithText("Erase local data").assertExists()
     }
 }
