@@ -82,31 +82,36 @@ class FreshStartActivity : ComponentActivity() {
                         )
                         Row {
                             Checkbox(checked = lossAcknowledged,
-                                onCheckedChange = { lossAcknowledged = it; armed = false })
+                                onCheckedChange = { lossAcknowledged = it; armed = false },
+                                modifier = Modifier.testTag("fresh-start-ack-loss"))
                             Text("I understand all local Creator and Personal data will be lost, including recovery copies.",
                                 color = ProjectorIvory, modifier = Modifier.padding(top = 10.dp))
                         }
                         Row {
                             Checkbox(checked = cloudAcknowledged,
-                                onCheckedChange = { cloudAcknowledged = it; armed = false })
+                                onCheckedChange = { cloudAcknowledged = it; armed = false },
+                                modifier = Modifier.testTag("fresh-start-ack-cloud"))
                             Text("I understand this resets this phone only, not cloud data.",
                                 color = ProjectorIvory, modifier = Modifier.padding(top = 10.dp))
                         }
                         Row {
                             Checkbox(checked = mediaAcknowledged,
-                                onCheckedChange = { mediaAcknowledged = it; armed = false })
+                                onCheckedChange = { mediaAcknowledged = it; armed = false },
+                                modifier = Modifier.testTag("fresh-start-ack-media"))
                             Text("Erase app-owned recordings, Best Frames, Home photos, Space photos and other private media.",
                                 color = ProjectorIvory, modifier = Modifier.padding(top = 10.dp))
                         }
                         Row {
                             Checkbox(checked = recoveryAcknowledged,
-                                onCheckedChange = { recoveryAcknowledged = it; armed = false })
+                                onCheckedChange = { recoveryAcknowledged = it; armed = false },
+                                modifier = Modifier.testTag("fresh-start-ack-recovery"))
                             Text("Erase local encrypted recovery copies and restore history too. They cannot be recovered after reset.",
                                 color = ProjectorIvory, modifier = Modifier.padding(top = 10.dp))
                         }
                         Row {
                             Checkbox(checked = backupAcknowledged,
-                                onCheckedChange = { backupAcknowledged = it; armed = false })
+                                onCheckedChange = { backupAcknowledged = it; armed = false },
+                                modifier = Modifier.testTag("fresh-start-ack-backup"))
                             Text("I have saved and checked any backup I need outside this app, or I accept permanent loss.",
                                 color = ProjectorIvory, modifier = Modifier.padding(top = 10.dp))
                         }

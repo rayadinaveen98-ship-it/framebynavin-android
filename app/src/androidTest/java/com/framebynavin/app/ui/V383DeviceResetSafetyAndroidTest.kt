@@ -1,10 +1,12 @@
 package com.framebynavin.app.ui
 
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -35,6 +37,26 @@ class V383DeviceResetSafetyAndroidTest {
             .performTextInput(FreshStartPolicy.CONFIRM_PHRASE)
         // Five independent owner acknowledgements remain necessary.
         rule.onNodeWithTag("fresh-start-review").performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test fun allOwnerAcknowledgementsOpenReviewButCancelNeverErasesData() {
+        HardeningTestEnvironment.requireCiEmulator()
+        rule.onNodeWithTag("fresh-start-confirm-phrase").performScrollTo()
+            .performTextInput(FreshStartPolicy.CONFIRM_PHRASE)
+        listOf("loss", "cloud", "media", "recovery", "backup").forEach { name ->
+            rule.onNodeWithTag("fresh-start-ack-$name")
+                .performScrollTo().performClick()
+        }
+        rule.onNodeWithTag("fresh-start-review").performScrollTo().assertIsEnabled()
+        rule.onNodeWithTag("fresh-start-review").performClick()
+        rule.onNodeWithText("Erase Backlot data on this phone?").assertExists()
+        rule.onNodeWithTag("fresh-start-final-erase").assertExists()
+        // CI must NEVER press this button. Only cancel the irreversible
+        // dialog, and ensure final erase is not accessible afterward.
+        rule.onNodeWithText("CANCEL").performClick()
+        rule.onNodeWithTag("fresh-start-final-erase").assertDoesNotExist()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(app.filesDir.isDirectory)
     }
 
     @Test fun syntheticInterruptedRecoveryIsDetectedWithoutDeletingEvidence() {
