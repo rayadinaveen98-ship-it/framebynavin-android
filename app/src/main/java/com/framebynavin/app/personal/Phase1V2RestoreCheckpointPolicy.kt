@@ -135,7 +135,16 @@ internal object Phase1V2RestoreFingerprint {
         Phase1HabitCodec.decode(habits)
         val personal = PersonalCompletionBackupCodec.decode(data.personal)
         V297ChallengeCodec.decode(data.challenges)
-        V298ReminderGroupCodec.decode(data.groups)
+        // Invalid owner-provided group JSON must fail as a rejected archive
+        // rather than leaking a platform JSON parsing exception from the
+        // fingerprint gate. Never hash or accept partially parsed groups.
+        try {
+            V298ReminderGroupCodec.decode(data.groups)
+        } catch (error: Exception) {
+            throw IllegalArgumentException(
+                "Malformed reminder group data in v2 recovery snapshot", error,
+            )
+        }
         val spaces = V303SpaceReceiptArchiveCodec.decode(data.spaces, personal)
         val spaceIds = spaces.spaces.mapTo(HashSet()) { it.id }
         val sortedPhotos = photos.sortedBy { it.id }
