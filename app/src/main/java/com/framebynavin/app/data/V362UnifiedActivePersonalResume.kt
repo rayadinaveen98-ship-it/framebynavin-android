@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
  *
  * Native v2 stage replay is delegated to the EXISTING v2 write-ahead engine:
  * it examines exact original/target ZIPs, current domain and photo forensics,
- * and resumes idempotent BEFORE_*/WRITTEN stages only under its own permit.
+ * and resumes idempotent BEFORE or WRITTEN stages only under its own permit.
  * A completed-but-unadvanced native v2 journal instead belongs to V361.
  */
 internal class V362UnifiedActivePersonalResume(context: Context) {

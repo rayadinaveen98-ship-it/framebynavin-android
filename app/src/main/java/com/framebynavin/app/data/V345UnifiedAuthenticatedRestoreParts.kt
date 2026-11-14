@@ -141,7 +141,7 @@ internal class V345UnifiedAuthenticatedRestoreParts(context: Context) {
         val personalSummary: String,
     )
 
-    private fun inspectCanonical(
+    private suspend fun inspectCanonical(
         staged: V341UnifiedOwnerArchive.Verified,
         passphrase: CharArray,
     ): CanonicalInspection {

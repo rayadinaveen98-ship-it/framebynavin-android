@@ -30,7 +30,8 @@ internal class V380UnifiedPostReleaseAlarmRearm(
     context: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = try {
+    override suspend fun doWork(): Result {
+        return try {
         val app = applicationContext
         val release = V379UnifiedReleaseJournal(app)
         var record = release.inspect() ?: return Result.success()
@@ -89,6 +90,7 @@ internal class V380UnifiedPostReleaseAlarmRearm(
     } catch (error: Exception) {
         Log.w(TAG, "Verified owner release: alarm reconciliation needs retry", error)
         Result.retry()
+        }
     }
 
     companion object {

@@ -174,6 +174,7 @@ internal fun V343UnifiedRecoveryEscrowPanel() {
             }
             if (nativeCreatorRecovery != null) {
                 val creatorText = when (val n = nativeCreatorRecovery) {
+                    null -> "Creator: recovery inspection unavailable; retain evidence."
                     V364UnifiedCreatorPendingRecoveryProof.Assessment.WrongCombinedStage ->
                         "Creator: current stage is not BEFORE_CREATOR."
                     V364UnifiedCreatorPendingRecoveryProof.Assessment
