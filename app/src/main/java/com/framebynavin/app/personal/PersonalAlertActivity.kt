@@ -223,7 +223,9 @@ internal fun V2233PersonalAlertScreen(
             .background(V336DirectorPalette.black)
             .testTag("v2233-personal-alert-screen"),
     ) {
-        V336DirectorBackdrop(
+        com.framebynavin.app.reminders.V391ReminderBackdrop(
+            kind = if (reminder?.alert == PersonalAlert.VOICE)
+                ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
             motionEnabled = motionEnabled, lowPower = lowPower,
             modifier = Modifier.fillMaxSize(),
         )
