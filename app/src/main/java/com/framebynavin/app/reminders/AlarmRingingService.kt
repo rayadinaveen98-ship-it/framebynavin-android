@@ -23,6 +23,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import androidx.core.app.NotificationCompat
+import com.framebynavin.app.ui.V390CompanionNotificationArt
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.TaskStore
@@ -199,6 +200,7 @@ class AlarmRingingService : Service() {
             .setAutoCancel(false)
             .setContentIntent(fullScreen)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        V390CompanionNotificationArt.selectedIcon(this)?.let { builder.setLargeIcon(it) }
         return V268FullScreenReminderAccess.configure(
             builder,
             fullScreen,
