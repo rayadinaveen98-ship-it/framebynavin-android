@@ -124,6 +124,31 @@ internal fun ReminderCheckInScreen(
     val lowPower = remember(context) {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
+    // V394 is an opt-in complete presentation. Existing reminder delivery,
+    // callbacks, saved V391 backgrounds and classic particle intro stay intact.
+    V394PremierePrefs.initialize(context)
+    if (V394PremierePresentationPolicy.creator(V394PremierePrefs.enabled(kind))) {
+        V394PremiereReminderScreen(
+            mode = V394PremiereMode.CREATOR,
+            kind = kind,
+            title = title,
+            timeLabel = clockLabel,
+            contextLabel = contextLine,
+            supportingText = listOfNotNull(
+                nextAction, notes.takeIf { it.isNotBlank() }
+            ).joinToString(" · "),
+            primaryLabel = if (stageCheckIn) "STEP DONE" else "I'M WORKING",
+            snoozeLabel = "SNOOZE " + snoozeMinutes + " MIN",
+            onPrimary = if (stageCheckIn) onStageDone else onWorking,
+            onSnooze = onSnooze,
+            onDismiss = onDismiss,
+            onWorking = if (stageCheckIn) onWorking else null,
+            onPause = if (stageCheckIn) onPause else null,
+            onReschedule = onReschedule,
+            onReplay = onReplay,
+        )
+        return
+    }
     // The user, not an intro timer, chooses when to reveal controls.
     // When OS animations are disabled, accessible controls appear immediately.
     var revealed by rememberSaveable(kind, title) {
