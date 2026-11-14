@@ -30,20 +30,18 @@ class V170BackupSettingsUiTest {
         }
     }
 
-    @Test fun backupAndCloudDestinationsAreStillAvailableAfterS5() {
+    @Test fun settingsDoNotExposeBackupRestoreOrCloudButtons() {
         show()
-        rule.onNodeWithText("Backup & storage").performClick()
-        rule.onNodeWithText("Cloud Sync").assertExists()
-        rule.onNodeWithText("Local Data & Backup").assertExists()
-        rule.onNodeWithText("Exported files are not encrypted: keep them private.", substring = true)
-            .assertExists()
+        rule.onNodeWithText("Backup & storage").assertDoesNotExist()
+        rule.onNodeWithText("Cloud Sync").assertDoesNotExist()
+        rule.onNodeWithText("Local Data & Backup").assertDoesNotExist()
+        rule.onNodeWithText("Account").assertExists()
+        rule.onNodeWithText("Advanced").assertExists()
     }
 
-    @Test fun backFromBackupStillExposesOtherSettingsWithoutResettingData() {
+    @Test fun eraseLocalDataRemainsInAdvanced() {
         show()
-        rule.onNodeWithText("Backup & storage").performClick()
-        rule.onNodeWithText("Cloud Sync").assertExists()
-        rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithText("Account").assertExists()
+        rule.onNodeWithText("Advanced").performClick()
+        rule.onNodeWithText("Erase local data").assertExists()
     }
 }
