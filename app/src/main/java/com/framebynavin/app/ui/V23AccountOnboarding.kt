@@ -117,7 +117,7 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
                     Surface(Modifier.size(58.dp), RoundedCornerShape(18.dp), RecRed.copy(alpha=.13f)) { Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.PersonOutline, null, tint=RecRed) } }
                     Spacer(Modifier.height(18.dp))
                     Text("Welcome to Backlot", color=ProjectorIvory, fontSize=31.sp, lineHeight=35.sp, fontWeight=FontWeight.Black)
-                    Text("Sign in to back up your work. You can also use Backlot without an account.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Sign in for your creator identity, or continue locally without an account.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(24.dp))
                     Button(onClick=::startGoogleSignIn, enabled=!busy, modifier=Modifier.fillMaxWidth().height(54.dp), colors=ButtonDefaults.buttonColors(containerColor=ProjectorIvory, contentColor=CinemaBlack)) {
                         Text(if (busy) "CONNECTING…" else "CONTINUE WITH GOOGLE", fontWeight=FontWeight.Black)
@@ -128,12 +128,12 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
                 CloudCreatorAccountRoute.RETURNING_CREATOR -> {
                     Surface(Modifier.size(58.dp), CircleShape, MutedGold.copy(alpha=.13f)) { Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.CloudDone, null, tint=MutedGold) } }
                     Spacer(Modifier.height(18.dp)); Text("Welcome back.", color=ProjectorIvory, fontSize=31.sp, fontWeight=FontWeight.Black)
-                    Text("Account found. We'll check for saved work. You'll choose what to keep if anything differs.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Account found. Your creator profile is ready. Your work on this phone stays here.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(18.dp)); CircularProgressIndicator(Modifier.size(20.dp), color=MutedGold, strokeWidth=2.dp)
                 }
                 CloudCreatorAccountRoute.CREATOR_ID_REQUIRED -> {
                     Text("Create your account", color=ProjectorIvory, fontSize=31.sp, fontWeight=FontWeight.Black)
-                    Text("Your account can back up your work automatically. Google Drive is optional.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Create your creator identity. Your local work stays on this device.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(20.dp))
                     OutlinedTextField(value=displayName, onValueChange={ displayName=it.take(40) }, modifier=Modifier.fillMaxWidth(), label={Text("Display name")}, singleLine=true)
                     Spacer(Modifier.height(10.dp))
