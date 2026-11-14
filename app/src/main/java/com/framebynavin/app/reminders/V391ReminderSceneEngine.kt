@@ -286,5 +286,7 @@ internal fun V391ReminderSceneSettings() {
         Text("Scenes respect reduced-motion preferences and battery saver. " +
             "Animations never hide or intercept reminder controls.",
             color = V336DirectorPalette.muted, fontSize = 11.sp, lineHeight = 16.sp)
+        Spacer(Modifier.height(12.dp))
+        V394PremiereSettingsSection()
     }
 }

@@ -1,0 +1,121 @@
+name: Backlot Premiere native Android proof
+
+on:
+  push:
+    branches:
+      - feature/backlot-premiere-proof-20261114
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-premiere-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  premiere-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Test Premiere rollout and privacy policies
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest --tests 'com.framebynavin.app.reminders.V394PremierePresentationPolicyTest' \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain
+
+  premiere-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assert package, preview isolation and safety
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'versionCode = 337' app/build.gradle.kts
+          grep -Fq 'V394PremierePresentationPolicy.personal(' app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt
+          grep -Fq 'V394PremiereReminderScreen(' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          grep -Fq 'P R E M I E R E  /  0 2' app/src/main/java/com/framebynavin/app/reminders/V394PremiereExperience.kt
+          grep -Fq 'V391ReminderBackdrop' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          grep -Fq 'fun automaticChallengeScreen(): Boolean = false' app/src/main/java/com/framebynavin/app/reminders/V394PremiereExperience.kt
+      - name: Assemble signed owner proof APK
+        run: |
+          set -euo pipefail
+          mkdir -p output/premiere
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:assemblePersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/premiere/BUILD.log
+      - name: Verify signed owner preview identity
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/premiere/Backlot-V337-Premiere-Experimental-QA.apk
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs output/premiere/Backlot-V337-Premiere-Experimental-QA.apk > output/premiere/SIGNER.txt
+          "$aapt" dump badging output/premiere/Backlot-V337-Premiere-Experimental-QA.apk | head -n 9 > output/premiere/IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='337'" output/premiere/IDENTITY.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/premiere/SIGNER.txt
+          sha256sum output/premiere/Backlot-V337-Premiere-Experimental-QA.apk > output/premiere/SHA256SUMS.txt
+          git rev-parse HEAD > output/premiere/SOURCE-SHA.txt
+          echo 'Experimental owner proof, not a production release. Never uninstall to install.' > output/premiere/READ-ME.txt
+      - name: Upload APK or diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Premiere-Experimental-Owner-APK
+          path: output/premiere/
+          retention-days: 30
+          if-no-files-found: warn
+
+  premiere-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Full JVM regression (two pre-existing recovery failures are tracked)
+        run: |
+          set -euo pipefail
+          mkdir -p output/regression
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/regression/TEST.log
+      - name: Upload regression results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Premiere-Full-Regression
+          path: |
+            output/regression/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
