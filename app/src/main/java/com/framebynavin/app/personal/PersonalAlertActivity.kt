@@ -43,7 +43,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.reminders.ReminderCheckInKind
-import com.framebynavin.app.reminders.V336DirectorBackdrop
+import com.framebynavin.app.reminders.V391ReminderVisualBackdrop
+import com.framebynavin.app.reminders.V391VisualMode
 import com.framebynavin.app.reminders.V336DirectorSignalArt
 import com.framebynavin.app.reminders.V336DirectorPalette
 import java.time.Instant
@@ -223,7 +224,8 @@ internal fun V2233PersonalAlertScreen(
             .background(V336DirectorPalette.black)
             .testTag("v2233-personal-alert-screen"),
     ) {
-        V336DirectorBackdrop(
+        V391ReminderVisualBackdrop(
+            mode = if (reminder?.alert == PersonalAlert.VOICE) V391VisualMode.VOICE else V391VisualMode.ALARM,
             motionEnabled = motionEnabled, lowPower = lowPower,
             modifier = Modifier.fillMaxSize(),
         )
