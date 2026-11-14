@@ -1,6 +1,7 @@
 package com.framebynavin.app.personal
 
 import android.content.Context
+import com.framebynavin.app.widget.V392WidgetUpdater
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -223,6 +224,9 @@ internal class Phase1HabitStore(context: Context) {
             }
             result = updated
             }
+            // Refresh widgets after the verified challenge edit, without
+            // mutating records or acknowledging any day on the widget surface.
+            V392WidgetUpdater.requestRefresh(app)
             result
         }
     }
