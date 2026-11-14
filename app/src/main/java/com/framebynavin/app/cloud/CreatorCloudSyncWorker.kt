@@ -16,14 +16,20 @@ class CreatorCloudSyncWorker(
     appContext: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
-    override suspend fun doWork(): Result = when (val result = CreatorCloudSyncManager(applicationContext).syncNow()) {
-        is CreatorCloudSyncResult.Failure -> if (result.retryable) Result.retry() else Result.success()
-        else -> Result.success()
-    }
+    // Owner withdrew backup/restore. Old queued WorkManager jobs are no-ops
+    // instead of silently uploading owner data after an APK upgrade.
+    override suspend fun doWork(): Result = Result.success()
 
     companion object {
         private const val PERIODIC_WORK = "creator-cloud-sync-periodic-v123"
         private const val SOON_WORK = "creator-cloud-sync-soon-v123"
+
+        /** Cancel previously scheduled periodic and one-shot cloud writes. */
+        fun stopAll(context: Context) {
+            val manager = WorkManager.getInstance(context.applicationContext)
+            manager.cancelUniqueWork(PERIODIC_WORK)
+            manager.cancelUniqueWork(SOON_WORK)
+        }
 
         private fun constraints() = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)

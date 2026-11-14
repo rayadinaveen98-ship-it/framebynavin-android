@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
                 CreatorContextNudgeWorker.ensurePeriodic(applicationContext)
                 CreatorAutoPlanWorker.ensurePeriodic(applicationContext)
                 CreatorRoutineWorker.ensurePeriodic(applicationContext)
-                CreatorCloudSyncWorker.ensurePeriodic(applicationContext)
+                CreatorCloudSyncWorker.stopAll(applicationContext)
                 ReminderRecoveryEngine.reconcile(applicationContext)
                 IdeaReminderScheduler(applicationContext).reconcile()
                 runCatching {
@@ -129,7 +129,7 @@ class MainActivity : ComponentActivity() {
                 result.onSuccess {
                     startupReady = true
                     startIdeaReminderObserver()
-                    CreatorCloudSyncWorker.enqueueSoon(applicationContext)
+                    // Cloud backup/restore withdrawn by owner; no automatic sync.
                 }.onFailure { startupError = it.message ?: "Could not safely recover the previous data. Your recovery files have been retained." }
             }
         }
@@ -161,12 +161,11 @@ class MainActivity : ComponentActivity() {
             }.onFailure {
                 android.util.Log.e("BacklotPersonal", "Resume personal reconcile failed", it)
             }
-            CreatorCloudSyncWorker.enqueueSoon(applicationContext)
+            // Cloud backup/restore withdrawn by owner; no automatic sync.
         }
     }
 
     override fun onPause() {
-        if (startupReady) CreatorCloudSyncWorker.enqueueSoon(applicationContext)
         super.onPause()
     }
 
