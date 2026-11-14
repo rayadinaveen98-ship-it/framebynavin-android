@@ -88,6 +88,14 @@ internal object V394PremierePresentationPolicy {
     fun automaticChallengeScreen(): Boolean = false
 }
 
+/** Keeps visual intensity independent of reminder delivery and accessibility. */
+internal object V394PremiereMotionPolicy {
+    fun animate(motionEnabled: Boolean, lowPower: Boolean): Boolean =
+        motionEnabled && !lowPower
+
+    fun particleCount(lowPower: Boolean): Int = if (lowPower) 22 else 96
+}
+
 internal object V394PremierePrefs {
     private const val FILE = "backlot_premiere_experience_v394"
     private var app: Context? = null
@@ -363,7 +371,7 @@ private fun V394PremiereAtmosphere(
     lowPower: Boolean, modifier: Modifier = Modifier,
 ) {
     // Reduced-motion and battery saver both freeze the scene; saver also trims particles.
-    val animate = motionEnabled && !lowPower
+    val animate = V394PremiereMotionPolicy.animate(motionEnabled, lowPower)
     val t = V336MotionTime(animate, lowPower)
     val accent = mode.accent()
     Canvas(modifier.testTag("v394-premiere-atmosphere")) {
@@ -373,7 +381,7 @@ private fun V394PremiereAtmosphere(
             Color(0xFF08080C), Color(0xFF171017), Color(0xFF09080E))))
 
         val breathe = if (animate) .88f + .12f * sin(t * .86f) else 1f
-        val halo = Offset(w * (.5f + if (animate) sin(t * .28f) * .04f else 0f), h * .31f)
+        val halo = Offset(w * (.5f + (if (animate) sin(t * .28f) * .04f else 0f)), h * .31f)
         drawCircle(Brush.radialGradient(
             listOf(accent.copy(alpha = .30f * breathe),
                 accent.copy(alpha = .07f * breathe), Color.Transparent),
@@ -418,7 +426,7 @@ private fun V394PremiereAtmosphere(
 
         // 96 depth-layered motes, up from 26. Each follows a short periodic
         // drift, never accumulating unbounded coordinates or state.
-        repeat(if (lowPower) 22 else 96) { i ->
+        repeat(V394PremiereMotionPolicy.particleCount(lowPower)) { i ->
             val seedX = (((i * 71 + 19) % 257) / 257f) * w
             val seedY = (((i * 97 + 11) % 263) / 263f) * h
             val depth = when (i % 4) {
@@ -462,7 +470,7 @@ private fun V394PremiereHero(
     mode: V394PremiereMode, kind: ReminderCheckInKind,
     motionEnabled: Boolean, lowPower: Boolean, modifier: Modifier,
 ) {
-    val animate = motionEnabled && !lowPower
+    val animate = V394PremiereMotionPolicy.animate(motionEnabled, lowPower)
     val t = V336MotionTime(animate, lowPower)
     val accent = mode.accent()
     Canvas(modifier.testTag("v394-premiere-hero")) {
@@ -494,7 +502,7 @@ private fun V394PremiereHero(
         }
         repeat(5) { i ->
             val a = (i * PI * 2 / 5).toFloat() +
-                if (animate) t * (.36f + i * .035f) else 0f
+                (if (animate) t * (.36f + i * .035f) else 0f)
             val orbit = r * (1.21f + (i % 2) * .12f)
             drawCircle(accent.copy(alpha = if (i % 2 == 0) .48f else .25f),
                 radius = (if (i == 0) 2.1f else 1.2f).dp.toPx(),
@@ -547,8 +555,8 @@ private fun DrawScope.v394Aperture(
 
     // 0.39 radians (about 22 degrees) makes blade movement easy to perceive.
     val spin = if (animate) sin(t * .62f) * .39f else 0f
-    val inner = radius * if (animate)
-        (.28f + .10f * (.5f + .5f * sin(t * .77f))) else .34f
+    val inner = radius * (if (animate)
+        (.28f + .10f * (.5f + .5f * sin(t * .77f))) else .34f)
     repeat(6) { i ->
         val a = (i * PI / 3.0).toFloat() + spin
         val b = a + (PI / 3.0).toFloat()
@@ -662,7 +670,7 @@ private fun DrawScope.v394Progress(
         style = Stroke(width = 1.9.dp.toPx(), cap = StrokeCap.Round))
     // Preview remains Day 08/21; this light is purely decorative.
     val a = (-PI / 2 + 2 * PI * 8 / 21).toFloat() +
-        if (animate) sin(t * .95f) * .055f else 0f
+        (if (animate) sin(t * .95f) * .055f else 0f)
     drawCircle(accent.copy(alpha = .65f * pulse),
         radius = 6.dp.toPx(),
         center = Offset(center.x + cos(a) * radius,
