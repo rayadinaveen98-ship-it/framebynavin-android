@@ -43,17 +43,21 @@ internal object V352UnifiedRecoveryDomainPolicy {
         directionDecision: V347OwnerRecoveryDecision,
         domain: V352RecoveryDomain,
     ): V352DomainAccessAssessment {
-        if (!V346InterruptedRecoveryProofPolicy.matches(proof, checkpoint)) {
-            return V352DomainAccessAssessment.Blocked(
-                V352WriteBlocker.UNAUTHENTICATED_ARCHIVES,
-            )
-        }
+        // A changed H4 checkpoint invalidates the earlier owner consent
+        // even when the sealed source proof is also stale. Keep this gate
+        // before archive verification so the exact owner-decision mismatch
+        // cannot be obscured by the subsequently rechecked proof.
         if (!V347OwnerRecoveryDecisionPolicy.remainsBound(
                 directionDecision, checkpoint
             )
         ) {
             return V352DomainAccessAssessment.Blocked(
                 V352WriteBlocker.STALE_OWNER_DECISION,
+            )
+        }
+        if (!V346InterruptedRecoveryProofPolicy.matches(proof, checkpoint)) {
+            return V352DomainAccessAssessment.Blocked(
+                V352WriteBlocker.UNAUTHENTICATED_ARCHIVES,
             )
         }
         if (proof.creatorStandaloneRecoveryMarker ||

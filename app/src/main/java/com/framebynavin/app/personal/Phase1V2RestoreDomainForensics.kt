@@ -141,9 +141,9 @@ internal object Phase1V2RestoreDomainForensics {
             ),
             Phase1V2RecoveryDomain.GROUPS to classify(
                 Phase1V2RecoveryDomain.GROUPS, mark, mark,
-                V298ReminderGroupCodec.decode(original.groups).sortedBy { it.id },
-                V298ReminderGroupCodec.decode(target.groups).sortedBy { it.id },
-                V298ReminderGroupCodec.decode(observed.groups).sortedBy { it.id },
+                decodeGroupDomain(original.groups),
+                decodeGroupDomain(target.groups),
+                decodeGroupDomain(observed.groups),
             ),
             Phase1V2RecoveryDomain.SPACES to classify(
                 Phase1V2RecoveryDomain.SPACES, mark, mark,
@@ -163,6 +163,16 @@ internal object Phase1V2RestoreDomainForensics {
             requiresIndependentPhotoProof = true,
         )
     }
+
+    /** Malformed recovery-domain JSON is a denied forensic input, not a
+     * permitted third revision. Preserve the original parse failure as cause.
+     */
+    private fun decodeGroupDomain(raw: String): List<V298ReminderGroup> =
+        try {
+            V298ReminderGroupCodec.decode(raw).sortedBy { it.id }
+        } catch (error: Exception) {
+            throw IllegalArgumentException("Invalid reminder group recovery domain", error)
+        }
 
     private fun personal(raw: String):
         Pair<List<PersonalReminder>, List<PersonalCompletionEvent>> {
