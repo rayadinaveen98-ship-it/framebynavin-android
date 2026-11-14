@@ -5,7 +5,7 @@ package com.framebynavin.app.ui
  * Every former setting retains its existing storage and callback.
  */
 internal enum class V167SettingsSection {
-    HOME, PERSONALIZATION, APPEARANCE, GUIDE, VOICE, REMINDER_VISUALS, REMINDERS, PLANNING, DATA, ABOUT, PRIVACY, ADVANCED
+    HOME, PERSONALIZATION, APPEARANCE, FOCUS, GUIDE, VOICE, REMINDER_VISUALS, REMINDERS, PLANNING, DATA, ABOUT, PRIVACY, ADVANCED
 }
 
 internal object V167SettingsNavigationPolicy {
@@ -18,6 +18,7 @@ internal object V167SettingsNavigationPolicy {
     fun parent(section: V167SettingsSection): V167SettingsSection = when (section) {
         V167SettingsSection.APPEARANCE,
         V167SettingsSection.GUIDE,
+        V167SettingsSection.FOCUS,
         V167SettingsSection.REMINDER_VISUALS,
         V167SettingsSection.VOICE -> V167SettingsSection.PERSONALIZATION
         else -> V167SettingsSection.HOME
