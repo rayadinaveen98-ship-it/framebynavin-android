@@ -65,21 +65,10 @@ internal object V224WidgetUpdater {
      * Explicit same-package broadcast; no external data or permissions.
      */
     fun refresh(context: Context) {
-        runCatching {
-            val app = context.applicationContext
-            val manager = AppWidgetManager.getInstance(app)
-            val component = ComponentName(app, V224MyDayWidgetProvider::class.java)
-            val pinned = manager.getAppWidgetIds(component)
-            if (pinned.isNotEmpty()) {
-                app.sendBroadcast(
-                    Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
-                        .setComponent(component)
-                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, pinned),
-                )
-            }
-        }.onFailure {
-            android.util.Log.w("BacklotWidgets", "V224 widget refresh unavailable", it)
-        }
+        // Existing Personal mutation sites call this historical entry point.
+        // It now wakes ONLY the replacement V392 providers. No legacy widget
+        // remains installed or promoted after the Stage 2 retirement.
+        V392WidgetUpdater.requestRefresh(context)
     }
 
     private inline fun <reified T> ids(context: Context, manager: AppWidgetManager): IntArray =

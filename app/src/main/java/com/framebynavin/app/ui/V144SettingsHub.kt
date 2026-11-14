@@ -116,6 +116,9 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
                     onOpenHomeSlideshow()
                 }
+                V144CategoryCard("Home screen widgets", "Today Hub, Next Reminder and Challenge Pulse", Icons.Outlined.Widgets, MutedGold) {
+                    context.startActivity(Intent(context, V392WidgetGalleryActivity::class.java))
+                }
                 V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }

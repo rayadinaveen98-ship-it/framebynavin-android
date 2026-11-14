@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="15dp"
+    android:background="@drawable/widget_v392_today_background">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:text="BACKLOT  /  TODAY"
+            android:textColor="#EDA4BA" android:textSize="10sp" android:textStyle="bold" />
+        <TextView android:id="@+id/v392_today_date" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textColor="#DEC99F"
+            android:textSize="10sp" android:textStyle="bold" />
+    </LinearLayout>
+    <TextView android:id="@+id/v392_today_headline" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="8dp"
+        android:ellipsize="end" android:maxLines="1" android:text="Your day, in focus"
+        android:textColor="#FFF9F3" android:textSize="20sp" android:textStyle="bold" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:layout_marginTop="10dp"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/v392_today_creator" android:layout_width="0dp"
+            android:layout_weight="1" android:layout_height="match_parent"
+            android:gravity="center_vertical" android:maxLines="3"
+            android:text="CREATOR
+Open Backlot" android:textSize="13sp"
+            android:textColor="#FFE2BA" android:contentDescription="Creator tasks summary"/>
+        <TextView android:id="@+id/v392_today_personal" android:layout_width="0dp"
+            android:layout_weight="1" android:layout_height="match_parent"
+            android:gravity="center_vertical" android:maxLines="3"
+            android:text="PERSONAL
+Open Backlot" android:textSize="13sp"
+            android:textColor="#F7B4D2" android:contentDescription="Private count of today's reminders"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="38dp"
+        android:orientation="horizontal" android:layout_marginTop="7dp">
+        <TextView android:id="@+id/v392_today_open" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1"
+            android:gravity="center" android:background="@drawable/widget_v392_button"
+            android:text="OPEN TODAY" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="11sp"
+            android:contentDescription="Open Backlot today"/>
+        <TextView android:id="@+id/v392_today_personal_open" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:gravity="center"
+            android:text="PERSONAL" android:textColor="#FADCE8"
+            android:textStyle="bold" android:textSize="11sp"
+            android:contentDescription="Open Personal reminder hub"/>
+    </LinearLayout>
+</LinearLayout>
