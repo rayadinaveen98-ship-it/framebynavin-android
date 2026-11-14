@@ -87,7 +87,7 @@ internal object V2292SparkConversationPolicy {
             }
         }
         return V2292SparkReply(
-            "I'm Spark's first offline guide, not a full AI chat model. Try \"What should I do next?\", \"My ideas\" or \"Reminders\".",
+            "I'm Backlot's offline companion guide, not a full AI chat model. Try \"What should I do next?\", \"My ideas\" or \"Reminders\".",
         )
     }
 }
