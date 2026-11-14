@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_v392_challenge_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:minHeight="110dp"
+    android:padding="12dp"
+    android:orientation="vertical"
+    android:gravity="center_vertical"
+    android:background="@drawable/widget_v392_background">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:text="21-DAY CHALLENGE" android:textAllCaps="true" android:textColor="#E1B379"
+            android:textSize="10sp" android:textStyle="bold" android:letterSpacing=".14"
+            android:includeFontPadding="false"/>
+        <TextView android:id="@+id/widget_v392_challenge_refresh" android:layout_width="42dp" android:layout_height="42dp"
+            android:gravity="center" android:text="↻" android:textSize="22sp" android:textColor="#F5C8CF"
+            android:contentDescription="Refresh this Backlot widget"/>
+    </LinearLayout>
+    
+    <TextView android:id="@+id/widget_v392_challenge_day" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Checking challenge" android:textSize="20sp" android:textColor="#FFF1E4" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:textStyle="bold" android:layout_marginTop="2dp"/>
+    <TextView android:id="@+id/widget_v392_challenge_progress" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Your progress" android:textSize="12sp" android:textColor="#EAC5CE" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:layout_marginTop="5dp"/>
+    <TextView android:id="@+id/widget_v392_challenge_hint" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tap to review your journey" android:textSize="10sp" android:textColor="#C7A3B2" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:layout_marginTop="4dp"/>
+</LinearLayout>

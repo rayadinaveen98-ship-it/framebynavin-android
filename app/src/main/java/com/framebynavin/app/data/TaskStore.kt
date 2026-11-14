@@ -88,6 +88,8 @@ class TaskStore(private val context: Context) {
             runCatching { workflowTimeline.recordTransitions(previous, tasks) }
         }
         CreatorWidgetUpdater.updateAll(context, tasks)
+        // Read-only launcher refresh is asynchronous and never delays canonical task writes.
+        runCatching { com.framebynavin.app.widget.V392WidgetRefresh.request(context) }
     }
 
     /**
