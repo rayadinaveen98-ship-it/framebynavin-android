@@ -76,6 +76,15 @@ internal fun v144GuideDrawable(guide: V144GuideIdentity, state: CinePulseState):
         CinePulseState.LISTEN, CinePulseState.REST -> R.drawable.guide_funny_welcome
     }
 
+    V144GuideIdentity.MIRA -> when (state) {
+        CinePulseState.PRESENT -> R.drawable.guide_mira_present
+        CinePulseState.POINT, CinePulseState.WALK -> R.drawable.guide_mira_point
+        CinePulseState.THINK, CinePulseState.LOOK -> R.drawable.guide_mira_think
+        CinePulseState.LISTEN, CinePulseState.NOD -> R.drawable.guide_mira_listen
+        CinePulseState.SUCCESS, CinePulseState.CELEBRATE -> R.drawable.guide_mira_celebrate
+        CinePulseState.IDLE, CinePulseState.WAVE, CinePulseState.REST -> R.drawable.guide_mira_welcome
+    }
+
     // Safety-critical existing rule: only the undistorted kitten welcome master is approved.
     // Legacy thinking/celebrate WebPs contain corrupted image regions; do not route to them.
     V144GuideIdentity.CUTE -> R.drawable.guide_cute_welcome
