@@ -69,9 +69,6 @@ class MainActivity : ComponentActivity() {
                             Text(startupError.orEmpty(), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .65f), fontSize = 14.sp)
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = { beginStartup() }) { Text("RETRY RECOVERY") }
-                            TextButton(onClick = { startActivity(Intent(this@MainActivity, com.framebynavin.app.ui.BackupActivity::class.java)) }) {
-                                Text("OPEN BACKUP TOOLS")
-                            }
                         }
                     }
                     else -> Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { }
@@ -90,12 +87,12 @@ class MainActivity : ComponentActivity() {
                 // A torn combined restore must NOT be mistaken for an
                 // ordinary Creator recovery. Do not launch background
                 // reconcile/cloud workers before owner-reviewed evidence.
-                // BackupActivity stays accessible from the recovery screen.
+                // Keep interrupted restore evidence; manual restore screens are withdrawn.
                 check(!com.framebynavin.app.data.V344UnifiedRestoreJournal
                     .hasPendingFor(applicationContext)) {
                     "An interrupted combined restore needs owner review. " +
-                        "Do not retry automatic recovery. Open Backup Tools " +
-                        "to inspect the original and selected encrypted copies."
+                        "Do not retry automatic recovery or clear existing app data. " +
+                        "The original recovery evidence is preserved for a future safe approach."
                 }
                 CreatorBackupManager(applicationContext).recoverPendingRestore()
                 VoiceIdeaRecorder.cleanupAbandonedWorkingFiles(applicationContext)

@@ -407,32 +407,6 @@ internal fun V144SettingsHub(
                 V129GoogleCalendarSettings(tasks)
             }
 
-            V167SettingsSection.DATA -> V144SettingsPage("BACKUP & STORAGE", "Manage backups and recovery", { sectionName = V167SettingsSection.HOME.name }) {
-                V144ActionCard(
-                    title = "Cloud Sync",
-                    subtitle = "Google account · cloud backups",
-                    icon = Icons.Outlined.CloudSync,
-                    accent = RecRed,
-                    onClick = onCloudSync,
-                )
-                Spacer(Modifier.height(9.dp))
-                V144ActionCard(
-                    title = "Local Data & Backup",
-                    subtitle = "Export your work and recordings; see recovery copies.",
-                    icon = Icons.Outlined.SaveAlt,
-                    accent = MutedGold,
-                    onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
-                )
-
-                Spacer(Modifier.height(12.dp))
-                V144SettingsNote(
-                    "A portable backup includes projects, ideas, supported Voice Idea recordings, original Best Frames, reminders and planning. " +
-                        "Project attachments keep their links only: the referenced files are not included. " +
-                        "Companion, theme, app icon, launch sound, Calendar connection and sign-in remain device-specific. " +
-                        "Exported files are not encrypted: keep them private."
-                )
-            }
-
             V167SettingsSection.PRIVACY -> V144SettingsPage("PRIVACY & PERMISSIONS", "Privacy and device access", ::navigateBack) {
                 V144ActionCard(
                     title = "Data & privacy",
@@ -452,7 +426,7 @@ internal fun V144SettingsHub(
 
             V167SettingsSection.ADVANCED -> V144SettingsPage("ADVANCED", "Device data controls", ::navigateBack) {
                 V144ActionCard(
-                    title = "Start fresh on this phone",
+                    title = "Erase local data",
                     subtitle = "Erases local app data after confirmation. Cloud data stays.",
                     icon = Icons.Outlined.DeleteForever,
                     accent = RecRed,
@@ -552,10 +526,6 @@ private fun V144SettingsHome(
                     icon = Icons.Outlined.CalendarMonth,
                     support = if (weeklyAutoPlanEnabled) "Weekly plan enabled" else null,
                 ) { onOpen(V167SettingsSection.PLANNING) }
-                V294QuietSettingsDivider()
-                V294QuietSettingRow("Backup & storage", Icons.Outlined.CloudSync) {
-                    onOpen(V167SettingsSection.DATA)
-                }
                 V294QuietSettingsDivider()
                 V294QuietSettingRow("Privacy & permissions", Icons.Outlined.Shield) {
                     onOpen(V167SettingsSection.PRIVACY)
