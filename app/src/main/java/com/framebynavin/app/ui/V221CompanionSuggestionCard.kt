@@ -58,6 +58,7 @@ internal object V221CompanionPresentationPolicy {
             V144GuideIdentity.FRAME -> "NEXT STEP"
             V144GuideIdentity.NAVI -> "WORTH A LOOK"
             V144GuideIdentity.FUNNY -> "ON YOUR RADAR"
+            V144GuideIdentity.MIRA -> "A LITTLE ENCOURAGEMENT"
             V144GuideIdentity.CUTE -> "A GENTLE NUDGE"
         }
         val state = when (decision.expression) {

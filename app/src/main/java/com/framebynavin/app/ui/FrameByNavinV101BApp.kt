@@ -124,6 +124,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
+    val v393FirstRunPrefs = remember(context) { V393FirstRunPrefs(context.applicationContext) }
+    var v393FirstRunFocus by remember { mutableStateOf(v393FirstRunPrefs.selectedFocus()) }
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
     // The Activity owns the preference so the REAL Settings screen can silence
     // a still-composed Home card in the very same frame after a successful save.
@@ -150,6 +152,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var homeSpacesRevision by remember { mutableIntStateOf(0) }
     // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
+    // A Personal-first user reaches the existing Personal hub, not a fake
+    // Creator profile or new scheduler. The one-time route is persisted.
+    LaunchedEffect(v393FirstRunFocus, V144GuidePrefs.selectedGuide, settings.onboardingComplete) {
+        if (v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
+            !settings.onboardingComplete && V144GuidePrefs.hasSelection &&
+            !v393FirstRunPrefs.personalFirstEntryShown() && externalLaunch == null
+        ) {
+            runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
+                .onSuccess {
+                    personalReminderSpace = true
+                    showReminders = true
+                }
+        }
+    }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var showNewIdeaEditor by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -589,6 +605,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     ) {
         if (
             guidedTourStepName == null &&
+            // New quick-start users begin with a real action. Guided lessons
+            // remain replayable in Settings; legacy onboarding policy is intact.
+            v393FirstRunFocus == null &&
             CreatorGuidedTourPolicy.shouldStart(
                 accountOnboardingComplete = settings.accountOnboardingComplete,
                 creatorSetupComplete = settings.onboardingComplete,
@@ -1237,7 +1256,23 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    if (!settings.accountOnboardingComplete) {
+    if (!settings.accountOnboardingComplete && v393FirstRunFocus == null &&
+        !settings.onboardingComplete && !settings.creatorProfile.isComplete) {
+        V393FirstRunFocusScreen { focus ->
+            runCatching {
+                v393FirstRunPrefs.saveFocus(focus)
+                // Explicit local-first continuation. Google connection remains
+                // available in Profile and never blocks a first useful action.
+                settingsStore.setAccountOnboardingComplete(true)
+            }.onSuccess {
+                v393FirstRunFocus = focus
+                settings = settingsStore.snapshot()
+            }.onFailure {
+                Toast.makeText(context, "Could not save setup choice. Try again.",
+                    Toast.LENGTH_LONG).show()
+            }
+        }
+    } else if (!settings.accountOnboardingComplete) {
         V23AccountOnboarding(
             onComplete = { displayName ->
                 if (displayName.isNotBlank()) {
@@ -1280,23 +1315,44 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     } else if (V151SetupPolicy.needsCreatorSetup(
         onboardingComplete = settings.onboardingComplete,
         profileComplete = settings.creatorProfile.isComplete,
-    )) {
-        V18CreatorOnboarding(
-            profile = settings.creatorProfile,
-            notificationsReady = permissions.notifications,
-            preciseTimingReady = permissions.preciseTiming,
-            fullScreenReady = permissions.fullScreen,
-            batteryReady = permissions.batteryAccess,
-            onNotifications = ::requestNotifications,
-            onPreciseTiming = ::requestPreciseTiming,
-            onFullScreen = ::requestFullScreen,
-            onBattery = ::openBatterySettings,
-            onFinish = { profile ->
-                val saved = settingsStore.completeCreatorSetup(profile)
-                settings = settingsStore.snapshot()
-                saved && settings.onboardingComplete && settings.creatorProfile.isComplete
-            },
-        )
+    ) && (v393FirstRunFocus != V393FirstRunFocus.PERSONAL ||
+        tab != PTab.TODAY || showComposer || showQuickCapture)) {
+        if (v393FirstRunFocus != null) {
+            V393QuickCreatorSetup(
+                existing = settings.creatorProfile,
+                onFinish = { profile ->
+                    val saved = settingsStore.completeCreatorSetup(profile)
+                    settings = settingsStore.snapshot()
+                    if (saved && settings.onboardingComplete &&
+                        settings.creatorProfile.isComplete
+                    ) {
+                        overlay = POverlay.NONE
+                        tab = PTab.CREATE
+                        openComposer(quick = true)
+                        true
+                    } else false
+                },
+            )
+        } else {
+            // Existing partially configured users keep the original five-page
+            // setup; no mandatory migration or preference overwrite.
+            V18CreatorOnboarding(
+                profile = settings.creatorProfile,
+                notificationsReady = permissions.notifications,
+                preciseTimingReady = permissions.preciseTiming,
+                fullScreenReady = permissions.fullScreen,
+                batteryReady = permissions.batteryAccess,
+                onNotifications = ::requestNotifications,
+                onPreciseTiming = ::requestPreciseTiming,
+                onFullScreen = ::requestFullScreen,
+                onBattery = ::openBatterySettings,
+                onFinish = { profile ->
+                    val saved = settingsStore.completeCreatorSetup(profile)
+                    settings = settingsStore.snapshot()
+                    saved && settings.onboardingComplete && settings.creatorProfile.isComplete
+                },
+            )
+        }
     }
 
     if (
