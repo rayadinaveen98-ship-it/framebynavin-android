@@ -39,4 +39,5 @@ internal fun v217ConceptDrawable(identity: V144GuideIdentity): Int = when (ident
     V144GuideIdentity.NAVI -> R.drawable.guide_v217_navi_concept
     V144GuideIdentity.CUTE -> R.drawable.guide_v217_cute_concept
     V144GuideIdentity.FUNNY -> R.drawable.guide_funny_welcome
+    V144GuideIdentity.MIRA -> R.drawable.guide_mira_welcome
 }

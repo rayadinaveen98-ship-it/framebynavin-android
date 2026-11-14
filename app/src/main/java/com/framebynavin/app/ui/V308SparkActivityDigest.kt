@@ -124,7 +124,7 @@ internal fun V308SparkActivityDigest(
                                 modifier = Modifier.size(40.dp)
                                     .testTag("v308-spark-dismiss"),
                             ) {
-                                Icon(Icons.Outlined.Close, "Hide this Spark update",
+                                Icon(Icons.Outlined.Close, "Hide this companion update",
                                     tint = MutedText)
                             }
                         } else {

@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.framebynavin.app.ui.V390CompanionNotificationArt
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
@@ -114,6 +115,8 @@ object ReminderNotifications {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context, task.id))
+
+        V390CompanionNotificationArt.selectedIcon(context)?.let { builder.setLargeIcon(it) }
 
         if (stageCheckIn) {
             builder

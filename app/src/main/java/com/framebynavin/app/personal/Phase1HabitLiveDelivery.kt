@@ -19,6 +19,7 @@ import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
+import com.framebynavin.app.ui.V390CompanionNotificationArt
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
@@ -105,6 +106,7 @@ internal object Phase1HabitNotification {
             .setPriority(if (kind == Phase1HabitAlertKind.QUIET)
                 NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setSilent(kind == Phase1HabitAlertKind.QUIET)
+        V390CompanionNotificationArt.selectedIcon(context)?.let { builder.setLargeIcon(it) }
         // Only the exact, posted occurrence can be snoozed from the OS notice.
         // Completing a challenge is never inferred from an alert interaction.
         if (scheduledAt > 0L) {

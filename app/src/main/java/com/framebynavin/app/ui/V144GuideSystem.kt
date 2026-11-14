@@ -53,13 +53,14 @@ enum class V144GuideIdentity(val displayName: String, val description: String) {
     FRAME("Frame", "Simple. Expressive. Always with you."),
     NAVI("Navi", "Curious. Calm. Creative."),
     FUNNY("Spark", "Lively. Creative. Always moving forward."),
+    MIRA("Mira", "Warm. Curious. Ready to cheer you on."),
     CUTE("Cute", "Warm. Gentle. Always encouraging."),
 }
 
 /** The original companion choice experience, restored for first-time creators. */
-// Spark is the sole newly selectable companion until consistent pose packs ship.
-// Keep Frame, Navi and Cute IDs/resources for backward compatibility.
-internal val V145SelectableGuides = listOf(V144GuideIdentity.FUNNY)
+// Two fully independent selectable guides. Legacy Frame/Navi/Cute identifiers
+// remain readable so no existing local preference is overwritten on upgrade.
+internal val V145SelectableGuides = listOf(V144GuideIdentity.FUNNY, V144GuideIdentity.MIRA)
 
 /** Keep already selected companions intact on upgrades; do not silently overwrite choices. */
 internal fun v145NormalizeSavedGuide(value: String?): V144GuideIdentity? =
@@ -133,10 +134,10 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
         ) {
             Text("BACKLOT", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 2.4.sp)
             Spacer(Modifier.height(7.dp))
-            Text("Meet Spark", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            Text("Choose your companion", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(5.dp))
             Text(
-                "Spark helps you stay focused on creating. More companions may join Backlot in a later version.",
+                "Spark or Mira will accompany you across Backlot. Choose who feels right for you; change anytime in Settings.",
                 color = MutedText,
                 fontSize = 10.sp,
                 lineHeight = 15.sp,
@@ -158,7 +159,7 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
-                    // Single Spark card fills the row instead of an empty second column.
+                    // Both companions share consistent card height, spacing and actions.
                 }
                 if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(10.dp))
             }
@@ -239,10 +240,10 @@ internal fun V144GuidePicker() {
     val selected = V144GuidePrefs.currentGuide
 
     Column(Modifier.fillMaxWidth()) {
-        Text("SPARK COMPANION", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("YOUR COMPANION", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
         Text("Your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("More companions may arrive in a later version.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
+        Text("Choose Spark or Mira. Your choice stays with you throughout Backlot.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(10.dp))
 
         V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
@@ -282,7 +283,7 @@ internal fun V144GuidePicker() {
                         }
                     }
                 }
-                // Single Spark card fills the row instead of an empty second column.
+                // Both companions share consistent card height, spacing and actions.
             }
             if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(8.dp))
         }
@@ -299,8 +300,9 @@ internal fun V144GuideCharacter(
     when (guide) {
         V144GuideIdentity.FRAME, V144GuideIdentity.NAVI, V144GuideIdentity.CUTE ->
             V217LiveCompanionCharacter(guide, state, modifier, pointRight)
-        // The original Spark code path and all five original Spark WebPs are preserved.
-        V144GuideIdentity.FUNNY -> V144RasterGuideCharacter(guide, state, modifier, pointRight)
+        // Spark and Mira each retain their own approved transparent sprite packs.
+        V144GuideIdentity.FUNNY, V144GuideIdentity.MIRA ->
+            V144RasterGuideCharacter(guide, state, modifier, pointRight)
     }
 }
 
@@ -308,6 +310,7 @@ private fun v144GuideIdentityColor(guide: V144GuideIdentity): Color = when (guid
     V144GuideIdentity.FRAME -> Color(0xFFFFC857)
     V144GuideIdentity.NAVI -> Color(0xFFF04F54)
     V144GuideIdentity.FUNNY -> Color(0xFF8176E8)
+    V144GuideIdentity.MIRA -> Color(0xFFE995AF)
     V144GuideIdentity.CUTE -> Color(0xFFE99AAF)
 }
 

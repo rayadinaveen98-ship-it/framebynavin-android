@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.framebynavin.app.ui.V390CompanionNotificationArt
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
@@ -112,6 +113,7 @@ internal object PersonalReminderNotifications {
             .addAction(0, "DONE", action(context, reminder, PersonalDeliveryContract.ACTION_DONE, 11))
             .addAction(0, "SNOOZE ${reminder.snoozeMinutes}m", action(context, reminder, PersonalDeliveryContract.ACTION_SNOOZE, 12))
             .addAction(0, "DISMISS", action(context, reminder, PersonalDeliveryContract.ACTION_DISMISS, 13))
+        V390CompanionNotificationArt.selectedIcon(context)?.let { builder.setLargeIcon(it) }
         if (planDetails) {
             builder.setStyle(NotificationCompat.BigTextStyle().bigText(reminder.notes))
         }

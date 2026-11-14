@@ -1,0 +1,27 @@
+name: Backlot companion artwork review bundle
+on:
+  push:
+    branches:
+      - feature/backlot-stage3-dual-companion-20261114
+
+permissions:
+  contents: read
+
+jobs:
+  artwork:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package existing companion artwork for owner review
+        run: |
+          mkdir -p output/guide-review
+          cp app/src/main/res/drawable-nodpi/guide_funny_*.webp output/guide-review/
+          cp app/src/main/res/drawable-nodpi/guide_cute_*.webp output/guide-review/
+          cp app/src/main/res/drawable-nodpi/guide_v217_navi_concept.webp output/guide-review/
+          cp app/src/main/res/drawable-nodpi/guide_v217_cute_concept.webp output/guide-review/
+          sha256sum output/guide-review/*.webp > output/guide-review/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Existing-Companion-Art-Review
+          path: output/guide-review
+          retention-days: 7

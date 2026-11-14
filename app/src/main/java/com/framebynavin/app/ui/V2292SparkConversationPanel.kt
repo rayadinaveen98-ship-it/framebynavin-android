@@ -92,7 +92,7 @@ internal fun V2292SparkConversationPanel(
                 Text("BACK", color = MutedGold, fontSize = 11.sp)
             }
             Column(Modifier.weight(1f)) {
-                Text("SPARK · LOCAL GUIDE", color = ProjectorIvory,
+                Text("${V144GuidePrefs.currentGuide.displayName.uppercase()} · LOCAL GUIDE", color = ProjectorIvory,
                     fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Text("Offline, limited answers · this chat is not saved",
                     color = MutedText, fontSize = 10.sp)
@@ -134,7 +134,7 @@ internal fun V2292SparkConversationPanel(
                     border = BorderStroke(1.dp, CinemaLine),
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(if (turn.isSpark) "SPARK" else "YOU", color = MutedGold,
+                        Text(if (turn.isSpark) V144GuidePrefs.currentGuide.displayName.uppercase() else "YOU", color = MutedGold,
                             fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         Text(turn.message, color = ProjectorIvory,
                             fontSize = 12.sp, lineHeight = 17.sp)
@@ -180,7 +180,7 @@ internal fun V2292SparkConversationPanel(
                 value = draft,
                 onValueChange = { draft = it.take(V2292SparkConversationPolicy.INPUT_MAX) },
                 modifier = Modifier.weight(1f).testTag("v2292-spark-input"),
-                label = { Text("Ask Spark", fontSize = 11.sp) },
+                label = { Text("Ask ${V144GuidePrefs.currentGuide.displayName}", fontSize = 11.sp) },
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                     imeAction = ImeAction.Send
