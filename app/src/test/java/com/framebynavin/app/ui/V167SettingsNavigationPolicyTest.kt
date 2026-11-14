@@ -5,14 +5,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class V167SettingsNavigationPolicyTest {
-    @Test fun homeHasEightUniqueDestinations() {
-        assertEquals(8, V167SettingsNavigationPolicy.homeSections.size)
-        assertEquals(8, V167SettingsNavigationPolicy.homeSections.toSet().size)
+    @Test fun homeHasSevenUniqueDestinations() {
+        assertEquals(7, V167SettingsNavigationPolicy.homeSections.size)
+        assertEquals(7, V167SettingsNavigationPolicy.homeSections.toSet().size)
         assertEquals("Account", V167SettingsNavigationPolicy.homeSections.first())
         assertEquals("Advanced", V167SettingsNavigationPolicy.homeSections.last())
         assertEquals(
             listOf("Account", "Appearance & sound", "Notifications & alarms",
-                "Planning & integrations", "Backup & storage", "Privacy & permissions",
+                "Planning & integrations", "Privacy & permissions",
                 "Help & about", "Advanced"),
             V167SettingsNavigationPolicy.homeSections,
         )
@@ -32,11 +32,11 @@ class V167SettingsNavigationPolicyTest {
         listOf(
             V167SettingsSection.REMINDERS,
             V167SettingsSection.PLANNING,
-            V167SettingsSection.DATA,
             V167SettingsSection.ABOUT,
             V167SettingsSection.PRIVACY,
             V167SettingsSection.ADVANCED,
         ).forEach { assertEquals(V167SettingsSection.HOME, V167SettingsNavigationPolicy.parent(it)) }
+        assertEquals(V167SettingsSection.HOME, V167SettingsNavigationPolicy.fromSavedName("DATA"))
         assertEquals(V167SettingsSection.HOME, V167SettingsNavigationPolicy.fromSavedName("CONNECTIONS"))
         assertEquals(V167SettingsSection.HOME, V167SettingsNavigationPolicy.fromSavedName("unknown"))
         assertEquals(V167SettingsSection.VOICE, V167SettingsNavigationPolicy.fromSavedName("VOICE"))
