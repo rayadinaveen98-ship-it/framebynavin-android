@@ -161,8 +161,8 @@ class FreshStartActivity : ComponentActivity() {
                             text = { Text(
                                 "This is irreversible. Android erases Creator and Personal records, " +
                                     "private media, settings and local recovery copies, then " +
-                                    "closes Backlot. Only separately saved backups, external files " +
-                                    "and previously stored remote data remain."
+                                    "closes Backlot. Files stored outside the app and previously " +
+                                    "stored remote account data remain."
                             ) },
                             dismissButton = {
                                 TextButton(onClick = { armed = false }) { Text("CANCEL") }

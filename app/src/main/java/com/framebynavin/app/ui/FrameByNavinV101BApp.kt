@@ -69,7 +69,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.framebynavin.app.BuildConfig
-import com.framebynavin.app.cloud.CloudSyncActivity
 import com.framebynavin.app.cloud.CloudSyncManager
 import com.framebynavin.app.cloud.DriveVaultLocalStore
 import com.framebynavin.app.data.*
@@ -1248,25 +1247,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             },
             onContinueLocally = {
                 settingsStore.setAccountOnboardingComplete(true)
-                settings = settingsStore.snapshot()
-            },
-        )
-    } else if ((!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
-        CloudSyncManager(context.applicationContext).localState().session?.let { session ->
-            // Read revision so marking recovery reviewed causes this gate to be re-evaluated immediately.
-            driveRecoveryRevision
-            !driveVaultLocalStore.recoveryReviewed(session.email)
-        } == true
-    ) {
-        val connected = CloudSyncManager(context.applicationContext).localState().session!!
-        V20DriveRecoveryGate(
-            session = connected,
-            onRecovered = {
-                driveRecoveryRevision += 1
-                settings = settingsStore.snapshot()
-            },
-            onStartNew = {
-                driveRecoveryRevision += 1
                 settings = settingsStore.snapshot()
             },
         )
