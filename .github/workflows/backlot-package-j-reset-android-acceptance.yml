@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           mkdir -p output/package-j-reset
           timeout --signal=TERM --kill-after=20s 5300s \
-            gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest \
               --no-daemon --no-parallel --max-workers=1 \
               -Pkotlin.compiler.execution.strategy=in-process \
               '-Dorg.gradle.jvmargs=-Xmx9g -XX:MaxMetaspaceSize=1400m -Dfile.encoding=UTF-8' \
