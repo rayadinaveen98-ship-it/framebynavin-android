@@ -117,7 +117,7 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
                     Surface(Modifier.size(58.dp), RoundedCornerShape(18.dp), RecRed.copy(alpha=.13f)) { Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.PersonOutline, null, tint=RecRed) } }
                     Spacer(Modifier.height(18.dp))
                     Text("Welcome to Backlot", color=ProjectorIvory, fontSize=31.sp, lineHeight=35.sp, fontWeight=FontWeight.Black)
-                    Text("Sign in to back up your work. You can also use Backlot without an account.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Connect your account for optional services, or begin locally without signing in.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(24.dp))
                     Button(onClick=::startGoogleSignIn, enabled=!busy, modifier=Modifier.fillMaxWidth().height(54.dp), colors=ButtonDefaults.buttonColors(containerColor=ProjectorIvory, contentColor=CinemaBlack)) {
                         Text(if (busy) "CONNECTING…" else "CONTINUE WITH GOOGLE", fontWeight=FontWeight.Black)
@@ -133,7 +133,7 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
                 }
                 CloudCreatorAccountRoute.CREATOR_ID_REQUIRED -> {
                     Text("Create your account", color=ProjectorIvory, fontSize=31.sp, fontWeight=FontWeight.Black)
-                    Text("Your account can back up your work automatically. Google Drive is optional.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Your account connects supported services. Local use is also available.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
                     Spacer(Modifier.height(20.dp))
                     OutlinedTextField(value=displayName, onValueChange={ displayName=it.take(40) }, modifier=Modifier.fillMaxWidth(), label={Text("Display name")}, singleLine=true)
                     Spacer(Modifier.height(10.dp))
