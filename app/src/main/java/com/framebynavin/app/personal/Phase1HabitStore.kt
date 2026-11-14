@@ -223,6 +223,8 @@ internal class Phase1HabitStore(context: Context) {
             }
             result = updated
             }
+            // Widget update is a separate read-only broadcast after the store edit.
+            runCatching { com.framebynavin.app.widget.V392WidgetRefresh.request(app) }
             result
         }
     }
