@@ -51,9 +51,10 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
-          grep -Fq 'versionCode = 336' app/build.gradle.kts
+          grep -Fq 'versionCode = 337' app/build.gradle.kts
           grep -Fq 'V394PremierePresentationPolicy.personal(' app/src/main/java/com/framebynavin/app/personal/PersonalAlertActivity.kt
           grep -Fq 'V394PremiereReminderScreen(' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
+          grep -Fq 'P R E M I E R E  /  0 2' app/src/main/java/com/framebynavin/app/reminders/V394PremiereExperience.kt
           grep -Fq 'V391ReminderBackdrop' app/src/main/java/com/framebynavin/app/reminders/ReminderCheckInScreen.kt
           grep -Fq 'fun automaticChallengeScreen(): Boolean = false' app/src/main/java/com/framebynavin/app/reminders/V394PremiereExperience.kt
       - name: Assemble signed owner proof APK
@@ -68,14 +69,14 @@ jobs:
       - name: Verify signed owner preview identity
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/premiere/Backlot-V336-Premiere-Experimental-QA.apk
+          cp app/build/outputs/apk/personalStable/app-personalStable.apk output/premiere/Backlot-V337-Premiere-Experimental-QA.apk
           apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
           aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
-          "$apksigner" verify --verbose --print-certs output/premiere/Backlot-V336-Premiere-Experimental-QA.apk > output/premiere/SIGNER.txt
-          "$aapt" dump badging output/premiere/Backlot-V336-Premiere-Experimental-QA.apk | head -n 9 > output/premiere/IDENTITY.txt
-          grep -Fq "package: name='com.framebynavin.app' versionCode='336'" output/premiere/IDENTITY.txt
+          "$apksigner" verify --verbose --print-certs output/premiere/Backlot-V337-Premiere-Experimental-QA.apk > output/premiere/SIGNER.txt
+          "$aapt" dump badging output/premiere/Backlot-V337-Premiere-Experimental-QA.apk | head -n 9 > output/premiere/IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='337'" output/premiere/IDENTITY.txt
           grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/premiere/SIGNER.txt
-          sha256sum output/premiere/Backlot-V336-Premiere-Experimental-QA.apk > output/premiere/SHA256SUMS.txt
+          sha256sum output/premiere/Backlot-V337-Premiere-Experimental-QA.apk > output/premiere/SHA256SUMS.txt
           git rev-parse HEAD > output/premiere/SOURCE-SHA.txt
           echo 'Experimental owner proof, not a production release. Never uninstall to install.' > output/premiere/READ-ME.txt
       - name: Upload APK or diagnostics
