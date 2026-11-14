@@ -70,9 +70,23 @@
         </receiver>
 
 
-        <!-- All 12 legacy Android home-screen widget providers retired.
-             Keep project/idea/reminder data and internal deep-link handlers intact.
-             A new, independent widget family will be registered in a later stage. -->
+        <!-- All 12 V224 / legacy widgets are retired. Only this new V392 family
+             is exposed in the Android launcher picker. No user data is migrated. -->
+        <receiver android:name=".widget.V392TodayHubWidgetProvider"
+            android:exported="false" android:label="Backlot Today Hub">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v392_today_hub_info" />
+        </receiver>
+        <receiver android:name=".widget.V392NextReminderWidgetProvider"
+            android:exported="false" android:label="Backlot Next Reminder">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v392_next_reminder_info" />
+        </receiver>
+        <receiver android:name=".widget.V392ChallengePulseWidgetProvider"
+            android:exported="false" android:label="Backlot Challenge Pulse">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_v392_challenge_pulse_info" />
+        </receiver>
 
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.FrameByNavin.Starting" />
 
