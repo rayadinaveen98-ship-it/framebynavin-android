@@ -23,8 +23,8 @@ external="/sdcard/Download/backlot-v385-disposable-external-backup.txt"
 owner_sentinel="files/backlot-v385-ci-app-owned-sentinel"
 retained_history="files/backlot-unified-retained-recovery-history-v1"
 adb shell mkdir -p /sdcard/Download
-adb shell "printf 'v385-off-app-test-only\\n' > '$external'"
-adb shell run-as "$package" sh -c "printf 'v385-private-test-only\\n' > '$owner_sentinel'"
+adb shell "echo v385-off-app-test-only > '$external'"
+adb shell run-as "$package" touch "$owner_sentinel"
 adb shell run-as "$package" test -f "$owner_sentinel"
 # The prior restore must have created protected retained original/target history.
 adb shell run-as "$package" test -d "$retained_history"
