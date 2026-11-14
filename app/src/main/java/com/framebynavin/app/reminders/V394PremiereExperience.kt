@@ -209,7 +209,7 @@ internal fun V394PremiereReminderScreen(
             ) {
                 Text("BACKLOT", color = PremiereIvory, fontSize = 12.sp,
                     fontWeight = FontWeight.Black, letterSpacing = 3.1.sp)
-                Text("P R E M I E R E  /  0 1", color = accent,
+                Text("P R E M I E R E  /  0 2", color = accent,
                     fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(if (compact) 14.dp else 24.dp))
