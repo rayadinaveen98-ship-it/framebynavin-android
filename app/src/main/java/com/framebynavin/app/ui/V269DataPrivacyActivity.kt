@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.cloud.CloudOperationResult
-import com.framebynavin.app.cloud.CloudSyncActivity
 import com.framebynavin.app.cloud.CloudSyncManager
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -51,10 +50,8 @@ class V269DataPrivacyActivity : ComponentActivity() {
 }
 
 internal object V269DataPrivacyPolicy {
-    const val CREATOR_SCOPE = "Creator exports cover supported projects and app-owned recordings. Keep original project files and external media separately."
-    const val PERSONAL_SCOPE = "Personal Reminders use a separate backup. The exported JSON contains reminder names and notes and is not encrypted."
-    const val CLOUD_SCOPE = "Unified Cloud Sync saves Creator records and Personal Reminders (including completion history) in separate account-private records. Device-only alarm tokens, original Best Frames, and custom music files do not sync. Android permissions must be granted per phone. Signing out does not erase cloud or phone data."
-    const val DELETION_STATUS = "Full Backlot account deletion is not available in this preview. No deletion request can be submitted here. Signing out or deleting a Creator backup is not the same as deleting an account."
+    const val CLOUD_SCOPE = "This screen shows any previously connected account and lets you sign out. Backup and restore controls have been withdrawn. Signing out does not erase local or existing remote data."
+    const val DELETION_STATUS = "Full cloud account deletion is not available in this preview. No deletion request can be submitted here. Device-only Erase local data remains under Advanced in Settings."
     const val NO_DELETION_SENT = "No account deletion request was sent."
 }
 
@@ -114,45 +111,12 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                 )
             }
 
-            V269PrivacyCard("Back up before changing devices") {
-                Text(V269DataPrivacyPolicy.CREATOR_SCOPE, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = { context.startActivity(Intent(context, BackupActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().testTag("v269-creator-backup"),
-                ) {
-                    Icon(Icons.Outlined.FolderOpen, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("CREATOR BACKUP")
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(V269DataPrivacyPolicy.PERSONAL_SCOPE, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = { context.startActivity(Intent(context, PersonalBackupActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().testTag("v269-personal-backup"),
-                ) {
-                    Icon(Icons.Outlined.Lock, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("PERSONAL BACKUP")
-                }
-            }
-
             V269PrivacyCard("Connected account & cloud") {
                 Text(
                     session?.email?.let { "Connected: $it" } ?: "No Creator cloud account is connected.",
                     color = ProjectorIvory, fontSize = 12.sp,
                 )
                 Text(V269DataPrivacyPolicy.CLOUD_SCOPE, color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(
-                    onClick = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
-                    modifier = Modifier.fillMaxWidth().testTag("v269-cloud-account"),
-                ) {
-                    Icon(Icons.Outlined.Cloud, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("MANAGE CREATOR CLOUD")
-                }
                 if (session != null) {
                     Spacer(Modifier.height(6.dp))
                     TextButton(
@@ -174,7 +138,7 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
                     modifier = Modifier.testTag("v269-deletion-unavailable"),
                 )
                 Text(
-                    "Your Google account is separate. Personal Reminders and separately exported files are not deleted by a Creator cloud operation.",
+                    "Deleting Backlot data on this phone does not delete your Google account or existing remote records.",
                     color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
                 )
             }
@@ -193,7 +157,7 @@ internal fun V269DataPrivacyScreen(onClose: () -> Unit) {
             title = { Text("Sign out of Creator cloud?", color = ProjectorIvory) },
             text = {
                 Text(
-                    "Your local Creator work and Personal Reminders remain. Signing out does not delete the account, cloud backups, or Google account.",
+                    "Your local Creator work and Personal Reminders remain. Signing out does not delete your remote records or Google account.",
                     color = MutedText,
                 )
             },
