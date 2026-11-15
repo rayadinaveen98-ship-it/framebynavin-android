@@ -1,0 +1,52 @@
+name: Backlot P0 isolated recovery regression
+
+on:
+  push:
+    branches:
+      - fix/backlot-v337-recovery-regression-20261115
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify both corrected recovery tests
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-recovery
+          gradle :app:testDebugUnitTest \
+            --tests 'com.framebynavin.app.data.V352UnifiedRecoveryDomainPolicyTest' \
+            --tests 'com.framebynavin.app.personal.Phase1V2RestoreDomainForensicsTest' \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-recovery/TARGETED.log
+      - name: Verify complete JVM regression
+        run: |
+          set -euo pipefail
+          gradle :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-recovery/FULL.log
+      - name: Upload test logs and raw reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P0-Two-Recovery-Fixes-Regression
+          path: |
+            output/p0-recovery/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
