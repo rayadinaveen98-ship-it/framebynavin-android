@@ -104,9 +104,15 @@ class V352UnifiedRecoveryDomainPolicyTest {
         assertEquals(V352WriteBlocker.INDEPENDENT_RECOVERY_PENDING,
             reason(j, proof(j, personalPending = true), chosen,
                 V352RecoveryDomain.CREATOR))
+        // An advanced journal with an OLD archive proof fails authentication first.
+        // Do not weaken the archive fence just to reach the decision check.
+        val advanced = j.copy(updatedAtMillis = j.updatedAtMillis + 1)
+        assertEquals(V352WriteBlocker.UNAUTHENTICATED_ARCHIVES,
+            reason(advanced, base, chosen, V352RecoveryDomain.CREATOR))
+        // With a fresh proof for that checkpoint, the original owner's choice
+        // is correctly rejected by the separate stale-decision fence.
         assertEquals(V352WriteBlocker.STALE_OWNER_DECISION,
-            reason(j.copy(updatedAtMillis = j.updatedAtMillis + 1),
-                base, chosen, V352RecoveryDomain.CREATOR))
+            reason(advanced, proof(advanced), chosen, V352RecoveryDomain.CREATOR))
         assertEquals(V352WriteBlocker.UNAUTHENTICATED_ARCHIVES,
             reason(j, base.copy(sealedArchives = base.sealedArchives.copy(
                 targetPersonalSha256 = "invalid")), chosen,
