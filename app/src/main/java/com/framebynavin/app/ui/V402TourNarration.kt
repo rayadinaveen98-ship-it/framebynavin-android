@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
  */
 @Composable
 internal fun V402TourNarration(enabled: Boolean, spokenCopy: String) {
+    // Do not even initialize a speech engine until narration is explicitly enabled.
+    if (!enabled) return
     val context = LocalContext.current.applicationContext
     var ready by remember { mutableStateOf(false) }
     val main = remember { Handler(Looper.getMainLooper()) }
@@ -36,18 +38,14 @@ internal fun V402TourNarration(enabled: Boolean, spokenCopy: String) {
         }
     }
 
-    LaunchedEffect(speech, enabled, spokenCopy, ready) {
-        if (!enabled || !ready) {
-            runCatching { speech.stop() }
-        } else {
-            runCatching {
-                speech.speak(
-                    spokenCopy.take(600),
-                    TextToSpeech.QUEUE_FLUSH,
-                    null,
-                    "backlot-ux02-walkthrough",
-                )
-            }
+    LaunchedEffect(speech, spokenCopy, ready) {
+        if (ready) runCatching {
+            speech.speak(
+                spokenCopy.take(600),
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "backlot-ux02-walkthrough",
+            )
         }
     }
 }
