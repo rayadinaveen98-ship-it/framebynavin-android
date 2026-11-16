@@ -392,6 +392,24 @@
 
 ---
 
+## Refinement 09 — Progress Journey, Creator/Personal Achievements, Daily Brief and Content Calendar
+
+- **Founder request (2026-11-17):** Professional end-to-end improvements to Progress Journey (interactive, useful over time), Creator Progress XP/achievement expansion, selected-companion **three-second** celebration after confirmed rewards, analogous meaningful Personal care milestones, stronger Daily Brief and Content Calendar. Preserve existing strong Quick Actions features.
+- **State:** **RESEARCHED / PROPOSED; awaiting founder review. NOT IMPLEMENTED or TESTED.**
+- **Full source/research report:** [QUICK_ACTIONS_PROGRESS_AND_PLANNING_AUDIT_2026-11-17.md](QUICK_ACTIONS_PROGRESS_AND_PLANNING_AUDIT_2026-11-17.md).
+- **Progress Journey:** V282 already has Compact, Month and Journey modes; read-only creator idea/project/stage-moved/completed/owner-marked-published events, optional private Personal confirmed-Done summaries (off by default), up to 100 Journey entries, date/timestamp and source navigation. Expand with source-aware event filtering, honest weekly/monthly/year context, pagination, evidence and safe deep links, and privacy-protected personal receipt inclusion. Never turn scheduled dates, assumed work time, OS notification delivery or legacy imported status into a claimed historical action.
+- **Creator Progress:** V22 has persistent idempotent event ledger, levels, weekly momentum, six achievements and five traits. Protect existing XP, event IDs and backfill/reconciliation behavior; expand only with evidence-backed milestones and clear 'why I earned it' history.
+- **Companion 3s celebration:** On newly **persisted, committed** reward event only: show the **chosen** approved Spark or Mira with small entrance, brief celebratory pose and graceful exit over roughly 3 seconds. Integrate current V127 pulse/aura/V22 toast instead of overlapping a second system. Do not obstruct actions or continue while critical alarm/error is visible; event-key dedupe, interruption queue, reduced-motion static equivalent, mute preference and no synthetic points.
+- **Personal achievements:** Propose opt-in **Personal Milestones** sourced from actual Personal Done receipts, current 21-Day confirmed actions, and Space manual records, **separate** from Creator XP. Meaningful recognition for rest, reflection, maintaining life priorities; no diagnosis, no shame for missed days, no inferred 'health improvement'. Requires Personal privacy/export/deletion and data provenance approval before build.
+- **Daily Brief:** V15 currently reports active/due/overdue Creator counts, focus action/reason, up to 4 nudges, next 7 days/6 calendar rows and 24-hour Creator reminder count. Propose 1 recommended + 2 user-chosen daily priorities, truthful readiness/blockers, direct actions and an optional day-end review linking Journey. Preserve local-first rules, no implicit task edits or Personal data mixing.
+- **Content Calendar:** V15 currently renders 14-day horizontal date chips plus real project due date items, *uncreated* weekly-plan placeholders and separate recent overdue list; not a true week/month planner or verified publisher. Propose Week/Month/Agenda, platform/format/status filters, truthful provenance for creator project vs template vs owner-confirmed publish; Stage output milestones only after #06 evidence. Keep navigation and planned/published semantics distinct; no unapproved auto-posting, third-party sync or rescheduling.
+- **Architecture:** Keep independent source-of-truth stores, one read-only common projection layer, honest partial historical availability, background/timezone/Android accessibility and memory-safe handling. Preserve Home design, original reminder engine and all existing Quick Actions navigation.
+- **Research comparison:** Todoist Karma/Progress, Sunsama intentional planning and celebration preferences, Buffer multi-view calendar/status separation, Asana milestone/timeline semantics; sources and limits documented in report.
+- **Acceptance:** 3s companion identity on genuine new credits only, existing XP stable, Personal privacy opt-in and accuracy, calendar/brief honest, actual phone/tablet/reduced-motion/large-font/edge-case QA, no merges or releases until separate founder review.
+- **Status:** Proposed for design approval only. Documentation changes only.
+
+---
+
 ## Refinement queue
 
 | No. | Refinement | Founder decision | Implementation status |
@@ -403,6 +421,7 @@
 | 05 | Settings restructuring, account quota P0, authentic scenes, voice polish, automation clarity and Help Center | Approved for future implementation | Not started |
 | 06 | Evidence-based format-aware Project Stages and Content Workspace 3.0 | Approved for future implementation (pilot-first) | Not started |
 | 07 | Selectable Voice/Alarm intro animation collection across Creator, Personal & 21-Day, selected companion, notification icons | Approved for future implementation | Not started |
-| 08 | Personal Care, My Spaces and professional Personal Home | Researched; proposed for founder review | Not started |
+| 08 | Personal Care, My Spaces and professional Personal Home | Approved for future implementation; new sensitive data gated | Not started |
+| 09 | Progress Journey, companion Creator celebration, Personal milestones, Daily Brief and Content Calendar | Researched; proposed for founder review | Not started |
 
-**Next entries:** Add #09 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
+**Next entries:** Add #10 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
