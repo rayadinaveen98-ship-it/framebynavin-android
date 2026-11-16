@@ -29,8 +29,9 @@ internal object Phase1HabitAlertReadinessInspector {
         val alarmManager = app.getSystemService(AlarmManager::class.java)
         val appAllowed = NotificationManagerCompat.from(app).areNotificationsEnabled()
         val channelAllowed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // A missing channel is NOT evidence that Android will post alerts.
             manager.getNotificationChannel(Phase1HabitNotification.channel(kind))
-                ?.importance != NotificationManager.IMPORTANCE_NONE
+                ?.let { it.importance != NotificationManager.IMPORTANCE_NONE } ?: false
         } else true
         val exactAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             alarmManager.canScheduleExactAlarms()

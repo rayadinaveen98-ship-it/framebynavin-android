@@ -12,7 +12,8 @@ class Phase1HabitDeliveryEvidencePolicyTest {
         stage: Phase1HabitDeliveryStage,
         challengeId: String = id,
         at: Long = due,
-    ) = Phase1HabitDeliveryEvidence(challengeId, at, stage, due + 50L)
+        observedAt: Long = due + 50L,
+    ) = Phase1HabitDeliveryEvidence(challengeId, at, stage, observedAt)
 
     private fun health(
         now: Long,
@@ -68,4 +69,35 @@ class Phase1HabitDeliveryEvidencePolicyTest {
             health(due + 10L, evidence(Phase1HabitDeliveryStage.OS_FIRED),
                 evidence(Phase1HabitDeliveryStage.STALE_IGNORED)))
     }
+    @Test fun laterSpeechFailureOverridesEarlierSpeakingEvidence() {
+        assertEquals(Phase1HabitDeliveryHealth.VOICE_UNAVAILABLE,
+            health(due + 400L,
+                evidence(Phase1HabitDeliveryStage.VOICE_REQUESTED, observedAt = due + 50L),
+                evidence(Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED, observedAt = due + 100L),
+                evidence(Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED, observedAt = due + 200L)))
+    }
+
+    @Test fun laterSuccessfulStartCanSupersedeEarlierFailedAttempt() {
+        assertEquals(Phase1HabitDeliveryHealth.VOICE_SPEAKING,
+            health(due + 400L,
+                evidence(Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED, observedAt = due + 100L),
+                evidence(Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED, observedAt = due + 200L)))
+    }
+
+    @Test fun tiedVoiceEvidenceTimestampsFavorRecordedFailure() {
+        assertEquals(Phase1HabitDeliveryHealth.VOICE_UNAVAILABLE,
+            health(due + 400L,
+                evidence(Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED, observedAt = due + 100L),
+                evidence(Phase1HabitDeliveryStage.VOICE_TTS_UNAVAILABLE, observedAt = due + 100L)))
+    }
+
+    @Test fun otherChallengeVoiceFailureCannotMaskThisOccurrence() {
+        assertEquals(Phase1HabitDeliveryHealth.VOICE_SPEAKING,
+            health(due + 400L,
+                evidence(Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED, observedAt = due + 100L),
+                evidence(Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED, "unrelated", observedAt = due + 200L),
+                evidence(Phase1HabitDeliveryStage.VOICE_TTS_UNAVAILABLE, id,
+                    at = due + 86_400_000L, observedAt = due + 200L)))
+    }
+
 }

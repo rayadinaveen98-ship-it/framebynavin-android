@@ -1,0 +1,118 @@
+name: Backlot P0 approved correction integration - isolated candidate
+
+on:
+  push:
+    branches:
+      - integration/backlot-v337-approved-p0-fixes-20261116
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p0-approved-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression-jvm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Complete JVM regression, no excluded tests
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-approved-integration/jvm
+          git rev-parse HEAD > output/p0-approved-integration/jvm/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 80m gradle :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-approved-integration/jvm/RESULT.log
+      - name: Preserve full JVM results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P0-Corrected-Candidate-Full-JVM
+          path: |
+            output/p0-approved-integration/jvm/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
+
+  corrected-android15:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build corrected-contract instrumentation on disposable CI checkout
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-approved-integration/android15
+          # Five older UI sources do not currently compile on frozen V337.
+          # Quarantine only in CI workspace; tracked sources remain intact.
+          ui_dir=app/src/androidTest/java/com/framebynavin/app/ui
+          quarantine=$(mktemp -d)
+          for name in \
+            V339HomeOverflowMenuUiTest.kt \
+            V340HomeSpacesEntryUiTest.kt \
+            V341UnifiedBackupPanelUiTest.kt \
+            V342UnifiedRestorePreparationUiTest.kt \
+            V343UnifiedRecoveryEscrowUiTest.kt; do
+            test -f "$ui_dir/$name"
+            mv "$ui_dir/$name" "$quarantine/$name"
+            printf '%s\n' "$ui_dir/$name" >> output/p0-approved-integration/android15/QUARANTINED_UNRELATED_TESTS.txt
+          done
+          git rev-parse HEAD > output/p0-approved-integration/android15/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 70m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-approved-integration/android15/BUILD.log
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Verify missing-channel corrective contract on disposable Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            set -euo pipefail
+            out=output/p0-approved-integration/android15
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -qx '1'
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell pm clear com.framebynavin.app > "$out/CLEARED_CI_SYNTHETIC_ONLY.txt"
+            adb shell pm grant com.framebynavin.app android.permission.POST_NOTIFICATIONS
+            timeout --signal=TERM --kill-after=20s 5m adb shell am instrument -w -r \
+              -e hardeningTestEnvironment ci-emulator \
+              -e class com.framebynavin.app.personal.P0AlertHealthCorrectedDeviceTest \
+              com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
+              > "$out/CORRECTED_CONTRACT_DEVICE_TEST.txt" 2>&1
+            cat "$out/CORRECTED_CONTRACT_DEVICE_TEST.txt"
+            grep -q 'OK (1 test)' "$out/CORRECTED_CONTRACT_DEVICE_TEST.txt"
+      - name: Preserve Android acceptance results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P0-Corrected-Candidate-Android15
+          path: output/p0-approved-integration/android15/
+          retention-days: 30
+          if-no-files-found: warn

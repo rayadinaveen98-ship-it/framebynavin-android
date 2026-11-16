@@ -65,17 +65,31 @@ internal object Phase1HabitDeliveryEvidencePolicy {
         scheduledAtMillis: Long,
         nowMillis: Long,
     ): Phase1HabitDeliveryHealth {
-        val stages = events.asSequence()
-            .filter { it.challengeId == id && it.scheduledAtMillis == scheduledAtMillis }
-            .map { it.stage }.toSet()
+        val occurrence = events.filter {
+            it.challengeId == id && it.scheduledAtMillis == scheduledAtMillis
+        }
+        val stages = occurrence.map { it.stage }.toSet()
+        // A recorded start does not erase a later TTS failure. Compare only
+        // evidence for this exact challenge occurrence, using observed time.
+        // If timestamps tie, conservatively prefer the failure over "speaking".
+        val voiceFailures = setOf(
+            Phase1HabitDeliveryStage.VOICE_TTS_UNAVAILABLE,
+            Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED,
+            Phase1HabitDeliveryStage.VOICE_SERVICE_RESTRICTED,
+        )
+        val latestVoiceEvidence = occurrence.asSequence()
+            .filter { it.stage == Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED ||
+                it.stage in voiceFailures }
+            .maxWithOrNull(
+                compareBy<Phase1HabitDeliveryEvidence> { it.observedAtMillis }
+                    .thenBy { if (it.stage in voiceFailures) 1 else 0 },
+            )
         return when {
             stages.isEmpty() -> Phase1HabitDeliveryHealth.NOT_RECORDED
-            Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED in stages ->
-                Phase1HabitDeliveryHealth.VOICE_SPEAKING
-            Phase1HabitDeliveryStage.VOICE_TTS_UNAVAILABLE in stages ||
-                Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED in stages ||
-                Phase1HabitDeliveryStage.VOICE_SERVICE_RESTRICTED in stages ->
+            latestVoiceEvidence?.stage in voiceFailures ->
                 Phase1HabitDeliveryHealth.VOICE_UNAVAILABLE
+            latestVoiceEvidence?.stage == Phase1HabitDeliveryStage.VOICE_SPEAK_STARTED ->
+                Phase1HabitDeliveryHealth.VOICE_SPEAKING
             Phase1HabitDeliveryStage.APP_NOTIFICATIONS_BLOCKED in stages ||
                 Phase1HabitDeliveryStage.CHANNEL_BLOCKED in stages ->
                 Phase1HabitDeliveryHealth.PERMISSION_BLOCKED
