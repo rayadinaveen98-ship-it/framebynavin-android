@@ -1,0 +1,47 @@
+name: Backlot P0 Snooze millisecond-precision regression (isolated)
+
+on:
+  push:
+    branches:
+      - fix/backlot-v337-p0-snooze-millis-match-20261116
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p0-snooze-milliseconds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  complete-jvm-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Run all JVM tests with Snooze occurrence regressions (no exclusions)
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-snooze-millis
+          git rev-parse HEAD > output/p0-snooze-millis/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 80m gradle :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-snooze-millis/RESULT.log
+      - name: Preserve full exact-commit regression results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P0-Snooze-Millis-Full-JVM
+          path: |
+            output/p0-snooze-millis/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
