@@ -28,6 +28,7 @@ jobs:
           git merge-base --is-ancestor "$verified" HEAD
           printf '%s\n' \
             '.github/workflows/backlot-p1-v337-sixstage-android15-qa.yml' \
+            'app/src/androidTest/java/com/framebynavin/app/reminders/V159ReminderAccessibilityAcceptanceTest.kt' \
             'app/src/androidTest/java/com/framebynavin/app/ui/P1SixStageQuickstartSceneDeviceTest.kt' \
             'app/src/androidTest/java/com/framebynavin/app/widget/P1SixStageWidgetProviderDeviceTest.kt' \
             'docs/qa/BACKLOT_V337_SIX_STAGE_QA_MATRIX_2026-11-16.md' \
