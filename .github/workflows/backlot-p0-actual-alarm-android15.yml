@@ -1,0 +1,74 @@
+name: Backlot P0 actual timed challenge alarm - isolated Android 15
+
+on:
+  push:
+    branches:
+      - audit/backlot-v337-android15-actual-alarm-20261115
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p0-actual-alarm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android15-timed-alarm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile disposable Android instrumentation test
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-actual-alarm
+          # Existing V339-V343 UI tests fail to compile at the V337 baseline
+          # because of unrelated Compose test API incompatibilities.
+          # Move ONLY those pre-existing tests out of the temporary CI checkout.
+          # This does not change the Git branch, app sources, or release build.
+          ui_dir=app/src/androidTest/java/com/framebynavin/app/ui
+          isolated_dir=$(mktemp -d)
+          for name in \
+            V339HomeOverflowMenuUiTest.kt \
+            V340HomeSpacesEntryUiTest.kt \
+            V341UnifiedBackupPanelUiTest.kt \
+            V342UnifiedRestorePreparationUiTest.kt \
+            V343UnifiedRecoveryEscrowUiTest.kt; do
+            test -f "$ui_dir/$name"
+            mv "$ui_dir/$name" "$isolated_dir/$name"
+            printf '%s\\n' "$ui_dir/$name" >> output/p0-actual-alarm/EXCLUDED_UNRELATED_BASELINE_TESTS.txt
+          done
+          gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-actual-alarm/BUILD.log
+          git rev-parse HEAD > output/p0-actual-alarm/SOURCE-SHA.txt
+      - name: Enable Android emulator acceleration
+        run: |
+          sudo chmod 666 /dev/kvm
+      - name: Await REAL future Android AlarmManager delivery on disposable emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            bash tools/qa/backlot_p0_actual_alarm_android15.sh
+      - name: Upload disposable CI-only acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P0-Android15-Actual-Timed-Challenge-Alarm
+          path: output/p0-actual-alarm/
+          retention-days: 30
+          if-no-files-found: warn
