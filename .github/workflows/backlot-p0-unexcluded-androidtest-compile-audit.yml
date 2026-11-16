@@ -1,0 +1,48 @@
+name: Backlot P0 full Android instrumentation compilation audit (no exclusions)
+
+on:
+  push:
+    branches:
+      - audit/backlot-v337-full-androidtest-compile-20261116
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p0-unexcluded-androidtest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-entire-instrumentation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile ALL tracked Android instrumentation tests with no exclusions
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-full-androidtest-compile
+          git rev-parse HEAD > output/p0-full-androidtest-compile/SOURCE-SHA.txt
+          git ls-files app/src/androidTest/java > output/p0-full-androidtest-compile/TRACKED_TEST_SOURCES.txt
+          # Deliberately DO NOT quarantine V339-V343 or edit Android source.
+          # A failure is a useful compiler diagnostic, not a product behavior result.
+          timeout --signal=TERM --kill-after=20s 80m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-full-androidtest-compile/COMPILATION.log
+      - name: Preserve full Kotlin error report and source inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P0-Unexcluded-Instrumentation-Compile-Trace
+          path: output/p0-full-androidtest-compile/
+          retention-days: 30
+          if-no-files-found: warn
