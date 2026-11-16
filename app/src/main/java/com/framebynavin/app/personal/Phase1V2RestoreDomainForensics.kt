@@ -110,6 +110,9 @@ internal object Phase1V2RestoreDomainForensics {
         targetPhotos: List<V290SpacePhotoEntity>,
         livePhotos: List<V290SpacePhotoEntity>,
     ): Phase1V2RestoreForensicAssessment {
+        // Fail closed with a consistent domain-validation exception, rather than
+        // leaking parser-specific errors from the authenticated archive codecs.
+        return try {
         Phase1V2RestoreJournalCodec.validate(native)
         require(native.originalDigest ==
             Phase1V2RestoreFingerprint.calculate(original, originalPhotos) &&
@@ -157,11 +160,16 @@ internal object Phase1V2RestoreDomainForensics {
             current.all { (id, item) -> new[id] == item }) {
             "Reverse Personal photo row is not an original or an imported target"
         }
-        return Phase1V2RestoreForensicAssessment(
+        Phase1V2RestoreForensicAssessment(
             checkpoint = native.step,
             domains = states,
             requiresIndependentPhotoProof = true,
         )
+        } catch (malformed: org.json.JSONException) {
+            throw IllegalArgumentException(
+                "Malformed Personal recovery archive", malformed,
+            )
+        }
     }
 
     private fun personal(raw: String):
