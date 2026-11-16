@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,7 +62,9 @@ internal fun V402PersonalFirstRunGuide(onFinish: () -> Unit) {
         ),
     )
     var page by rememberSaveable { mutableIntStateOf(0) }
+    var voiceGuideEnabled by rememberSaveable { mutableStateOf(false) }
     val lesson = lessons[page.coerceIn(0, lessons.lastIndex)]
+    V402TourNarration(enabled = voiceGuideEnabled, spokenCopy = lesson.third)
 
     Surface(Modifier.fillMaxSize().testTag("v402-personal-first-run"), color = CinemaBlack) {
         Column(
@@ -89,6 +92,11 @@ internal fun V402PersonalFirstRunGuide(onFinish: () -> Unit) {
             Text(lesson.second, color = MutedGold, fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold)
             Text(lesson.third, color = MutedText, fontSize = 13.sp, lineHeight = 20.sp)
+            TextButton(onClick = { voiceGuideEnabled = !voiceGuideEnabled },
+                modifier = Modifier.testTag("v402-personal-voice-toggle")) {
+                Text(if (voiceGuideEnabled) "Voice guide on" else "Voice guide off",
+                    color = MutedGold, fontSize = 12.sp)
+            }
             Text(
                 "Your Personal space works without a Creator profile. " +
                     "All Creator tools remain available whenever you need them.",
