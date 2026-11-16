@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Opt-in, session-only coach narration. No microphone, recording, cloud call,
@@ -23,16 +24,17 @@ internal fun V402TourNarration(enabled: Boolean, spokenCopy: String) {
     if (!enabled) return
     val context = LocalContext.current.applicationContext
     var ready by remember { mutableStateOf(false) }
+    val active = remember { AtomicBoolean(true) }
     val main = remember { Handler(Looper.getMainLooper()) }
     val speech = remember(context) {
         TextToSpeech(context) { status ->
-            main.post { ready = status == TextToSpeech.SUCCESS }
+            main.post { if (active.get()) ready = status == TextToSpeech.SUCCESS }
         }
     }
 
     DisposableEffect(speech) {
         onDispose {
-            ready = false
+            active.set(false)
             runCatching { speech.stop() }
             runCatching { speech.shutdown() }
         }
