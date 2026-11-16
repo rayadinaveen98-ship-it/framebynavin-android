@@ -63,7 +63,9 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
+            # android-emulator-runner executes this block with /bin/sh, not bash.
+            # Use POSIX-compatible strict mode; assert the test result below.
+            set -eu
             adb wait-for-device
             adb shell getprop sys.boot_completed | grep -qx '1'
             adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -75,11 +77,16 @@ jobs:
             adb shell pm grant com.framebynavin.app android.permission.POST_NOTIFICATIONS
             adb shell appops set com.framebynavin.app SCHEDULE_EXACT_ALARM allow
             adb shell appops get com.framebynavin.app SCHEDULE_EXACT_ALARM > output/p0-actual-alarm/EXACT_ALARM_APPOP.txt
-            adb shell am instrument -w -r \
+            if adb shell am instrument -w -r \
               -e hardeningTestEnvironment ci-emulator \
               -e class com.framebynavin.app.personal.P0ActualChallengeAlarmClockDeviceTest \
               com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
-              | tee output/p0-actual-alarm/ACTUAL_ANDROID_ALARM_TEST.txt
+              > output/p0-actual-alarm/ACTUAL_ANDROID_ALARM_TEST.txt 2>&1; then
+              cat output/p0-actual-alarm/ACTUAL_ANDROID_ALARM_TEST.txt
+            else
+              cat output/p0-actual-alarm/ACTUAL_ANDROID_ALARM_TEST.txt
+              exit 1
+            fi
             grep -q 'OK (1 test)' output/p0-actual-alarm/ACTUAL_ANDROID_ALARM_TEST.txt
             printf '%s\n' 'OS scheduled event: yes; broadcast manually sent: no; emulator awake: yes; physical/Doze/reboot/voice: not tested' > output/p0-actual-alarm/LIMITS.txt
       - name: Upload disposable CI-only acceptance evidence
