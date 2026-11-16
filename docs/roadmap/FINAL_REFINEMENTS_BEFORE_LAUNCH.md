@@ -66,7 +66,7 @@
 ## Refinement 02 — Account choice, personalized first-run setup, and companion-guided onboarding
 
 - **Area:** First normal launch after Welcome animation through Home.
-- **Founder request (2026-11-16):** **PROPOSED; UNDER REVIEW**, not yet approved as final specification. Founder asked to understand and improve the journey before implementation. No app code changes authorized by this item.
+- **Founder decision (2026-11-16):** **APPROVED FOR FUTURE IMPLEMENTATION** after review of the proposed user journey. Open design decisions still require resolution before source implementation. No app code changes authorized by this entry.
 - **Intent:** A welcoming, premium identity -> personalization -> guided learning experience for new/guest users, with a direct Home route for existing signed-in users and no forced re-onboarding.
 
 ### Founder-requested journey
@@ -115,7 +115,78 @@
 - Usability, accessibility, physical phone/tablet tests, upgrade/data integrity and regression evidence pass.
 - No source implementation, PR merge or release until founder approves final scope and integration gate.
 
-**Status:** Proposed only. Record captures founder intent and suggested improvements, not an implemented or approved final flow.
+**Status:** Founder-approved direction, **NOT IMPLEMENTED**. Some listed design decisions remain open for specification and testing.
+
+---
+
+
+## Refinement 03 — Meaningful personalization and professional Home identity/menu
+
+- **Area:** Setup answer propagation; Home greeting/header; top-right companion/profile menu. Keep existing Home slideshow, Projects area and Reminder Hub UI unchanged.
+- **Founder request (2026-11-16):** **PROPOSED; detailed feasibility reviewed in conversation**. Not implementation authorization. Do not change application files, production V337, merge or release.
+- **Dependency:** Refinement #02's first-run choices must become durable, strongly typed profile preferences before being used in Home/Projects/Insights. Maintain Creator/Personal/Both segmentation.
+
+### 03-A — Meaningful personalization, not decorative survey questions
+
+- Capture selected answers with explicit meanings and optional/skip behavior:
+  - **What do you create?** → primary creator mode and optional secondary modes.
+  - **Where do you create/publish?** → destinations/platforms, distinguish personal/independent projects from published platforms.
+  - **Why do you create?** → primary goal and optional goals used to suggest actionable project progress, not promises of performance.
+  - **How do you create?** → solo/team workflow, production style, planning preference; ask only what is useful and support editing later.
+  - Personal-only: contextual life/reminder/challenge preferences; avoid mandatory creator questions.
+- Use these answers in **New Project** (appropriate defaults/templates), **project progress** (relevant stages, progress lens), **Ideas** (optional classifications), **Insights** (goal-aware, evidence-based summaries), **Weekly Focus** (goal/target), and **reminder suggestions** only as recommendations, never automatic scheduling or permission grants.
+- User selection must never rewrite existing projects or records without explicit action. Separate identity and creator-mode preferences. Safe fallback for missing/changed setup answers.
+- Verified current source: `CreatorPersonalizationEngine.snapshot` already derives goal/platform/week target from `CreatorProfile`; `V18TodayScreen` supplies `creatorProfile.safeDisplayName` to `V18CinematicHomeHero`. Refine this integration instead of creating duplicate parallel logic.
+
+### 03-B — Greeting uses Backlot username
+
+- Desired copy: **Good morning / afternoon / evening, <Backlot username>** based on local time and locale.
+- Use the account's **Backlot username entered/claimed during setup**, **not Google first name, Google surname or Google display name**. Handle guest with deliberate guest display name or neutral greeting, and account-not-loaded / offline securely without sudden name flicker.
+- Username is distinct from `CreatorProfile.displayName` in existing code; use a single scoped identity resolver shared by the greeting and My Profile, without confusing the creator name with the unique account handle.
+- Clarify presentation of an optional `@`, capitalization as stored/allowed, Unicode, ellipsis and large accessibility font.
+- Do not redesign Home hero or slideshow. Change text source and any necessary safe layout constraints only.
+
+### 03-C — Turn the top-right V339 three-dot menu into a premium companion-avatar disclosure
+
+- Preserve a **single top-right access point**; replace/decorate the present 48dp vertical-dot trigger with the **selected, approved Spark/Mira portrait** and a subtle three-dot affordance; no generic placeholder or changed companion identity. Keep adequate contrast, touch-target size, TalkBack/keyboard semantics and action indicator accessibility.
+- Proposed menu order:
+  1. **My Profile** → existing Settings → Account/Profile destination; do not open edit flow automatically.
+  2. **Notification Center** → inline read-only preview of up to **3** true recorded activity entries from existing V306 Creator/Personal activity feed. When more than 3 entries, show **See more** → existing full Notification/Activity Center. Distinguish needs-action from history; do not call an action 'unread' unless a real read model exists. Support empty/loading/errors, no duplicate notification store and no auto-acknowledgement from opening.
+  3. **Spark / Companion** → reuse the current V221.4 companion bottom sheet, suggestions and offline chat with no behavioral change. Menu text may identify chosen companion visually (Spark/Mira), while preserving existing functionality.
+  4. **Gallery** → existing Home slideshow photo editor (unchanged artwork, selection, persistence and actions).
+  5. **My Spaces** → existing V289 Personal Spaces destination, using current V340 safe route. Never duplicate Space databases or create fake Space items.
+  6. **Weekly Focus** → existing `V20WeeklyFocusDialog` currently local to `V18TodayScreen`; do not confuse with `POverlay.WEEK` / Weekly Plan (a separate page). Route through explicit safe callback so the same dialog is opened.
+  7. **Reminders** → expand inline to **Personal** → V2232 Personal Reminder Hub, and **Creator** → V131 Creator Reminder Center. This is navigation only, not a new scheduler or duplicate Hub.
+  8. **Settings** → existing V144 Settings Hub.
+- Group menu visually: Identity / Activity / Workspaces / Preferences. Prefer a scroll-safe, anchored expanded menu or compact bottom sheet at larger font sizes rather than a fragile multilevel flyout. One expandable section active at a time; proper Back / outside-tap behavior; no menu flashes that reset action state.
+- **Optional additions for review only:** Sign in / Connect account for guests (through My Profile rather than crowding menu); Replay guide in existing Settings (not another header item). Avoid an unrequested premium, backup or destructive-action shortcut.
+
+### 03-D — My Spaces and Weekly Focus relocation feasibility
+
+- **My Spaces is feasible** as a menu shortcut immediately: existing Home `V340HomeSpacesEntry` calls the Personal Spaces owner workspace, read-only snapshot, no separate database. Removing its Home preview would be a noticeable information-architecture change, because the card currently displays featured Spaces and availability messages. Recommendation: **add menu shortcut first; retain Home card** until founder explicitly authorizes removal after reviewing discoverability, especially Personal-first users.
+- **Weekly Focus is feasible with a small UI navigation refactor:** `V18TodayScreen` holds `showWeeklyFocus` and uses `V20WeeklyFocusDialog` with real profile, task and personalization state. Menu action should open **this same dialog**; not route to the separate `POverlay.WEEK` weekly planner. Recommendation: **add shortcut first; retain Home focus card** until founder confirms its removal.
+- No changes to existing slideshow, Projects rendering, Reminder Hub section or original destination behavior at this stage.
+
+### Technical / security / accessibility constraints
+
+- Default selection for existing users and guest state must be safe. Avoid using Google account name, leaking another account's cached username after sign-out, or invalid cross-account data in the greeting/preview.
+- Avatar must follow the saved companion identity and legacy preference behavior. Preserve current Spark/Mira assets; no unapproved artwork substitutions.
+- Notification preview uses **read-only V306 activity policy**. Badge means attention/action pending, not necessarily 'unread'; Android posted != seen, and reminder action requires existing original action handlers.
+- Menu routes use original existing navigation callbacks and maintain Back-stack/Back dismiss. Support text scaling (200%), TalkBack, landscape/tablet, focus order, empty states, dark/light appearance, performance and process restarts.
+- No background photo/library reads, new scheduling, network calls on every menu open or changes to notification permissions.
+
+### Proposed QA gates (all pending)
+
+1. Creator/Personal/Both and guest/account username greeting with auth switching, offline, mixed case and long handles.
+2. Every menu destination opens original destination; reminder subchoices and Weekly Focus/Weekly Plan distinguished.
+3. Preview shows maximum three accurate, timestamped entries; >3 reveals See more, 0/partial/error handled honestly.
+4. No accidental acknowledgement, reminder mutation, photo data change, Space database creation, project change or altered notifications from menu.
+5. Companion avatar reflects selection and stays within 48dp or greater accessible hit target; open indicator semantics preserved.
+6. Homescreen slideshow, projects and reminder hub screenshot/behavior regressions unchanged.
+7. Source and physical-device testing across phone/tablet and accessibility font scales before any merge.
+8. Review dependency/conflicts with V337 and Stage 6 onboarding work; no production change until separate approval.
+
+**Status:** Proposed. Discussion and documentation only; no code implementation or testing.
 
 ---
 
@@ -124,6 +195,7 @@
 | No. | Refinement | Founder decision | Implementation status |
 |---|---|---|---|
 | 01 | Four selectable welcome animations; The Living Frame storyboard as first visual implementation reference | Approved for future implementation | Not started |
-| 02 | Account choice, identity/profile, companion-guided adaptive first run and six-screen tour | Proposed, awaiting founder review | Not started |
+| 02 | Account choice, identity/profile, companion-guided adaptive first run and six-screen tour | Approved for future implementation; details pending | Not started |
+| 03 | Meaningful personalization across projects/progress and a premium companion-avatar Home menu | Proposed; under founder review | Not started |
 
 **Next entries:** Add #02, #03, etc. in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
