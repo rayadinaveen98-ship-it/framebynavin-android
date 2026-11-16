@@ -55,6 +55,9 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
         Spacer(Modifier.height(8.dp))
         V133AppIconPicker()
 
+        Spacer(Modifier.height(20.dp))
+        V401WelcomePicker()
+
         Spacer(Modifier.height(16.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
