@@ -138,6 +138,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
     var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
     var v402WeeklyFocusRequestNonce by remember { mutableLongStateOf(0L) }
+    var v402AccountIdentityRevision by remember { mutableIntStateOf(0) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     var v402ProfileFromHome by rememberSaveable { mutableStateOf(false) }
     var showControl by rememberSaveable { mutableStateOf(false) }
@@ -284,7 +285,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         CreatorGuidedTourStep.TODAY -> PTab.TODAY
                         CreatorGuidedTourStep.IDEAS -> PTab.IDEAS
                         CreatorGuidedTourStep.PROJECT -> PTab.CREATE
-                        else -> PTab.INSIGHTS
+                        CreatorGuidedTourStep.WORKSPACE, CreatorGuidedTourStep.CONTROL -> PTab.TODAY
+                        CreatorGuidedTourStep.INSIGHTS -> PTab.INSIGHTS
                     }
                     guidedTourStepName = previous.name
                 }
@@ -329,6 +331,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             if (event == Lifecycle.Event.ON_RESUME) {
                 permissions = pPermissions(context)
                 settings = settingsStore.snapshot()
+                v402AccountIdentityRevision++
                 vm.reconcileReminders()
             }
         }
@@ -672,7 +675,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         showReminders = true
                     },
                     homeSpacesRevision = homeSpacesRevision,
-                    homeGreetingName = remember(settings.creatorProfile, overlay) {
+                    homeGreetingName = remember(settings.creatorProfile, overlay, v402AccountIdentityRevision) {
                         val cloud = CloudSyncManager(context.applicationContext)
                         val accountName = cloud.cachedCreatorProfile()?.username.orEmpty().trim()
                         when {
