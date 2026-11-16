@@ -139,6 +139,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
     var v402WeeklyFocusRequestNonce by remember { mutableLongStateOf(0L) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
+    var v402ProfileFromHome by rememberSaveable { mutableStateOf(false) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
@@ -229,7 +230,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
     fun leaveOverlay() {
         when (overlay) {
-            POverlay.PROFILE -> overlay = POverlay.SETTINGS
+            POverlay.PROFILE -> overlay = if (v402ProfileFromHome) POverlay.NONE else POverlay.SETTINGS
             POverlay.SETTINGS -> {
                 overlay = POverlay.NONE
                 if (returnToComposerFromSettings) {
@@ -713,7 +714,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                             },
                             onOpenProject = ::openProject,
                             onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
-                            onOpenProfile = { overlay = POverlay.PROFILE },
+                            onOpenProfile = {
+                                v402ProfileFromHome = true
+                                overlay = POverlay.PROFILE
+                            },
                             onOpenSettings = { overlay = POverlay.SETTINGS },
                             onOpenSpaces = {
                                 personalReminderSpace = true
@@ -897,7 +901,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
             POverlay.PROFILE -> V23ProfileAccountScreen(
                 creatorProfile = settings.creatorProfile,
-                onClose = { overlay = POverlay.SETTINGS },
+                onClose = {
+                    overlay = if (v402ProfileFromHome) POverlay.NONE else POverlay.SETTINGS
+                },
                 onEditCreatorSetup = {}, // profile changes no longer re-enter onboarding
                 onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
                 onSaveCreatorProfile = { revised ->
@@ -929,7 +935,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
       fullScreenReady = permissions.fullScreen,
       batteryReady = permissions.batteryAccess,
                 onClose = ::leaveOverlay,
-                onProfile = { overlay = POverlay.PROFILE },
+                onProfile = {
+                    v402ProfileFromHome = false
+                    overlay = POverlay.PROFILE
+                },
                 onVoice = { settingsStore.setDefaultVoicePersona(it); settings = settingsStore.snapshot() },
                 onAlarmTimeout = { settingsStore.setDefaultAlarmTimeoutSeconds(it); settings = settingsStore.snapshot() },
                 onSnooze = { settingsStore.setSnoozeMinutes(it); settings = settingsStore.snapshot() },
