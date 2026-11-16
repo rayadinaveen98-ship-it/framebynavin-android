@@ -20,7 +20,6 @@ import com.framebynavin.app.reminders.V391ReminderScenePrefs
 import com.framebynavin.app.reminders.V391ReminderSceneSettings
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -121,8 +120,9 @@ class P1SixStageQuickstartSceneDeviceTest {
             R.drawable.guide_mira_celebrate,
         )
         artwork.forEach { resource ->
-            val bitmap = BitmapFactory.decodeResource(app.resources, resource)
-            assertNotNull("Mira resource must decode: $resource", bitmap)
+            val bitmap = requireNotNull(BitmapFactory.decodeResource(app.resources, resource)) {
+                "Mira resource must decode: $resource"
+            }
             assertTrue("Mira art must have meaningful resolution: $resource",
                 bitmap.width > 32 && bitmap.height > 32)
             bitmap.recycle()
