@@ -19,6 +19,9 @@ jobs:
     timeout-minutes: 95
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Source-identity gate must inspect the verified ancestor and its diff.
+          fetch-depth: 0
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -32,7 +35,7 @@ jobs:
           set -euo pipefail
           mkdir -p output/p0-owner-qa
           verified=815ba69775f75b6e5f25bb838c2c17b4f09c203e
-          test "$(git rev-parse HEAD^)" = "$verified"
+          git merge-base --is-ancestor "$verified" HEAD
           test "$(git diff --name-only "$verified" HEAD)" = '.github/workflows/backlot-p0-owner-device-qa-apk.yml'
           git rev-parse HEAD > output/p0-owner-qa/QA-PACKAGING-SOURCE-SHA.txt
           printf '%s\n' "$verified" > output/p0-owner-qa/VERIFIED-PRODUCT-SOURCE-SHA.txt
