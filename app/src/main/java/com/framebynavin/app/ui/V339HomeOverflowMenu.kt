@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
@@ -14,10 +15,17 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +34,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
@@ -57,8 +67,18 @@ internal fun V339HomeOverflowMenu(
     onOpenSpark: () -> Unit,
     onOpenGallery: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenProfile: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenSpaces: () -> Unit = {},
+    onOpenWeeklyFocus: () -> Unit = {},
+    onOpenCreatorReminders: () -> Unit = {},
+    onOpenPersonalReminders: () -> Unit = {},
+    activityPreview: V306ActivityItem? = null,
+    showWorkspaceActions: Boolean = false,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val selectedGuide = V144GuidePrefs.currentGuide
+    fun openExtra(action: () -> Unit) { expanded = false; action() }
     val collapsedIndicator = V339HomeOverflowPolicy.collapsedIndicator(
         reminderActionNeeded, sparkSuggestionAvailable, sparkEnabled,
     )
@@ -79,7 +99,7 @@ internal fun V339HomeOverflowMenu(
             modifier = Modifier.size(48.dp)
                 .testTag("v339-home-overflow-trigger")
                 .semantics {
-                    contentDescription = "Home options: Notification Center, Spark and Gallery"
+                    contentDescription = "Open Backlot menu with " + selectedGuide.displayName
                     stateDescription = when {
                         expanded -> "Expanded"
                         collapsedIndicator == V339HomeOverflowAction.NOTIFICATION_CENTER ->
@@ -94,12 +114,11 @@ internal fun V339HomeOverflowMenu(
             border = BorderStroke(1.dp, CinemaLine),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = if (expanded) Icons.Outlined.Close
-                        else Icons.Outlined.MoreVert,
+                Image(
+                    painter = painterResource(v144GuideDrawable(selectedGuide, CinePulseState.WAVE)),
                     contentDescription = null,
-                    tint = ProjectorIvory,
-                    modifier = Modifier.size(21.dp),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(40.dp),
                 )
                 if (!expanded && collapsedIndicator != null) {
                     Box(
@@ -171,7 +190,8 @@ internal fun V339HomeOverflowMenu(
                         Text(
                             when (action) {
                                 V339HomeOverflowAction.NOTIFICATION_CENTER -> "Notification Center"
-                                V339HomeOverflowAction.SPARK -> if (sparkEnabled) "Spark" else "Spark · off"
+                                V339HomeOverflowAction.SPARK -> if (sparkEnabled)
+                                    selectedGuide.displayName else selectedGuide.displayName + " · off"
                                 V339HomeOverflowAction.GALLERY -> "Gallery"
                             },
                             color = if (enabled) ProjectorIvory else MutedText,
@@ -179,6 +199,68 @@ internal fun V339HomeOverflowMenu(
                             fontWeight = FontWeight.SemiBold,
                         )
                     },
+                )
+            }
+            if (showWorkspaceActions) {
+                HorizontalDivider(color = CinemaLine.copy(alpha = .55f))
+                DropdownMenuItem(
+                    onClick = { openExtra(onOpenProfile) },
+                    text = { Text("My Profile & Account", color = ProjectorIvory) },
+                    leadingIcon = { Icon(Icons.Outlined.AccountCircle, null, tint = MutedGold) },
+                    modifier = Modifier.testTag("v402-menu-profile"),
+                )
+                activityPreview?.let { item ->
+                    Text(
+                        "NEEDS ATTENTION · " + item.title.take(46),
+                        color = MutedText,
+                        fontSize = 10.sp,
+                        maxLines = 2,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp)
+                            .testTag("v402-menu-activity-preview"),
+                    )
+                    TextButton(
+                        onClick = { openExtra(onOpenNotifications) },
+                        modifier = Modifier.testTag("v402-menu-activity-see-more"),
+                    ) { Text("See more in Activity Center", color = MutedGold) }
+                }
+                DropdownMenuItem(
+                    onClick = { openExtra(onOpenSpaces) },
+                    text = { Text("My Spaces", color = ProjectorIvory) },
+                    leadingIcon = { Icon(Icons.Outlined.FolderOpen, null, tint = MutedGold) },
+                    modifier = Modifier.testTag("v402-menu-spaces"),
+                )
+                DropdownMenuItem(
+                    onClick = { openExtra(onOpenWeeklyFocus) },
+                    text = { Text("Weekly Focus", color = ProjectorIvory) },
+                    leadingIcon = { Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold) },
+                    modifier = Modifier.testTag("v402-menu-weekly-focus"),
+                )
+                HorizontalDivider(color = CinemaLine.copy(alpha = .55f))
+                Text(
+                    "REMINDERS",
+                    color = MutedText,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
+                )
+                DropdownMenuItem(
+                    onClick = { openExtra(onOpenPersonalReminders) },
+                    text = { Text("Personal Reminders", color = ProjectorIvory) },
+                    leadingIcon = { Icon(Icons.Outlined.Alarm, null, tint = MutedGold) },
+                    modifier = Modifier.testTag("v402-menu-personal-reminders"),
+                )
+                DropdownMenuItem(
+                    onClick = { openExtra(onOpenCreatorReminders) },
+                    text = { Text("Creator Reminders", color = ProjectorIvory) },
+                    leadingIcon = { Icon(Icons.Outlined.Alarm, null, tint = MutedGold) },
+                    modifier = Modifier.testTag("v402-menu-creator-reminders"),
+                )
+                HorizontalDivider(color = CinemaLine.copy(alpha = .55f))
+                DropdownMenuItem(
+                    onClick = { openExtra(onOpenSettings) },
+                    text = { Text("Settings", color = ProjectorIvory) },
+                    leadingIcon = { Icon(Icons.Outlined.Settings, null, tint = MutedGold) },
+                    modifier = Modifier.testTag("v402-menu-settings"),
                 )
             }
         }
