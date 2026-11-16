@@ -88,13 +88,14 @@ internal fun V401WelcomeExperience(
     }
 
     val t = elapsedMs
-    val titleAlpha = if (reducedMotion) 1f else V199WelcomeTimeline.progress(t, 1_180L, 2_150L)
-    val taglineAlpha = if (reducedMotion) 1f else V199WelcomeTimeline.progress(t, 1_850L, 2_440L) *
-        (1f - V199WelcomeTimeline.progress(t, 2_800L, 3_000L))
+    val exitAlpha = 1f - V199WelcomeTimeline.progress(t, 2_800L, 3_000L)
+    val titleAlpha = if (reducedMotion) 1f else V199WelcomeTimeline.progress(t, 1_180L, 2_150L) * exitAlpha
+    val taglineAlpha = if (reducedMotion) 1f else V199WelcomeTimeline.progress(t, 1_850L, 2_440L) * exitAlpha
 
     Box(Modifier.fillMaxSize().background(V401WelcomeInk), contentAlignment = Alignment.Center) {
         if (!reducedMotion) {
-            Canvas(Modifier.fillMaxSize()) {
+            Canvas(Modifier.fillMaxSize().graphicsLayer { alpha = exitAlpha }) {
+                if (size.minDimension <= 0f) return@Canvas
                 when (style) {
                     V401WelcomeStyle.LIVING_FRAME -> {
                         val progress = V199WelcomeTimeline.progress(t, 120L, 1_930L)
@@ -207,7 +208,7 @@ internal fun V401WelcomeExperience(
         }
 
         if (style == V401WelcomeStyle.SPARK_FIRST_LIGHT) {
-            val sparkAlpha = if (reducedMotion) 1f else V199WelcomeTimeline.progress(t, 180L, 970L)
+            val sparkAlpha = if (reducedMotion) 1f else V199WelcomeTimeline.progress(t, 180L, 970L) * exitAlpha
             Image(
                 painter = painterResource(R.drawable.guide_funny_welcome),
                 contentDescription = null,
