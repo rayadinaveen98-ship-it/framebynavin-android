@@ -1433,6 +1433,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         settings.creatorProfile.isComplete &&
         !showComposer &&
         !showQuickCapture &&
+        !showReminders &&
         !showControl &&
         focusTaskId == null &&
         overlay == POverlay.NONE
@@ -1442,7 +1443,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             step = guidedTourStep,
             modifier = Modifier.fillMaxSize(),
             targetBounds = guideTargets[guidedTourStep] ?: when (guidedTourStep) {
-                CreatorGuidedTourStep.WORKSPACE -> guideTargets[CreatorGuidedTourStep.PROJECT]
+                CreatorGuidedTourStep.WORKSPACE -> null // No measured Reminder Hub target yet.
                 CreatorGuidedTourStep.CONTROL -> guideTargets[CreatorGuidedTourStep.INSIGHTS]
                 else -> null
             },
@@ -1463,7 +1464,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
                     }
                     CreatorGuidedTourStep.WORKSPACE -> {
-                        tab = PTab.CREATE
+                        tab = PTab.TODAY
                         guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
                     }
                     CreatorGuidedTourStep.INSIGHTS -> {
@@ -1487,6 +1488,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     CreatorGuidedTourStep.PROJECT -> {
                         val project = vm.tasks.firstOrNull { it.archivedAtMillis == 0L }
                         if (project != null) openProject(project.id) else openComposer()
+                    }
+                    CreatorGuidedTourStep.WORKSPACE -> {
+                        personalReminderSpace = false
+                        showReminders = true
                     }
                     CreatorGuidedTourStep.INSIGHTS -> showControl = true
                     else -> Unit
