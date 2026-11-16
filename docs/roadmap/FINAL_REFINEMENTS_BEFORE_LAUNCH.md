@@ -348,7 +348,7 @@
 ## Refinement 06 — Format-aware professional Project Stages and Content Workspace 3.0
 
 - **Founder request (2026-11-16):** Investigate whether stage lists and Creator Content Workspace are accurate, professional, genuinely format-aware and better than generic repeated layouts; deep-research creator needs and competing products; propose full redesign if evidence requires it.
-- **State:** **RESEARCHED / PROPOSED; awaiting founder review. NOT IMPLEMENTED or TESTED.**
+- **State:** **RESEARCHED / APPROVED FOR FUTURE IMPLEMENTATION** (pilot-first, approved by founder 2026-11-16); NOT IMPLEMENTED or TESTED.
 - **Report:** [CREATOR_WORKSPACE_DEEP_AUDIT_2026-11-16.md](CREATOR_WORKSPACE_DEEP_AUDIT_2026-11-16.md) (complete baseline code audit, creator needs, competitor comparison, five sample workflows, architecture, risks, stage plan and acceptance criteria).
 - **Finding:** `CreatorWorkflowV2` provides stage diversity across different types, but current `V19ContentWorkspaceAlpha6Hub`, shared Plan/Script/Publish editors and `CW3StageDesk` present mostly universal controls. `StageWorkspaceRoutingPolicy` maps stage IDs to a small number of shared destinations and some V2 templates interpolate platform/format only in labels rather than production requirements. This matches founder-observed sameness. `V2285WorkspaceFocusPolicy` can suggest scripts for formats that don't need them.
 - **Protect:** Existing CreatorContentWorkspace / TaskStore authority, CreatorContentDna, Legacy template fallback, stage-owned data scoped by project/template/stage IDs, revision-fenced drafts, distinct Stage approval / checklist / Script readiness / Cut review / publication facts, independent derivative outputs and real reminder scheduling.
@@ -356,7 +356,24 @@
 - **Core UX requirement:** Each stage must expose its actual purpose, real expected artifact, relevant editor/links, status/readiness, next action, and honest completion evidence. Inputs and validation depend on mode+archetype+production style+platform+delivery format, not a stage name alone. User override remains allowed without losing source history.
 - **Missing capability proposals:** structured scene/claim-evidence maps, format-specific beat/shot/take/guest/slide editors, output revision and device media availability, platform-aware packaging and truthful release checks, better Next Move prompts. No mandatory paid cloud/AI services.
 - **Risk and gates:** Version-pin template IDs, avoid silent migration of existing stage records, preserve output/reminder epochs, guard old export/import, physical phone/tablet and multiple-project testing, accessibility/performance checks. Current study is static code and documented industry research, **not** a physical UI certification or live rival app trial.
-- **Approval boundary:** This records a plan. No production implementation, merge, release or signed APK authorized. Founder to approve phased design/pilots after reviewing report.
+- **Approval boundary:** Founder has approved this pilot-first direction for future work. This record is not authorization to modify production source, merge, release or deliver a signed APK without a separate controlled implementation gate.
+
+---
+
+## Refinement 07 — Four selectable cinematic reminder intro animations, companion-aware main screens, and notification icon quality
+
+- **Founder request (2026-11-16):** Shared reminder visual pattern across **Personal, Creator and 21-Day Challenge** Voice/Alarm: pre-reveal animation holding a visually formed microphone/alarm icon; user double-taps to reveal existing main reminder controls over the separately selected animated background; chosen companion visible on main screen; three new high-quality intro animation alternatives in Settings in addition to original; improve corresponding notification icons.
+- **Decision:** **PROPOSED / AWAITING REVIEW**. Full source audit and design direction documented. No implementation, device testing or production edits authorized.
+- **Dedicated specification:** [REMINDER_VISUAL_EXPERIENCE_REFINEMENT_07.md](REMINDER_VISUAL_EXPERIENCE_REFINEMENT_07.md).
+- **Baseline:** Creator V337 currently has one-tap V195 colored particle Mic/Clock intro with V391 background after reveal. Personal V2233 currently displays reminder controls directly with V336 signal art and V391 background; 21-Day uses a distinct Phase1Habit notification and voice service with no shared intro. Claiming all three already support double-tap would be false.
+- **Four intro choices:** **Original Particle Formation** (original/preserved default), **Prism Forge** (refracted luminous crystalline ribbon assembly), **Signal Observatory** (precision orbital/scanning geometry), **Ember Pulse** (sculptural warm light and atmospheric ember assembly). Each must draw an authentic Mic silhouette for Voice or Clock/Alarm silhouette for Alarm, not merely reuse a colored central sticker.
+- **Settings:** Under Appearance & Sound → Reminder Scenes, add **Voice opening animation** and **Alarm opening animation** selectors shared consistently among Personal/Creator/Challenge; retain independent **Voice background** and **Alarm background** scenes from #05. No duplicate Premiere experience.
+- **Main UI:** use existing actual chosen Spark/Mira identity and approved companion artwork, smaller anchored interactive-safe pose, without obscuring titles, privacy or primary actions. Creator/Personal/Challenge keep their own source-of-truth action handlers; appearance alone never acknowledges/delivers/completes/advances.
+- **Interaction:** Double-tap as preferred artwork gesture with clearly visible single-tap accessible **Open reminder** alternative to avoid motor/TalkBack barrier, and OS notification Done/Snooze immediately actionable. User action chooses reveal; animation does not automatically claim task completion. Respect reduced motion, battery saver, locked-screen and background timeout behavior.
+- **Notification icons:** Native monochrome Backlot small icons, distinct category affordance within OS limits (Creator, Personal, 21-Day) and Voice/Alarm status identified clearly in notification text/channel. Existing Creator/Personal small icon is Backlot; 21-Day currently uses generic Android alarm icon. Reuse chosen companion as meaningful private large art (existing V390), no animated/full-color status-bar icon, no private challenge/activity content exposed on locked screens.
+- **Android/platform constraints:** Android 14+ limits FSI entitlement to qualifying alarm/call functionality. No automatic full-screen for regular quiet notifications/ordinary speech. Challenge currently routes to MainActivity/notification, so a genuine valid, permission-scoped challenge alert surface requires a new carefully authorized phase, not an unsafe route substitution.
+- **Priority:** Visually ambitious but reliability-first, preserve delivery/occurrence tokens, playback, Done/Snooze/Stage Done, reminder backdrops, Personal lock-screen redaction, 21-Day scheduling/completion, follow-ups and all existing watchdogs. Physical device, accessibility, animation performance and regression acceptance gates specified in dedicated document.
+- **Status:** Proposed, not implemented or tested.
 
 ---
 
@@ -369,6 +386,7 @@
 | 03 | Meaningful personalization across projects/progress and a premium companion-avatar Home menu | Approved for future implementation; retain Home sections until further review | Not started |
 | 04 | New Project first-section polish, expressive voice personas, and 1–5 spoken repeats | Approved for future implementation | Not started |
 | 05 | Settings restructuring, account quota P0, authentic scenes, voice polish, automation clarity and Help Center | Approved for future implementation | Not started |
-| 06 | Evidence-based format-aware Project Stages and Content Workspace 3.0 | Researched; proposed for review | Not started |
+| 06 | Evidence-based format-aware Project Stages and Content Workspace 3.0 | Approved for future implementation (pilot-first) | Not started |
+| 07 | Selectable Voice/Alarm intro animation collection across Creator, Personal & 21-Day, selected companion, notification icons | Proposed; under founder review | Not started |
 
-**Next entries:** Add #07 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
+**Next entries:** Add #08 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
