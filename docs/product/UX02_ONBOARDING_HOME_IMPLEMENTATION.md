@@ -13,7 +13,7 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 - Four Creator/Both questions: What do you create? Where do you publish? Why do you create? How do you create? Optional local Backlot display name; existing CreatorProfile is the source of truth, no implicit new project/data created.
 - Permission guidance reuses existing Android notification/exact timing/full-screen/battery routes. It never requests all permissions automatically or marks them granted. The optional guide is durably marked complete. Existing V393 users who started before UX02 are not forced into the new step.
 - Six Creator/Both lessons reuse stable guided-tour enum IDs: Home, New Idea/Idea Vault, Project creation, Reminder Hub, Insights, Quick Actions. Skip/exit remains available. Opening Reminder Hub temporarily pauses the tour instead of drawing the coach on top of the hub.
-- Fresh Personal-only focus keeps its existing direct route into the real Personal Reminders hub and does not fabricate a Creator profile. A dedicated six-step Personal walkthrough is **not implemented** in UX02; the six-step guided walkthrough applies to new Creator/Both setup. This distinction must be reviewed during Stage-10 acceptance.
+- Fresh Personal-only focus gets a short three-step companion-led guide (Personal Reminders, 21-Day Challenges, My Spaces) before the real Personal hub. It never fabricates a Creator profile; the six-step Creator/Both guided tour is not forced on Personal-only users. Pre-UX02 Personal-first entries retain their existing direct route.
 - Preserve actual Home slideshow and editor; keep Top 3, Project queue, Reminder Hub, Progress Journey and existing Weekly Focus content.
 - Home greeting prefers a signed-in user's Backlot username, never their Google account display name; local users retain locally chosen Creator name and safe fallback.
 - Header menu button uses existing approved Spark/Mira artwork. It still exposes the original Notification Center, companion panel and Gallery, and now adds Profile/Account, My Spaces, Weekly Focus, expandable Personal/Creator Reminders and Settings.
@@ -25,13 +25,14 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 1. ui/V393FirstRunQuickStart.kt — first-run metadata, four questions and durable permission-guide status with legacy skip.
 2. ui/V23AccountOnboarding.kt — explicit returning-account signal for safe resumed onboarding.
 3. ui/V402FirstRunPermissionGuide.kt — new optional permission explanation screen, existing permission callbacks only.
-4. ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
-5. ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
-6. ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
-7. ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
-8. ui/V207GuidedTourPolicy.kt — six stable tour lessons.
-9. ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
-10. This document.
+4. ui/V402PersonalFirstRunGuide.kt — short Personal-only, companion-led, non-destructive walkthrough.
+5. ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
+6. ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
+7. ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
+8. ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
+9. ui/V207GuidedTourPolicy.kt — six stable tour lessons.
+10. ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
+11. This document.
 
 No schema migration, paid service, privacy-permission grant, image replacement, account deletion, project data rewrite, reminder engine edit or release is authorized.
 
@@ -40,7 +41,7 @@ No schema migration, paid service, privacy-permission grant, image replacement, 
 - The signed-in identity display must remain the Backlot username; profile editing and sign-out need later two-account device certification.
 - The V339 menu has more items and needs a compact-phone and large-font accessibility review.
 - New first-run Creator/Both tour has six lessons; pre-existing creator accounts remain complete and must not be forced to replay.
-- Personal-only users enter the existing Personal hub after optional permission guidance. Revisit whether to add a separate Personal tutorial as a proposed follow-up, not silently under UX02.
+- Personal-only users see a shorter 3-step companion guide after permission guidance, then enter the existing Personal hub; Creator lessons are not imposed.
 - UX04 Settings refactor must preserve the same routes and Profile return behavior.
 - UX07 Reminders changes must preserve independent Personal/Creator delivery, while menu previews stay read-only.
 - UX10 border-density changes can polish onboarding and menu layout but not alter their behavior.
@@ -49,7 +50,7 @@ No schema migration, paid service, privacy-permission grant, image replacement, 
 ## Deferred acceptance after Stage 10
 
 1. New Creator/Both first-run: exactly one focus save, optional account choice, persisted Spark/Mira, full what/where/why/how setup, permissions, six guided lessons, Home.
-2. New Personal-only: no forced Creator setup or fabricated Creator data; optional permissions and original Personal hub.
+2. New Personal-only: no forced Creator setup or fabricated Creator data; optional permissions, short three-lesson companion guide and original Personal hub.
 3. Existing completed installs: welcome -> Home, no re-onboarding; incomplete existing five-page setup resumes.
 4. Verify network failure, Google credential cancel, interrupted first run and process death at every gate.
 5. Confirm opt-in permissions are never reported as granted without Android evidence.
