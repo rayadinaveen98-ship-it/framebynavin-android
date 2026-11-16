@@ -162,7 +162,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         settings.onboardingComplete, v402PermissionGuideComplete) {
         if (v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
             !settings.onboardingComplete && V144GuidePrefs.hasSelection &&
-            v402PermissionGuideComplete &&
+            v402PermissionGuideComplete && !v393FirstRunPrefs.startedUx02Journey() &&
             !v393FirstRunPrefs.personalFirstEntryShown() && externalLaunch == null
         ) {
             runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
@@ -1434,6 +1434,28 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     .onSuccess { v402PermissionGuideComplete = true }
                     .onFailure {
                         Toast.makeText(context, "Could not save setup. Please retry.",
+                            Toast.LENGTH_LONG).show()
+                    }
+            },
+        )
+    } else if (
+        v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
+        v393FirstRunPrefs.startedUx02Journey() &&
+        settings.accountOnboardingComplete && !settings.onboardingComplete &&
+        V144GuidePrefs.hasSelection && v402PermissionGuideComplete &&
+        !v393FirstRunPrefs.personalFirstEntryShown() &&
+        externalLaunch == null
+    ) {
+        V402PersonalFirstRunGuide(
+            onFinish = {
+                runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
+                    .onSuccess {
+                        personalReminderSpace = true
+                        activityCenterOpen = false
+                        showReminders = true
+                    }
+                    .onFailure {
+                        Toast.makeText(context, "Could not save Personal setup. Try again.",
                             Toast.LENGTH_LONG).show()
                     }
             },
