@@ -32,7 +32,11 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocally: () -> Unit) {
+internal fun V23AccountOnboarding(
+    onComplete: (String) -> Unit,
+    onContinueLocally: () -> Unit,
+    onReturningAccount: () -> Unit = {},
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val manager = remember { CloudSyncManager(context.applicationContext) }
@@ -56,6 +60,7 @@ internal fun V23AccountOnboarding(onComplete: (String) -> Unit, onContinueLocall
         val s = manager.localState().session
         val p = manager.cachedCreatorProfile()
         if (CloudCreatorAccountPolicy.route(s, p) != CloudCreatorAccountRoute.RETURNING_CREATOR) return false
+        onReturningAccount()
         onComplete(p!!.displayName.ifBlank { s!!.displayName })
         return true
     }
