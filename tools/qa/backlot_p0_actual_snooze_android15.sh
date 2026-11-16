@@ -20,6 +20,9 @@ if timeout --signal=TERM --kill-after=20s 24m adb shell am instrument -w -r \
     cat "$out/ACTUAL_SNOOZE_DELIVERY.txt"
 else
     cat "$out/ACTUAL_SNOOZE_DELIVERY.txt"
+    # Diagnostic-only logcat from freshly cleared disposable CI emulator.
+    adb logcat -d -s BacklotHabit:W BacklotHabitEvidence:W \
+      > "$out/BACKLOT_DELIVERY_WARNINGS.txt" 2>&1 || true
     exit 1
 fi
 grep -q 'OK (1 test)' "$out/ACTUAL_SNOOZE_DELIVERY.txt"
