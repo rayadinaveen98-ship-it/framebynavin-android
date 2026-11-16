@@ -9,6 +9,7 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 - Retain Stage-01 welcome animation and existing Google sign-in, local-first use, restored guide selection, Drive recovery gate, all projects and existing data.
 - Fresh-install order: welcome -> Creator/Personal/Both focus -> Google sign-in or Continue Without Account -> Spark/Mira choice -> Creator/Both personalization -> optional reminder-permission guidance -> six-step Creator/Both guide -> Home.
 - Account connection is not silently marked complete simply because a first-run focus was chosen. Existing complete accounts and locally configured users are not re-onboarded after upgrading.
+- Google sign-in into an existing Backlot account explicitly clears the fresh UX02 journey marker before continuing; a returning account is never treated as newly created merely because the installation is fresh.
 - Four Creator/Both questions: What do you create? Where do you publish? Why do you create? How do you create? Optional local Backlot display name; existing CreatorProfile is the source of truth, no implicit new project/data created.
 - Permission guidance reuses existing Android notification/exact timing/full-screen/battery routes. It never requests all permissions automatically or marks them granted. The optional guide is durably marked complete. Existing V393 users who started before UX02 are not forced into the new step.
 - Six Creator/Both lessons reuse stable guided-tour enum IDs: Home, New Idea/Idea Vault, Project creation, Reminder Hub, Insights, Quick Actions. Skip/exit remains available. Opening Reminder Hub temporarily pauses the tour instead of drawing the coach on top of the hub.
@@ -22,14 +23,15 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 ## Files modified/created
 
 1. ui/V393FirstRunQuickStart.kt — first-run metadata, four questions and durable permission-guide status with legacy skip.
-2. ui/V402FirstRunPermissionGuide.kt — new optional permission explanation screen, existing permission callbacks only.
-3. ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
-4. ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
-5. ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
-6. ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
-7. ui/V207GuidedTourPolicy.kt — six stable tour lessons.
-8. ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
-9. This document.
+2. ui/V23AccountOnboarding.kt — explicit returning-account signal for safe resumed onboarding.
+3. ui/V402FirstRunPermissionGuide.kt — new optional permission explanation screen, existing permission callbacks only.
+4. ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
+5. ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
+6. ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
+7. ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
+8. ui/V207GuidedTourPolicy.kt — six stable tour lessons.
+9. ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
+10. This document.
 
 No schema migration, paid service, privacy-permission grant, image replacement, account deletion, project data rewrite, reminder engine edit or release is authorized.
 
