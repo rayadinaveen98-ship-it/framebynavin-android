@@ -51,12 +51,12 @@ import com.framebynavin.app.ui.theme.MutedText
 import com.framebynavin.app.ui.theme.ProjectorIvory
 
 /**
- * Compact, top-right Home rail. A single vertical-dots trigger discloses
- * Notification Center / Spark / Gallery. Clicking it again, pressing Back,
- * or tapping outside closes the Material popup.
+ * Selected-companion avatar opens Backlot's compact Home menu. Original
+ * Notification Center / companion / Gallery actions remain intact alongside
+ * approved profile, workspace and reminder routes.
  *
- * These callbacks open the ORIGINAL surfaces and editor. The menu never reads
- * notifications, acknowledges reminders, or saves images itself.
+ * These callbacks open the original surfaces and editor. The menu never
+ * acknowledges reminders, edits user data or saves images itself.
  */
 @Composable
 internal fun V339HomeOverflowMenu(
