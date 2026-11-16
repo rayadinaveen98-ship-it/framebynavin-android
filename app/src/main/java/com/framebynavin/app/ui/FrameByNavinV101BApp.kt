@@ -126,6 +126,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     val v393FirstRunPrefs = remember(context) { V393FirstRunPrefs(context.applicationContext) }
     var v393FirstRunFocus by remember { mutableStateOf(v393FirstRunPrefs.selectedFocus()) }
+    var v402PermissionGuideComplete by remember { mutableStateOf(v393FirstRunPrefs.permissionGuideComplete()) }
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
     // The Activity owns the preference so the REAL Settings screen can silence
     // a still-composed Home card in the very same frame after a successful save.
@@ -136,6 +137,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var permissions by remember { mutableStateOf(pPermissions(context)) }
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
     var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
+    var v402WeeklyFocusRequestNonce by remember { mutableLongStateOf(0L) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
@@ -154,9 +156,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     // A Personal-first user reaches the existing Personal hub, not a fake
     // Creator profile or new scheduler. The one-time route is persisted.
-    LaunchedEffect(v393FirstRunFocus, V144GuidePrefs.selectedGuide, settings.onboardingComplete) {
+    LaunchedEffect(v393FirstRunFocus, V144GuidePrefs.selectedGuide,
+        settings.onboardingComplete, v402PermissionGuideComplete) {
         if (v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
             !settings.onboardingComplete && V144GuidePrefs.hasSelection &&
+            v402PermissionGuideComplete &&
             !v393FirstRunPrefs.personalFirstEntryShown() && externalLaunch == null
         ) {
             runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
@@ -601,13 +605,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         settings.onboardingComplete,
         settings.creatorProfile.isComplete,
         settings.guidedTourVersion,
+        v393FirstRunFocus,
+        v402PermissionGuideComplete,
         externalLaunch?.nonce,
     ) {
         if (
             guidedTourStepName == null &&
-            // New quick-start users begin with a real action. Guided lessons
-            // remain replayable in Settings; legacy onboarding policy is intact.
-            v393FirstRunFocus == null &&
+            // New Creator/Both accounts see the six-step guided tour once after
+            // optional permission guidance. Existing completed accounts remain exempt.
+            (v393FirstRunFocus == null ||
+                (v393FirstRunFocus != V393FirstRunFocus.PERSONAL && v402PermissionGuideComplete)) &&
             CreatorGuidedTourPolicy.shouldStart(
                 accountOnboardingComplete = settings.accountOnboardingComplete,
                 creatorSetupComplete = settings.onboardingComplete,
@@ -664,6 +671,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         showReminders = true
                     },
                     homeSpacesRevision = homeSpacesRevision,
+                    homeGreetingName = remember(settings.creatorProfile, overlay) {
+                        val cloud = CloudSyncManager(context.applicationContext)
+                        val accountName = cloud.cachedCreatorProfile()?.username.orEmpty().trim()
+                        when {
+                            accountName.isNotBlank() -> accountName
+                            cloud.localState().session != null -> "Creator"
+                            else -> settings.creatorProfile.safeDisplayName
+                        }
+                    },
+                    weeklyFocusRequestNonce = v402WeeklyFocusRequestNonce,
                     onFocus = { focusTaskId = it },
                     onOpenIdeaVault = { tab = PTab.IDEAS },
                     onOpenInsights = { tab = PTab.INSIGHTS },
@@ -696,6 +713,26 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                             },
                             onOpenProject = ::openProject,
                             onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
+                            onOpenProfile = { overlay = POverlay.PROFILE },
+                            onOpenSettings = { overlay = POverlay.SETTINGS },
+                            onOpenSpaces = {
+                                personalReminderSpace = true
+                                activityCenterOpen = false
+                                homeSpacesRequested = true
+                                homeSpaceFocusId = null
+                                showReminders = true
+                            },
+                            onOpenWeeklyFocus = { v402WeeklyFocusRequestNonce += 1L },
+                            onOpenCreatorReminders = {
+                                personalReminderSpace = false
+                                activityCenterOpen = false
+                                showReminders = true
+                            },
+                            onOpenPersonalReminders = {
+                                personalReminderSpace = true
+                                activityCenterOpen = false
+                                showReminders = true
+                            },
                             enabled = companionEnabled,
                         )
                     },
@@ -1261,11 +1298,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         V393FirstRunFocusScreen { focus ->
             runCatching {
                 v393FirstRunPrefs.saveFocus(focus)
-                // Explicit local-first continuation. Google connection remains
-                // available in Profile and never blocks a first useful action.
-                settingsStore.setAccountOnboardingComplete(true)
+                // Do not skip the next Google-or-local choice. Focus is not
+                // evidence of account creation or authentication.
             }.onSuccess {
                 v393FirstRunFocus = focus
+                v402PermissionGuideComplete = false
                 settings = settingsStore.snapshot()
             }.onFailure {
                 Toast.makeText(context, "Could not save setup choice. Try again.",
@@ -1327,8 +1364,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         settings.creatorProfile.isComplete
                     ) {
                         overlay = POverlay.NONE
-                        tab = PTab.CREATE
-                        openComposer(quick = true)
+                        tab = PTab.TODAY
+                        // Optional permissions, then the six-step first-run guide.
+                        // Project creation stays available from Home and +.
                         true
                     } else false
                 },
@@ -1353,6 +1391,30 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 },
             )
         }
+    } else if (v393FirstRunFocus != null &&
+        settings.accountOnboardingComplete && V144GuidePrefs.hasSelection &&
+        !v402PermissionGuideComplete &&
+        (v393FirstRunFocus == V393FirstRunFocus.PERSONAL ||
+            (settings.onboardingComplete && settings.creatorProfile.isComplete))
+    ) {
+        V402FirstRunPermissionGuide(
+            notificationsReady = permissions.notifications,
+            preciseTimingReady = permissions.preciseTiming,
+            fullScreenReady = permissions.fullScreen,
+            batteryReady = permissions.batteryAccess,
+            onNotifications = ::requestNotifications,
+            onPreciseTiming = ::requestPreciseTiming,
+            onFullScreen = ::requestFullScreen,
+            onBattery = ::openBatterySettings,
+            onContinue = {
+                runCatching { v393FirstRunPrefs.markPermissionGuideComplete() }
+                    .onSuccess { v402PermissionGuideComplete = true }
+                    .onFailure {
+                        Toast.makeText(context, "Could not save setup. Please retry.",
+                            Toast.LENGTH_LONG).show()
+                    }
+            },
+        )
     }
 
     if (
@@ -1391,9 +1453,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         tab = PTab.CREATE
                         guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
                     }
+                    CreatorGuidedTourStep.WORKSPACE -> {
+                        tab = PTab.CREATE
+                        guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
+                    }
                     CreatorGuidedTourStep.INSIGHTS -> {
                         tab = PTab.INSIGHTS
                         guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
+                    }
+                    CreatorGuidedTourStep.CONTROL -> {
+                        tab = PTab.TODAY
+                        guidedTourStepName = CreatorGuidedTourStep.CONTROL.name
                     }
                     else -> {
                         settingsStore.markGuidedTourComplete()
