@@ -28,13 +28,13 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 3. ui/V402FirstRunPermissionGuide.kt — new optional permission explanation screen, existing permission callbacks only.
 4. ui/V402PersonalFirstRunGuide.kt — short Personal-only, companion-led, non-destructive walkthrough.
 5. ui/V402TourNarration.kt — opt-in, lifecycle-owned text-to-speech helper.
-6 ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
-7 ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
-8 ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
-9 ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
-10 ui/V207GuidedTourPolicy.kt — six stable tour lessons.
-11 ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
-12 This document.
+6. ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
+7. ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
+8. ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
+9. ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
+10. ui/V207GuidedTourPolicy.kt — six stable tour lessons.
+11. ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
+12. This document.
 
 No schema migration, paid service, privacy-permission grant, image replacement, account deletion, project data rewrite, reminder engine edit or release is authorized.
 
