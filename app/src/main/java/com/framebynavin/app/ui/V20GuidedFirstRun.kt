@@ -17,6 +17,9 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -51,6 +54,11 @@ internal fun V20GuidedFirstRunCoach(
     onSecondary: () -> Unit,
     onSkip: () -> Unit,
 ) {
+    var voiceGuideEnabled by rememberSaveable { mutableStateOf(false) }
+    V402TourNarration(
+        enabled = voiceGuideEnabled,
+        spokenCopy = guidedCopy(step, hasProjects).speech,
+    )
     val placeAtTop = true // Navigation highlights sit below; never cover the actual target.
     val pointRight = step.ordinal % 2 == 0
     // Actual spotlight geometry is measured from laid-out navigation items by
@@ -128,7 +136,12 @@ internal fun V20GuidedFirstRunCoach(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(copy.body, color = ProjectorIvory.copy(alpha = .76f), fontSize = 13.sp, lineHeight = 18.sp)
-                        Spacer(Modifier.height(9.dp))
+                        TextButton(onClick = { voiceGuideEnabled = !voiceGuideEnabled },
+                            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
+                            Text(if (voiceGuideEnabled) "VOICE GUIDE ON" else "VOICE GUIDE OFF",
+                                color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(4.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             copy.secondary?.let { label ->
                                 OutlinedButton(
