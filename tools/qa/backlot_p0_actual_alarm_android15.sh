@@ -26,6 +26,21 @@ else
     exit 1
 fi
 grep -q 'OK (1 test)' "$out/ACTUAL_ANDROID_ALARM_TEST.txt"
-printf '%s\n' 'PASS: exact timed OS delivery on an awake disposable Android 15 emulator; no manual broadcast.' > "$out/RESULT.txt"
+
+# The first instrumented test leaves only synthetic challenge and private
+# delivery-stage evidence. The second independently opens the REAL Compose
+# Alert Health panel in a fresh test process, without pm clear or manual fire.
+if timeout --signal=TERM --kill-after=20s 10m adb shell am instrument -w -r \
+  -e hardeningTestEnvironment ci-emulator \
+  -e class com.framebynavin.app.personal.P0ActualChallengeAlertHealthDeviceTest \
+  com.framebynavin.app.test/androidx.test.runner.AndroidJUnitRunner \
+  > "$out/ACTUAL_ALARM_HEALTH_UI_TEST.txt" 2>&1; then
+    cat "$out/ACTUAL_ALARM_HEALTH_UI_TEST.txt"
+else
+    cat "$out/ACTUAL_ALARM_HEALTH_UI_TEST.txt"
+    exit 1
+fi
+grep -q 'OK (1 test)' "$out/ACTUAL_ALARM_HEALTH_UI_TEST.txt"
+printf '%s\n' 'PASS: actual OS alarm delivery and its Alert Health UI classification on isolated Android 15 emulator.' > "$out/RESULT.txt"
 printf '%s\n' 'Limits: no real device, Doze, forced-stop recovery, reboot rearm, audible playback, or missed-alert repair certified.' > "$out/LIMITS.txt"
 echo 'PASS: naturally timed 21-day challenge alarm on CI Android 15 emulator'
