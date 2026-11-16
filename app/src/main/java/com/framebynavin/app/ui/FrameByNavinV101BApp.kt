@@ -618,7 +618,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             // New Creator/Both accounts see the six-step guided tour once after
             // optional permission guidance. Existing completed accounts remain exempt.
             (v393FirstRunFocus == null ||
-                (v393FirstRunFocus != V393FirstRunFocus.PERSONAL && v402PermissionGuideComplete)) &&
+                (v393FirstRunPrefs.startedUx02Journey() &&
+                    v393FirstRunFocus != V393FirstRunFocus.PERSONAL &&
+                    v402PermissionGuideComplete)) &&
             CreatorGuidedTourPolicy.shouldStart(
                 accountOnboardingComplete = settings.accountOnboardingComplete,
                 creatorSetupComplete = settings.onboardingComplete,
