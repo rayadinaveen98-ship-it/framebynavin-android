@@ -1,0 +1,84 @@
+name: Backlot V337 P0 physical-device QA sideload APK (NOT release)
+
+on:
+  push:
+    branches:
+      - qa/backlot-v337-p0-physical-preview-apk-20261116
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p0-owner-physical-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  owner-qa-apk:
+    name: Package unmerged V337 P0 owner physical QA APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify parent is the Android15/JVM passing P0 source (no product code delta)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-owner-qa
+          verified=815ba69775f75b6e5f25bb838c2c17b4f09c203e
+          test "$(git rev-parse HEAD^)" = "$verified"
+          test "$(git diff --name-only "$verified" HEAD)" = '.github/workflows/backlot-p0-owner-device-qa-apk.yml'
+          git rev-parse HEAD > output/p0-owner-qa/QA-PACKAGING-SOURCE-SHA.txt
+          printf '%s\n' "$verified" > output/p0-owner-qa/VERIFIED-PRODUCT-SOURCE-SHA.txt
+          printf '%s\n' 'Only CI QA packaging metadata differs from the fully green P0 source. No production code modification.' > output/p0-owner-qa/SOURCE-IDENTITY.txt
+          grep -Fq 'versionCode = 337' app/build.gradle.kts
+          grep -Fq 'applicationId = "com.framebynavin.app"' app/build.gradle.kts
+          test -f dev-signing/framebynavin-public-debug.jks
+      - name: Assemble existing public-preview signed personalStable sideload APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 80m gradle :app:assemblePersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-owner-qa/BUILD.log
+      - name: Validate actual APK and signer, hash and install identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=app/build/outputs/apk/personalStable/app-personalStable.apk
+          dest=output/p0-owner-qa/Backlot-V337-P0-Physical-Testing-ONLY.apk
+          test -s "$src"
+          cp "$src" "$dest"
+          signer=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          test -x "$signer"
+          test -x "$aapt"
+          "$signer" verify --verbose --print-certs "$dest" > output/p0-owner-qa/APK-SIGNER.txt
+          "$aapt" dump badging "$dest" | head -n 10 > output/p0-owner-qa/APK-IDENTITY.txt
+          grep -Fq "package: name='com.framebynavin.app' versionCode='337'" output/p0-owner-qa/APK-IDENTITY.txt
+          grep -Fiq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/p0-owner-qa/APK-SIGNER.txt
+          sha256sum "$dest" > output/p0-owner-qa/SHA256SUMS.txt
+          printf '%s\n' 'QA PREVIEW ONLY: public preview signer; not a Play Store or production release. JVM + Android15 emulator acceptance passed on verified product source SHA 815ba69775f75b6e5f25bb838c2c17b4f09c203e. Physical OEM, audio, idle, locking, upgrade and rollback remain unverified. Do not uninstall current Backlot if installation fails; preserve data.' > output/p0-owner-qa/READ-ME-FIRST.txt
+      - name: Publish verified sideload QA artifact (not a GitHub release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V337-P0-Owner-Physical-QA-APK
+          path: output/p0-owner-qa/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Preserve failed package diagnostics without claiming an APK exists
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V337-P0-Owner-Physical-QA-FAILURE-DIAGNOSTICS
+          path: output/p0-owner-qa/
+          retention-days: 14
+          if-no-files-found: warn
