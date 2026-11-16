@@ -209,12 +209,13 @@ private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): Guide
         )
     }
     CreatorGuidedTourStep.WORKSPACE -> GuidedCoachCopy(
-        "WORKSPACE",
-        "Move work stage by stage",
-        "Your project tools and progress stay together here.",
-        "See your next project step and keep moving.",
-        "SHOW INSIGHTS",
-        icon = Icons.Outlined.MovieEdit,
+        "REMINDER HUB",
+        "Every reminder, one place",
+        "Use Reminder Hub for Creator and Personal alerts, scheduling, and response history.",
+        "See what's due and what still needs your attention.",
+        "NEXT",
+        "OPEN REMINDERS",
+        icon = Icons.Outlined.NotificationsActive,
         pose = FrameGuidePose.WAVE,
     )
     CreatorGuidedTourStep.INSIGHTS -> GuidedCoachCopy(
