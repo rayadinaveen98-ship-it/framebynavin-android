@@ -1,0 +1,71 @@
+name: Backlot P0 forced-Doze challenge alarm - isolated Android 15
+
+on:
+  push:
+    branches:
+      - audit/backlot-v337-android15-doze-alarm-20261116
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p0-doze-alarm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android15-forced-doze-alarm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile disposable Android 15 Doze acceptance test
+        run: |
+          set -euo pipefail
+          mkdir -p output/p0-doze-alarm
+          # Five pre-existing UI instrumentation tests fail to compile on frozen
+          # V337; exclude only in disposable CI checkout, not in Git or product.
+          ui_dir=app/src/androidTest/java/com/framebynavin/app/ui
+          quarantine=$(mktemp -d)
+          for name in \
+            V339HomeOverflowMenuUiTest.kt \
+            V340HomeSpacesEntryUiTest.kt \
+            V341UnifiedBackupPanelUiTest.kt \
+            V342UnifiedRestorePreparationUiTest.kt \
+            V343UnifiedRecoveryEscrowUiTest.kt; do
+            test -f "$ui_dir/$name"
+            mv "$ui_dir/$name" "$quarantine/$name"
+            printf '%s\n' "$ui_dir/$name" >> output/p0-doze-alarm/EXCLUDED_UNRELATED_UI_TESTS.txt
+          done
+          timeout --signal=TERM --kill-after=20s 70m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p0-doze-alarm/BUILD.log
+          git rev-parse HEAD > output/p0-doze-alarm/SOURCE-SHA.txt
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Force REAL Android 15 device idle and await OS alert
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: |
+            bash tools/qa/backlot_p0_doze_alarm_android15.sh
+      - name: Upload Doze QA evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P0-Android15-Forced-Doze-Alarm
+          path: output/p0-doze-alarm/
+          retention-days: 30
+          if-no-files-found: warn
