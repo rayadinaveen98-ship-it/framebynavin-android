@@ -155,7 +155,7 @@ internal fun V393QuickCreatorSetup(
     var goal by rememberSaveable { mutableStateOf(existing.primaryGoal) }
     var productionStyle by rememberSaveable { mutableStateOf(existing.productionStyles.firstOrNull().orEmpty()) }
     var saveError by rememberSaveable { mutableStateOf(false) }
-    val styles = remember(creatorMode) { ProductionStyleRegistry.orderedForMode(creatorMode).take(6) }
+    val styles = remember(creatorMode) { ProductionStyleRegistry.orderedForMode(creatorMode) }
     val goals = listOf(
         "Publish consistently", "Grow my audience",
         "Build a portfolio", "Earn from my work",
