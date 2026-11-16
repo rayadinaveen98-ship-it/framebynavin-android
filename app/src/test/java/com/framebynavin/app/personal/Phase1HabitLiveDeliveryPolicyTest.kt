@@ -40,6 +40,46 @@ class Phase1HabitLiveDeliveryPolicyTest {
             record.copy(alertTime = null, alertKind = null),
             due.toEpochMilli(), due.toEpochMilli()))
     }
+    @Test fun subMillisecondSnoozeStillMatchesNaturallyFiredAndroidAlarm() {
+        // The owner's action timestamp has nanoseconds; AlarmManager's target
+        // and PendingIntent extra carry milliseconds only. V337 compared the
+        // two Instant objects directly and discarded the genuine redelivery.
+        val snoozed = record.snoozeToday(
+            due.plusSeconds(5).plusNanos(456_789L), 10,
+        )
+        val delayed = requireNotNull(snoozed.snoozedUntil)
+        val osScheduledAt = delayed.toEpochMilli()
+        assertTrue(delayed.nano % 1_000_000 != 0)
+        assertTrue(Phase1HabitOccurrencePolicy.current(
+            snoozed, osScheduledAt, osScheduledAt,
+        ))
+        assertTrue(Phase1HabitOccurrencePolicy.current(
+            snoozed, osScheduledAt, osScheduledAt + 1000L,
+        ))
+        assertFalse("Delivery must not mark the day Done",
+            snoozed.confirmations.isNotEmpty())
+    }
+
+    @Test fun millisecondMatchDoesNotAdmitDifferentOrCancelledSnoozes() {
+        val snoozed = record.snoozeToday(
+            due.plusSeconds(5).plusNanos(456_789L), 10,
+        )
+        val target = requireNotNull(snoozed.snoozedUntil).toEpochMilli()
+        assertFalse(Phase1HabitOccurrencePolicy.current(
+            snoozed, target, target - 1L,
+        ))
+        assertFalse(Phase1HabitOccurrencePolicy.current(
+            snoozed, target + 1L, target + 1L,
+        ))
+        assertFalse(Phase1HabitOccurrencePolicy.current(
+            snoozed.setPaused(true), target, target,
+        ))
+        assertFalse(Phase1HabitOccurrencePolicy.current(
+            snoozed.copy(snoozedDay = null, snoozedUntil = null),
+            target, target,
+        ))
+    }
+
     @Test fun noUnexpectedDay22Delivery() {
         val late = due.plusSeconds(21L * 86_400L)
         assertFalse(Phase1HabitOccurrencePolicy.current(record,
