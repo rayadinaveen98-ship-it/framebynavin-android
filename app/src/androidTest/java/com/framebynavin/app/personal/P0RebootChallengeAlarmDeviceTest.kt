@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import androidx.core.app.NotificationManagerCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -88,6 +89,9 @@ class P0RebootChallengeAlarmDeviceTest {
         })
         assertTrue(record.confirmations.isEmpty())
         // Machine-readable only: no private title, account information or token.
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+            putString("P0_REBOOT_DUE_EPOCH_MS", dueAt.toString())
+        })
         println("P0_REBOOT_DUE_EPOCH_MS=$dueAt")
         println("P0_REBOOT_PREPARE_SUCCESS")
     }
