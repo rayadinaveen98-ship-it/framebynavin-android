@@ -93,7 +93,8 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -euo pipefail
+            # The emulator runner invokes scripts via /bin/sh; use Bash explicitly.
+            bash -euo pipefail <<'BASH'
             out=output/p0-approved-integration/android15
             adb wait-for-device
             adb shell getprop sys.boot_completed | grep -qx '1'
@@ -108,6 +109,7 @@ jobs:
               > "$out/CORRECTED_CONTRACT_DEVICE_TEST.txt" 2>&1
             cat "$out/CORRECTED_CONTRACT_DEVICE_TEST.txt"
             grep -q 'OK (1 test)' "$out/CORRECTED_CONTRACT_DEVICE_TEST.txt"
+            BASH
       - name: Preserve Android acceptance results even on failure
         if: always()
         uses: actions/upload-artifact@v4
