@@ -16,7 +16,7 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 - Fresh Personal-only focus keeps its existing direct route into the real Personal Reminders hub and does not fabricate a Creator profile. A dedicated six-step Personal walkthrough is **not implemented** in UX02; the six-step guided walkthrough applies to new Creator/Both setup. This distinction must be reviewed during Stage-10 acceptance.
 - Preserve actual Home slideshow and editor; keep Top 3, Project queue, Reminder Hub, Progress Journey and existing Weekly Focus content.
 - Home greeting prefers a signed-in user's Backlot username, never their Google account display name; local users retain locally chosen Creator name and safe fallback.
-- Header menu button uses existing approved Spark/Mira artwork. It still exposes the original Notification Center, companion panel and Gallery, and now adds Profile/Account, My Spaces, Weekly Focus, Personal/Creator Reminders and Settings.
+- Header menu button uses existing approved Spark/Mira artwork. It still exposes the original Notification Center, companion panel and Gallery, and now adds Profile/Account, My Spaces, Weekly Focus, expandable Personal/Creator Reminders and Settings.
 - Activity preview uses read-only actual V306 NEEDS_ACTION evidence, not generated/unread claims; See more opens the original Activity Center.
 - Profile back navigation returns to Home when opened from the Home menu; Settings when opened from Settings.
 
