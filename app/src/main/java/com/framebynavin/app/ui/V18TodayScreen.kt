@@ -105,6 +105,8 @@ internal fun PTodayScreen(
     // actual route into the original Personal Spaces owner workspace.
     onOpenPersonalSpace: ((String?) -> Unit)? = null,
     homeSpacesRevision: Int = 0,
+    homeGreetingName: String? = null,
+    weeklyFocusRequestNonce: Long = 0L,
 ) {
     // V222 pre-Play cold-start fix: CreatorViewModel.tasks is a mutableStateListOf.
     // The list object keeps its identity while DataStore loads projects into it,
@@ -143,11 +145,15 @@ internal fun PTodayScreen(
     }
     val haptics = LocalHapticFeedback.current
     var showWeeklyFocus by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(weeklyFocusRequestNonce) {
+        if (weeklyFocusRequestNonce > 0L) showWeeklyFocus = true
+    }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = bottomNavigationClearance)) {
             V18CinematicHomeHero(
-                creatorName = creatorProfile.safeDisplayName,
+                creatorName = homeGreetingName?.trim()?.takeIf { it.isNotBlank() }
+                    ?: creatorProfile.safeDisplayName,
                 openEditorNonce = homeSlideshowRequestNonce,
                 onEditorRequestHandled = onHomeSlideshowRequestHandled,
                 companionAvatar = companionAvatar,
