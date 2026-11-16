@@ -20,10 +20,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +42,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import com.framebynavin.app.data.CreatorModeRegistry
 import com.framebynavin.app.data.CreatorPlatformRegistry
 import com.framebynavin.app.data.CreatorProfile
+import com.framebynavin.app.data.ProductionStyleRegistry
 import com.framebynavin.app.ui.theme.CinemaBlack
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
@@ -67,8 +70,31 @@ internal class V393FirstRunPrefs(context: Context) {
 
     /** Commit synchronously before proceeding to avoid returning to this gate on crash. */
     fun saveFocus(focus: V393FirstRunFocus) {
-        check(prefs.edit().putString("focus", focus.name).commit()) {
+        check(prefs.edit().putString("focus", focus.name)
+            .putBoolean("ux02_first_run", true).commit()) {
             "Unable to save first-run choice"
+        }
+    }
+
+    /** Only journeys explicitly started by UX02 should auto-start its six-step guide. */
+    fun startedUx02Journey(): Boolean = prefs.getBoolean("ux02_first_run", false)
+
+    /** Google sign-in to an existing Backlot account is not a new-user journey. */
+    fun markReturningAccount() {
+        check(prefs.edit().putBoolean("ux02_first_run", false)
+            .putBoolean("permission_guide_complete", true).commit()) {
+            "Unable to confirm returning-account setup state"
+        }
+    }
+
+    /** Existing installs with a saved focus must not be sent through a new mandatory gate. */
+    fun permissionGuideComplete(): Boolean =
+        !prefs.getBoolean("ux02_first_run", false) ||
+            prefs.getBoolean("permission_guide_complete", false)
+
+    fun markPermissionGuideComplete() {
+        check(prefs.edit().putBoolean("permission_guide_complete", true).commit()) {
+            "Unable to save permission guidance choice"
         }
     }
 
@@ -123,7 +149,7 @@ internal fun V393FirstRunFocusScreen(onChoose: (V393FirstRunFocus) -> Unit) {
                 }
             }
             Spacer(Modifier.height(4.dp))
-            Text("Next: choose Spark or Mira. You can start locally; account connection and reminder permissions come later.",
+            Text("Next: connect Google or continue locally, choose Spark or Mira, and personalize your workspace.",
                 color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
@@ -135,10 +161,13 @@ internal fun V393QuickCreatorSetup(
     existing: CreatorProfile,
     onFinish: (CreatorProfile) -> Boolean,
 ) {
+    var creatorName by rememberSaveable { mutableStateOf(existing.displayName) }
     var creatorMode by rememberSaveable { mutableStateOf(existing.resolvedPrimaryCreatorMode) }
     var platform by rememberSaveable { mutableStateOf(existing.platforms.firstOrNull().orEmpty()) }
     var goal by rememberSaveable { mutableStateOf(existing.primaryGoal) }
+    var productionStyle by rememberSaveable { mutableStateOf(existing.productionStyles.firstOrNull().orEmpty()) }
     var saveError by rememberSaveable { mutableStateOf(false) }
+    val styles = remember(creatorMode) { ProductionStyleRegistry.orderedForMode(creatorMode) }
     val goals = listOf(
         "Publish consistently", "Grow my audience",
         "Build a portfolio", "Earn from my work",
@@ -149,42 +178,54 @@ internal fun V393QuickCreatorSetup(
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("BACKLOT / CREATOR SETUP", color = MutedGold,
                 fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
-            Text("Three quick choices.", color = ProjectorIvory,
+            Text("Make your workspace yours.", color = ProjectorIvory,
                 fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Text("The rest can wait until you need it.", color = MutedText,
+            Text("Choose what, where, why and how you create. You can change these later.", color = MutedText,
                 fontSize = 12.sp)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = creatorName,
+                    onValueChange = { creatorName = it.take(40) },
+                    modifier = Modifier.fillMaxWidth().testTag("v402-backlot-display-name"),
+                    label = { Text("Name on Backlot (optional)") },
+                    singleLine = true,
+                )
                 V393QuickChoiceGroup("1 / WHAT DO YOU CREATE?",
                     CreatorModeRegistry.definitions.map { it.label }, creatorMode) { creatorMode = it }
                 V393QuickChoiceGroup("2 / WHERE DO YOU PUBLISH?",
                     CreatorPlatformRegistry.supportedPlatforms, platform) { platform = it }
-                V393QuickChoiceGroup("3 / WHAT IS YOUR MAIN GOAL?",
+                V393QuickChoiceGroup("3 / WHY DO YOU CREATE?",
                     goals, goal) { goal = it }
-                Text("Production styles, targets, account connection, and alert permissions can be customized later.",
+                V393QuickChoiceGroup("4 / HOW DO YOU CREATE?",
+                    styles, productionStyle) { productionStyle = it }
+                Text("Additional modes, weekly targets, and alert permissions can be customized later.",
                     color = MutedText, fontSize = 11.sp, lineHeight = 17.sp)
             }
             if (saveError) Text("Setup could not be saved. Your choices are still here; retry.",
                 color = RecRed, fontSize = 12.sp)
             Button(
                 onClick = {
-                    if (creatorMode.isBlank() || platform.isBlank() || goal.isBlank()) return@Button
+                    if (creatorMode.isBlank() || platform.isBlank() || goal.isBlank() || productionStyle.isBlank()) return@Button
                     val profile = existing.copy(
+                        displayName = creatorName.trim(),
                         primaryCreatorMode = creatorMode,
                         category = creatorMode,
                         platforms = setOf(platform),
                         primaryGoal = goal,
+                        productionStyles = setOf(productionStyle),
                         setupSchemaVersion = CreatorProfile.CURRENT_SCHEMA_VERSION,
                     ).normalized()
                     saveError = !onFinish(profile)
                 },
-                enabled = creatorMode.isNotBlank() && platform.isNotBlank() && goal.isNotBlank(),
+                enabled = creatorMode.isNotBlank() && platform.isNotBlank() &&
+                    goal.isNotBlank() && productionStyle.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp)
                     .testTag("v393-creator-start"),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                 shape = RoundedCornerShape(15.dp),
             ) {
-                Text("CREATE MY FIRST PROJECT", fontWeight = FontWeight.Black)
+                Text("CONTINUE TO BACKLOT", fontWeight = FontWeight.Black)
             }
         }
     }
