@@ -12,6 +12,7 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 - Google sign-in into an existing Backlot account explicitly clears the fresh UX02 journey marker before continuing; a returning account is never treated as newly created merely because the installation is fresh.
 - Four Creator/Both questions: What do you create? Where do you publish? Why do you create? How do you create? Optional local Backlot display name; existing CreatorProfile is the source of truth, no implicit new project/data created.
 - Permission guidance reuses existing Android notification/exact timing/full-screen/battery routes. It never requests all permissions automatically or marks them granted. The optional guide is durably marked complete. Existing V393 users who started before UX02 are not forced into the new step.
+- Both guides support optional, session-only Android text-to-speech narration, disabled by default. The Android TTS engine is not initialized until opted into and is shut down when the guide exits.
 - Six Creator/Both lessons reuse stable guided-tour enum IDs: Home, New Idea/Idea Vault, Project creation, Reminder Hub, Insights, Quick Actions. Skip/exit remains available. Opening Reminder Hub temporarily pauses the tour instead of drawing the coach on top of the hub.
 - Fresh Personal-only focus gets a short three-step companion-led guide (Personal Reminders, 21-Day Challenges, My Spaces) before the real Personal hub. It never fabricates a Creator profile; the six-step Creator/Both guided tour is not forced on Personal-only users. Pre-UX02 Personal-first entries retain their existing direct route.
 - Preserve actual Home slideshow and editor; keep Top 3, Project queue, Reminder Hub, Progress Journey and existing Weekly Focus content.
@@ -26,13 +27,14 @@ Stage-02 branch: feature/backlot-ux02-onboarding-home-20261117.
 2. ui/V23AccountOnboarding.kt — explicit returning-account signal for safe resumed onboarding.
 3. ui/V402FirstRunPermissionGuide.kt — new optional permission explanation screen, existing permission callbacks only.
 4. ui/V402PersonalFirstRunGuide.kt — short Personal-only, companion-led, non-destructive walkthrough.
-5. ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
-6. ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
-7. ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
-8. ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
-9. ui/V207GuidedTourPolicy.kt — six stable tour lessons.
-10. ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
-11. This document.
+5. ui/V402TourNarration.kt — opt-in, lifecycle-owned text-to-speech helper.
+6 ui/FrameByNavinV101BApp.kt — routing, state, Home menu destinations, greeting, tour progression, profile back stack.
+7 ui/V339HomeOverflowMenu.kt — selected companion avatar, non-destructive activity preview, additional real navigation.
+8 ui/V2214HomeCompanion.kt — forwards authentic V306 projection and navigation closures.
+9 ui/V18TodayScreen.kt — Home name override and existing Weekly Focus dialog request, not a duplicate dialog.
+10 ui/V207GuidedTourPolicy.kt — six stable tour lessons.
+11 ui/V20GuidedFirstRun.kt — Reminder Hub lesson and correct next action.
+12 This document.
 
 No schema migration, paid service, privacy-permission grant, image replacement, account deletion, project data rewrite, reminder engine edit or release is authorized.
 
@@ -40,6 +42,7 @@ No schema migration, paid service, privacy-permission grant, image replacement, 
 
 - The signed-in identity display must remain the Backlot username; profile editing and sign-out need later two-account device certification.
 - The V339 menu has more items and needs a compact-phone and large-font accessibility review.
+- Optional Android TTS availability, rapid step changes, voice-off behavior and lifecycle shutdown need Stage-10 real-device testing.
 - New first-run Creator/Both tour has six lessons; pre-existing creator accounts remain complete and must not be forced to replay.
 - Personal-only users see a shorter 3-step companion guide after permission guidance, then enter the existing Personal hub; Creator lessons are not imposed.
 - UX04 Settings refactor must preserve the same routes and Profile return behavior.
@@ -54,7 +57,7 @@ No schema migration, paid service, privacy-permission grant, image replacement, 
 3. Existing completed installs: welcome -> Home, no re-onboarding; incomplete existing five-page setup resumes.
 4. Verify network failure, Google credential cancel, interrupted first run and process death at every gate.
 5. Confirm opt-in permissions are never reported as granted without Android evidence.
-6. Both guide personas appear correctly in tour; guided secondary actions do not modify data without consent.
+6. Both guide personas appear correctly in tour; optional voice narration defaults off and shuts down on dismissal; guided secondary actions do not modify data without consent.
 7. Home username from Backlot rather than Gmail, local fallback, sign-in/sign-out and account switch.
 8. All menu actions open the original screens, do not duplicate state, and return to the expected origin.
 9. Activity preview only displays genuinely actionable V306 records; no false read or reminder acknowledgement.
