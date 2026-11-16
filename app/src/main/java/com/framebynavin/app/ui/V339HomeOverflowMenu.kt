@@ -20,6 +20,8 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -77,6 +79,7 @@ internal fun V339HomeOverflowMenu(
     showWorkspaceActions: Boolean = false,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var remindersExpanded by rememberSaveable { mutableStateOf(false) }
     val selectedGuide = V144GuidePrefs.currentGuide
     fun openExtra(action: () -> Unit) { expanded = false; action() }
     val collapsedIndicator = V339HomeOverflowPolicy.collapsedIndicator(
@@ -236,25 +239,30 @@ internal fun V339HomeOverflowMenu(
                     modifier = Modifier.testTag("v402-menu-weekly-focus"),
                 )
                 HorizontalDivider(color = CinemaLine.copy(alpha = .55f))
-                Text(
-                    "REMINDERS",
-                    color = MutedText,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
-                )
                 DropdownMenuItem(
-                    onClick = { openExtra(onOpenPersonalReminders) },
-                    text = { Text("Personal Reminders", color = ProjectorIvory) },
+                    onClick = { remindersExpanded = !remindersExpanded },
+                    text = { Text("Reminders", color = ProjectorIvory) },
                     leadingIcon = { Icon(Icons.Outlined.Alarm, null, tint = MutedGold) },
-                    modifier = Modifier.testTag("v402-menu-personal-reminders"),
+                    trailingIcon = {
+                        Icon(
+                            if (remindersExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = null, tint = MutedText,
+                        )
+                    },
+                    modifier = Modifier.testTag("v402-menu-reminders-expand"),
                 )
-                DropdownMenuItem(
-                    onClick = { openExtra(onOpenCreatorReminders) },
-                    text = { Text("Creator Reminders", color = ProjectorIvory) },
-                    leadingIcon = { Icon(Icons.Outlined.Alarm, null, tint = MutedGold) },
-                    modifier = Modifier.testTag("v402-menu-creator-reminders"),
-                )
+                if (remindersExpanded) {
+                    DropdownMenuItem(
+                        onClick = { openExtra(onOpenPersonalReminders) },
+                        text = { Text("Personal Reminders", color = ProjectorIvory) },
+                        modifier = Modifier.testTag("v402-menu-personal-reminders"),
+                    )
+                    DropdownMenuItem(
+                        onClick = { openExtra(onOpenCreatorReminders) },
+                        text = { Text("Creator Reminders", color = ProjectorIvory) },
+                        modifier = Modifier.testTag("v402-menu-creator-reminders"),
+                    )
+                }
                 HorizontalDivider(color = CinemaLine.copy(alpha = .55f))
                 DropdownMenuItem(
                     onClick = { openExtra(onOpenSettings) },
