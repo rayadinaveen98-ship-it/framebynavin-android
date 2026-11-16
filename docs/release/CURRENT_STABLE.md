@@ -1,3 +1,15 @@
+# Current Backlot stable — 16 November 2026
+
+**Newest founder-promoted personal/sideload stable:** V337, versionCode `337`, versionName `2.28.7-premiere-cinematic-enhanced-02`, package `com.framebynavin.app`, exact source commit `815ba69775f75b6e5f25bb838c2c17b4f09c203e` on [`stable/backlot-v337-p0-owner-accepted-20261116`](https://github.com/rayadinaveen98-ship-it/framebynavin-android/tree/stable/backlot-v337-p0-owner-accepted-20261116). Owner reported the P0 preview was working and explicitly asked for its personal-stable promotion. Preserves previous frozen V337 `678502f4626150ea1945b81eed1593a362377454`. **The V337 personalStable APK is NOT a Play release:** public preview certificate, unverified complete on-device matrix, unimplemented live account deletion and private upload signing.
+
+- Exact APK SHA-256 `94fc7c0c9f9718378456571f439eea759824fc61ac990d43ff0b2b191a3309b2`, original [artifact #14228797432](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/43867609066/artifacts/14228797432).
+- P0 [CI #43855917050](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/43855917050) passed at source SHA `815ba697`. Six-stage QA [CI #43909957313](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/43909957313) passed 17/17 selected Android 15 tests with unchanged production source; it does NOT imply full real-phone/audio/UI/Play compliance.
+- **Publication readiness: NO-GO.** See [owner-stable release record](BACKLOT_V337_OWNER_STABLE_ACCEPTANCE_2026-11-16.md) and [current Play-readiness roadmap](../roadmap/BACKLOT_V337_PUBLICATION_READINESS_ROADMAP_2026-11-16.md).
+- `main` has NOT been updated. Historical older stable records below are retained for provenance, **not** current status.
+- This paragraph is documentation on a draft review branch; source stable snapshot SHA is unchanged.
+
+---
+
 # Backlot current personal stable and active candidate
 
 ## V210 P4.6 engineering checkpoint — 23 October 2026
