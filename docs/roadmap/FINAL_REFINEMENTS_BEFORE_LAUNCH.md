@@ -250,7 +250,98 @@
 8. Existing reminder scheduling, voice+music blending, Snooze, receipt truthfulness and Smart escalation regression suites pass, with V337 frozen.
 9. Final founder approval of scope and isolated implementation before any code change/merge/release.
 
-**Status:** Proposed only. Review complete at code-reading level, not an audio/performance or physical-device validation.
+**Status:** Founder-approved for future implementation; **NOT IMPLEMENTED**. Audio/performance/physical-device validation remains open.
+
+---
+
+
+## Refinement 05 — Professional Settings architecture, account connectivity, scenes, voice, automation clarity and help
+
+- **Status:** **PROPOSED; founder review pending** (2026-11-16). Architecture, code and read-only service-log audit only. Do not modify Backlot source, live data, cloud configuration, user permissions, or produce APKs under this documentation-only request.
+- **Dependency:** #01 (welcome animations), #02 (account/onboarding), #03 (companion portrait and profile), #04 (eight reminder voices). Preserve frozen V337 and independent P0 draft/reliability certification.
+- **Primary goal:** Keep useful Settings behavior and improve organization, comprehensibility, authenticity and professionalism. Do not add backup/restore options back into Settings after previous owner request.
+
+### 05-A Account
+
+- Keep signed-in user details, Backlot handle, identity edit, creator profile edit and connected-account states. Use founder-selected companion portrait (Spark/Mira) as the Account DP; this is an avatar/visual reference, **not** a new uploaded profile-photo store.
+- Connection entries: Google account and existing YouTube integration, with accurate disconnected/connecting/connected/error states and direct existing routes. No misleading promise of complete data restoration.
+- Make visible identity consistent with #03: Home greeting uses Backlot username, not Google name. Preserve separate user display name and Backlot handle.
+- Remove stale profile copy referring to **Settings → Backup & Data** when that destination was deliberately retired. Avoid resurrecting prior backup/restore/delete settings.
+
+### 05-A1 P0 external service blockage — Google sign-in / Supabase egress
+
+- V337 `CloudConfig` routes Backlot to project `kukkqgpzxnfanynbddiw` (FrameByNavin Creator OS). Supabase read-only project metadata reports `ACTIVE_HEALTHY`; nevertheless, read-only last-24h unified logs show **six HTTP 402 responses for edge path `/auth/v1/token`**. User sees **restricted due to exceeded egress quota**.
+- Root cause assessment: Restriction-class response at the Supabase Auth token endpoint is **verified**. The quoted **egress quota** is the user-observed restriction reason and is consistent with Supabase documentation; exact bandwidth source, organization quota consumption and billing-cycle end **not yet verified** by usage/billing access.
+- Auth implementation: Android Google ID-token sign-in calls `/auth/v1/token?grant_type=id_token` through `CloudApiClient`, and non-2xx messages are surfaced as `CloudHttpException`. Repeated Google sign-in cannot bypass a Supabase service restriction.
+- Action plan (read-only until separately approved): inspect Supabase org Usage → Egress, billing cycle / restrictions, largest contributing service, repeated full-snapshot reads, high-frequency requests and possible storage downloads; preserve tokens and user data. Fix excessive transfer only after scoped approval and tests. Add accessible, actionable error copy for restriction, retry only when service recovers, preserve local guest behavior. **No plan upgrade, spend-cap change, credit-card change or purchase without founder approval.**
+- Supabase documentation: https://supabase.com/docs/guides/platform/manage-your-usage/egress and https://supabase.com/kb/troubleshooting/http-status-codes.
+- **Release blocker:** account sign-up/login must pass on a real device with correct organization quota and account restoration expectations; absence of dashboard restriction alone is not a test result.
+
+### 05-B Appearance & Sound information architecture
+
+- Retain current **Director's Cut** and **Light** appearances only (V337 already has only these two selectable; keep retired IDs for backward compatibility).
+- Keep and clarify **Launch sound**; add **Welcome animations** selector from #01.
+- Keep **Home Photos** behavior/editor intact.
+- Add genuinely distinctive **App icon** candidates for explicit selection: approved original plus cohesive cinematic, minimal, and light variants. Existing four `BacklotAppIcon` entries all currently use the **same** approved icon drawable; do not present aliases as visual choices before generating and testing different production assets. Use safe launcher-alias toggling and verify icon caching/upgrade.
+- Consolidate **Reminder scenes** into exactly one menu destination, not a duplicate entry routing back to Appearance. Keep independent Voice and Alarm background selection.
+- V337 `V391ReminderScene` includes **Director's Cut, Aurora Silk, Liquid Chrome, Celestial Drift, Crimson Pulse, Glasswave, Ember Field**. Each needs a differentiated original art/motion spec, rigorous visual preview, correct text/control contrast and battery/reduced-motion fallback. No mere recoloring with unconvincing name.
+- **Retire `V394` Premiere / Full-Screen Experience visual presentation completely** as requested, *not* platform full-screen alarm/notification access, voice playback, locked-screen delivery, Done/Snooze or other essential alert routes. Audit all `V394` production/test references first, migrate selected/persisted Premiere preferences to the normal reminder scene, remove obsolete settings/preview/renderer/asset paths only after separate approval and QA evidence. Keep safe rollback plan.
+
+### 05-C Companion and voice
+
+- Companion screen stays as-is, including approved Spark/Mira preference and helpful suggestion toggle. Account DP reuses selected companion artwork.
+- Voice page gets a clear hierarchy: **Default reminder voice**, **Background music**, **Preview**, **scope/explanation**. Cross-reference #04's eight persona refinement; avoid duplicating per-project configuration.
+- Existing `V273ReminderMusicPicker` offers Soft piano, Choose music, No music; Play background music; Test voice + music; and **Stop preview always shown**, even when not playing. Replace with a stateful mutually exclusive Play/Pause-or-Stop control: Stop appears only during actual preview; live loading/playing/stopped/failed states, clear error when file unavailable, automatic stop on leaving page.
+- Trim excessive explanatory copy and border cards. Keep concise contextual info only: global default vs per-project overrides, and where locally selected custom music is stored. Preserve SAF read permissions and do not scan device files or upload media without consent.
+- No paid TTS or music service without separate pricing/license/privacy review and founder approval.
+
+### 05-D Notifications & Alarms
+
+- **Presentation-only restructure**: first Status/Health and permission readiness, then Reminder defaults (snooze/voice/alarm options), Quiet Hours, Unanswered Follow-ups, Helpful project reminders with link to Automation details, Android advanced access under a clear expandable section.
+- Preserve current actual scheduling, service permissions, Snooze, Voice, Alarm, Smart escalation, retry/acknowledgement and delivery history, without claiming exact OS guarantees or making a permission read an acknowledgement.
+- Clear statuses (granted/missing/system restricted) and corrective navigation, with accessibility at large font sizes.
+
+### 05-E Planning & Integrations education (preserve existing functionality)
+
+- **Weekly Auto Plan:** approved weekly templates can generate missing draft Creator projects over the next 14 days; background WorkManager checks roughly every **6 hours**, not an exact scheduler; never automatically publishes videos or modifies owner-edited existing projects. Existing schedules can create project reminders when configured.
+- **Helpful reminders / context nudges:** optional project-aware notification suggestions chosen from existing task/activity evidence; approximate WorkManager checks every **6 hours**, subject to eligibility/cooldown, notification permission and pause/disable; **not** an alarm, project mutation, or guaranteed arrival time. Explain how to pause and what triggers them.
+- **Regular reminders/routines:** separate optional Daily Brief, Weekly Creator Review and Idea Vault Review notifications checked by WorkManager roughly **hourly** and gated to configured time windows. Current displayed defaults: Daily Brief after 8:00 AM IST; Weekly Review Sunday after 7:00 PM IST; Idea Review Wednesday after 7:00 PM IST. Android timing approximate.
+- **Normal project reminders** are distinct scheduled due-date/reminder alerts managed by the Creator/Personal reminder engines, not the automation routine digest. Explain these four concepts with one practical example each and add relevant status/last-run details only when verified.
+- Preserve existing weekly planning and Google Calendar integration and its actual permission/export semantics. Do not add new automation behavior without owner review.
+
+### 05-F Help & About
+
+- Rebuild mostly empty current page (V337 currently only **Show app tour** + **Version**) as useful, searchable/contextual **Help Center**:
+  - Getting started / replay companion onboarding
+  - Projects and stages, Idea Vault, Personal and Creator Reminders, Scenes/Voice/Music, 21-Day Challenge and Insights
+  - Planning, automation explanation and sample workflow
+  - Account/sign-in, cloud limitations and offline use
+  - Permissions / missed alarms troubleshooting and device-specific readiness
+  - FAQ / issue-report support channel **only if verified configured**; no fake contact/chat guarantees
+  - App version/build, What's New / changelog, privacy/terms links when verified
+- Keep help content concise, accessible and available offline for essential FAQs; truthful about what is and isn't backed up.
+
+### 05-G Privacy & Permissions and Advanced
+
+- Privacy & Permissions is stable; no broad redesign now. Only clarify navigation/duplicated permission rows when needed by other settings.
+- Source audit of **Start fresh on this phone**: `FreshStartActivity` requires two checkbox acknowledgements, exact phrase **ERASE THIS PHONE**, a second confirmation, then Android `ActivityManager.clearApplicationUserData()`. This is **device-only app-private data** erasure, not a deletion of cloud accounts. Not executed; **no real-device destructive test**.
+- Fix obviously stale copy such as **BACK TO BACKUPS**, and instructions that imply a Backups Settings destination still exists. Explicitly warn about local-only media/challenges/Spaces possibly not being recoverable, especially while Supabase login is restricted. Preserve owner-approved Erase local data capability and confirmation gates.
+- Physical QA of clear-data functionality must use a fully disposable test install/account and **separate explicit owner approval**; never exercise it on their current data.
+
+### Quality and release acceptance gates (pending)
+
+1. Account DP matches chosen companion and Google account-state screens, offline errors and reconnect flow are honest.
+2. Supabase API restriction diagnosed, transfer causes quantified from usage/billing and login restored; no payment incurred without owner consent.
+3. Exactly two selectable themes; distinct real icons; no duplicate scene entry; welcome selector integrated from #01.
+4. Premiere-specific presentation retired with all calling code/asset/preferences audited and compatibility-safe fallback, while OS full-screen reminder actions remain untouched.
+5. Every scene convincingly different, previews accurate for voice/alarm, all controls legible and reachable, works in reduced motion.
+6. Voice/music preview lifecycle never shows an idle Stop action, no simultaneous/missing playback, preserves audio focus and user assets.
+7. Notifications/Alarms and Planning/Integrations UI reorganized with no changes to schedules, permission semantics, existing data or reminder delivery.
+8. Help content matches actual app behavior and version, replay works, accessibility tested.
+9. Device reset remains protected and cloud-safe, with stale/backups text removed; destructive behavior not called in live environment.
+10. Before release: full unit/instrumentation, actual Android test, performance/contrast/talkback/back-stack verification and owner sign-off; integrate only after P0 baseline gate.
+
+**Record state:** Proposed; review complete for source/code and read-only log evidence, not visual/device acceptance.
 
 ---
 
@@ -261,6 +352,7 @@
 | 01 | Four selectable welcome animations; The Living Frame storyboard as first visual implementation reference | Approved for future implementation | Not started |
 | 02 | Account choice, identity/profile, companion-guided adaptive first run and six-screen tour | Approved for future implementation; details pending | Not started |
 | 03 | Meaningful personalization across projects/progress and a premium companion-avatar Home menu | Approved for future implementation; retain Home sections until further review | Not started |
-| 04 | New Project first-section polish, expressive voice personas, and 1–5 spoken repeats | Proposed; under founder review | Not started |
+| 04 | New Project first-section polish, expressive voice personas, and 1–5 spoken repeats | Approved for future implementation | Not started |
+| 05 | Settings restructuring, account quota P0, authentic scenes, voice polish, automation clarity and Help Center | Proposed; under founder review | Not started |
 
-**Next entries:** Add #05 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
+**Next entries:** Add #06 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
