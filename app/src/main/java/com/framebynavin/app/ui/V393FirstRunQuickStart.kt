@@ -69,12 +69,16 @@ internal class V393FirstRunPrefs(context: Context) {
 
     /** Commit synchronously before proceeding to avoid returning to this gate on crash. */
     fun saveFocus(focus: V393FirstRunFocus) {
-        check(prefs.edit().putString("focus", focus.name).commit()) {
+        check(prefs.edit().putString("focus", focus.name)
+            .putBoolean("ux02_first_run", true).commit()) {
             "Unable to save first-run choice"
         }
     }
 
-    fun permissionGuideComplete(): Boolean = prefs.getBoolean("permission_guide_complete", false)
+    /** Existing installs with a saved focus must not be sent through a new mandatory gate. */
+    fun permissionGuideComplete(): Boolean =
+        !prefs.getBoolean("ux02_first_run", false) ||
+            prefs.getBoolean("permission_guide_complete", false)
 
     fun markPermissionGuideComplete() {
         check(prefs.edit().putBoolean("permission_guide_complete", true).commit()) {
