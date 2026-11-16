@@ -2,6 +2,7 @@ package com.framebynavin.app.personal
 
 import android.app.NotificationManager
 import android.os.Build
+import android.os.Bundle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.framebynavin.app.data.HardeningTestEnvironment
@@ -51,7 +52,9 @@ class P0AlertHealthDiagnosticReproductionDeviceTest {
             Phase1HabitDeliveryHealth.VOICE_SPEAKING, observed)
         assertNotEquals("Desired behavior is to surface failed voice playback",
             Phase1HabitDeliveryHealth.VOICE_UNAVAILABLE, observed)
-        println("P0_DIAGNOSTIC_REPRODUCED=VOICE_FAILURE_MASKED")
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+            putString("P0_DIAGNOSTIC_REPRODUCED", "VOICE_FAILURE_MASKED")
+        })
         println("P0_DESIRED_AFTER_APPROVAL=VOICE_UNAVAILABLE")
     }
 
@@ -74,7 +77,9 @@ class P0AlertHealthDiagnosticReproductionDeviceTest {
         // Known V337 characterization; this is NOT the desired behavior.
         assertTrue("REPRODUCED: null channel is incorrectly called allowed",
             snapshot.channelAllowed)
-        println("P0_DIAGNOSTIC_REPRODUCED=MISSING_CHANNEL_REPORTED_ALLOWED")
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+            putString("P0_DIAGNOSTIC_REPRODUCED", "MISSING_CHANNEL_REPORTED_ALLOWED")
+        })
         println("P0_DESIRED_AFTER_APPROVAL=CHANNEL_NEEDS_ATTENTION")
     }
 }
