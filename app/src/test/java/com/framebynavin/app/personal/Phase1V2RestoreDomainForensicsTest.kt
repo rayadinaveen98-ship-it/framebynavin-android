@@ -193,13 +193,16 @@ class Phase1V2RestoreDomainForensicsTest {
                 emptyList(), emptyList(),
             )
         }
-        assertThrows(IllegalArgumentException::class.java) {
+        val malformed = assertThrows(IllegalArgumentException::class.java) {
             Phase1V2RestoreDomainForensics.inspectWithReverseJournal(
                 checkpoint(Phase1V2RestoreStep.VERIFYING),
                 original, target.copy(groups = "[]"),
                 original, emptyList(), emptyList(), emptyList(),
             )
         }
+        // Invalid archive data is rejected without exposing a JSON parser
+        // exception as the public recovery-validation contract.
+        assertTrue(malformed.cause is org.json.JSONException)
     }
 
 }
