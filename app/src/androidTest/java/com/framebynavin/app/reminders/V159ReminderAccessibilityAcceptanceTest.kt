@@ -21,6 +21,7 @@ class V159ReminderAccessibilityAcceptanceTest {
         var working = 0
         var snoozed = 0
         var stageDone = 0
+        var rescheduled = 0
         rule.setContent {
             val old = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(old.density, 2f)) {
@@ -38,7 +39,7 @@ class V159ReminderAccessibilityAcceptanceTest {
                     onWorking = { working++ },
                     onSnooze = { snoozed++ },
                     onPause = {},
-                    onReschedule = {},
+                    onReschedule = { rescheduled++ },
                     onDismiss = {},
                 )
             }
@@ -47,11 +48,14 @@ class V159ReminderAccessibilityAcceptanceTest {
         rule.onNodeWithText("I'M WORKING").performScrollTo().performClick()
         rule.onNodeWithText("SNOOZE 10 MIN").performScrollTo().performClick()
         rule.onNodeWithText("MORE OPTIONS").performScrollTo().performClick()
-        rule.onNodeWithText("CHOOSE ANOTHER TIME").performScrollTo().assertIsDisplayed()
+        // Current V337/V394 control text is RESCHEDULE, not historical "CHOOSE ANOTHER TIME".
+        // At 200% text scaling, the expanded action must be visible AND dispatch its callback.
+        rule.onNodeWithText("RESCHEDULE").performScrollTo().assertIsDisplayed().performClick()
         rule.runOnIdle {
             assertEquals(1, stageDone)
             assertEquals(1, working)
             assertEquals(1, snoozed)
+            assertEquals(1, rescheduled)
         }
     }
 }
