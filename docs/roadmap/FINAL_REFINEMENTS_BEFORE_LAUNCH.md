@@ -63,10 +63,67 @@
 
 ---
 
+## Refinement 02 — Account choice, personalized first-run setup, and companion-guided onboarding
+
+- **Area:** First normal launch after Welcome animation through Home.
+- **Founder request (2026-11-16):** **PROPOSED; UNDER REVIEW**, not yet approved as final specification. Founder asked to understand and improve the journey before implementation. No app code changes authorized by this item.
+- **Intent:** A welcoming, premium identity -> personalization -> guided learning experience for new/guest users, with a direct Home route for existing signed-in users and no forced re-onboarding.
+
+### Founder-requested journey
+
+1. Welcome animation (respects chosen style and existing direct-launch bypass).
+2. Initial choice: **Create a new account**, **Log in**, or **Use without an account**.
+3. Sign up -> Google authentication -> new Backlot profile setup with **name** and unique **username**. Existing-account Google sign-in -> recognize returning identity.
+4. Guest -> local-only entry with clear data-persistence and optional account connection later.
+5. New-user profile -> choose approved companion (**Spark or Mira**), with previously designed expressive poses continuing consistently through setup and tour.
+6. Ask guided questions: **What do you create? Where do you create/publish? Why do you create? How do you create?** Personal-only and Both users should have context-appropriate questions, rather than mandatory Creator-only questions.
+7. Permission explanation and setup for notifications, full-screen reminder/alert behavior, microphone, etc.
+8. Companion-guided in-app onboarding with optional concise voice announcements.
+9. Companion closes the tour and user lands on genuine Home. Remove tour overlays only; user-selected companion preference remains intact.
+10. Existing returning signed-in user with completed onboarding goes directly Home following account verification and any necessary honest data-reconciliation steps. Resume incomplete setup without destroying recorded progress.
+
+### Experience refinements to review with founder
+
+- Distinguish **identity** (Google account + Backlot name/username) from **work setup** (Creator/Personal/Both choice and four questions). Keep the existing focus segmentation introduced in Stage 6; do not force publishing questions onto Personal users.
+- Treat sign up and login as separate initial user intents but allow a shared secure Google authentication mechanism. Handle account-already-exists and no-profile states without duplicating user profiles.
+- Guest flow should remain functional and account-linkable later with deliberate, safe data-reconciliation/merge behavior and no unintended overwrites.
+- Avoid collecting all permissions as a blocking wall. Provide one readable permissions explainer, then ask each Android permission in context (notifications when creating reminders, microphone when recording, special full-screen/alarm access only where platform rules allow). Handle denial, postponement and Settings re-entry gracefully.
+- Proposed six-tour destinations (order for Creator/Both): **Home & Daily Brief**, **New Project**, **New Idea**, **Reminder Hub (Personal and Creator)**, **21-Day Challenge**, **Insights**. For Personal-only users, prioritize Personal Reminders, 21-Day Challenge and Home; Creator lessons can be optional/replayed later.
+- Guided lessons should show real screens with carefully placed companion overlays, speak only if opted in, provide visible text/subtitles, and offer Next, Back, Skip and Replay from Settings.
+- Tour should **not** create fake records or require first project creation. Finish to Home with companion exit animation, no blocking overlay. Companion remains selectable elsewhere.
+- Returning-user login can skip onboarding **only** if authenticated identity and saved completion state can be verified. Account recognition is separate from the availability/coverage of cloud-restored data; disclose which Creator and Personal information is actually restored versus local-only.
+- Do not lose existing users' setup state, data, current V337 behavior or draft Stage 6 work; reconcile new proposed first-run model with PR #377/PR #389 before future implementation.
+
+### Open design decisions — founder approval required
+
+1. Whether guest users must enter a local name or can defer profile identity.
+2. Final question copy, optional answers and the conditional Creator/Personal/Both paths.
+3. Which permission explanations appear during setup versus just in time; no forced OS permission approval.
+4. Voice guide default OFF (recommended opt-in) versus ON; speech languages, replay and mute behavior.
+5. Whether tour is fully skippable (recommended) and how Home and six-tour steps adapt to focus.
+6. Account data restoration coverage, incomplete-profile resumption and guest-to-account merge UX, based on verified backend capabilities.
+
+### Acceptance gates (all pending)
+
+- New Google signup, existing Google login, local guest, account switch/reinstall, incomplete setup, offline/cancel/retry and mismatched account all have deterministic paths.
+- Returning completed user never repeats setup; fresh and partial users do not get stuck or lose progress.
+- Account profile inputs validated; unique username handling and authentication tokens secure. No mock or invented restored data.
+- Appropriate companion assets and poses remain visually consistent; choice persisted.
+- Conditional personalization works for Creator, Personal and Both, with no forced irrelevant fields.
+- OS permission requests respect Android versions and user's denial; core non-permission features still work.
+- Accessible six-destination tour with optional voice, text equivalents, skip/back/replay and correct Home landing.
+- Usability, accessibility, physical phone/tablet tests, upgrade/data integrity and regression evidence pass.
+- No source implementation, PR merge or release until founder approves final scope and integration gate.
+
+**Status:** Proposed only. Record captures founder intent and suggested improvements, not an implemented or approved final flow.
+
+---
+
 ## Refinement queue
 
 | No. | Refinement | Founder decision | Implementation status |
 |---|---|---|---|
 | 01 | Four selectable welcome animations; The Living Frame storyboard as first visual implementation reference | Approved for future implementation | Not started |
+| 02 | Account choice, identity/profile, companion-guided adaptive first run and six-screen tour | Proposed, awaiting founder review | Not started |
 
 **Next entries:** Add #02, #03, etc. in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
