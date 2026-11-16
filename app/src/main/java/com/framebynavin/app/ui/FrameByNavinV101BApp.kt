@@ -1336,6 +1336,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settingsStore.setAccountOnboardingComplete(true)
                 settings = settingsStore.snapshot()
             },
+            onReturningAccount = {
+                runCatching { v393FirstRunPrefs.markReturningAccount() }
+                    .onSuccess { v402PermissionGuideComplete = true }
+                    .onFailure {
+                        Toast.makeText(context,
+                            "Could not save returning-account status. Please retry.",
+                            Toast.LENGTH_LONG).show()
+                    }
+            },
         )
     } else if ((!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
         CloudSyncManager(context.applicationContext).localState().session?.let { session ->
