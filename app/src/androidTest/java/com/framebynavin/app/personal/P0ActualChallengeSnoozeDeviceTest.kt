@@ -144,7 +144,30 @@ class P0ActualChallengeSnoozeDeviceTest {
             }
             assertEquals("One and only one real OS-fired snooze alarm", 1,
                 redelivery.count { it.stage == Phase1HabitDeliveryStage.OS_FIRED })
-            assertTrue("Snoozed OS occurrence must post a notification",
+            // Keep failed acceptance observable: never weaken the expected POSTED event.
+            val deliveryDiagnostics = buildString {
+                append("snoozeEvents=")
+                append(redelivery.joinToString { "${it.stage}@${it.observedAtMillis}" })
+                append("; allChallengeStages=")
+                append(Phase1HabitDeliveryLedger(app).recent()
+                    .filter { it.challengeId == id }
+                    .joinToString { "${it.stage}:${it.scheduledAtMillis}" })
+                append("; persistedSnooze=")
+                append(store.load().singleOrNull()?.snoozedUntil)
+                append("; occurrenceCurrent=")
+                append(store.load().singleOrNull()?.let {
+                    Phase1HabitOccurrencePolicy.current(
+                        it, snoozeAt, System.currentTimeMillis())
+                })
+                append("; appNotificationsEnabled=")
+                append(NotificationManagerCompat.from(app).areNotificationsEnabled())
+                append("; alarmChannelImportance=")
+                append(manager.getNotificationChannel(
+                    Phase1HabitNotification.channel(Phase1HabitAlertKind.ALARM)
+                )?.importance)
+            }
+            assertTrue(
+                "Snoozed OS occurrence must post a notification; $deliveryDiagnostics",
                 redelivery.any {
                     it.stage == Phase1HabitDeliveryStage.NOTIFICATION_POSTED
                 })
