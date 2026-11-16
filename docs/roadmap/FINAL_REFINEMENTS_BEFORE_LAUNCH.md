@@ -373,7 +373,22 @@
 - **Notification icons:** Native monochrome Backlot small icons, distinct category affordance within OS limits (Creator, Personal, 21-Day) and Voice/Alarm status identified clearly in notification text/channel. Existing Creator/Personal small icon is Backlot; 21-Day currently uses generic Android alarm icon. Reuse chosen companion as meaningful private large art (existing V390), no animated/full-color status-bar icon, no private challenge/activity content exposed on locked screens.
 - **Android/platform constraints:** Android 14+ limits FSI entitlement to qualifying alarm/call functionality. No automatic full-screen for regular quiet notifications/ordinary speech. Challenge currently routes to MainActivity/notification, so a genuine valid, permission-scoped challenge alert surface requires a new carefully authorized phase, not an unsafe route substitution.
 - **Priority:** Visually ambitious but reliability-first, preserve delivery/occurrence tokens, playback, Done/Snooze/Stage Done, reminder backdrops, Personal lock-screen redaction, 21-Day scheduling/completion, follow-ups and all existing watchdogs. Physical device, accessibility, animation performance and regression acceptance gates specified in dedicated document.
-- **Status:** Proposed, not implemented or tested.
+- **Status:** Founder-approved for future implementation; NOT IMPLEMENTED or tested. Preserve OS/reminder delivery requirements.
+
+---
+
+## Refinement 08 — Personal Care, My Spaces and a coherent Personal Home
+
+- **Founder request (2026-11-16):** Preserve all meaningful My Spaces capabilities and links to reminders, professionally restructure its UI, audit Personal Reminders, Reminder Groups, 21-Day Challenges and any other Personal features, and suggest a dedicated welcoming Personal place focused on meaningful self-care.
+- **State:** **RESEARCHED / PROPOSED, awaiting founder review; NOT IMPLEMENTED or TESTED**. Only read-only source audit/public research and documentation.
+- **Full report:** [PERSONAL_CARE_AND_MY_SPACES_AUDIT_2026-11-16.md](PERSONAL_CARE_AND_MY_SPACES_AUDIT_2026-11-16.md).
+- **Baseline:** Personal already has a truthful My Day preview, offline reminder routines (My Routines), eight optional personal-purpose categories, recurrence/follow-ups and action records; Reminder Groups with linked reminders and batch Pause/Resume; 21-Day Challenges with one repeated action, manual Done, snooze and true daily progress; My Spaces as a Room-backed notes, goals, activity, metric and private-photo journal with links to actual reminders; a unified Personal reminder/challenge agenda. The core features and data must be retained.
+- **Product strategy:** Create a **Personal Home / My Care** overview as a calm entry to the four pillars, not as a new database or duplicate planner. Show next actionable Personal item, optional gentle reflection, a curated preview of real Spaces, current Challenge and My Routines, and non-judgmental weekly history. Stay consistent with Director's Cut and Light. A user must never be punished for resting, skipping, or missing a day.
+- **My Spaces redesign:** Preserve existing entries/photos/links/Room IDs. Improve main cards with actual recent activity and useful CTA. Within Space: Overview, Journal, Photos, Reminders and Progress, with one prominent Log progress and secondary Add Note/Add Photo. Preserve archive/restore/delete gates. No new automatic schedules or synthetic wellness scores. Add optional Space starter templates for Rest, Relationships, Learning, Nutrition, Wellbeing, etc. without migrating existing enum records or forced goal creation.
+- **New feature proposals:** Optional 15-second daily self-check-in with minimal feeling/energy and optional reflection; truthful weekly reflection; personal chronological calendar and meaningful metrics. No clinical diagnosis, therapy claims, AI health analysis or cloud upload. A health-data privacy/schema/export/deletion approval gate is mandatory before implementation.
+- **Critical data trust finding:** Space photos live only in app-private files; normal Backlot cloud does **not** restore photos or Spaces. Spaces' current metadata-only local export is plaintext and excludes private images and actual Personal reminder records. Preserve user safety, disclose device-only limits, review conflict with prior Settings backup/restore removal; do not claim reinstall restores Spaces or silently remove the Spaces utility.
+- **Architecture/QA:** One read-only composition over existing PersonalReminderStore/CompletionJournal, Phase1HabitStore, V298ReminderGroupStore and V289SpacesDatabase, never merge underlying sources of truth. No cloned reminders, automatic challenge confirmation or fake receipt. Verify old links/photos/reminder actions, actual Android UI, offline, accessibility, account switching, upgrade/migration and dummy-data photo recovery before integration.
+- **Recommendation:** Approve a progressive Personal Home and My Spaces usability redesign; prototype and validate with real users before introducing sensitive new tracking. No production code edits, cloud changes, merges or release based on this record.
 
 ---
 
@@ -387,6 +402,7 @@
 | 04 | New Project first-section polish, expressive voice personas, and 1–5 spoken repeats | Approved for future implementation | Not started |
 | 05 | Settings restructuring, account quota P0, authentic scenes, voice polish, automation clarity and Help Center | Approved for future implementation | Not started |
 | 06 | Evidence-based format-aware Project Stages and Content Workspace 3.0 | Approved for future implementation (pilot-first) | Not started |
-| 07 | Selectable Voice/Alarm intro animation collection across Creator, Personal & 21-Day, selected companion, notification icons | Proposed; under founder review | Not started |
+| 07 | Selectable Voice/Alarm intro animation collection across Creator, Personal & 21-Day, selected companion, notification icons | Approved for future implementation | Not started |
+| 08 | Personal Care, My Spaces and professional Personal Home | Researched; proposed for founder review | Not started |
 
-**Next entries:** Add #08 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
+**Next entries:** Add #09 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
