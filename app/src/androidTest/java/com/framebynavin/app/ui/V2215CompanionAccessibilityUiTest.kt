@@ -74,7 +74,9 @@ class V2215CompanionAccessibilityUiTest {
                 )
             }
         }
-        rule.onNodeWithText("Personalization").performClick()
+        // V337 Settings home renamed the former Personalization entry.
+        // Exercise the actual Settings route rather than a stale label.
+        rule.onNodeWithText("Appearance & sound").performClick()
         rule.onNodeWithText("Companion").performClick()
         val toggle = rule.onNodeWithTag("v2215-companion-switch")
         toggle.performScrollTo().assertIsDisplayed().assertIsOn()
