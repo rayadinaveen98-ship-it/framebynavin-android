@@ -341,7 +341,22 @@
 9. Device reset remains protected and cloud-safe, with stale/backups text removed; destructive behavior not called in live environment.
 10. Before release: full unit/instrumentation, actual Android test, performance/contrast/talkback/back-stack verification and owner sign-off; integrate only after P0 baseline gate.
 
-**Record state:** Proposed; review complete for source/code and read-only log evidence, not visual/device acceptance.
+**Record state:** Founder-approved for future implementation; **NOT IMPLEMENTED**. Source/code and read-only log evidence available; visual/device acceptance pending.
+
+---
+
+## Refinement 06 — Format-aware professional Project Stages and Content Workspace 3.0
+
+- **Founder request (2026-11-16):** Investigate whether stage lists and Creator Content Workspace are accurate, professional, genuinely format-aware and better than generic repeated layouts; deep-research creator needs and competing products; propose full redesign if evidence requires it.
+- **State:** **RESEARCHED / PROPOSED; awaiting founder review. NOT IMPLEMENTED or TESTED.**
+- **Report:** [CREATOR_WORKSPACE_DEEP_AUDIT_2026-11-16.md](CREATOR_WORKSPACE_DEEP_AUDIT_2026-11-16.md) (complete baseline code audit, creator needs, competitor comparison, five sample workflows, architecture, risks, stage plan and acceptance criteria).
+- **Finding:** `CreatorWorkflowV2` provides stage diversity across different types, but current `V19ContentWorkspaceAlpha6Hub`, shared Plan/Script/Publish editors and `CW3StageDesk` present mostly universal controls. `StageWorkspaceRoutingPolicy` maps stage IDs to a small number of shared destinations and some V2 templates interpolate platform/format only in labels rather than production requirements. This matches founder-observed sameness. `V2285WorkspaceFocusPolicy` can suggest scripts for formats that don't need them.
+- **Protect:** Existing CreatorContentWorkspace / TaskStore authority, CreatorContentDna, Legacy template fallback, stage-owned data scoped by project/template/stage IDs, revision-fenced drafts, distinct Stage approval / checklist / Script readiness / Cut review / publication facts, independent derivative outputs and real reminder scheduling.
+- **Recommended direction:** **Workspace 3.0 as progressive, additive redesign**—one cohesive Project Cockpit with true contextual working modules and versioned recipe packs for different formats. Start with five pilots: cinematic analysis long-form, Short/Reel, podcast, tutorial, and carousel. Later expand true original short-film, music, news etc. Do not build many cosmetic clones or claim Backlot edits media.
+- **Core UX requirement:** Each stage must expose its actual purpose, real expected artifact, relevant editor/links, status/readiness, next action, and honest completion evidence. Inputs and validation depend on mode+archetype+production style+platform+delivery format, not a stage name alone. User override remains allowed without losing source history.
+- **Missing capability proposals:** structured scene/claim-evidence maps, format-specific beat/shot/take/guest/slide editors, output revision and device media availability, platform-aware packaging and truthful release checks, better Next Move prompts. No mandatory paid cloud/AI services.
+- **Risk and gates:** Version-pin template IDs, avoid silent migration of existing stage records, preserve output/reminder epochs, guard old export/import, physical phone/tablet and multiple-project testing, accessibility/performance checks. Current study is static code and documented industry research, **not** a physical UI certification or live rival app trial.
+- **Approval boundary:** This records a plan. No production implementation, merge, release or signed APK authorized. Founder to approve phased design/pilots after reviewing report.
 
 ---
 
@@ -353,6 +368,7 @@
 | 02 | Account choice, identity/profile, companion-guided adaptive first run and six-screen tour | Approved for future implementation; details pending | Not started |
 | 03 | Meaningful personalization across projects/progress and a premium companion-avatar Home menu | Approved for future implementation; retain Home sections until further review | Not started |
 | 04 | New Project first-section polish, expressive voice personas, and 1–5 spoken repeats | Approved for future implementation | Not started |
-| 05 | Settings restructuring, account quota P0, authentic scenes, voice polish, automation clarity and Help Center | Proposed; under founder review | Not started |
+| 05 | Settings restructuring, account quota P0, authentic scenes, voice polish, automation clarity and Help Center | Approved for future implementation | Not started |
+| 06 | Evidence-based format-aware Project Stages and Content Workspace 3.0 | Researched; proposed for review | Not started |
 
-**Next entries:** Add #06 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
+**Next entries:** Add #07 and subsequent items in the order the founder provides them. Keep the same distinction between PROPOSED, APPROVED, IMPLEMENTED, TESTED and RELEASED. Never assume a documented item has shipped.
