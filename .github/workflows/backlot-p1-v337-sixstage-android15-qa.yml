@@ -1,0 +1,123 @@
+name: Backlot P1 V337 six-stage isolated Android 15 QA (no release)
+
+on:
+  push:
+    branches:
+      - audit/backlot-v337-sixstage-device-matrix-20261116
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p1-sixstage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa-source-integrity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require exact previously tested P0 application sources and QA-only additions
+        shell: bash
+        run: |
+          set -euo pipefail
+          verified=815ba69775f75b6e5f25bb838c2c17b4f09c203e
+          git merge-base --is-ancestor "$verified" HEAD
+          printf '%s\n' \
+            '.github/workflows/backlot-p1-v337-sixstage-android15-qa.yml' \
+            'app/src/androidTest/java/com/framebynavin/app/ui/P1SixStageQuickstartSceneDeviceTest.kt' \
+            'app/src/androidTest/java/com/framebynavin/app/widget/P1SixStageWidgetProviderDeviceTest.kt' \
+            'docs/qa/BACKLOT_V337_SIX_STAGE_QA_MATRIX_2026-11-16.md' \
+            'tools/qa/backlot_p1_six_stage_android15.sh' | sort > /tmp/expected-qa-files.txt
+          git diff --name-only "$verified" HEAD | sort > /tmp/actual-qa-files.txt
+          diff -u /tmp/expected-qa-files.txt /tmp/actual-qa-files.txt
+          test "$(git show "$verified":app/build.gradle.kts | sha256sum | cut -d' ' -f1)" = \
+               "$(sha256sum app/build.gradle.kts | cut -d' ' -f1)"
+          printf '%s\n' "QA scope verified. P0 code unchanged: $verified"
+
+  full-jvm-unchanged-product:
+    needs: qa-source-integrity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Run complete full JVM regression without exclusions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/p1-sixstage/jvm
+          git rev-parse HEAD > output/p1-sixstage/jvm/QA-SOURCE-SHA.txt
+          printf '%s\n' 815ba69775f75b6e5f25bb838c2c17b4f09c203e > output/p1-sixstage/jvm/VERIFIED-PRODUCT-SHA.txt
+          timeout --signal=TERM --kill-after=20s 80m gradle :app:testDebugUnitTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p1-sixstage/jvm/RESULT.log
+      - name: Preserve full JVM evidence even if failing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P1-SixStage-Full-JVM-Evidence
+          path: |
+            output/p1-sixstage/jvm/
+            app/build/test-results/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
+
+  android15-sixstage:
+    needs: qa-source-integrity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile all Android instrumentation classes with new six-stage smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/p1-sixstage/android15
+          git rev-parse HEAD > output/p1-sixstage/android15/QA-SOURCE-SHA.txt
+          printf '%s\n' 815ba69775f75b6e5f25bb838c2c17b4f09c203e > output/p1-sixstage/android15/VERIFIED-PRODUCT-SHA.txt
+          git ls-files app/src/androidTest/java > output/p1-sixstage/android15/TEST-SOURCES.txt
+          timeout --signal=TERM --kill-after=20s 75m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/p1-sixstage/android15/BUILD.log
+      - name: Enable Android emulator virtualization
+        run: sudo chmod 666 /dev/kvm
+      - name: Test targeted actual UI/widget contracts on disposable Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          # Each runner script command is a fresh /bin/sh. Invoke one Bash script.
+          script: bash tools/qa/backlot_p1_six_stage_android15.sh
+      - name: Preserve compile and emulator pass/fail evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P1-SixStage-Android15-Evidence
+          path: |
+            output/p1-sixstage/android15/
+          retention-days: 30
+          if-no-files-found: warn
