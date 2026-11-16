@@ -222,7 +222,7 @@ private fun guidedCopy(step: CreatorGuidedTourStep, hasProjects: Boolean): Guide
         "Understand your progress",
         "Insights helps you learn. Quick Actions is always one tap away.",
         "Connect YouTube to see what's working.",
-        "FINISH TOUR",
+        "NEXT",
         "QUICK ACTIONS",
         icon = Icons.Outlined.Insights,
         pose = FrameGuidePose.THINK,
