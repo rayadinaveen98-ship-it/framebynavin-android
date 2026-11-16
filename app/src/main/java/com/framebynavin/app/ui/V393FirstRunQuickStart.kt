@@ -76,6 +76,9 @@ internal class V393FirstRunPrefs(context: Context) {
         }
     }
 
+    /** Only journeys explicitly started by UX02 should auto-start its six-step guide. */
+    fun startedUx02Journey(): Boolean = prefs.getBoolean("ux02_first_run", false)
+
     /** Existing installs with a saved focus must not be sent through a new mandatory gate. */
     fun permissionGuideComplete(): Boolean =
         !prefs.getBoolean("ux02_first_run", false) ||
