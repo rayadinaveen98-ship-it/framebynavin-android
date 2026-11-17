@@ -337,38 +337,18 @@ internal fun V289PersonalSpacesScreen(
                         }
                     } else {
                         spaces.forEach { space ->
-                            Surface(
-                                onClick = {
-                                    // Prevent showing another Space’s journal while loading this one.
+                            UX07CSpaceCard(
+                                space = space,
+                                onOpen = {
+                                    // Clear all prior detail rows; never briefly expose
+                                    // another Space's note, link or private photo.
                                     entries = emptyList()
                                     linkedReminders = emptyList()
                                     photos = emptyList()
-            interruptedPhotos = emptyList()
+                                    interruptedPhotos = emptyList()
                                     selectedSpaceId = space.id
                                 },
-                                color = BacklotSurface,
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, BacklotBorder),
-                                modifier = Modifier.fillMaxWidth()
-                                    .testTag("v289-space-" + space.id),
-                            ) {
-                                Row(Modifier.padding(15.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Icon(V289SpaceIcon(space.type), null,
-                                        tint = BacklotSecondaryAccent,
-                                        modifier = Modifier.size(24.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(space.title, color = BacklotPrimaryText,
-                                            fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                                        Text(if (space.archivedAtMillis == null) "Active"
-                                            else "Archived", color = BacklotSecondaryText,
-                                            fontSize = 11.sp)
-                                    }
-                                    Icon(Icons.Outlined.ChevronRight, "Open",
-                                        tint = BacklotSecondaryText)
-                                }
-                            }
+                            )
                         }
                         OutlinedButton(onClick = { createVisible = true },
                             modifier = Modifier.fillMaxWidth()) {
@@ -386,13 +366,23 @@ internal fun V289PersonalSpacesScreen(
                         Icon(V289SpaceIcon(selected.type), null,
                             tint = BacklotSecondaryAccent,
                             modifier = Modifier.size(30.dp))
-                        Column(Modifier.weight(1f)) {
-                            if (selected.archivedAtMillis != null) {
-                                Text("Archived", color = BacklotSecondaryAccent, fontSize = 12.sp)
-                            }
+                        Column(Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                UX07CSpaceLabels.type(selected.type) +
+                                    if (selected.archivedAtMillis != null) " · Archived" else " · Active",
+                                color = BacklotSecondaryAccent,
+                                fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.testTag("ux07c-space-type"),
+                            )
                             if (selected.goalText.isNotBlank()) {
                                 Text(selected.goalText,
-                                    color = BacklotSecondaryText, fontSize = 13.sp)
+                                    color = BacklotSecondaryText,
+                                    fontSize = 13.sp, maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis)
+                            } else {
+                                Text("A private place to keep meaningful progress.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp)
                             }
                         }
                         if (selected.archivedAtMillis == null) {
@@ -469,26 +459,10 @@ internal fun V289PersonalSpacesScreen(
                             progressEntries, System.currentTimeMillis()
                         )
                     }
-                    Surface(color = BacklotSurface,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        modifier = Modifier.fillMaxWidth().testTag("v289-progress-summary")) {
-                        Row(Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text("${summary.totalRecordedEntries} logs",
-                                    color = BacklotPrimaryText,
-                                    fontWeight = FontWeight.SemiBold)
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("${summary.daysWithActivityLastSeven} active days",
-                                    color = BacklotPrimaryText,
-                                    fontWeight = FontWeight.SemiBold)
-                                Text("Past 7 days", color = BacklotSecondaryText,
-                                    fontSize = 10.sp)
-                            }
-                        }
-                    }
+                    UX07CSpaceProgressSummary(
+                        summary = summary,
+                        linkedCount = linkedReminders.size,
+                    )
 
                     val linkedIds = linkedReminders.mapTo(HashSet()) { it.reminderId }
                     val confirmedDone = doneReceipts.count { it.reminderId in linkedIds }
