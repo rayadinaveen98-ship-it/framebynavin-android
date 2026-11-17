@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
@@ -29,7 +30,7 @@ import java.util.Date
 internal fun V405CurrentStageGlance(glance: V405StageGlance) {
     Column(
         Modifier.fillMaxWidth().testTag("ux05-current-stage-glance"),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(BacklotUX10Tokens.rowGap),
     ) {
         Text("STAGE MATERIALS", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Text(
@@ -53,7 +54,7 @@ internal fun V405CurrentStageGlance(glance: V405StageGlance) {
 internal fun V405OutputFacts(overview: V405WorkspaceOverview) {
     Column(
         Modifier.fillMaxWidth().padding(top = 4.dp).testTag("ux05-output-facts"),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(BacklotUX10Tokens.rowGap),
     ) {
         Text("OUTPUT STATUS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Text(
@@ -84,7 +85,7 @@ internal fun V405StageApprovalHistory(task: CreatorTask, overview: V405Workspace
 
     Column(
         Modifier.fillMaxWidth().testTag("ux05-approval-history"),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        verticalArrangement = Arrangement.spacedBy(BacklotUX10Tokens.rowGap),
     ) {
         Text("STAGE HISTORY", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         if (overview.hasOriginIdea) Text(
@@ -109,7 +110,7 @@ internal fun V405StageApprovalHistory(task: CreatorTask, overview: V405Workspace
                     Text(
                         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                             .format(Date(receipt.approvedAtMillis)),
-                        color = MutedText, fontSize = 10.sp,
+                        color = MutedText, fontSize = BacklotUX10Tokens.eyebrow,
                     )
                 }
             }
@@ -119,7 +120,7 @@ internal fun V405StageApprovalHistory(task: CreatorTask, overview: V405Workspace
         }
         Text(
             "Recorded approvals are not time-tracking or publication evidence.",
-            color = MutedText, fontSize = 10.sp, lineHeight = 15.sp,
+            color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, lineHeight = 15.sp,
         )
     }
 }
