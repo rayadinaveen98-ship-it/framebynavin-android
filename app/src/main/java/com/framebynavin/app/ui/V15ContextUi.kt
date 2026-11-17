@@ -696,7 +696,7 @@ private fun V15CalendarRow(
             if (CreatorCalendarNavigationPolicy.isProjectLink(item)) onOpenProject(item.taskId)
             else onOpenWeeklyPlan()
         },
-        RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine),
+        RoundedCornerShape(16.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).background(accent, CircleShape))
@@ -704,12 +704,12 @@ private fun V15CalendarRow(
             Column(Modifier.weight(1f)) {
                 Text(item.title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("${item.platform} · ${item.contentType}", color = MutedText, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(CreatorCalendarNavigationPolicy.kindLabel(item) + " · tap to open", color = accent, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(CreatorCalendarNavigationPolicy.kindLabel(item) + " · tap to open", color = accent, fontSize = BacklotUX10Tokens.eyebrow, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(item.atMillis)), color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                Text(if (item.source == CreatorCalendarSource.PROJECT) "PROJECT" else "PLAN", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(item.atMillis)), color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
+                Text(if (item.source == CreatorCalendarSource.PROJECT) "PROJECT" else "PLAN", color = accent, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -717,10 +717,10 @@ private fun V15CalendarRow(
 
 @Composable
 private fun V15Metric(label: String, value: String, accent: Color, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(modifier, RoundedCornerShape(16.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             Text(value, color = accent, fontSize = 22.sp, fontWeight = FontWeight.Black)
-            Text(label, color = MutedText, fontSize = 7.4.sp, lineHeight = 9.sp)
+            Text(label, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, lineHeight = 9.sp)
         }
     }
 }
@@ -733,7 +733,7 @@ private fun V15BackHeader(kicker: String, title: String, onBack: (() -> Unit)?) 
             Spacer(Modifier.width(4.dp))
         }
         Column {
-            Text(kicker, color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text(kicker, color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(title, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
         }
     }
