@@ -173,8 +173,10 @@ internal fun CW52OutputLearningDesk(
                         Spacer(Modifier.height(7.dp))
                         Text(
                             when {
-                                selected?.status == CreatorDeliverableStatus.PUBLISHED &&
-                                    selected.publishedAtMillis > 0L ->
+                                selected?.let { output ->
+                                    output.status == CreatorDeliverableStatus.PUBLISHED &&
+                                        output.publishedAtMillis > 0L
+                                } == true ->
                                     "Publication confirmed by creator · ready for manual reflection"
                                 else -> "This output has no current confirmed live record."
                             },
