@@ -83,6 +83,19 @@ call "$A" backlot_ux09_apply_v1 "$create" "$tmp/retry"
 cmp -s "$tmp/create" "$tmp/retry" || { echo "FAILED: idempotent retry differs" >&2; exit 1; }
 echo "PASS: authenticated A create / exact idempotent retry"
 
+# Reusing an operation UUID with a different payload must not silently succeed.
+mutated="$(make_change "$CREATE_OP" "creator_project" "$ENTITY" 0 '{"title":"tampered retry"}' false)"
+reused_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \\
+  -o "$tmp/reused" -w '%{http_code}' \\
+  -H "apikey: $KEY" -H "Authorization: Bearer $A" \\
+  -H "Content-Type: application/json" \\
+  -X POST "$BASE/rest/v1/rpc/backlot_ux09_apply_v1" --data-binary "$mutated")"
+[[ "$reused_status" -ge 400 && "$reused_status" -lt 500 ]] || {
+  echo "FAILED: mutation with reused operation UUID was not rejected" >&2
+  exit 1
+}
+echo "PASS: operation UUID reuse with different data is rejected"
+
 stale="$(make_change "$WRONG_OP" "creator_project" "$ENTITY" 0 '{"title":"stale"}' false)"
 call "$A" backlot_ux09_apply_v1 "$stale" "$tmp/stale"
 expect_jq "$tmp/stale" '.status=="conflict" and .current_revision==1' "stale A must conflict"
@@ -126,4 +139,14 @@ status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
   -X POST "$BASE/rest/v1/rpc/backlot_ux09_apply_v1" --data-binary "$bad")"
 [[ "$status" -ge 400 && "$status" -lt 500 ]] || { echo "FAILED: unsupported domain not rejected" >&2; exit 1; }
 echo "PASS: disallowed Personal/private-media domain rejected"
+
+# The second whitelisted domain is real, not a documentation-only option.
+idea_id="$(new_uuid)"
+idea_body="$(make_change "$(new_uuid)" "creator_idea" "$idea_id" 0 '{"title":"Synthetic Idea"}' false)"
+call "$A" backlot_ux09_apply_v1 "$idea_body" "$tmp/idea_a"
+expect_jq "$tmp/idea_a" '.status=="applied" and .revision==1' "Creator Idea domain"
+call "$A" backlot_ux09_pull_v1 "$(make_pull 0 100)" "$tmp/ideas"
+expect_jq "$tmp/ideas" '.changes|any(.domain=="creator_idea" and .payload.title=="Synthetic Idea")' "Idea pull"
+echo "PASS: Creator Idea domain applies and pulls"
+
 echo "UX09-01 disposable A/B contract smoke PASS; NOT production/hosted verification"
