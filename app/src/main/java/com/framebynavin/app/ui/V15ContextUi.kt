@@ -346,15 +346,43 @@ internal fun V15ContentCalendarScreen(
     onOpenProject: (String) -> Unit = {},
     onOpenWeeklyPlan: () -> Unit = {},
     bottomNavigationClearance: androidx.compose.ui.unit.Dp = 124.dp,
+    projectsLoaded: Boolean = true,
 ) {
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
-    var selectedDayOffset by rememberSaveable { mutableIntStateOf(-1) }
-    val upcoming = CreatorContentCalendarEngine.upcoming(tasks, weeklySlots, daysAhead = 14)
-    val selected = if (selectedDayOffset < 0) upcoming
-        else CreatorCalendarNavigationPolicy.forDay(upcoming, today.plusDays(selectedDayOffset.toLong()), zone)
-    val grouped = CreatorContentCalendarEngine.groupedByDate(selected)
-    val overdue = CreatorCalendarNavigationPolicy.recentOverdue(tasks)
+    val nowMillis = System.currentTimeMillis()
+    var viewName by rememberSaveable { mutableStateOf(UX08ECalendarView.AGENDA.name) }
+    val view = runCatching { UX08ECalendarView.valueOf(viewName) }
+        .getOrDefault(UX08ECalendarView.AGENDA)
+    var selectedDateText by rememberSaveable { mutableStateOf(today.toString()) }
+    val selectedDate = UX08ECalendarPolicy.constrained(
+        runCatching { LocalDate.parse(selectedDateText) }.getOrDefault(today),
+        today,
+    )
+    var selectedDayOnly by rememberSaveable { mutableStateOf(false) }
+
+    // The engine is the *existing* project/Weekly Plan projection. A 90-day
+    // read-only horizon provides actual future month navigation, not 90 writes.
+    val upcoming = if (projectsLoaded) CreatorContentCalendarEngine.upcoming(
+        tasks, weeklySlots, nowMillis,
+        daysAhead = UX08ECalendarPolicy.PLANNING_DAYS,
+    ) else emptyList()
+    val visiblePeriod = UX08ECalendarPolicy.visibleItems(
+        upcoming, view, selectedDate, today, zone,
+    )
+    val displayed = if (selectedDayOnly)
+        UX08ECalendarPolicy.visibleItems(
+            upcoming, view, selectedDate, today, zone,
+            selectedDayOnly = true,
+        )
+    else visiblePeriod
+    val windowCounts = UX08ECalendarPolicy.count(visiblePeriod)
+    val grouped = displayed.groupBy {
+        Instant.ofEpochMilli(it.atMillis).atZone(zone).toLocalDate()
+    }.toSortedMap()
+    val overdue = if (projectsLoaded)
+        CreatorCalendarNavigationPolicy.recentOverdue(tasks, nowMillis)
+    else emptyList()
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -364,48 +392,225 @@ internal fun V15ContentCalendarScreen(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = bottomNavigationClearance)
         ) {
-            V15BackHeader("CALENDAR", "Next 14 days", onClose)
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = selectedDayOffset == -1, onClick = { selectedDayOffset = -1 },
-                    label = { Text("All dates") })
-                (0..13).forEach { offset ->
-                    FilterChip(selected = selectedDayOffset == offset,
-                        onClick = { selectedDayOffset = offset },
-                        label = { Text(if (offset == 0) "Today" else
-                            today.plusDays(offset.toLong()).format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))) })
-                }
-            }
-            if (selectedDayOffset < 0 && overdue.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                Text("PAST-DUE PROJECTS", color = RecRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("Actual projects, not weekly-plan previews.", color = MutedText, fontSize = 10.sp)
-                overdue.take(6).forEach { task -> V163OverdueProjectRow(task, onOpenProject) }
-            }
-            Spacer(Modifier.height(18.dp))
-
-            if (grouped.isEmpty()) {
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-                    Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(30.dp))
-                        Spacer(Modifier.height(9.dp))
-                        Text(if (selectedDayOffset >= 0) "Nothing planned for this date" else "Calendar is clear", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("Set a project deadline or check your weekly plan.", color = MutedText, fontSize = 10.sp)
-                    }
-                }
+            V15BackHeader("CALENDAR", "Content Planner", onClose)
+            Spacer(Modifier.height(7.dp))
+            Text(
+                "See real upcoming project deadlines and recurring Weekly Plan previews. " +
+                    "Plans are not published content, and opening a date changes nothing.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                modifier = Modifier.testTag("ux08e-calendar-source-explanation"),
+            )
+            Spacer(Modifier.height(15.dp))
+            if (!projectsLoaded) {
+                CircularProgressIndicator(
+                    color = RecRed,
+                    modifier = Modifier.size(24.dp).testTag("ux08e-calendar-loading"),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Loading Creator projects before displaying your planning calendar.",
+                    color = MutedText, fontSize = 12.sp,
+                )
             } else {
-                grouped.forEach { (date, dayItems) ->
-                    val label = when (date) {
-                        today -> "TODAY"
-                        today.plusDays(1) -> "TOMORROW"
-                        else -> date.format(DateTimeFormatter.ofPattern("EEE · d MMM", Locale.getDefault())).uppercase(Locale.getDefault())
+                UX08ECalendarNavigation(
+                    view = view,
+                    selected = selectedDate,
+                    today = today,
+                    items = upcoming,
+                    zone = zone,
+                    onViewChange = { chosen ->
+                        viewName = chosen.name
+                        selectedDayOnly = false
+                    },
+                    onDateSelect = { date ->
+                        selectedDateText = date.toString()
+                        selectedDayOnly = true
+                    },
+                    onMoveTo = { date ->
+                        selectedDateText = date.toString()
+                        selectedDayOnly = false
+                    },
+                )
+                Spacer(Modifier.height(11.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Box(Modifier.size(6.dp).background(RecRed, CircleShape))
+                        Text("Saved projects", color = MutedText, fontSize = 10.sp)
                     }
-                    Text(label, color = if (date == today) RecRed else MutedGold, fontSize = 8.8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-                    Spacer(Modifier.height(7.dp))
-                    dayItems.forEach { item -> V15CalendarRow(item, onOpenProject, onOpenWeeklyPlan) }
-                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Box(Modifier.size(6.dp).background(MutedGold, CircleShape))
+                        Text("Plan previews", color = MutedText, fontSize = 10.sp)
+                    }
                 }
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth()
+                        .testTag("ux08e-calendar-count-summary"),
+                    color = CinemaSurface,
+                    shape = RoundedCornerShape(13.dp),
+                ) {
+                    Column(
+                        Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Text(
+                            "${windowCounts.savedProjects} saved projects · " +
+                                "${windowCounts.weeklyPreviews} weekly previews",
+                            color = ProjectorIvory, fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "${windowCounts.completedProjects} saved projects " +
+                                "marked completed in this viewing period",
+                            color = MutedText, fontSize = 10.sp,
+                        )
+                    }
+                }
+
+                if (!selectedDayOnly && overdue.isNotEmpty()) {
+                    Spacer(Modifier.height(17.dp))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "PAST-DUE PROJECTS",
+                                color = RecRed, fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "Separate from future planning · saved active projects from the last 14 days",
+                                color = MutedText, fontSize = 10.sp,
+                            )
+                        }
+                        Text(
+                            overdue.size.toString(),
+                            color = MutedGold, fontSize = 11.sp,
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    overdue.take(6).forEach { task ->
+                        V163OverdueProjectRow(task, onOpenProject)
+                    }
+                    if (overdue.size > 6) {
+                        Text(
+                            "Showing 6 of ${overdue.size} past-due projects. " +
+                                "Open your Projects workspace for the rest.",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.testTag("ux08e-overdue-truncated"),
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (selectedDayOnly) "SELECTED DATE" else "PLANNED ITEMS",
+                            color = ProjectorIvory, fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            if (selectedDayOnly)
+                                selectedDate.format(DateTimeFormatter.ofPattern(
+                                    "EEE, d MMM yyyy", Locale.getDefault()
+                                )) + " · ${displayed.size} recorded plan item(s)"
+                            else "${displayed.size} upcoming item(s) in this view",
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                    }
+                    if (selectedDayOnly) {
+                        TextButton(
+                            onClick = { selectedDayOnly = false },
+                            modifier = Modifier.heightIn(min = 48.dp)
+                                .testTag("ux08e-show-full-period"),
+                        ) {
+                            Text("SHOW PERIOD", color = MutedGold, fontSize = 10.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(9.dp))
+                if (grouped.isEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("ux08e-calendar-empty"),
+                        color = CinemaSurface,
+                        shape = RoundedCornerShape(15.dp),
+                    ) {
+                        Column(
+                            Modifier.padding(19.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.CalendarMonth, null,
+                                tint = MutedGold, modifier = Modifier.size(28.dp),
+                            )
+                            Text(
+                                if (selectedDayOnly)
+                                    "Nothing planned for this selected date"
+                                else "No upcoming items in this viewing period",
+                                color = ProjectorIvory, fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "This view only projects upcoming saved deadlines " +
+                                    "and enabled Weekly Plan occurrences within 90 days. " +
+                                    "It does not prove no past publishing activity.",
+                                color = MutedText, fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                            )
+                        }
+                    }
+                } else {
+                    grouped.forEach { (date, dayItems) ->
+                        Text(
+                            when (date) {
+                                today -> "TODAY"
+                                today.plusDays(1) -> "TOMORROW"
+                                else -> date.format(DateTimeFormatter.ofPattern(
+                                    "EEE · d MMM", Locale.getDefault()
+                                )).uppercase(Locale.getDefault())
+                            },
+                            color = if (date == today) RecRed else MutedGold,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 7.dp),
+                        )
+                        dayItems.forEach { item ->
+                            // Existing original row is the only destination owner:
+                            // Project -> its saved ID, Preview -> Weekly Plan.
+                            V15CalendarRow(item, onOpenProject, onOpenWeeklyPlan)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                TextButton(
+                    onClick = onOpenWeeklyPlan,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("ux08e-review-weekly-plan"),
+                ) {
+                    Text("REVIEW WEEKLY PLAN", color = MutedGold, fontSize = 12.sp)
+                }
+                Text(
+                    "Upcoming-only planning window · 90 calendar dates from today. " +
+                        "Completed project labels reflect saved app state, not verified " +
+                        "publication. Earlier historical work belongs in Progress Journey.",
+                    color = MutedText, fontSize = 10.sp, lineHeight = 14.sp,
+                    modifier = Modifier.testTag("ux08e-window-limitation"),
+                )
             }
         }
     }
