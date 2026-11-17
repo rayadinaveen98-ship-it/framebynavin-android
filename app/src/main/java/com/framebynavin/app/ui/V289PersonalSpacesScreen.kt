@@ -96,6 +96,7 @@ internal fun V289PersonalSpacesScreen(
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
     var linkedReminders by remember { mutableStateOf(emptyList<V289SpaceReminderLinkEntity>()) }
     var linkRemindersVisible by remember { mutableStateOf(false) }
+    var ux07dSpaceLinkSearch by remember(selectedSpaceId) { mutableStateOf("") }
     var newNoteVisible by remember { mutableStateOf(false) }
     var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
     var interruptedPhotos by remember { mutableStateOf(emptyList<V290InterruptedPhoto>()) }
@@ -544,7 +545,10 @@ internal fun V289PersonalSpacesScreen(
                                         color = BacklotSecondaryText, fontSize = 12.sp,
                                         modifier = Modifier.testTag("v295-linked-done"))
                                 }
-                                TextButton(onClick = { linkRemindersVisible = true },
+                                TextButton(onClick = {
+                                        ux07dSpaceLinkSearch = ""
+                                        linkRemindersVisible = true
+                                    },
                                     enabled = !busy && !personalReadError &&
                                         ux07cLinksState == UX07CReadState.READY &&
                                         selected.archivedAtMillis == null,
@@ -1098,42 +1102,99 @@ internal fun V289PersonalSpacesScreen(
     if (linkRemindersVisible && selected != null) {
         val spaceId = selected.id
         val alreadyLinked = linkedReminders.mapTo(HashSet()) { it.reminderId }
-        val available = personalReminders.filter { it.id !in alreadyLinked }
+        val candidates = UX07DPersonalConnectionPolicy.availableSpaceReminders(
+            reminders = personalReminders,
+            linkedIds = alreadyLinked,
+            search = ux07dSpaceLinkSearch,
+        )
+        val allUnlinked = personalReminders.count { it.id !in alreadyLinked }
+        val linkSourcesReady = !personalReadError &&
+            ux07cLinksState == UX07CReadState.READY
         AlertDialog(
             onDismissRequest = { if (!busy) linkRemindersVisible = false },
-            title = { Text("Link reminders") },
+            title = { Text("Link an existing reminder") },
             text = {
-                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("Linking doesn't change reminder timing, alerts or scheduling.",
-                        color = BacklotSecondaryText, fontSize = 12.sp)
-                    if (available.isEmpty()) {
-                        Text("No other Personal reminders to link.", fontSize = 12.sp)
-                    }
-                    available.forEach { reminder ->
-                        OutlinedButton(
-                            enabled = !busy && !personalReadError,
-                            onClick = {
-                                write {
-                                    repository.linkExistingReminder(
-                                        V289SpaceReminderLink(
-                                            spaceId = spaceId,
-                                            reminderId = reminder.id,
-                                            linkedAtMillis = System.currentTimeMillis(),
-                                        ),
-                                        personalReminders.mapTo(HashSet()) { it.id },
-                                    )
-                                    linkedReminders = dao.linksForSpace(spaceId)
-                                    linkRemindersVisible = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().testTag("v295-link-available"),
-                        ) { Text(reminder.title, maxLines = 1) }
+                Column(
+                    Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    Text(
+                        "This Space keeps only a reference. Reminder schedules, alerts, groups and Done history stay with the original Personal reminder.",
+                        color = BacklotSecondaryText, fontSize = 12.sp,
+                    )
+                    OutlinedTextField(
+                        value = ux07dSpaceLinkSearch,
+                        onValueChange = { ux07dSpaceLinkSearch = it.take(80) },
+                        singleLine = true,
+                        enabled = !busy && linkSourcesReady,
+                        label = { Text("Search saved reminders") },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("ux07d-space-link-search"),
+                    )
+                    if (!linkSourcesReady) {
+                        Text(
+                            "Reminder links are unavailable. No saved links were changed.",
+                            color = BacklotError, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07d-space-link-unavailable"),
+                        )
+                    } else if (allUnlinked == 0) {
+                        Text(
+                            "All saved Personal reminders are already linked to this Space.",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                        )
+                    } else if (candidates.isEmpty()) {
+                        Text(
+                            "No reminders match this search.",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07d-space-link-empty"),
+                        )
+                    } else {
+                        Text(
+                            "${candidates.size} matching unlinked reminders" +
+                                if (candidates.size > 24) " · showing first 24; search to narrow" else "",
+                            color = BacklotSecondaryText, fontSize = 11.sp,
+                        )
+                        candidates.take(24).forEach { reminder ->
+                            OutlinedButton(
+                                enabled = !busy && linkSourcesReady,
+                                onClick = {
+                                    write {
+                                        val current = checkNotNull(dao.getSpace(spaceId)) {
+                                            "Space no longer exists"
+                                        }
+                                        check(current.archivedAtMillis == null) {
+                                            "Archived Spaces cannot accept new links."
+                                        }
+                                        // Recheck the current canonical Personal store,
+                                        // not an old remembered list while saving a link.
+                                        val actualReminderIds = personalStore.load()
+                                            .mapTo(HashSet<String>()) { it.id }
+                                        repository.linkExistingReminder(
+                                            V289SpaceReminderLink(
+                                                spaceId = spaceId,
+                                                reminderId = reminder.id,
+                                                linkedAtMillis = System.currentTimeMillis(),
+                                            ),
+                                            actualReminderIds,
+                                        )
+                                        linkedReminders = dao.linksForSpace(spaceId)
+                                        linkRemindersVisible = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("v295-link-available"),
+                            ) {
+                                Text(reminder.title, maxLines = 2)
+                            }
+                        }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { linkRemindersVisible = false }) { Text("DONE") }
+                TextButton(
+                    onClick = { linkRemindersVisible = false },
+                    enabled = !busy,
+                ) { Text("DONE") }
             },
         )
     }
