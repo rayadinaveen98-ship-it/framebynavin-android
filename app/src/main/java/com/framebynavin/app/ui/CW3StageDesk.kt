@@ -123,8 +123,8 @@ internal fun CW3StageDesk(
     stage: WorkflowStage,
     onSave: (Long, CreatorStageWork) -> Unit,
     onBack: () -> Unit,
-    onOpenMainTool: (StageWorkspaceDestination) -> Unit,
-    onOpenOutputCraft: () -> Unit,
+    onOpenMainTool: (StageWorkspaceDestination, Long, CreatorStageWork) -> Unit,
+    onOpenOutputCraft: (Long, CreatorStageWork) -> Unit,
 ) {
     val context = LocalContext.current
     val template = CreatorWorkflowEngine.templateFor(task)
@@ -160,14 +160,30 @@ internal fun CW3StageDesk(
     var claim by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var timecode by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var decisionText by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var evidenceSourceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var evidenceAssetId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var sourceMenuOpen by remember { mutableStateOf(false) }
+    var assetMenuOpen by remember { mutableStateOf(false) }
     var journalWarning by remember(task.id, stage.id, revision) { mutableStateOf(false) }
 
-    fun snapshot(): CreatorStageWork = initial.copy(
+    fun contentSnapshot(): CreatorStageWork = initial.copy(
         notes = notes, checklist = checklist, evidence = evidence,
         decisions = decisions, linkedReferenceIds = refs,
         linkedAssetIds = assets, linkedDeliverableIds = outputs,
-        reviewedAtMillis = reviewedAt,
+        reviewedAtMillis = 0L,
     )
+    // A review is valid only for the exact content explicitly reviewed.
+    // Editing any field visibly unchecks Review and the saved snapshot carries no
+    // stale reviewed timestamp. Re-checking captures the updated content.
+    var reviewedContent by remember(task.id, template.id, stage.id, revision) {
+        mutableStateOf(initial.copy(reviewedAtMillis = 0L))
+    }
+    fun snapshot(): CreatorStageWork {
+        val content = contentSnapshot()
+        return content.copy(
+            reviewedAtMillis = if (reviewedAt > 0L && content == reviewedContent) reviewedAt else 0L,
+        )
+    }
     val draft = snapshot()
     val unsaved = draft != persisted
 
@@ -227,13 +243,13 @@ internal fun CW3StageDesk(
                         StageWorkspaceDestination.HUB -> "OPEN SHARED PLAN"
                     }
                     OutlinedButton(
-                        onClick = { onOpenMainTool(canonicalDestination) },
+                        onClick = { onOpenMainTool(canonicalDestination, revision, snapshot()) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             .testTag("ux05-open-canonical-tool"),
                     ) { Text(routeLabel) }
                     if (isProductionStage && hasOutputs) {
                         TextButton(
-                            onClick = onOpenOutputCraft,
+                            onClick = { onOpenOutputCraft(revision, snapshot()) },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                 .testTag("ux05-open-output-craft"),
                         ) { Text("VIEW OUTPUT CUTS & SCRIPTS", color = MutedGold) }
@@ -322,6 +338,22 @@ internal fun CW3StageDesk(
                         Text(item.claim, color = ProjectorIvory, fontSize = 13.sp)
                         if (item.timecode.isNotBlank()) Text("Timecode: ${item.timecode}", color = MutedText, fontSize = 11.sp)
                         if (item.notes.isNotBlank()) Text(item.notes, color = MutedText, fontSize = 11.sp)
+                        if (item.referenceId.isNotBlank()) {
+                            val source = task.workspace.references.firstOrNull { it.id == item.referenceId }
+                            Text(
+                                "Source: " + (source?.let { it.label.ifBlank { it.url } }
+                                    ?: "Unavailable source (saved link retained)"),
+                                color = MutedGold, fontSize = 11.sp,
+                            )
+                        }
+                        if (item.assetId.isNotBlank()) {
+                            val asset = task.workspace.assets.firstOrNull { it.id == item.assetId }
+                            Text(
+                                "Asset: " + (asset?.let { it.label.ifBlank { it.location } }
+                                    ?: "Unavailable asset (saved link retained)"),
+                                color = MutedGold, fontSize = 11.sp,
+                            )
+                        }
                         if (editable) TextButton(onClick = { evidence = evidence.filterNot { it.id == item.id } }) {
                             Text("REMOVE EVIDENCE", color = MutedText, fontSize = 10.sp)
                         }
@@ -340,14 +372,84 @@ internal fun CW3StageDesk(
                     modifier = Modifier.fillMaxWidth().testTag("cw3-evidence-timecode"),
                     label = { Text("Timecode / version (optional)") }, singleLine = true,
                 )
+                if (task.workspace.references.isNotEmpty() || task.workspace.assets.isNotEmpty()) {
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        "Attach supporting project material to this claim (optional).",
+                        color = MutedText, fontSize = 11.sp,
+                    )
+                    if (task.workspace.references.isNotEmpty()) {
+                        Box {
+                            OutlinedButton(
+                                onClick = { sourceMenuOpen = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051-evidence-source-select"),
+                            ) {
+                                val selected = task.workspace.references.firstOrNull { it.id == evidenceSourceId }
+                                Text("Source: " + (selected?.let { it.label.ifBlank { it.url } }
+                                    ?: "None"), maxLines = 1)
+                            }
+                            DropdownMenu(
+                                expanded = sourceMenuOpen,
+                                onDismissRequest = { sourceMenuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("No source") },
+                                    onClick = { evidenceSourceId = ""; sourceMenuOpen = false },
+                                )
+                                task.workspace.references.forEach { source ->
+                                    DropdownMenuItem(
+                                        text = { Text(source.label.ifBlank { source.url }, maxLines = 2) },
+                                        onClick = { evidenceSourceId = source.id; sourceMenuOpen = false },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (task.workspace.assets.isNotEmpty()) {
+                        Box {
+                            OutlinedButton(
+                                onClick = { assetMenuOpen = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051-evidence-asset-select"),
+                            ) {
+                                val selected = task.workspace.assets.firstOrNull { it.id == evidenceAssetId }
+                                Text("Asset: " + (selected?.let { it.label.ifBlank { it.location } }
+                                    ?: "None"), maxLines = 1)
+                            }
+                            DropdownMenu(
+                                expanded = assetMenuOpen,
+                                onDismissRequest = { assetMenuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("No asset") },
+                                    onClick = { evidenceAssetId = ""; assetMenuOpen = false },
+                                )
+                                task.workspace.assets.forEach { asset ->
+                                    DropdownMenuItem(
+                                        text = { Text(asset.label.ifBlank { asset.location }, maxLines = 2) },
+                                        onClick = { evidenceAssetId = asset.id; assetMenuOpen = false },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 TextButton(
                     onClick = {
                         if (claim.isNotBlank()) {
                             evidence = evidence + CreatorStageEvidence(
                                 id = UUID.randomUUID().toString(),
                                 claim = claim.trim(), timecode = timecode.trim(),
+                                referenceId = evidenceSourceId.takeIf { selected ->
+                                    task.workspace.references.any { it.id == selected }
+                                }.orEmpty(),
+                                assetId = evidenceAssetId.takeIf { selected ->
+                                    task.workspace.assets.any { it.id == selected }
+                                }.orEmpty(),
                             )
                             claim = ""; timecode = ""
+                            evidenceSourceId = ""; evidenceAssetId = ""
                         }
                     },
                     enabled = claim.isNotBlank(),
@@ -404,8 +506,15 @@ internal fun CW3StageDesk(
             if (editable) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
-                        checked = reviewedAt > 0L,
-                        onCheckedChange = { reviewedAt = if (it) System.currentTimeMillis() else 0L },
+                        checked = draft.reviewedAtMillis > 0L,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                reviewedContent = contentSnapshot()
+                                reviewedAt = System.currentTimeMillis()
+                            } else {
+                                reviewedAt = 0L
+                            }
+                        },
                     )
                     Text("Mark stage notes reviewed (does not complete the workflow)",
                         color = MutedText, modifier = Modifier.weight(1f), fontSize = 12.sp)
