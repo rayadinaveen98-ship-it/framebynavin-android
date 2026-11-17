@@ -29,10 +29,11 @@ internal object UX10BPresentationPolicy {
         if (!itemWidthDp.isFinite() || !fontScale.isFinite() ||
             itemWidthDp <= 0f || fontScale <= 0f
         ) return false
-        val minWidth = when (label) {
-            "Projects", "Insights" -> 58f
-            else -> 48f
-        }
-        return itemWidthDp >= minWidth * fontScale.coerceAtLeast(1f)
+        // One threshold keeps all four tabs visually consistent: when a
+        // small handset cannot show Projects, it hides ALL visual tab labels
+        // rather than mixing labeled and unlabeled tabs in the same bar.
+        val minimumReadableWidthDp = 58f
+        return itemWidthDp >=
+            minimumReadableWidthDp * fontScale.coerceAtLeast(1f)
     }
 }
