@@ -2,9 +2,6 @@ package com.framebynavin.app.ui
 
 import android.content.Context
 import android.content.Intent
-import android.os.Handler
-import android.os.Looper
-import android.speech.tts.TextToSpeech
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -33,11 +30,9 @@ import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.QuietHoursPolicy
 import com.framebynavin.app.reminders.V205NudgePausePolicy
-import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -77,6 +72,22 @@ internal fun V144SettingsHub(
     var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
     val section = V167SettingsNavigationPolicy.fromSavedName(sectionName)
     fun navigateBack() { sectionName = V167SettingsNavigationPolicy.parent(section).name }
+    fun openSearchDestination(destination: V404SettingsDestination) {
+        when (destination) {
+            V404SettingsDestination.ACCOUNT -> onProfile()
+            V404SettingsDestination.APPEARANCE -> sectionName = V167SettingsSection.APPEARANCE.name
+            V404SettingsDestination.REMINDER_SCENES -> sectionName = V167SettingsSection.REMINDER_SCENES.name
+            V404SettingsDestination.COMPANION -> sectionName = V167SettingsSection.GUIDE.name
+            V404SettingsDestination.VOICE -> sectionName = V167SettingsSection.VOICE.name
+            V404SettingsDestination.HOME_PHOTOS -> onOpenHomeSlideshow()
+            V404SettingsDestination.REMINDERS -> sectionName = V167SettingsSection.REMINDERS.name
+            V404SettingsDestination.PLANNING -> sectionName = V167SettingsSection.PLANNING.name
+            V404SettingsDestination.YOUTUBE -> onYouTube()
+            V404SettingsDestination.PRIVACY -> sectionName = V167SettingsSection.PRIVACY.name
+            V404SettingsDestination.ADVANCED -> sectionName = V167SettingsSection.ADVANCED.name
+            V404SettingsDestination.ABOUT -> sectionName = V167SettingsSection.ABOUT.name
+        }
+    }
     var confirmAutoPlan by remember { mutableStateOf(false) }
     var showExtraPermissions by rememberSaveable { mutableStateOf(false) }
     val permissionSummary = V169SettingsClarityPolicy.permissions(
@@ -106,17 +117,18 @@ internal fun V144SettingsHub(
                 onClose = onClose,
                 onProfile = onProfile,
                 onOpen = { sectionName = it.name },
+                onSearchDestination = ::openSearchDestination,
             )
 
             V167SettingsSection.PERSONALIZATION -> V144SettingsPage("APPEARANCE & SOUND", "Appearance & sound", ::navigateBack) {
-                V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
+                V144CategoryCard("Appearance", "Themes, icon, welcome animation and sound", Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
                 }
                 V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
                     onOpenHomeSlideshow()
                 }
-                V144CategoryCard("Reminder scenes", "Choose animated voice and alarm backgrounds", Icons.Outlined.Palette, MutedGold) {
-                    sectionName = V167SettingsSection.APPEARANCE.name
+                V144CategoryCard("Reminder scenes", "Choose animated voice and alarm backgrounds", Icons.Outlined.MovieFilter, MutedGold) {
+                    sectionName = V167SettingsSection.REMINDER_SCENES.name
                 }
                 V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
@@ -129,7 +141,16 @@ internal fun V144SettingsHub(
 
             V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
                 V127AppearanceSettings(showGuidePicker = false)
-                Spacer(Modifier.height(22.dp))
+            }
+
+            V167SettingsSection.REMINDER_SCENES -> V144SettingsPage(
+                "REMINDER SCENES", "Cinematic alert backgrounds", ::navigateBack,
+            ) {
+                V144SettingsNote(
+                    "Choose how Creator voice and alarm reminders look. " +
+                        "This changes visuals, not their timing, voice or delivery."
+                )
+                Spacer(Modifier.height(12.dp))
                 com.framebynavin.app.reminders.V391ReminderSceneSettings()
             }
 
@@ -156,7 +177,7 @@ internal fun V144SettingsHub(
                 V140VoiceStudioPicker(
                     selected = settings.defaultVoicePersona,
                     onSelected = onVoice,
-                    onPreview = { v144PreviewVoice(context, it) },
+                    onPreview = { V403VoicePreviewPlayer.play(context, it) },
                 )
                 Spacer(Modifier.height(16.dp))
                 V273ReminderMusicPicker(
@@ -421,12 +442,18 @@ internal fun V144SettingsHub(
                     accent = MutedGold,
                     onClick = { sectionName = V167SettingsSection.REMINDERS.name },
                 )
+                Spacer(Modifier.height(12.dp))
+                V144SettingsNote(
+                    "This page explains permissions and stored-data controls. " +
+                        "Cloud synchronization, backup recovery and account deletion are separate " +
+                        "systems; a full deletion or backup workflow is not offered here yet."
+                )
             }
 
             V167SettingsSection.ADVANCED -> V144SettingsPage("ADVANCED", "Device data controls", ::navigateBack) {
                 V144ActionCard(
                     title = "Start fresh on this phone",
-                    subtitle = "Erases local app data after confirmation. Cloud data stays.",
+                    subtitle = "Review a confirmed device-only reset. This does not delete cloud data.",
                     icon = Icons.Outlined.DeleteForever,
                     accent = RecRed,
                     onClick = { context.startActivity(Intent(context, FreshStartActivity::class.java)) },
@@ -436,7 +463,7 @@ internal fun V144SettingsHub(
             V167SettingsSection.ABOUT -> V144SettingsPage("ABOUT BACKLOT", "Version, help and guided setup", { sectionName = V167SettingsSection.HOME.name }) {
                 V144ActionCard(
                     title = "Show app tour",
-                    subtitle = "Home → Ideas → Projects → Insights → Quick Actions",
+                    subtitle = "Home → Ideas → Projects → Reminder Hub → Insights → Quick Actions",
                     icon = Icons.Outlined.School,
                     accent = MutedGold,
                     onClick = onReplayTour,
@@ -685,19 +712,5 @@ private fun V144SectionTitle(title: String, subtitle: String) {
 private fun V144SettingsNote(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
         Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
-    }
-}
-
-private fun v144PreviewVoice(context: android.content.Context, persona: VoicePersona) {
-    var tts: TextToSpeech? = null
-    tts = TextToSpeech(context.applicationContext) { status ->
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.getDefault()
-            tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "v144-${persona.name}")
-            Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
-        } else {
-            tts?.shutdown()
-        }
     }
 }
