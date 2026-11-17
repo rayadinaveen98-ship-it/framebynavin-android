@@ -76,6 +76,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
     /** A stage-tool switch is only performed after the existing discard confirmation. */
+    private var planOpenBrief by mutableStateOf(false)
+    private var planOpenSection by mutableStateOf("")
     private var pendingStageToolMode by mutableStateOf<Alpha6WorkspaceMode?>(null)
     /** Captured at the tool-switch tap; saved only after a successful revision-gated write. */
     private var pendingStageToolDraft by mutableStateOf<Pair<Long, CreatorStageWork>?>(null)
@@ -143,7 +145,23 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             ),
                             onDismiss = { finish() },
                             onOpenBlueprint = { mode = Alpha6WorkspaceMode.BLUEPRINT },
-                            onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
+                            onOpenProject = {
+                                planOpenBrief = false
+                                planOpenSection = ""
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onOpenBrief = {
+                                planOpenBrief = true
+                                planOpenSection = ""
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onOpenPlanSection = { target ->
+                                planOpenBrief = false
+                                planOpenSection = target.takeIf {
+                                    it in setOf("RESEARCH", "ASSETS", "PRODUCTION", "DELIVERABLES")
+                                }.orEmpty()
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
                             onOpenScript = { openScriptStudio(task!!) },
                             onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
                             onOpenStage = { stageId -> openStage(stageId) },
@@ -210,6 +228,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "project"),
                             onReviewHeld = { openHeldDraftReviews(task!!.id, "project") },
                             pendingFieldRecovery = planRecoveredField,
+                            startOnBrief = planOpenBrief,
+                            startSectionName = planOpenSection,
                             onFieldRecoveryHandled = { nonce ->
                                 if (planRecoveredField?.nonce == nonce) planRecoveredField = null
                             },
@@ -540,6 +560,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         confirmEditorClose = false
         pendingStageToolMode = null
         pendingStageToolDraft = null
+        planOpenBrief = false
+        planOpenSection = ""
         stageSwitchSaveInFlight = false
         heldDraftReviews = null
         pendingHeldField = null
@@ -691,7 +713,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
     }
 
     private fun stageHistoricalPlanField(request: V211HistoricalPlanFieldRequest) {
-        val supported = setOf("Audience", "Viewer problem", "Promise", "Angle", "Learnings")
+        val supported = setOf(
+            "Audience", "Viewer problem", "Promise", "Angle",
+            "Objective", "Success criteria", "Constraints", "Learnings",
+        )
         if (request.label !in supported || mode != Alpha6WorkspaceMode.PROJECT) return
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
@@ -895,7 +920,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             draft = normalized,
                         )
                         Alpha6WorkspaceMode.PUBLISH -> normalized.copy(
-                            // Publish Studio owns publication state, but never script content.
+                            // Publish Studio owns publication state, but never the brief or script.
+                            objective = current.workspace.objective,
+                            successCriteria = current.workspace.successCriteria,
+                            constraints = current.workspace.constraints,
                             hook = current.workspace.hook,
                             script = current.workspace.script,
                             scriptStudio = current.workspace.scriptStudio,
@@ -1140,6 +1168,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
         viewerProblem = draft.viewerProblem.trim(),
         promise = draft.promise.trim(),
         angle = draft.angle.trim(),
+        objective = draft.objective.trim(),
+        successCriteria = draft.successCriteria.trim(),
+        constraints = draft.constraints.trim(),
         hook = draft.hook.trim(),
         script = draft.script.trimEnd(),
         references = draft.references

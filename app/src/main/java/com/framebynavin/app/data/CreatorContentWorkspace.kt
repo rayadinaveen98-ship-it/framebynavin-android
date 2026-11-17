@@ -99,9 +99,14 @@ data class CreatorContentWorkspace(
     val editVersions: List<CreatorEditVersion> = emptyList(),
     /** CW5 creator-confirmed workflow transitions; independent of publication events. */
     val stageTransitions: List<CreatorStageTransitionReceipt> = emptyList(),
+    /** Optional UX05.1B fields are appended to preserve positional legacy constructors. */
+    val objective: String = "",
+    val successCriteria: String = "",
+    val constraints: String = "",
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
-        angle.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
+        angle.isBlank() && objective.isBlank() && successCriteria.isBlank() &&
+        constraints.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
         assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && stageWork.isEmpty() &&
         outputScripts.isEmpty() && editVersions.isEmpty() && stageTransitions.isEmpty() &&
         (scriptStudio == null || scriptStudio.isEmpty())

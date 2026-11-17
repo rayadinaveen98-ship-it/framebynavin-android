@@ -34,6 +34,8 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onDismiss: () -> Unit,
     onOpenBlueprint: () -> Unit,
     onOpenProject: () -> Unit,
+    onOpenBrief: () -> Unit = onOpenProject,
+    onOpenPlanSection: (String) -> Unit = { onOpenProject() },
     onOpenScript: () -> Unit,
     onOpenPublish: () -> Unit,
     onOpenStage: (String) -> Unit = { onOpenProject() },
@@ -58,6 +60,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     val scriptBeats = overview.scriptBeats
     val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
     var showStages by rememberSaveable(task.id) { mutableStateOf(false) }
+    var showBrief by rememberSaveable(task.id) { mutableStateOf(false) }
     // Read-only prompts derived from canonical saved project content.
     val focusHints = V2285WorkspaceFocusPolicy.hints(task)
 
@@ -187,6 +190,72 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     onClick = { onOpenStage(currentStage.id) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("cw3-stage-entry"),
                 ) { Text("OPEN STAGE NOTES & EVIDENCE") }
+                Spacer(Modifier.height(14.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine.copy(alpha = .5f)),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
+                        TextButton(
+                            onClick = { showBrief = !showBrief },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("ux051-brief-toggle"),
+                        ) {
+                            Icon(Icons.Outlined.Lightbulb, contentDescription = null,
+                                tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "CREATIVE BRIEF", color = ProjectorIvory,
+                                fontWeight = FontWeight.Bold, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                            )
+                            Icon(
+                                if (showBrief) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                contentDescription = null, tint = MutedGold,
+                            )
+                        }
+                        Text(
+                            if (wsBriefReady(workspace)) "ESSENTIALS SAVED" else "NEEDS FOCUS",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.padding(start = 20.dp, bottom = 4.dp),
+                        )
+                        if (showBrief) {
+                            Text(
+                                "One project brief; shared by every stage and output.",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
+                            )
+                            Spacer(Modifier.height(9.dp))
+                            listOf(
+                                "Audience" to workspace.audience,
+                                "Viewer problem" to workspace.viewerProblem,
+                                "Promise" to workspace.promise,
+                                "Angle" to workspace.angle,
+                                "Objective" to workspace.objective,
+                                "Success criteria" to workspace.successCriteria,
+                                "Constraints" to workspace.constraints,
+                            ).filter { it.second.isNotBlank() }.forEach { (label, value) ->
+                                Text(label.uppercase(), color = MutedGold, fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold)
+                                Text(value, color = ProjectorIvory, fontSize = 13.sp,
+                                    lineHeight = 18.sp, maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(9.dp))
+                            }
+                            Text(
+                                if (workspace.audience.isBlank() || workspace.promise.isBlank())
+                                    "Add an audience and promise to clarify your project's direction."
+                                else "Optional goals and constraints are available in Plan → Brief.",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
+                            )
+                            TextButton(
+                                onClick = onOpenBrief,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051-edit-brief"),
+                            ) { Text("EDIT BRIEF", color = RecRed) }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(18.dp))
                 Text("WORKSPACE", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
@@ -274,10 +343,25 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         )
                     } else {
                         focusHints.forEach { hint ->
-                            val openEditor = when (hint.destination) {
-                                V2285WorkspaceDestination.PLAN -> onOpenProject
-                                V2285WorkspaceDestination.SCRIPT -> onOpenScript
-                                V2285WorkspaceDestination.PUBLISH -> onOpenPublish
+                            val openEditor: () -> Unit = when {
+                                hint.stageId.isNotBlank() -> { { onOpenStage(hint.stageId) } }
+                                hint.openOutputCraft -> onOpenOutputCraft
+                                hint.openBrief -> onOpenBrief
+                                hint.planSection.isNotBlank() -> { { onOpenPlanSection(hint.planSection) } }
+                                else -> when (hint.destination) {
+                                    V2285WorkspaceDestination.PLAN -> onOpenProject
+                                    V2285WorkspaceDestination.SCRIPT -> onOpenScript
+                                    V2285WorkspaceDestination.PUBLISH -> onOpenPublish
+                                }
+                            }
+                            val actionLabel = when {
+                                hint.stageId.isNotBlank() -> "OPEN STAGE"
+                                hint.openOutputCraft -> "OPEN OUTPUT CRAFT"
+                                hint.openBrief -> "OPEN BRIEF"
+                                hint.planSection == "RESEARCH" -> "OPEN SOURCES"
+                                hint.planSection == "DELIVERABLES" -> "OPEN OUTPUTS"
+                                hint.planSection == "PRODUCTION" -> "OPEN TASKS"
+                                else -> "OPEN ${hint.destination.name}"
                             }
                             Surface(
                                 modifier = Modifier.fillMaxWidth()
@@ -302,7 +386,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                         onClick = openEditor,
                                         modifier = Modifier.testTag("v2285-open-${hint.destination.name.lowercase()}"),
                                     ) {
-                                        Text("OPEN ${hint.destination.name}", color = MutedGold,
+                                        Text(actionLabel, color = MutedGold,
                                             fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         Spacer(Modifier.width(5.dp))
                                         Icon(Icons.Outlined.ArrowForward, null,
@@ -413,3 +497,7 @@ private fun MinimalWorkspaceToolCard(
 }
 
 
+
+/** Brief readiness is advice, not a stage approval or completion gate. */
+private fun wsBriefReady(workspace: CreatorContentWorkspace): Boolean =
+    workspace.audience.isNotBlank() && workspace.promise.isNotBlank()
