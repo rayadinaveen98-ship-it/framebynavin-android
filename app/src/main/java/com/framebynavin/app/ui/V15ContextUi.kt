@@ -360,6 +360,7 @@ internal fun V15ContentCalendarScreen(
         today,
     )
     var selectedDayOnly by rememberSaveable { mutableStateOf(false) }
+    var calendarPageIndex by rememberSaveable { mutableIntStateOf(0) }
     // The date being inspected must NOT shift the Agenda's 14-day window.
     // Period arrows and Today are the only controls that move that window.
     var selectedDayText by rememberSaveable { mutableStateOf<String?>(null) }
@@ -384,10 +385,10 @@ internal fun V15ContentCalendarScreen(
         )
     else visiblePeriod
     val windowCounts = UX08ECalendarPolicy.count(visiblePeriod)
-    // The view has a bounded composition cost even with a large library.
-    // This does not trim or rewrite the original calendar data.
-    val rendered = displayed.take(UX08ECalendarPolicy.MAX_VISIBLE_ROWS)
-    val grouped = rendered.groupBy {
+    // Paginate, rather than truncate: every stored item remains reachable
+    // while composition never renders the whole large planning library.
+    val page = UX08ECalendarPolicy.page(displayed, calendarPageIndex)
+    val grouped = page.items.groupBy {
         Instant.ofEpochMilli(it.atMillis).atZone(zone).toLocalDate()
     }.toSortedMap()
     val overdue = if (projectsLoaded)
@@ -433,15 +434,18 @@ internal fun V15ContentCalendarScreen(
                         viewName = chosen.name
                         selectedDayOnly = false
                         selectedDayText = null
+                        calendarPageIndex = 0
                     },
                     onDateSelect = { date ->
                         selectedDayText = date.toString()
                         selectedDayOnly = true
+                        calendarPageIndex = 0
                     },
                     onMoveTo = { date ->
                         selectedDateText = date.toString()
                         selectedDayText = null
                         selectedDayOnly = false
+                        calendarPageIndex = 0
                     },
                 )
                 Spacer(Modifier.height(11.dp))
@@ -551,6 +555,7 @@ internal fun V15ContentCalendarScreen(
                             onClick = {
                                 selectedDayOnly = false
                                 selectedDayText = null
+                                calendarPageIndex = 0
                             },
                             modifier = Modifier.heightIn(min = 48.dp)
                                 .testTag("ux08e-show-full-period"),
@@ -612,15 +617,36 @@ internal fun V15ContentCalendarScreen(
                         }
                     }
                 }
-                if (displayed.size > rendered.size) {
+                if (page.total > UX08ECalendarPolicy.MAX_VISIBLE_ROWS) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Showing the first ${rendered.size} of ${displayed.size} " +
-                            "upcoming items in this period. Select a date or a " +
-                            "shorter view to inspect the remainder; nothing was deleted.",
+                        "Showing ${page.offset + 1}–${page.offset + page.items.size} " +
+                            "of ${page.total} upcoming items. Original records remain intact.",
                         color = MutedText, fontSize = 11.sp,
-                        modifier = Modifier.testTag("ux08e-list-truncated"),
+                        modifier = Modifier.testTag("ux08e-list-page-description"),
                     )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        TextButton(
+                            onClick = { calendarPageIndex = page.index - 1 },
+                            enabled = page.index > 0,
+                            modifier = Modifier.heightIn(min = 48.dp)
+                                .testTag("ux08e-list-previous-page"),
+                        ) { Text("PREVIOUS", fontSize = 11.sp) }
+                        Text(
+                            "${page.index + 1} / ${page.maxIndex + 1}",
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                        TextButton(
+                            onClick = { calendarPageIndex = page.index + 1 },
+                            enabled = page.index < page.maxIndex,
+                            modifier = Modifier.heightIn(min = 48.dp)
+                                .testTag("ux08e-list-next-page"),
+                        ) { Text("NEXT", fontSize = 11.sp) }
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
                 TextButton(
