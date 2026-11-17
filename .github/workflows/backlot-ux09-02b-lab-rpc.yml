@@ -45,7 +45,7 @@ jobs:
           grep -Fq 'account.withFreshSession' app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabSignedRpcClient.kt
           ! grep -ER 'WorkManager|CreatorCloudSyncWorker|TaskStore|IdeaVaultStore' app/src/main/java/com/framebynavin/app/cloud/ux09rpc
           echo 'No app editor, worker, production endpoint, or automatic sync activation.'
-      - name: Compile and test 15 strict Lab RPC scenarios
+      - name: Compile and test 16 strict Lab RPC scenarios
         shell: bash
         run: |
           set -euo pipefail
