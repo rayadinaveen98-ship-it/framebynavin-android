@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import com.framebynavin.app.data.CreatorChecklistStatus
 import com.framebynavin.app.data.CreatorDeliverableStatus
 import com.framebynavin.app.data.CreatorEditReviewStatus
+import com.framebynavin.app.data.CreatorOutputTargetPolicy
 import com.framebynavin.app.data.CreatorStageWorkPolicy
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowEngine
@@ -119,25 +120,37 @@ internal object V2285WorkspaceFocusPolicy {
                 }
             }
             stage.id in editingStages -> {
-                val cuts = ws.editVersions
+                val targets = CreatorOutputTargetPolicy.select(ws, stageWork)
                 if (ws.deliverables.isEmpty()) {
                     planHint(
                         "stage-edit-output", "Plan the output you are editing",
                         "The project has no deliverable yet. Create it in Plan → Outputs.",
                         section = "DELIVERABLES",
                     )
-                } else if (cuts.isEmpty()) {
-                    suggestions += V2285WorkspaceFocusHint(
-                        "stage-first-cut", "Log your first cut version",
-                        "Output Craft can track reviewable cuts without storing video bytes.",
-                        V2285WorkspaceDestination.PLAN, openOutputCraft = true,
+                } else if (!targets.resolved) {
+                    stageHint(
+                        "stage-edit-target", "Choose your intended output(s)",
+                        "Link the output(s) in this stage before reviewing their cut history.",
                     )
-                } else if (cuts.none { it.status == CreatorEditReviewStatus.APPROVED }) {
-                    suggestions += V2285WorkspaceFocusHint(
-                        "stage-cut-review", "Review the logged cut versions",
-                        "${cuts.size} cut record(s) exist; none has an approved status.",
-                        V2285WorkspaceDestination.PLAN, openOutputCraft = true,
-                    )
+                } else {
+                    val scoped = ws.editVersions.filter { it.deliverableId in targets.outputIds }
+                    if (scoped.isEmpty()) {
+                        suggestions += V2285WorkspaceFocusHint(
+                            "stage-first-cut", "Log a cut for the intended output",
+                            "Output Craft records versions separately for every output.",
+                            V2285WorkspaceDestination.PLAN, openOutputCraft = true,
+                        )
+                    } else if (targets.outputIds.any { id ->
+                            val relevant = scoped.filter { it.deliverableId == id }
+                            relevant.isNotEmpty() &&
+                                relevant.none { it.status == CreatorEditReviewStatus.APPROVED }
+                        }) {
+                        suggestions += V2285WorkspaceFocusHint(
+                            "stage-cut-review", "Review cuts for the intended output",
+                            "Other outputs' approvals do not satisfy this output's review.",
+                            V2285WorkspaceDestination.PLAN, openOutputCraft = true,
+                        )
+                    }
                 }
             }
             stage.id in packagingStages -> {
@@ -149,16 +162,20 @@ internal object V2285WorkspaceFocusPolicy {
                     )
                 } else {
                     V2295PublishReadinessPolicy.hint(ws.deliverables)?.let { suggestions += it }
-                    if (stage.id in setOf("published", "send") &&
-                        ws.deliverables.none {
-                            it.status == CreatorDeliverableStatus.PUBLISHED &&
-                                it.publishedAtMillis > 0L
+                    if (stage.id in setOf("published", "send")) {
+                        val targets = CreatorOutputTargetPolicy.select(ws, stageWork)
+                        if (!targets.resolved) {
+                            stageHint(
+                                "stage-publish-target", "Identify what this stage will publish",
+                                "Link the intended output(s) in Stage Desk before approving publication.",
+                            )
+                        } else {
+                            val pending = CreatorOutputTargetPolicy.pendingPublication(ws, targets)
+                            if (pending.isNotEmpty()) publishHint(
+                                "stage-record-publication", "Record the intended live output",
+                                "The selected output(s) still lack creator-confirmed publication.",
+                            )
                         }
-                    ) {
-                        publishHint(
-                            "stage-record-publication", "Record your actual live output",
-                            "No deliverable has a saved, creator-confirmed publication record.",
-                        )
                     }
                 }
             }
