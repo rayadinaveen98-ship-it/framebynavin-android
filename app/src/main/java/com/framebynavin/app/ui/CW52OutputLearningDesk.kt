@@ -95,10 +95,19 @@ internal fun CW52OutputLearningDesk(
         metricLabel = metricLabel, metricValue = metricValue, metricSource = metricSource,
     )
     val hasDraft = currentDraft.hasContent()
-    // Journaling uses the current revision and restore epoch; it never
-    // writes the canonical learning history. A stale draft stays quarantined.
-    LaunchedEffect(task.id, activeId, revision, currentDraft) {
-        if (activeId.isBlank()) return@LaunchedEffect
+    val hasReflection = listOf(expectation, observed, worked, improve, nextAction)
+        .any { it.isNotBlank() }
+    val metricFieldsConsistent =
+        metricLabel.isBlank() == metricValue.isBlank() &&
+        (metricSource.isBlank() || metricValue.isNotBlank())
+    val allowedToWrite = selected?.let { output ->
+        output.status == CreatorDeliverableStatus.PUBLISHED && output.publishedAtMillis > 0L
+    } == true && task.archivedAtMillis == 0L && task.status != TaskStatus.SKIPPED
+
+    // Journal only when this selected output is actually editable.
+    // Never treat a local draft as a publication or a canonical learning.
+    LaunchedEffect(task.id, activeId, revision, currentDraft, allowedToWrite) {
+        if (!allowedToWrite || activeId.isBlank()) return@LaunchedEffect
         delay(350)
         val failure = withContext(Dispatchers.IO) {
             runCatching {
@@ -111,14 +120,6 @@ internal fun CW52OutputLearningDesk(
         }
         if (failure != null) draftWarning = true
     }
-    val hasReflection = listOf(expectation, observed, worked, improve, nextAction)
-        .any { it.isNotBlank() }
-    val metricFieldsConsistent =
-        metricLabel.isBlank() == metricValue.isBlank() &&
-        (metricSource.isBlank() || metricValue.isNotBlank())
-    val allowedToWrite = selected?.let { output ->
-        output.status == CreatorDeliverableStatus.PUBLISHED && output.publishedAtMillis > 0L
-    } == true && task.archivedAtMillis == 0L && task.status != TaskStatus.SKIPPED
 
     val availableOutputIds = outputs.map { it.id }.toSet()
     val unavailableOutputHistory = workspace.outputLearnings.filter {
@@ -130,11 +131,6 @@ internal fun CW52OutputLearningDesk(
                 .thenByDescending { it.id }
         )
 
-    fun changeOutput(nextId: String) {
-        if (saving || nextId == activeId) return
-        if (hasDraft) requestedSwitch = nextId
-        else if (discardCurrentDraft()) selectedId = nextId
-    }
     fun discardCurrentDraft(): Boolean {
         // One Activity-owned discard path also handles system Back, so every
         // explicit discard follows the same generation/revision safety check.
@@ -144,6 +140,11 @@ internal fun CW52OutputLearningDesk(
             return false
         }
         return true
+    }
+    fun changeOutput(nextId: String) {
+        if (saving || nextId == activeId) return
+        if (hasDraft) requestedSwitch = nextId
+        else if (discardCurrentDraft()) selectedId = nextId
     }
 
     WorkspaceAdaptiveFrame {
@@ -343,7 +344,8 @@ internal fun CW52OutputLearningDesk(
                             if (task.archivedAtMillis == 0L &&
                                 task.status != TaskStatus.SKIPPED) {
                                 TextButton(onClick = {
-                                    if (hasDraft) pendingPublishNavigation = true else onOpenPublish()
+                                    if (hasDraft) pendingPublishNavigation = true
+                                    else if (discardCurrentDraft()) onOpenPublish()
                                 }) {
                                     Text("OPEN PUBLISH STUDIO", color = RecRed)
                                 }
