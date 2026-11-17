@@ -17,6 +17,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  certificate:
+    name: Verify public Lab signing fingerprint
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print exact signing SHA-1 for Google OAuth
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks \
+            -storepass framebynavin-dev -alias framebynavin-dev \
+            | grep -E 'SHA1:|SHA256:'
+
   lab-apk:
     name: Compile and inspect isolated Lab APK
     runs-on: ubuntu-latest
@@ -50,8 +64,19 @@ jobs:
           assert Path('dev-signing/framebynavin-public-debug.jks').exists()
           print('PASS isolated package, Lab URL, publishable-only client and optional AI fail-closed gate')
           PY
+      - name: Configure bounded CI-only Kotlin heap
+        shell: bash
+        run: |
+          cat >> gradle.properties <<'EOF'
+          # CI-only overrides; not committed to application production settings.
+          org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+          kotlin.compiler.execution.strategy=in-process
+          kotlin.daemon.jvmargs=-Xmx5g
+          org.gradle.workers.max=1
+          org.gradle.parallel=false
+          EOF
       - name: JVM tests, Android lint, and debug Lab APK
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug -PbacklotLab=true --stacktrace
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug -PbacklotLab=true --max-workers=1 --stacktrace
       - name: Verify independently installable package and label
         shell: bash
         run: |
