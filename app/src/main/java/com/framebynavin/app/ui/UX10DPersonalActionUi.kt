@@ -169,3 +169,70 @@ private fun UX10DChallengeNavButton(
         if (!previous) Icon(Icons.Outlined.ChevronRight, null)
     }
 }
+
+/** Original group-edit and bulk Pause/Resume destinations, with adaptive layout. */
+private data class UX10DGroupAction(
+    val title: String,
+    val tag: String,
+    val enabled: Boolean,
+    val onClick: () -> Unit,
+)
+
+@Composable
+internal fun UX10DGroupActionControls(
+    canEdit: Boolean,
+    canDelete: Boolean,
+    canPause: Boolean,
+    canResume: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+) {
+    val actions = listOf(
+        UX10DGroupAction("EDIT GROUP", "v298-edit-group", canEdit, onEdit),
+        UX10DGroupAction("DELETE GROUP", "v298-delete-open", canDelete, onDelete),
+        UX10DGroupAction("PAUSE ALL", "fc13-pause-group", canPause, onPause),
+        UX10DGroupAction("RESUME ALL", "fc13-resume-group", canResume, onResume),
+    )
+    val stacked = UX10DPersonalPresentationPolicy.stackReminderResponses(
+        LocalConfiguration.current.screenWidthDp,
+        LocalDensity.current.fontScale,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (stacked) {
+            actions.forEach { action ->
+                UX10DGroupButton(action, Modifier.fillMaxWidth())
+            }
+        } else {
+            actions.chunked(2).forEach { pair ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    pair.forEach { action ->
+                        UX10DGroupButton(action, Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UX10DGroupButton(action: UX10DGroupAction, modifier: Modifier) {
+    OutlinedButton(
+        onClick = action.onClick,
+        enabled = action.enabled,
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
+            .testTag(action.tag),
+    ) {
+        Text(
+            action.title,
+            fontSize = BacklotUX10Tokens.supporting,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+        )
+    }
+}
