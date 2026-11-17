@@ -123,10 +123,11 @@ internal object UX08ECalendarPolicy {
         today: LocalDate,
         zone: ZoneId,
         selectedDayOnly: Boolean = false,
+        focusedDay: LocalDate = selected,
     ): List<CreatorCalendarItem> {
         val period = window(view, selected, today)
         val end = horizonEnd(today)
-        val constrainedDay = constrained(selected, today)
+        val constrainedDay = constrained(focusedDay, today)
         return items.filter { item ->
             val date = Instant.ofEpochMilli(item.atMillis).atZone(zone).toLocalDate()
             !date.isBefore(today) && !date.isAfter(end) &&
