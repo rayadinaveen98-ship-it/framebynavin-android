@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -2052,7 +2053,10 @@ private fun PBottomNavItem(
         shape = RoundedCornerShape(16.dp),
         color = if (active) { if (VisualExperiencePrefs.isLumen) FrameTertiary.copy(alpha=.16f) else CinemaSurfaceRaised } else Color.Transparent,
         modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
-            .semantics { contentDescription = label }
+            .semantics {
+                contentDescription = label
+                selected = active
+            }
             .onGloballyPositioned { onPositioned(it.boundsInRoot()) },
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
