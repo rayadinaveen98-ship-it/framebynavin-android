@@ -60,6 +60,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -2049,41 +2051,42 @@ private fun PBottomNavItem(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
         color = if (active) { if (VisualExperiencePrefs.isLumen) FrameTertiary.copy(alpha=.16f) else CinemaSurfaceRaised } else Color.Transparent,
-        modifier = modifier.heightIn(min = 52.dp).onGloballyPositioned { onPositioned(it.boundsInRoot()) },
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
+            .semantics { contentDescription = label }
+            .onGloballyPositioned { onPositioned(it.boundsInRoot()) },
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // At 900px / 1.5x system font with 1.8x accessibility Compose
-            // text, Projects and Insights can otherwise touch even when the
-            // Text layout reports one line. Scale to each weighted tab width.
-            // Spoken icon labels remain complete at all sizes.
-            val navLabelSize = when {
-                LocalDensity.current.fontScale >= 1.4f && maxWidth < 60.dp -> 6.5.sp
-                LocalDensity.current.fontScale >= 1.4f -> 8.sp
-                maxWidth < 60.dp -> 9.sp
-                else -> 11.sp
-            }
+            // Keep visible text readable. Extremely narrow/high-font layouts
+            // switch to icon-only tabs with a COMPLETE TalkBack label instead
+            // of shrinking words to 6.5sp or clipping Projects/Insights.
+            val showVisibleLabel = UX10BPresentationPolicy.showBottomNavigationText(
+                itemWidthDp = maxWidth.value,
+                fontScale = LocalDensity.current.fontScale,
+                label = label,
+            )
             Column(
                 Modifier.fillMaxWidth().padding(vertical = 7.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
                     icon,
-                    label,
+                    contentDescription = null,
                     tint = if (active) RecRed else MutedText,
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(22.dp),
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    label,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp),
-                    color = if (active) ProjectorIvory else MutedText,
-                    fontSize = navLabelSize,
-                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1,
-                    softWrap = false,
-                    textAlign = TextAlign.Center,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (showVisibleLabel) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        label,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+                        color = if (active) ProjectorIvory else MutedText,
+                        fontSize = BacklotUX10Tokens.eyebrow,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -2101,7 +2104,7 @@ internal fun PHomeGreetingHeader(creatorName: String, onAdd: () -> Unit) {
     }
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("BACKLOT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
         Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
@@ -2114,7 +2117,7 @@ internal fun PHomeGreetingHeader(creatorName: String, onAdd: () -> Unit) {
 internal fun PTopBar(label: String, onAdd: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("BACKLOT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(label, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
         Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
@@ -2129,7 +2132,7 @@ private fun PBackHeader(kicker: String, title: String, onBack: () -> Unit) {
         IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
         Spacer(Modifier.width(4.dp))
         Column {
-            Text(kicker, color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text(kicker, color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(title, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
         }
     }
@@ -2141,7 +2144,7 @@ internal fun PEmptyState(icon: ImageVector, title: String, body: String, button:
         Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(48.dp).background(RecRed.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) { Icon(icon, null, tint = RecRed, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.height(11.dp)); Text(title, color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(4.dp)); Text(body, color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(4.dp)); Text(body, color = MutedText, fontSize = BacklotUX10Tokens.supporting, lineHeight = 16.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(13.dp)); Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(14.dp)) { Text(button, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
     }
