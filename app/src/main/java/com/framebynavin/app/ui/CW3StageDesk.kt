@@ -48,10 +48,18 @@ internal object CW3StageExperiencePolicy {
             "Specific example supporting your verdict",
             listOf("Decide the central argument", "Document strengths and limitations"),
         )
-        "evidence", "scene_evidence", "proof", "test" -> CW3StageExperience(
+        "evidence", "scene_evidence", "proof", "test", "benchmarks",
+        "test_plan", "verify", "sources", "source", "research", "context",
+        "known_unknown", "references" -> CW3StageExperience(
             "Evidence desk", "Which claims are verified, and what actual scenes or tests support them?",
             "Evidence, scene claim or observed test result",
             listOf("Verify each key claim", "Cross-check original sources"),
+        )
+        "idea", "concept", "promise", "audience", "question", "framework",
+        "intent", "learning_goal", "angle", "criteria", "brief", "structure" -> CW3StageExperience(
+            "Creative brief", "Define the decision, creative promise and evidence you want to build on.",
+            "Why this choice supports the audience and the project goal",
+            listOf("Write the core promise", "Confirm intended audience"),
         )
         "spoiler_plan" -> CW3StageExperience(
             "Spoiler map", "Separate spoiler-safe observations from material requiring a warning.",
@@ -63,7 +71,8 @@ internal object CW3StageExperiencePolicy {
             "Edit review note with version or timecode",
             listOf("Review rough cut", "Check sound and picture", "Verify final export"),
         )
-        "voice", "record", "capture" -> CW3StageExperience(
+        "voice", "record", "capture", "shot_plan", "session_plan",
+        "visuals_capture", "process_capture" -> CW3StageExperience(
             "Recording log", "Plan or document takes, recording conditions and material still needed.",
             "Take, shot, or recording observation",
             listOf("Check recording setup", "Confirm usable takes"),
@@ -78,12 +87,18 @@ internal object CW3StageExperiencePolicy {
             "Release verification observation",
             listOf("Verify live page", "Check description and link"),
         )
-        "promote", "clips", "follow_up" -> CW3StageExperience(
+        "promote", "clips", "follow_up", "distribution", "review", "outcome" -> CW3StageExperience(
             "Distribution log", "Record platform plans and follow-ups, linked to the project outputs.",
             "Promotion or follow-up observation",
             listOf("Draft platform-specific copy", "Check live links"),
         )
-        "script", "narration", "outline", "draft", "commentary" -> CW3StageExperience(
+        "route", "locations", "trip_plan", "method", "ingredients", "setup",
+        "prerequisites", "safety", "sequence" -> CW3StageExperience(
+            "Production plan", "Document dependencies, constraints and the next safe, practical steps.",
+            "Decision, location, safety note or procedure observation",
+            listOf("Confirm prerequisites", "Record the next actionable step"),
+        )
+        "script", "narration", "outline", "draft", "commentary", "guide_script" -> CW3StageExperience(
             "Narrative notes", "Keep stage decisions here; the canonical narration remains in Script Studio.",
             "Script evidence or narration note",
             listOf("Review structure", "Verify supporting evidence"),
@@ -108,6 +123,8 @@ internal fun CW3StageDesk(
     stage: WorkflowStage,
     onSave: (Long, CreatorStageWork) -> Unit,
     onBack: () -> Unit,
+    onOpenMainTool: (StageWorkspaceDestination) -> Unit,
+    onOpenOutputCraft: () -> Unit,
 ) {
     val context = LocalContext.current
     val template = CreatorWorkflowEngine.templateFor(task)
@@ -126,6 +143,11 @@ internal fun CW3StageDesk(
         else persisted
     }
     val experience = CW3StageExperiencePolicy.forStage(stage)
+    val canonicalDestination = StageWorkspaceRoutingPolicy.destination(stage)
+    val hasOutputs = task.workspace.deliverables.isNotEmpty()
+    val isProductionStage = stage.id in setOf(
+        "edit", "process_edit", "sound_grade", "mix", "visuals", "record", "capture",
+    )
     var notes by rememberSaveable(task.id, stage.id, revision) { mutableStateOf(initial.notes) }
     var checklist by remember(task.id, stage.id, revision) { mutableStateOf(initial.checklist) }
     var evidence by remember(task.id, stage.id, revision) { mutableStateOf(initial.evidence) }
@@ -197,11 +219,39 @@ internal fun CW3StageDesk(
                     Spacer(Modifier.height(6.dp))
                     Text("One shared project library · This stage has its own notes and evidence",
                         color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    Spacer(Modifier.height(12.dp))
+                    val routeLabel = when (canonicalDestination) {
+                        StageWorkspaceDestination.SCRIPT -> "OPEN SCRIPT STUDIO"
+                        StageWorkspaceDestination.PUBLISH -> "OPEN PUBLISH STUDIO"
+                        StageWorkspaceDestination.PLAN -> "OPEN SHARED PLAN"
+                        StageWorkspaceDestination.HUB -> "OPEN SHARED PLAN"
+                    }
+                    OutlinedButton(
+                        onClick = { onOpenMainTool(canonicalDestination) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("ux05-open-canonical-tool"),
+                    ) { Text(routeLabel) }
+                    if (isProductionStage && hasOutputs) {
+                        TextButton(
+                            onClick = onOpenOutputCraft,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("ux05-open-output-craft"),
+                        ) { Text("VIEW OUTPUT CUTS & SCRIPTS", color = MutedGold) }
+                    }
+                    Text(
+                        "Opening another tool requires closing this draft first. " +
+                            "Save stage work to preserve changes, or explicitly discard them.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
                 }
             }
             Spacer(Modifier.height(20.dp))
 
             Text("STAGE NOTES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            if (!editable) Text(
+                "Read-only · this project has been completed, skipped or archived.",
+                color = MutedGold, fontSize = 12.sp,
+            )
             Spacer(Modifier.height(7.dp))
             OutlinedTextField(
                 value = notes, onValueChange = { notes = it },
@@ -306,6 +356,11 @@ internal fun CW3StageDesk(
             Spacer(Modifier.height(20.dp))
 
             Text("LINKED SHARED MATERIALS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Shared sources and outputs are edited in Plan or Publish. Linking them here " +
+                    "does not duplicate media or move the workflow.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+            )
             Text("Links point to this project's materials, not copied media or guaranteed restored files.",
                 color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
             CW3MaterialLinks("Sources", task.workspace.references.map { it.id to it.label.ifBlank { it.url } },
@@ -318,6 +373,10 @@ internal fun CW3StageDesk(
             Spacer(Modifier.height(20.dp))
 
             Text("CREATIVE DECISIONS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            if (decisions.isEmpty()) Text(
+                "No decisions recorded for this stage yet.",
+                color = MutedText, fontSize = 11.sp,
+            )
             decisions.forEach { item ->
                 Text("• ${item.text}", color = ProjectorIvory, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
                     fontSize = 13.sp)
@@ -383,6 +442,13 @@ private fun CW3MaterialLinks(
             color = MutedText, fontSize = 11.sp)
         return
     }
+    val unavailable = selected.filterNot { id -> available.any { it.first == id } }
+    if (unavailable.isNotEmpty()) Text(
+        "${unavailable.size} previously linked item(s) are unavailable here. " +
+            "Their saved IDs are preserved for review; no automatic deletion.",
+        color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
+        modifier = Modifier.testTag("ux05-unavailable-linked-materials"),
+    )
     available.forEach { (id, name) ->
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Checkbox(
