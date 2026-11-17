@@ -1,0 +1,39 @@
+name: Backlot UX09-01 hosted public API negative checks ONLY
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-01-isolated-cli-migration-package-20261117
+    paths:
+      - 'tools/qa/backlot_ux09_01_hosted_public_api_negative_probe.py'
+      - '.github/workflows/backlot-ux09-01-hosted-negative-api.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-01-hosted-public-negative-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  readonly-hosted-negative-probes:
+    name: Real HTTPS Lab anon/private-schema negatives; NO hosted writes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact PR code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test readonly hosted Backlot Lab Data API
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/qa/backlot_ux09_01_hosted_public_api_negative_probe.py
+      - name: Evidence boundary
+        if: always()
+        shell: bash
+        run: |
+          echo "No hosted Auth signup, new users, entity writes, database migrations, Android builds or original Backlot URL."
+          echo "No real signed user JWT: authenticated RPC exposure and account-isolation STILL PENDING."
