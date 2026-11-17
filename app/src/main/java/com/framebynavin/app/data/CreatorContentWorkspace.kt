@@ -103,11 +103,13 @@ data class CreatorContentWorkspace(
     val objective: String = "",
     val successCriteria: String = "",
     val constraints: String = "",
+    /** Append-only manual outcome records, separate from the project-level Learnings text. */
+    val outputLearnings: List<CreatorOutputLearning> = emptyList(),
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
         angle.isBlank() && objective.isBlank() && successCriteria.isBlank() &&
         constraints.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
         assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && stageWork.isEmpty() &&
         outputScripts.isEmpty() && editVersions.isEmpty() && stageTransitions.isEmpty() &&
-        (scriptStudio == null || scriptStudio.isEmpty())
+        outputLearnings.isEmpty() && (scriptStudio == null || scriptStudio.isEmpty())
 }
