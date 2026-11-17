@@ -27,6 +27,7 @@ import com.framebynavin.app.personal.spaces.V289SpaceEntryKind
 import com.framebynavin.app.personal.spaces.V289SpaceEntrySource
 import com.framebynavin.app.personal.spaces.V289SpaceProgressSummary
 import com.framebynavin.app.personal.spaces.V289SpaceType
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.BacklotBorder
 import com.framebynavin.app.ui.theme.BacklotPrimaryText
 import com.framebynavin.app.ui.theme.BacklotSecondaryAccent
@@ -70,9 +71,9 @@ internal fun UX07CSpaceCard(
         onClick = onOpen,
         modifier = modifier.fillMaxWidth().heightIn(min = 76.dp)
             .testTag("v289-space-" + space.id),
-        shape = RoundedCornerShape(17.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         color = BacklotSurface,
-        border = BorderStroke(1.dp, BacklotBorder.copy(alpha = 0.45f)),
+        border = BacklotUX10Tokens.quietBorder(BacklotBorder, alpha = 0.55f),
     ) {
         Row(
             Modifier.padding(horizontal = 15.dp, vertical = 13.dp),
@@ -101,7 +102,7 @@ internal fun UX07CSpaceCard(
                     UX07CSpaceLabels.type(space.type) +
                         if (archived) " · Archived" else " · Active",
                     color = BacklotSecondaryAccent,
-                    fontSize = 11.sp,
+                    fontSize = BacklotUX10Tokens.supporting,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -139,7 +140,7 @@ internal fun UX07CSpaceProgressSummary(
     Surface(
         modifier = modifier.fillMaxWidth().testTag("v289-progress-summary"),
         color = BacklotSurface,
-        shape = RoundedCornerShape(17.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
     ) {
         Column(
             Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
@@ -148,33 +149,44 @@ internal fun UX07CSpaceProgressSummary(
             Text(
                 "YOUR ACTIVITY",
                 color = BacklotSecondaryAccent,
-                fontSize = 10.sp,
+                fontSize = BacklotUX10Tokens.eyebrow,
                 fontWeight = FontWeight.Bold,
             )
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                UX07CMetric(
-                    summary.totalRecordedEntries.toString(),
-                    "Recorded logs",
-                    Modifier.weight(1f),
-                )
-                UX07CMetric(
-                    summary.daysWithActivityLastSeven.toString(),
-                    "Active days · last 7",
-                    Modifier.weight(1f),
-                )
-                UX07CMetric(
-                    linkedCount?.toString() ?: "—",
+            // Always keep the source-separated metrics visible, but don't
+            // squeeze three captions into ~100dp at accessibility font sizes.
+            val metrics = listOf(
+                summary.totalRecordedEntries.toString() to "Recorded logs",
+                summary.daysWithActivityLastSeven.toString() to "Active days · last 7",
+                (linkedCount?.toString() ?: "—") to
                     if (linkedCount == null) "Links unavailable" else "Linked reminders",
-                    Modifier.weight(1f),
-                )
+            )
+            val stacked = UX10DPersonalPresentationPolicy.stackSpaceMetrics(
+                androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp,
+                androidx.compose.ui.platform.LocalDensity.current.fontScale,
+            )
+            if (stacked) {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    metrics.forEach { (value, caption) ->
+                        UX07CMetric(value, caption, Modifier.fillMaxWidth())
+                    }
+                }
+            } else {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    metrics.forEach { (value, caption) ->
+                        UX07CMetric(value, caption, Modifier.weight(1f))
+                    }
+                }
             }
             Text(
                 "Notes and photos do not count as activity. Linked reminder Done history is separate.",
                 color = BacklotSecondaryText,
-                fontSize = 11.sp,
+                fontSize = BacklotUX10Tokens.supporting,
                 modifier = Modifier.testTag("ux07c-progress-source-note"),
             )
         }
@@ -196,7 +208,7 @@ private fun UX07CMetric(value: String, caption: String, modifier: Modifier = Mod
         Text(
             caption,
             color = BacklotSecondaryText,
-            fontSize = 10.sp,
+            fontSize = BacklotUX10Tokens.eyebrow,
             lineHeight = 13.sp,
         )
     }
