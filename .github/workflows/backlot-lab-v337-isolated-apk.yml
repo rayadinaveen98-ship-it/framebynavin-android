@@ -17,6 +17,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  api26-source-audit:
+    name: Fast API-26 compatibility source scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block known unsafe API-34 LocalDate.ofInstant usages
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -F 'LocalDate.ofInstant(' -- app/src/main/java; then
+            echo 'FAIL: replace API-34 LocalDate.ofInstant calls with Instant.atZone(...).toLocalDate()'
+            exit 1
+          fi
+          echo 'PASS: no unsupported LocalDate.ofInstant calls in application sources'
+
   certificate:
     name: Verify public Lab signing fingerprint
     runs-on: ubuntu-latest
