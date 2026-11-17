@@ -65,6 +65,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     pendingFieldRecovery: V211PlanFieldRecovery? = null,
     onFieldRecoveryHandled: (Long) -> Unit = {},
     startOnBrief: Boolean = false,
+    startSectionName: String = "",
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -73,8 +74,11 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         draftStore.loadProject(task.id, originalRevision)
     }
     val initial = recovered ?: task.workspace
-    var section by remember(task.id, originalRevision, startOnBrief) {
-        mutableStateOf(if (startOnBrief) Alpha3Section.BRIEF else Alpha3Section.OVERVIEW)
+    var section by remember(task.id, originalRevision, startOnBrief, startSectionName) {
+        mutableStateOf(
+            Alpha3Section.entries.firstOrNull { it.name == startSectionName }
+                ?: if (startOnBrief) Alpha3Section.BRIEF else Alpha3Section.OVERVIEW
+        )
     }
     var audience by remember(task.id, originalRevision) { mutableStateOf(initial.audience) }
     var viewerProblem by remember(task.id, originalRevision) { mutableStateOf(initial.viewerProblem) }
