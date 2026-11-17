@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -289,7 +290,7 @@ private fun UX08EAgendaDateChip(
                 color = ProjectorIvory, fontSize = 11.sp,
             )
             Text(
-                "$"+"{count} planned",
+                "${count} planned",
                 color = MutedText, fontSize = 10.sp,
             )
         }
