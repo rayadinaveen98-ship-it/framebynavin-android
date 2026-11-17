@@ -25,6 +25,7 @@ import com.framebynavin.app.personal.Phase1HabitAlertKind
 import com.framebynavin.app.personal.Phase1HabitChallenge
 import com.framebynavin.app.personal.Phase1HabitCompletionMode
 import com.framebynavin.app.personal.Phase1HabitDayStatus
+import com.framebynavin.app.reminders.ReminderMusicMode
 import com.framebynavin.app.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -133,6 +134,13 @@ internal fun CreateHabitReview(
     liveErrorMessage: String? = null,
     completionMode: Phase1HabitCompletionMode = Phase1HabitCompletionMode.STRICT,
     onCompletionMode: (Phase1HabitCompletionMode) -> Unit = {},
+    voiceRepeatCount: Int = 3,
+    onVoiceRepeatCount: (Int) -> Unit = {},
+    voiceRepeatGapMillis: Long = 5_000L,
+    onVoiceRepeatGapMillis: (Long) -> Unit = {},
+    voiceMusicMode: ReminderMusicMode = ReminderMusicMode.OFF,
+    voiceMusicUri: String = "",
+    onVoiceMusicChange: (ReminderMusicMode, String) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
@@ -189,6 +197,19 @@ internal fun CreateHabitReview(
                             fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 } else Hint("Off by default. You can still confirm progress each day.")
+            }
+            if (mode == Phase1HabitAlertKind.VOICE && !previewOnly) {
+                ReviewPanel {
+                    V406ChallengeVoiceSettings(
+                        voiceRepeatCount = voiceRepeatCount,
+                        onVoiceRepeatCount = onVoiceRepeatCount,
+                        voiceRepeatGapMillis = voiceRepeatGapMillis,
+                        onVoiceRepeatGapMillis = onVoiceRepeatGapMillis,
+                        voiceMusicMode = voiceMusicMode,
+                        voiceMusicUri = voiceMusicUri,
+                        onVoiceMusicChange = onVoiceMusicChange,
+                    )
+                }
             }
             ReviewPanel {
                 AccentLabel("COMPLETION RULE")
