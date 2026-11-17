@@ -27,11 +27,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git grep -n -F 'LocalDate.ofInstant(' -- app/src/main/java; then
+          if git grep -n -F 'LocalDate.ofInstant(' -- app/src/main/java app/src/debug/java app/src/release/java app/src/personalStable/java; then
             echo 'FAIL: replace API-34 LocalDate.ofInstant calls with Instant.atZone(...).toLocalDate()'
             exit 1
           fi
-          echo 'PASS: no unsupported LocalDate.ofInstant calls in application sources'
+          echo 'PASS: no unsupported LocalDate.ofInstant calls in main/debug/release/personalStable Android sources'
 
   certificate:
     name: Verify public Lab signing fingerprint
