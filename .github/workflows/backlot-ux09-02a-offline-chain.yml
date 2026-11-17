@@ -1,0 +1,65 @@
+name: Backlot UX09-02A Offline Multi-Edit Ordering JVM Gate
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-02a-nested-coverage-20261117
+    paths:
+      - 'app/src/main/java/com/framebynavin/app/cloud/ux09/**'
+      - 'app/src/test/java/com/framebynavin/app/cloud/ux09/**'
+      - '.github/workflows/backlot-ux09-02a-offline-chain.yml'
+      - 'docs/engineering/UX09_02A_OFFLINE_CHAIN_GATE_20261117.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-02a-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-jvm-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assert disconnected source + no cloud entrypoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const val ENABLED = false' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09SyncContract.kt
+          ! grep -ER 'https?://|CloudApiClient|CreatorCloudSyncWorker|WorkManager' app/src/main/java/com/framebynavin/app/cloud/ux09/
+          test -f app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09OfflineChainPolicy.kt
+          test -f app/src/test/java/com/framebynavin/app/cloud/ux09/Ux09OfflineChainPolicyTest.kt
+      - name: Compile Android module and run focused old/new UX09-02A tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 3900s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.cloud.ux09.Ux09OfflineChainPolicyTest' \
+              --tests 'com.framebynavin.app.cloud.ux09.Ux09OfflineContractAndJournalTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee ux09-02a-chain-test.log
+      - name: Upload focused JVM evidence (NOT an APK)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02A-Chain-JVM-Only-NO-RELEASE
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            ux09-02a-chain-test.log
+          retention-days: 14
+          if-no-files-found: warn
