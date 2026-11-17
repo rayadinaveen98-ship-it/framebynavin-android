@@ -8,6 +8,7 @@ on:
     paths:
       - app/**
       - .github/workflows/backlot-lab-v337-isolated-apk.yml
+      - .github/scripts/backlot-lab-startup-smoke.sh
 
 permissions:
   contents: read
@@ -72,10 +73,13 @@ jobs:
           gradle=Path('app/build.gradle.kts').read_text()
           cloud=Path('app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt').read_text()
           ai=Path('app/src/main/java/com/framebynavin/app/ai/CreatorGeminiVideoAutopsyProvider.kt').read_text()
+          appcheck=Path('app/src/debug/java/com/framebynavin/app/CreatorAppCheck.kt').read_text()
           assert 'if (backlotLabMode) "com.framebynavin.app.lab"' in gradle
           assert 'providers.gradleProperty("backlotLab")' in gradle
           assert 'vasleafrmsovdbdlrcsw.supabase.co' in cloud
           assert 'BuildConfig.BACKLOT_LAB' in cloud and 'BuildConfig.BACKLOT_LAB' in ai
+          assert 'if (BuildConfig.BACKLOT_LAB) return' in appcheck
+          assert 'FirebaseAppCheck.getInstance()' in appcheck
           assert 'sb_secret_' not in cloud and 'service_role' not in cloud.lower()
           assert Path('dev-signing/framebynavin-public-debug.jks').exists()
           print('PASS isolated package, Lab URL, publishable-only client and optional AI fail-closed gate')
@@ -181,6 +185,77 @@ jobs:
       - name: Upload test-only Lab APK
         uses: actions/upload-artifact@v4
         with:
-          name: Backlot-Lab-V337-ISOLATED-DEBUG
+          name: Backlot-Lab-V337-STARTUP-FIX-CANDIDATE
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
+
+  startup-emulator:
+    name: Lab Android API ${{ matrix.api }} actual first-launch smoke
+    needs: [lab-apk, api26-source-audit, certificate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
+    steps:
+      - name: Checkout exact Lab source and smoke script
+        uses: actions/checkout@v4
+      - name: Download same-run signed Lab APK
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-V337-STARTUP-FIX-CANDIDATE
+          path: lab-candidate
+      - name: Enable KVM acceleration for CI emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and launch Lab APK on Android API ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+      - name: Preserve package startup logs and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-API-${{ matrix.api }}-Startup-Smoke-Evidence
+          path: startup-smoke-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish-startup-verified:
+    name: Publish ONLY emulator startup-verified Lab APK
+    needs: [lab-apk, api26-source-audit, certificate, startup-emulator]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-V337-STARTUP-FIX-CANDIDATE
+          path: accepted
+      - name: Verify exactly one nonempty Lab APK candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s accepted/app-debug.apk
+          test "$(find accepted -maxdepth 1 -name '*.apk' -type f | wc -l)" -eq 1
+          sha256sum accepted/app-debug.apk
+          echo 'Passed unit tests, strict lint, signing/package and Android API30/API35 startup smoke.'
+          echo 'Google OAuth and physical device acceptance still require real user testing.'
+      - name: Publish emulator startup-verified owner testing candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-V337-STARTUP-SMOKE-VERIFIED
+          path: accepted/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
