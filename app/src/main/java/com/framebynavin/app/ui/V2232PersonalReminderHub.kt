@@ -721,7 +721,8 @@ internal fun V2232PersonalReminderHub(
                 ) {
                     V285AgendaScope.entries.forEach { scope ->
                         FilterChip(
-                            selected = agendaScopeName == scope.name,
+                            selected = !personalAttentionOnly &&
+                                agendaScopeName == scope.name,
                             onClick = {
                                 agendaScopeName = scope.name
                                 personalAttentionOnly = false
