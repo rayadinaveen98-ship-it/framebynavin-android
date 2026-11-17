@@ -117,10 +117,19 @@ internal object CW51CreativeBoardPolicy {
             }
         }
 
+        // Count beat relationships once, avoiding O(beats × evidence) scans on
+        // creator projects with long scripts and many scene observations.
+        val evidencePerBeat = mutableMapOf<String, Int>()
+        ws.stageWork.filter { it.workflowTemplateId == template.id }.forEach { work ->
+            work.evidence.forEach { record ->
+                if (record.scriptBeatId.isNotBlank()) {
+                    evidencePerBeat[record.scriptBeatId] =
+                        (evidencePerBeat[record.scriptBeatId] ?: 0) + 1
+                }
+            }
+        }
         ws.scriptStudio?.beats?.forEach { beat ->
-            val linkedEvidenceCount = ws.stageWork
-                .filter { it.workflowTemplateId == template.id }
-                .sumOf { work -> work.evidence.count { it.scriptBeatId == beat.id } }
+            val linkedEvidenceCount = evidencePerBeat[beat.id] ?: 0
             entries += CW51BoardItem(
                 key = "beat:${beat.id}",
                 filter = CW51BoardFilter.STORY,
