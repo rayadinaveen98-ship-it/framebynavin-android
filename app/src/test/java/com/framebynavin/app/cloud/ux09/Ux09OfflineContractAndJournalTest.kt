@@ -173,6 +173,30 @@ class Ux09OfflineContractAndJournalTest {
         assertTrue(j.pending(a).isEmpty())
     }
 
+    @Test fun secondOfflineEditToSameEntityFailsClosedUntilRevisionChainingExists() {
+        val journal = Ux09DiskIntentJournal(tmp.root)
+        journal.prepare(intent())
+        val secondOperation = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+        val secondPayload = Ux09Contract.canonicalPayload(
+            """{"title":"A second offline edit before server acknowledgement"}"""
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            journal.prepare(intent().copy(
+                operationId = secondOperation,
+                payloadJson = secondPayload,
+                expectedRevision = 0L,
+            ))
+        }
+        assertEquals(1, journal.pending(a).size)
+        assertEquals(op, journal.pending(a).single().intent.operationId)
+        // Another entity under the same account is independent and can be queued.
+        journal.prepare(intent().copy(
+            entityId = "ffffffff-ffff-4fff-8fff-ffffffffffff",
+            operationId = secondOperation,
+        ))
+        assertEquals(2, journal.pending(a).size)
+    }
+
     @Test fun twoAccountsHaveSeparateJournalEntries() {
         val j = Ux09DiskIntentJournal(tmp.root)
         val a1 = intent()
