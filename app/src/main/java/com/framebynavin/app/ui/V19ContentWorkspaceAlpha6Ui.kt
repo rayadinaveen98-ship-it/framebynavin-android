@@ -41,6 +41,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onOpenStage: (String) -> Unit = { onOpenProject() },
     onOpenOutputCraft: () -> Unit = onOpenProject,
     onOpenBoard: () -> Unit = onOpenProject,
+    onOpenLearning: () -> Unit = onOpenProject,
 ) {
     val workspace = task.workspace
     val overview = V405WorkspaceOverviewPolicy.snapshot(task)
@@ -345,6 +346,42 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                             }
                             Text(
                                 "${derivativeCount} derivative outputs · ${workspace.outputScripts.size} scripts · ${workspace.editVersions.size} cuts",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 16.sp,
+                            )
+                        }
+                        Icon(Icons.Outlined.ArrowForward, contentDescription = null,
+                            tint = RecRed, modifier = Modifier.size(21.dp))
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    onClick = onOpenLearning,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 86.dp)
+                        .testTag("ux051d-open-output-learning"),
+                    shape = RoundedCornerShape(17.dp),
+                    color = CinemaSurfaceRaised,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Insights, contentDescription = null,
+                            tint = MutedGold, modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Output Learning", color = ProjectorIvory,
+                                fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                            val reflections = workspace.outputLearnings.size
+                            val reviewed = workspace.outputLearnings
+                                .map { it.deliverableId }.distinct().size
+                            Text(
+                                if (reflections > 0)
+                                    "$reflections reflections across $reviewed output(s)"
+                                else "Review actual results · keep lessons for next time",
                                 color = MutedText, fontSize = 12.sp, lineHeight = 16.sp,
                             )
                         }

@@ -39,11 +39,14 @@ Beginners see the next useful action. Advanced users opt into deeper contextual 
 - **Not part of this stage:** inline media preview/editor, user-drawn freeform canvas, independent custom board cards, background processing, structured due-date/dependency task schema and expensive video/audio preview hosting. Task metadata extension remains pending architecture review before UX09 sync.
 - **Not certified:** compile, UI tests, Kotlin exhaustive paths, persistence round trips, V337 in-place upgrade, TalkBack/320dp/tablet and stress testing remain deferred to the post-UX10 campaign.
 
-## 05.1D — Output-specific review and learning (pending)
-- Resolve explicit target deliverable(s) in stage approval checks and editing reviews. Project-wide `any published` must not stand in for the intended output; retain legacy compatibility in migration rules.
-- Preserve actual publication and independent per-deliverable correction history, derivative script history and cut approvals.
-- Post-publication reflections and manually recorded outcome metrics (no claimed platform integration).
-- Reusable templates and exports only if they avoid new privacy/sync/dependency hazards.
+## 05.1D — Output-specific review and learning (source-staged in UX05.1D draft)
+- **Target-specific stage checks:** explicit Stage Desk linked output IDs determine the intended editing/release output(s). Without a link, one unambiguous root output is a safe implicit primary. If several root outputs exist, or a required historical link is missing, publication approval blocks until the user selects valid stage targets; one unrelated published derivative cannot approve the main output. Editing warnings are scoped to cut versions on selected outputs, never project-wide unrelated approvals.
+- The advisory Cockpit next-action and publish readiness hints now apply to the same target selection as the authoritative domain gate. Existing confirmed publication and cut approval histories remain the sources of truth; no automatic publishing, platform queries or stage progress mutations were added.
+- **Manual Output Learning Desk:** an append-only, deliverable-owned history for creator-entered expected outcome, observed outcome, what worked, what to improve, next action, and optional metric label/value/source. Learning is available for creator-confirmed live deliverables, including completed but not archived projects; archived/skipped are read-only. It is not a substitute for live analytics or a claimed platform integration.
+- New `CreatorOutputLearning` entries are saved using TaskStore's restore-generation and workspace-revision fences, without changing output publication state. Entries are appended, not edited in place. Canonical TaskStore JSON/portable export/restore paths round-trip `outputLearnings` with an absent-key legacy fallback and fail-closed malformed/duplicate record detection.
+- Plan/Publish editors explicitly reattach current `outputLearnings` during save, and Plan cannot remove an output with recorded learning. Unsaved reflection and output-switch/navigation require explicit discard.
+- Reusable template enhancements and export features are intentionally deferred, pending UX05.1E sync, privacy and migration contract approval.
+- **Not yet certified:** compile, lint, JVM and instrumentation tests, V337 upgrade, legacy publication compatibility, multi-root and derivative selection, report/reopen history, process death, accessibility and physical-device review remain to be performed after UX10.
 
 ## 05.1E — Integration and handoff before UX06/09/10 (pending)
 - Design explicit cross-reference IDs, serialization compatibility, restore round trips, offline-first conflict policy and deletion semantics before UX09 cloud sync.

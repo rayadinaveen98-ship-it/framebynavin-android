@@ -24,6 +24,11 @@ object CreatorContentStabilization {
         require(craftAtRisk.isEmpty()) {
             "This output has derivative script or edit-version history. Retain the output to preserve its work."
         }
+        val learningAtRisk = current.outputLearnings.map { it.deliverableId }
+            .toSet().intersect(removedTree)
+        require(learningAtRisk.isEmpty()) {
+            "This output has recorded creator learning. Retain it to preserve the outcome history."
+        }
         val historyAtRisk = protectedRemovalIds(current.deliverables, explicitlyRemoved)
         require(historyAtRisk.isEmpty()) {
             "This output or a linked output has publication history. Keep it in the project to preserve the release record."
@@ -60,6 +65,7 @@ object CreatorContentStabilization {
             outputScripts = current.outputScripts, // Only Output Craft can edit these histories.
             editVersions = current.editVersions,
             stageTransitions = current.stageTransitions, // Only explicit workflow approval writes receipts.
+            outputLearnings = current.outputLearnings, // Plan must never erase append-only outcome history.
             deliverables = sanitizeDeliverableGraph(protectedDeliverables),
         )
     }

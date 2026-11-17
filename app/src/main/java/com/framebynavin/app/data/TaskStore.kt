@@ -214,6 +214,20 @@ class TaskStore(private val context: Context) {
         projectId, expectedGeneration, expectedWorkspaceRevision,
     ) { current -> CreatorOutputCraftPolicy.reviewVersion(current, versionId, target, atMillis) }
 
+    /** UX05.1D: one atomic, revision/restore-gated manual observation write. */
+    suspend fun appendOutputLearning(
+        projectId: String,
+        expectedGeneration: Long,
+        expectedWorkspaceRevision: Long,
+        draft: CreatorOutputLearning,
+    ): CreatorTask? = updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+        check(current.workspace.revision == expectedWorkspaceRevision) {
+            "Project changed before the learning saved. Reopen the newest output review."
+        }
+        val updated = CreatorOutputLearningPolicy.append(current, draft)
+        current.copy(workspace = updated.copy(revision = current.workspace.revision + 1L))
+    }
+
     internal fun encodeRecoveryTask(task: CreatorTask): String = encode(listOf(task))
     internal fun decodeRecoveryTask(raw: String): CreatorTask = decode(raw).single()
 
@@ -817,6 +831,21 @@ class TaskStore(private val context: Context) {
                 .put("publishGate", publishGate)
                 .put("publicationHistory", publicationHistory))
         }
+        val outputLearnings = JSONArray()
+        workspace.outputLearnings.forEach { learning ->
+            outputLearnings.put(JSONObject()
+                .put("id", learning.id)
+                .put("deliverableId", learning.deliverableId)
+                .put("recordedAtMillis", learning.recordedAtMillis)
+                .put("expectation", learning.expectation)
+                .put("observedOutcome", learning.observedOutcome)
+                .put("whatWorked", learning.whatWorked)
+                .put("improveNext", learning.improveNext)
+                .put("nextAction", learning.nextAction)
+                .put("metricLabel", learning.metricLabel)
+                .put("metricValue", learning.metricValue)
+                .put("metricSource", learning.metricSource))
+        }
         return JSONObject()
             .put("revision", workspace.revision)
             .put("audience", workspace.audience)
@@ -833,6 +862,7 @@ class TaskStore(private val context: Context) {
             .put("assets", assets)
             .put("deliverables", deliverables)
             .put("learnings", workspace.learnings)
+            .put("outputLearnings", outputLearnings)
             .put("scriptStudio", workspace.scriptStudio?.let(::encodeScriptStudio) ?: JSONObject.NULL)
             .put("stageWork", encodeStageWork(workspace.stageWork))
             .put("outputScripts", encodeOutputScripts(workspace.outputScripts))
@@ -933,7 +963,7 @@ class TaskStore(private val context: Context) {
 
     private fun decodeWorkspace(projectId: String, item: JSONObject?): CreatorContentWorkspace {
         if (item == null) return CreatorContentWorkspace()
-        for (key in listOf("outputScripts", "editVersions", "stageTransitions")) {
+        for (key in listOf("outputScripts", "editVersions", "stageTransitions", "outputLearnings")) {
             require(!item.has(key) || item.isNull(key) || item.optJSONArray(key) != null) {
                 "Output craft data $key is malformed. Original project bytes retained."
             }
@@ -1069,6 +1099,32 @@ class TaskStore(private val context: Context) {
                 ))
             }
         }
+        val learningArray = item.optJSONArray("outputLearnings") ?: JSONArray()
+        val learningIds = mutableSetOf<String>()
+        val decodedOutputLearnings = buildList {
+            for (i in 0 until learningArray.length()) {
+                val entry = learningArray.optJSONObject(i)
+                    ?: error("Output learning $i is unreadable; original project bytes retained.")
+                val id = entry.optString("id")
+                val outputId = entry.optString("deliverableId")
+                val recorded = entry.optLong("recordedAtMillis")
+                require(id.isNotBlank() && outputId.isNotBlank() && recorded > 0L &&
+                    learningIds.add(id)) {
+                    "Invalid or duplicated output learning. Original project bytes retained."
+                }
+                add(CreatorOutputLearning(
+                    id = id, deliverableId = outputId, recordedAtMillis = recorded,
+                    expectation = entry.optString("expectation"),
+                    observedOutcome = entry.optString("observedOutcome"),
+                    whatWorked = entry.optString("whatWorked"),
+                    improveNext = entry.optString("improveNext"),
+                    nextAction = entry.optString("nextAction"),
+                    metricLabel = entry.optString("metricLabel"),
+                    metricValue = entry.optString("metricValue"),
+                    metricSource = entry.optString("metricSource"),
+                ))
+            }
+        }
         return CreatorContentWorkspace(
             revision = item.optLong("revision", 0L).coerceAtLeast(0L),
             audience = item.optString("audience").trim(),
@@ -1090,6 +1146,7 @@ class TaskStore(private val context: Context) {
             outputScripts = decodeOutputScripts(item.optJSONArray("outputScripts")),
             editVersions = decodeEditVersions(item.optJSONArray("editVersions")),
             stageTransitions = decodeStageTransitions(item.optJSONArray("stageTransitions")),
+            outputLearnings = decodedOutputLearnings,
         )
     }
 }
