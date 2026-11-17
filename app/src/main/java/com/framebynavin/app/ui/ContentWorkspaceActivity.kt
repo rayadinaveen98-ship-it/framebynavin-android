@@ -59,6 +59,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         private const val STATE_EDITOR_MODE = "content_project_editor_mode"
         private const val STATE_STAGE_ID = "cw3_selected_stage_id"
         private const val STATE_OUTPUT_ID = "cw4_selected_output_id"
+        private const val STATE_LEARNING_OUTPUT_ID = "ux051e_selected_learning_output_id"
     }
 
     private val store by lazy { TaskStore(applicationContext) }
@@ -73,6 +74,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var selectedStageId by mutableStateOf("")
     private var selectedOutputCraftId by mutableStateOf("")
+    private var selectedLearningOutputId by mutableStateOf("")
+    private var learningSaveInFlight by mutableStateOf(false)
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
     /** A stage-tool switch is only performed after the existing discard confirmation. */
@@ -103,6 +106,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
         selectedStageId = savedInstanceState?.getString(STATE_STAGE_ID).orEmpty()
         selectedOutputCraftId = savedInstanceState?.getString(STATE_OUTPUT_ID).orEmpty()
+        selectedLearningOutputId =
+            savedInstanceState?.getString(STATE_LEARNING_OUTPUT_ID).orEmpty()
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
         }?.takeUnless { it == Alpha6WorkspaceMode.HUB }
@@ -112,9 +117,14 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 // The editors are Activity-owned screens now. Keep the same unsaved-draft
                 // confirmation on system Back that the previous Dialog window provided.
                 BackHandler(enabled = !confirmEditorClose && error == null && mode != Alpha6WorkspaceMode.HUB) {
-                    if (mode == Alpha6WorkspaceMode.BLUEPRINT || mode == Alpha6WorkspaceMode.BOARD)
+                    if (mode == Alpha6WorkspaceMode.BLUEPRINT || mode == Alpha6WorkspaceMode.BOARD) {
                         mode = Alpha6WorkspaceMode.HUB
-                    else {
+                    } else if (mode == Alpha6WorkspaceMode.LEARN && learningSaveInFlight) {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Finish saving the reflection before leaving.",
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    } else {
                         pendingStageToolMode = null
                         pendingStageToolDraft = null
                         confirmEditorClose = true
@@ -172,11 +182,18 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         )
                         mode == Alpha6WorkspaceMode.LEARN -> CW52OutputLearningDesk(
                             task = task!!,
-                            onBack = { confirmEditorClose = true },
+                            onBack = {
+                                if (!learningSaveInFlight) confirmEditorClose = true
+                            },
                             onOpenPublish = {
                                 confirmEditorClose = false
                                 mode = Alpha6WorkspaceMode.PUBLISH
                             },
+                            onSelectedOutput = { selectedLearningOutputId = it },
+                            onDiscardDraft = { outputId, expectedRevision ->
+                                discardLearningDraft(task!!.id, outputId, expectedRevision)
+                            },
+                            saving = learningSaveInFlight,
                             onOpenPlanOutputs = {
                                 planOpenBrief = false
                                 planOpenSection = "DELIVERABLES"
@@ -512,8 +529,18 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                                     )
                                                 }.exceptionOrNull()
                                             }
+                                            Alpha6WorkspaceMode.LEARN -> {
+                                                stageDraftClearFailure = runCatching {
+                                                    val id = selectedLearningOutputId.ifBlank {
+                                                        task!!.workspace.deliverables.firstOrNull()?.id.orEmpty()
+                                                    }
+                                                    check(discardLearningDraft(
+                                                        projectId, id, task!!.workspace.revision,
+                                                    )) { "Cannot discard learning draft" }
+                                                }.exceptionOrNull()
+                                            }
                                             Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB,
-                                            Alpha6WorkspaceMode.BOARD, Alpha6WorkspaceMode.LEARN -> Unit
+                                            Alpha6WorkspaceMode.BOARD -> Unit
                                         }
                                     }
                                     if (stageDraftClearFailure != null) {
@@ -522,7 +549,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                         pendingStageToolDraft = null
                                         android.widget.Toast.makeText(
                                             applicationContext,
-                                            "Could not discard the stage draft. Your changes are kept; try again.",
+                                            "Could not discard the editor draft. Your changes are kept; try again.",
                                             android.widget.Toast.LENGTH_LONG,
                                         ).show()
                                         return@TextButton
@@ -538,7 +565,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                     } else {
                                         mode = nextMode ?: Alpha6WorkspaceMode.HUB
                                     }
-                                }, enabled = !stageSwitchSaveInFlight) {
+                                }, enabled = !stageSwitchSaveInFlight && !learningSaveInFlight) {
                                     Text(
                                         if (stageSwitch && !unsavedStageSwitch) "OPEN"
                                         else if (pendingStageToolMode != null) "DISCARD & OPEN"
@@ -586,6 +613,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         outState.putString(STATE_EDITOR_MODE, mode.name)
         outState.putString(STATE_STAGE_ID, selectedStageId)
         outState.putString(STATE_OUTPUT_ID, selectedOutputCraftId)
+        outState.putString(STATE_LEARNING_OUTPUT_ID, selectedLearningOutputId)
         super.onSaveInstanceState(outState)
     }
 
@@ -599,6 +627,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         planOpenBrief = false
         planOpenSection = ""
         stageSwitchSaveInFlight = false
+        learningSaveInFlight = false
         heldDraftReviews = null
         pendingHeldField = null
         planRecoveredField = null
