@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurfaceRaised
@@ -114,7 +115,7 @@ internal fun V339HomeOverflowMenu(
                 },
             color = CinemaSurfaceRaised,
             shape = CircleShape,
-            border = BorderStroke(1.dp, CinemaLine),
+            border = BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Image(

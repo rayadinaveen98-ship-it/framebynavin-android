@@ -86,12 +86,12 @@ internal fun V2273WidgetMigrationScreen(
             modifier = Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 14.dp),
+                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             TextButton(onClick = onClose) { Text("‹  BACK TO SETTINGS", color = ProjectorIvory) }
             Text("HOME SCREEN", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text("Your Backlot widgets", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            Text("Your Backlot widgets", color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Bold)
             Text(
                 "Preview each Backlot widget before adding it. Existing pinned widgets and private data stay unchanged.",
                 color = MutedText, fontSize = 13.sp,
@@ -112,7 +112,7 @@ internal fun V2273WidgetMigrationScreen(
                 Surface(
                     color = CinemaSurface,
                     shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -132,7 +132,7 @@ internal fun V2273WidgetMigrationScreen(
                             onClick = { onRequestPin(kind) },
                             enabled = canRequestPin,
                             modifier = Modifier.fillMaxWidth()
-                                .heightIn(min = 50.dp)
+                                .heightIn(min = BacklotUX10Tokens.rowTarget)
                                 .testTag("v2273-pin-${kind.name.lowercase()}"),
                         ) {
                             Text("ADD ${kind.label.uppercase()}", maxLines = 2)
