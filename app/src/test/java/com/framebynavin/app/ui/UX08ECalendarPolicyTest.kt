@@ -137,6 +137,26 @@ class UX08ECalendarPolicyTest {
     }
 
     @Test
+    fun `inspecting an agenda date does not shift its fourteen-day period`() {
+        val twoDaysAhead = today.plusDays(2)
+        val events = listOf(
+            item(today, CreatorCalendarSource.PROJECT, "start"),
+            item(twoDaysAhead, CreatorCalendarSource.WEEKLY_PLAN, "chosen"),
+            item(today.plusDays(8), CreatorCalendarSource.PROJECT, "later"),
+        )
+        val filtered = UX08ECalendarPolicy.visibleItems(
+            events, UX08ECalendarView.AGENDA, today, today, zone,
+            selectedDayOnly = true, focusedDay = twoDaysAhead,
+        )
+        assertEquals(listOf("chosen"), filtered.map { it.id })
+        val unchanged = UX08ECalendarPolicy.window(
+            UX08ECalendarView.AGENDA, today, today,
+        )
+        assertEquals(today, unchanged.start)
+        assertEquals(today.plusDays(13), unchanged.endInclusive)
+    }
+
+    @Test
     fun `project and weekly previews stay distinct with separate completion counts`() {
         val data = listOf(
             item(today, CreatorCalendarSource.PROJECT, "active"),
