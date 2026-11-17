@@ -208,7 +208,7 @@ internal fun CW3StageDesk(
     WorkspaceAdaptiveFrame {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp).testTag("cw3-stage-desk"),
+                .padding(horizontal = BacklotUX10Tokens.pageGutter).testTag("cw3-stage-desk"),
         ) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -230,8 +230,8 @@ internal fun CW3StageDesk(
                 )
             }
             Spacer(Modifier.height(14.dp))
-            Surface(shape = RoundedCornerShape(18.dp), color = CinemaSurfaceRaised,
-                border = BorderStroke(1.dp, CinemaLine)) {
+            Surface(shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius), color = CinemaSurfaceRaised,
+                border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
                     Text(experience.heading, color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.height(5.dp))
@@ -268,9 +268,9 @@ internal fun CW3StageDesk(
             Spacer(Modifier.height(16.dp))
             contextualModule?.let { module ->
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                     color = CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine.copy(alpha = .65f)),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     modifier = Modifier.fillMaxWidth().testTag("ux051c-stage-module"),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(15.dp)) {
@@ -381,7 +381,7 @@ internal fun CW3StageDesk(
             evidence.forEachIndexed { index, item ->
                 Surface(modifier = Modifier.fillMaxWidth().padding(top = 9.dp),
                     shape = RoundedCornerShape(12.dp), color = CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine)) {
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Column(Modifier.padding(12.dp)) {
                         Text(item.claim, color = ProjectorIvory, fontSize = 13.sp)
                         if (item.timecode.isNotBlank()) Text("Timecode: ${item.timecode}", color = MutedText, fontSize = 11.sp)

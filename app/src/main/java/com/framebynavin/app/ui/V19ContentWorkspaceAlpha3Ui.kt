@@ -256,7 +256,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
 
                 if (recovered != null) {
                     Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
-                        Text("Your unsaved plan was recovered", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                        Text("Your unsaved plan was recovered", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
                     }
                 }
 
@@ -361,7 +361,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             }
                             assetError?.let {
                                 Spacer(Modifier.height(8.dp))
-                                Text(it, color = RecRed, fontSize = 8.5.sp)
+                                Text(it, color = RecRed, fontSize = BacklotUX10Tokens.eyebrow)
                             }
                             Spacer(Modifier.height(10.dp))
                             assets.forEach { asset ->
@@ -492,9 +492,9 @@ private fun Alpha3Overview(
     val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val pending = workspace.deliverables.size - published
     A3Title("OVERVIEW", "")
-    if (appliedTemplate.isNotBlank()) Text("Template merged: $appliedTemplate", color = SuccessGreen, fontSize = 9.sp)
+    if (appliedTemplate.isNotBlank()) Text("Template merged: $appliedTemplate", color = SuccessGreen, fontSize = BacklotUX10Tokens.eyebrow)
     Spacer(Modifier.height(8.dp))
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
             Text("TASKS $progress%", color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(Modifier.height(7.dp)); LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
@@ -528,7 +528,7 @@ private fun Alpha3Overview(
         }
     }
     Spacer(Modifier.height(18.dp))
-    Text("TEMPLATES", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black)
+    Text("TEMPLATES", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
     Spacer(Modifier.height(6.dp))
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val narrow = maxWidth < 350.dp || LocalDensity.current.fontScale >= 1.3f
@@ -551,13 +551,13 @@ private fun Alpha3Overview(
 
 @Composable private fun A3Metric(label: String, value: String) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(value, color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 18.sp); Text(label, color = MutedText, fontSize = 11.sp) } }
 @Composable private fun A3Title(title: String, @Suppress("UNUSED_PARAMETER") subtitle: String) { Text(title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)) }
-@Composable private fun A3Empty(text: String) { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) { Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(14.dp)) } }
+@Composable private fun A3Empty(text: String) { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) { Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(14.dp)) } }
 
 @Composable
 private fun A3ReadOnly(label: String, value: String) {
     Text(label, color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     Spacer(Modifier.height(4.dp))
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(value, color = ProjectorIvory, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(13.dp))
     }
 }
@@ -577,7 +577,7 @@ private fun A3ReferenceCard(
     onOpen: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             OutlinedTextField(ref.label, { onChange(ref.copy(label = it)) }, Modifier.fillMaxWidth(), label = { Text("Label") }, singleLine = true)
             Spacer(Modifier.height(6.dp)); OutlinedTextField(ref.url, { onChange(ref.copy(url = it)) }, Modifier.fillMaxWidth(), label = { Text("URL") }, singleLine = true)
@@ -602,11 +602,11 @@ private fun A3AssetCard(
     onOpen: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.AttachFile, null, tint = MutedGold); Spacer(Modifier.width(6.dp)); Text(asset.kind.name, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
+            Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.AttachFile, null, tint = MutedGold); Spacer(Modifier.width(6.dp)); Text(asset.kind.name, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.height(6.dp)); OutlinedTextField(asset.label, { onChange(asset.copy(label = it)) }, Modifier.fillMaxWidth(), label = { Text("Label") }, singleLine = true)
-            Spacer(Modifier.height(6.dp)); Text(asset.location, color = MutedText, fontSize = 7.5.sp, maxLines = 2)
+            Spacer(Modifier.height(6.dp)); Text(asset.location, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, maxLines = 2)
             Spacer(Modifier.height(6.dp)); OutlinedTextField(asset.notes, { onChange(asset.copy(notes = it)) }, Modifier.fillMaxWidth(), label = { Text("Notes") }, minLines = 2)
             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 if (CreatorWorkspaceLinkRules.isAssetLocation(asset.location)) {
@@ -632,7 +632,7 @@ private fun A3ChecklistCard(
     onChange: (CreatorChecklistItem) -> Unit,
     onRemove: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
                 val next = when (item.status) { CreatorChecklistStatus.TODO -> CreatorChecklistStatus.DONE; CreatorChecklistStatus.DONE -> CreatorChecklistStatus.SKIPPED; CreatorChecklistStatus.SKIPPED -> CreatorChecklistStatus.TODO }
@@ -667,10 +667,10 @@ private fun A3DeliverableCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("${deliverable.platform} · ${deliverable.format}", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 10.sp)
-                    if (!parentTitle.isNullOrBlank()) Text("Derived from $parentTitle", color = MutedGold, fontSize = 7.5.sp)
-                    if (deliverable.deadlineLabel.isNotBlank()) Text("Target ${deliverable.deadlineLabel}", color = MutedText, fontSize = 7.5.sp)
+                    if (!parentTitle.isNullOrBlank()) Text("Derived from $parentTitle", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow)
+                    if (deliverable.deadlineLabel.isNotBlank()) Text("Target ${deliverable.deadlineLabel}", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                 }
-                Text(deliverable.status.name, color = accent, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
+                Text(deliverable.status.name, color = accent, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
                 IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, "Details") }
             }
             OutlinedTextField(
@@ -683,7 +683,7 @@ private fun A3DeliverableCard(
             )
             Spacer(Modifier.height(7.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { pickDateTime(context) { label -> onChange(deliverable.copy(deadlineLabel = label)) } }, enabled = !published) { Text(if (deliverable.deadlineLabel.isBlank()) "SET TARGET" else "CHANGE TARGET", fontSize = 7.5.sp) }
+                OutlinedButton(onClick = { pickDateTime(context) { label -> onChange(deliverable.copy(deadlineLabel = label)) } }, enabled = !published) { Text(if (deliverable.deadlineLabel.isBlank()) "SET TARGET" else "CHANGE TARGET", fontSize = BacklotUX10Tokens.eyebrow) }
                 IconButton(onClick = onUp, enabled = canUp) { Icon(Icons.Outlined.KeyboardArrowUp, "Move up") }
                 IconButton(onClick = onDown, enabled = canDown) { Icon(Icons.Outlined.KeyboardArrowDown, "Move down") }
                 IconButton(onClick = onRemove) { Icon(Icons.Outlined.DeleteOutline, "Remove") }
@@ -693,7 +693,7 @@ private fun A3DeliverableCard(
                 if (published) "Live metadata and reopen actions are locked to Publish Studio so history stays complete."
                 else "Readiness and publication are managed in Publish Studio.",
                 color = if (published) SuccessGreen else MutedGold,
-                fontSize = 8.sp,
+                fontSize = BacklotUX10Tokens.eyebrow,
             )
             Spacer(Modifier.height(6.dp))
             OutlinedButton(onClick = onDerivative) { Text("DERIVE") }

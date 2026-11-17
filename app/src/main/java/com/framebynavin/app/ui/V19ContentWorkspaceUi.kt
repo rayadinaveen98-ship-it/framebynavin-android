@@ -78,16 +78,16 @@ internal fun V19ContentWorkspaceDialog(
                 ) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close workspace", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("PROJECT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Text(task.title, color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
-                    Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-                        Text("R${originalRevision}", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp))
+                    Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
+                        Text("R${originalRevision}", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp))
                     }
                 }
 
                 Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = 24.dp),
                 ) {
                     V19SectionTitle("BRIEF", "What this piece is trying to do")
                     V19Field("AUDIENCE", audience, { audience = it }, "Who is this for?")
@@ -106,14 +106,14 @@ internal fun V19ContentWorkspaceDialog(
                         TextButton(onClick = { checklist = checklist + CreatorChecklistItem(id = UUID.randomUUID().toString()) }) {
                             Icon(Icons.Outlined.Add, null, tint = MutedGold, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("ADD", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("ADD", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (checklist.isEmpty()) {
                         V19EmptyCard("No production checklist", "Start with a simple creator workflow or add your own steps.")
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(onClick = { addStandardChecklist() }, modifier = Modifier.fillMaxWidth()) {
-                            Text("USE RESEARCH → SCRIPT → RECORD → EDIT → THUMBNAIL → PUBLISH", fontSize = 7.6.sp, fontWeight = FontWeight.Bold)
+                            Text("ADD STANDARD PRODUCTION STEPS", fontSize = BacklotUX10Tokens.supporting, fontWeight = FontWeight.Bold)
                         }
                     } else {
                         checklist.forEach { item ->
@@ -134,7 +134,7 @@ internal fun V19ContentWorkspaceDialog(
                         }) {
                             Icon(Icons.Outlined.AddLink, null, tint = MutedGold, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("ADD", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("ADD", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (references.isEmpty()) {
@@ -145,7 +145,7 @@ internal fun V19ContentWorkspaceDialog(
                                 Modifier.fillMaxWidth().padding(bottom = 8.dp),
                                 RoundedCornerShape(16.dp),
                                 CinemaSurface,
-                                border = BorderStroke(1.dp, CinemaLine),
+                                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                             ) {
                                 Column(Modifier.padding(12.dp)) {
                                     OutlinedTextField(
@@ -165,7 +165,7 @@ internal fun V19ContentWorkspaceDialog(
                                     )
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                         TextButton(onClick = { references = references.filterNot { it.id == reference.id } }) {
-                                            Text("REMOVE", color = MutedText, fontSize = 8.5.sp)
+                                            Text("REMOVE", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                                         }
                                     }
                                 }
@@ -181,7 +181,7 @@ internal fun V19ContentWorkspaceDialog(
                         }) {
                             Icon(Icons.Outlined.AttachFile, null, tint = MutedGold, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("ADD", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("ADD", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (assets.isEmpty()) {
@@ -201,13 +201,13 @@ internal fun V19ContentWorkspaceDialog(
                     V19SectionTitle("DELIVERABLES", "Each output has its own publishing state and metadata")
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { addDeliverable("YouTube", "Long video") }, modifier = Modifier.weight(1f)) {
-                            Text("+ YOUTUBE", fontSize = 8.2.sp, fontWeight = FontWeight.Bold)
+                            Text("+ YOUTUBE", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         }
                         OutlinedButton(onClick = { addDeliverable("Instagram", "Reel") }, modifier = Modifier.weight(1f)) {
-                            Text("+ INSTAGRAM", fontSize = 8.2.sp, fontWeight = FontWeight.Bold)
+                            Text("+ INSTAGRAM", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         }
                         OutlinedButton(onClick = { addDeliverable("Other", "Custom") }, modifier = Modifier.weight(1f)) {
-                            Text("+ CUSTOM", fontSize = 8.2.sp, fontWeight = FontWeight.Bold)
+                            Text("+ CUSTOM", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -280,14 +280,14 @@ internal fun V19ContentWorkspaceDialog(
 private fun V19SectionTitle(title: String, subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = MutedText, fontSize = 8.7.sp)
+        Text(subtitle, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
         Spacer(Modifier.height(9.dp))
     }
 }
 
 @Composable
 private fun V19Field(label: String, value: String, onValueChange: (String) -> Unit, placeholder: String, minLines: Int = 1) {
-    Text(label, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+    Text(label, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
     Spacer(Modifier.height(5.dp))
     OutlinedTextField(
         value = value,
@@ -302,10 +302,10 @@ private fun V19Field(label: String, value: String, onValueChange: (String) -> Un
 
 @Composable
 private fun V19EmptyCard(title: String, body: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Text(title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(body, color = MutedText, fontSize = 8.6.sp)
+            Text(body, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
         }
     }
 }
@@ -362,17 +362,17 @@ private fun V19AssetCard(
     onChange: (CreatorProjectAsset) -> Unit,
     onRemove: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(13.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.AttachFile, null, tint = MutedGold, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("FILE OR LINK", color = ProjectorIvory, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                Text("FILE OR LINK", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
                 TextButton(onClick = {
                     val kinds = CreatorAssetKind.entries
                     onChange(asset.copy(kind = kinds[(asset.kind.ordinal + 1) % kinds.size]))
                 }) {
-                    Text(asset.kind.name, color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+                    Text(asset.kind.name, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = onRemove) {
                     Icon(Icons.Outlined.DeleteOutline, "Remove asset reference", tint = MutedText, modifier = Modifier.size(17.dp))
@@ -401,7 +401,7 @@ private fun V19AssetCard(
                 label = { Text("Notes") },
                 minLines = 2,
             )
-            Text("Backlot saves a link to the file, not a second copy.", color = MutedText, fontSize = 7.5.sp, modifier = Modifier.padding(top = 7.dp))
+            Text("Backlot saves a link to the file, not a second copy.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, modifier = Modifier.padding(top = 7.dp))
         }
     }
 }
@@ -431,11 +431,11 @@ private fun V19DeliverableCard(
                 Spacer(Modifier.width(7.dp))
                 Column(Modifier.weight(1f)) {
                     Text(deliverable.platform.uppercase(), color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                    Text(deliverable.format, color = MutedText, fontSize = 8.3.sp)
-                    if (parentTitle != null) Text("Derivative of $parentTitle", color = MutedGold, fontSize = 7.5.sp)
+                    Text(deliverable.format, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                    if (parentTitle != null) Text("Derivative of $parentTitle", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow)
                 }
                 Surface(shape = RoundedCornerShape(100.dp), color = accent.copy(alpha = .11f)) {
-                    Text(deliverable.status.name, color = accent, fontSize = 7.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    Text(deliverable.status.name, color = accent, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                 }
             }
             Spacer(Modifier.height(9.dp))
@@ -510,28 +510,28 @@ private fun V19DeliverableCard(
                     CreatorDeliverableStatus.PLANNED -> OutlinedButton(
                         onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.READY)) },
                         modifier = Modifier.weight(1f),
-                    ) { Text("MARK READY", fontSize = 8.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text("MARK READY", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold) }
                     CreatorDeliverableStatus.READY -> Button(
                         onClick = {
                             onChange(deliverable.copy(status = CreatorDeliverableStatus.PUBLISHED, publishedAtMillis = System.currentTimeMillis()))
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                    ) { Text("MARK PUBLISHED", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = CinemaBlack) }
+                    ) { Text("MARK PUBLISHED", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold, color = CinemaBlack) }
                     CreatorDeliverableStatus.PUBLISHED -> OutlinedButton(
                         onClick = { onChange(deliverable.copy(status = CreatorDeliverableStatus.READY, publishedAtMillis = 0L)) },
                         modifier = Modifier.weight(1f),
-                    ) { Text("REOPEN", fontSize = 8.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text("REOPEN", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold) }
                 }
                 OutlinedButton(onClick = onDerivative, modifier = Modifier.weight(1f)) {
-                    Text("DERIVATIVE", fontSize = 7.7.sp, fontWeight = FontWeight.Bold)
+                    Text("DERIVATIVE", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = onRemove) {
                     Icon(Icons.Outlined.DeleteOutline, "Remove deliverable", tint = MutedText, modifier = Modifier.size(16.dp))
                 }
             }
             if (deliverable.status == CreatorDeliverableStatus.PUBLISHED && deliverable.publishedAtMillis > 0L) {
-                Text("Published independently · project remains open until its workflow is finished.", color = SuccessGreen, fontSize = 7.8.sp)
+                Text("Published independently · project remains open until its workflow is finished.", color = SuccessGreen, fontSize = BacklotUX10Tokens.eyebrow)
             }
         }
     }

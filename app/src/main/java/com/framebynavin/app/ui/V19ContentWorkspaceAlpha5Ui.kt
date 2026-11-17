@@ -182,7 +182,7 @@ internal fun V19PublishStudioAlpha5Dialog(
 
                 if (recovered != null) {
                     Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
-                        Text("Your unsaved publishing details were recovered", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                        Text("Your unsaved publishing details were recovered", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
                     }
                 }
 
@@ -204,8 +204,8 @@ internal fun V19PublishStudioAlpha5Dialog(
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        OutlinedButton(onClick = { addDeliverable("YouTube", "Long video") }) { Text("+ YT LONG", fontSize = 8.sp) }
-                        OutlinedButton(onClick = { addDeliverable("Instagram", "Reel") }) { Text("+ REEL", fontSize = 8.sp) }
+                        OutlinedButton(onClick = { addDeliverable("YouTube", "Long video") }) { Text("+ YT LONG", fontSize = BacklotUX10Tokens.eyebrow) }
+                        OutlinedButton(onClick = { addDeliverable("Instagram", "Reel") }) { Text("+ REEL", fontSize = BacklotUX10Tokens.eyebrow) }
                     }
 
                     Spacer(Modifier.height(20.dp))
@@ -227,7 +227,7 @@ internal fun V19PublishStudioAlpha5Dialog(
                     }
                     actionError?.let {
                         Spacer(Modifier.height(10.dp))
-                        Text(it, color = RecRed, fontSize = 9.sp)
+                        Text(it, color = RecRed, fontSize = BacklotUX10Tokens.eyebrow)
                     }
                 }
 
@@ -237,7 +237,7 @@ internal fun V19PublishStudioAlpha5Dialog(
                             Text(
                                 "This published post has unsaved changes. Record an update or reopen it.",
                                 color = RecRed,
-                                fontSize = 8.5.sp,
+                                fontSize = BacklotUX10Tokens.eyebrow,
                             )
                             Spacer(Modifier.height(6.dp))
                         }
@@ -338,7 +338,7 @@ private fun Alpha5PublishSummary(deliverables: List<CreatorDeliverable>) {
     val published = deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
     val ready = deliverables.count { it.status == CreatorDeliverableStatus.READY }
     val planned = deliverables.size - published - ready
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceAround) {
             Alpha5Metric("OUTPUTS", deliverables.size.toString())
             Alpha5Metric("PLANNED", planned.toString())
@@ -376,7 +376,7 @@ private fun Alpha5DeliverableEditor(
     var showVariants by rememberSaveable(deliverable.id) { mutableStateOf(false) }
     var showHistory by rememberSaveable(deliverable.id) { mutableStateOf(false) }
 
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(15.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -455,7 +455,7 @@ private fun Alpha5DeliverableEditor(
                             title = "New check",
                         )
                     ))
-                }) { Text("+ CHECK", fontSize = 8.sp) }
+                }) { Text("+ CHECK", fontSize = BacklotUX10Tokens.eyebrow) }
             }
             CreatorPublishWorkflow.ensureGate(deliverable).publishGate.forEach { gate ->
                 Alpha5GateCard(
@@ -481,19 +481,19 @@ private fun Alpha5DeliverableEditor(
             when (deliverable.status) {
                 CreatorDeliverableStatus.PUBLISHED -> {
                     if (unrecorded) {
-                        Text("This published post has changes. Record an update to save them.", color = RecRed, fontSize = 8.5.sp)
+                        Text("This published post has changes. Record an update to save them.", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow)
                         Spacer(Modifier.height(7.dp))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onUpdate, modifier = Modifier.weight(1f)) { Text("RECORD UPDATE", fontSize = 8.sp) }
-                        OutlinedButton(onClick = onReopen, enabled = !unrecorded, modifier = Modifier.weight(1f)) { Text("REOPEN", fontSize = 8.sp) }
+                        Button(onClick = onUpdate, modifier = Modifier.weight(1f)) { Text("RECORD UPDATE", fontSize = BacklotUX10Tokens.eyebrow) }
+                        OutlinedButton(onClick = onReopen, enabled = !unrecorded, modifier = Modifier.weight(1f)) { Text("REOPEN", fontSize = BacklotUX10Tokens.eyebrow) }
                     }
                     if (deliverable.publishedAtMillis > 0L) {
                         Spacer(Modifier.height(7.dp))
                         Text(
                             "Live since ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(deliverable.publishedAtMillis))}",
                             color = SuccessGreen,
-                            fontSize = 8.5.sp,
+                            fontSize = BacklotUX10Tokens.eyebrow,
                         )
                     }
                 }
@@ -503,7 +503,7 @@ private fun Alpha5DeliverableEditor(
                     }
                     if (!ready) {
                         Spacer(Modifier.height(5.dp))
-                        Text("Add a final title and complete the required checks.", color = MutedText, fontSize = 8.2.sp)
+                        Text("Add a final title and complete the required checks.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                     }
                 }
             }
@@ -511,8 +511,8 @@ private fun Alpha5DeliverableEditor(
             Spacer(Modifier.height(18.dp))
             Alpha5Title("REPURPOSE", "")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onYouTubeShort, modifier = Modifier.weight(1f)) { Text("→ YT SHORT", fontSize = 8.sp) }
-                OutlinedButton(onClick = onInstagramReel, modifier = Modifier.weight(1f)) { Text("→ IG REEL", fontSize = 8.sp) }
+                OutlinedButton(onClick = onYouTubeShort, modifier = Modifier.weight(1f)) { Text("→ YT SHORT", fontSize = BacklotUX10Tokens.eyebrow) }
+                OutlinedButton(onClick = onInstagramReel, modifier = Modifier.weight(1f)) { Text("→ IG REEL", fontSize = BacklotUX10Tokens.eyebrow) }
             }
 
             Spacer(Modifier.height(18.dp))
@@ -545,13 +545,13 @@ private fun Alpha5VariantSection(
     onUse: (String) -> Unit,
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+        Text(title, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
         TextButton(onClick = { onVariants(variants + CreatorVariantIdea(id = UUID.randomUUID().toString())) }) {
-            Text("+ IDEA", fontSize = 8.sp)
+            Text("+ IDEA", fontSize = BacklotUX10Tokens.eyebrow)
         }
     }
     variants.forEach { variant ->
-        Surface(Modifier.fillMaxWidth().padding(bottom = 6.dp), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+        Surface(Modifier.fillMaxWidth().padding(bottom = 6.dp), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
             Column(Modifier.padding(10.dp)) {
                 OutlinedTextField(
                     value = variant.text,
@@ -567,7 +567,7 @@ private fun Alpha5VariantSection(
             }
         }
     }
-    if (variants.isEmpty()) Text("No alternatives saved yet.", color = MutedText, fontSize = 8.sp)
+    if (variants.isEmpty()) Text("No alternatives saved yet.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
 }
 
 @Composable
@@ -594,11 +594,11 @@ private fun Alpha5GateCard(
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = gate.required, onCheckedChange = { onChange(gate.copy(required = it)) }, enabled = !protectedCheck)
-                Text(if (gate.required) "Required" else "Optional", color = MutedText, fontSize = 8.sp)
+                Text(if (gate.required) "Required" else "Optional", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.DONE)) }) { Text("DONE", fontSize = 8.sp) }
-                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.SKIPPED)) }, enabled = !gate.required && !protectedCheck) { Text("SKIP", fontSize = 8.sp) }
-                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.TODO)) }) { Text("RESET", fontSize = 8.sp) }
+                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.DONE)) }) { Text("DONE", fontSize = BacklotUX10Tokens.eyebrow) }
+                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.SKIPPED)) }, enabled = !gate.required && !protectedCheck) { Text("SKIP", fontSize = BacklotUX10Tokens.eyebrow) }
+                TextButton(onClick = { onChange(gate.copy(status = CreatorPublishGateStatus.TODO)) }) { Text("RESET", fontSize = BacklotUX10Tokens.eyebrow) }
                 IconButton(onClick = onRemove, enabled = !protectedCheck) { Icon(Icons.Outlined.DeleteOutline, "Remove", tint = MutedText) }
             }
         }
@@ -607,19 +607,19 @@ private fun Alpha5GateCard(
 
 @Composable
 private fun Alpha5HistoryCard(event: CreatorPublicationEvent) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(11.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(event.kind.name, color = when (event.kind) {
                     CreatorPublicationEventKind.PUBLISHED -> SuccessGreen
                     CreatorPublicationEventKind.UPDATED -> MutedGold
                     CreatorPublicationEventKind.REOPENED -> RecRed
-                }, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Text(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(event.atMillis)), color = MutedText, fontSize = 7.5.sp)
+                }, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
+                Text(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(event.atMillis)), color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
             }
-            if (event.titleSnapshot.isNotBlank()) Text(event.titleSnapshot, color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-            if (event.url.isNotBlank()) Text(event.url, color = MutedText, fontSize = 7.8.sp, maxLines = 1)
-            if (event.note.isNotBlank()) Text(event.note, color = MutedGold, fontSize = 8.sp)
+            if (event.titleSnapshot.isNotBlank()) Text(event.titleSnapshot, color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
+            if (event.url.isNotBlank()) Text(event.url, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, maxLines = 1)
+            if (event.note.isNotBlank()) Text(event.note, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow)
         }
     }
 }
@@ -646,7 +646,7 @@ private fun Alpha5PublicationActionDialog(
         title = { Text(title, color = ProjectorIvory, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("${deliverable.platform} · ${deliverable.format}", color = MutedGold, fontSize = 9.sp)
+                Text("${deliverable.platform} · ${deliverable.format}", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow)
                 if (action != Alpha5PublicationAction.REOPEN) {
                     OutlinedButton(onClick = {
                         val date = Calendar.getInstance().apply { timeInMillis = at }
@@ -672,7 +672,7 @@ private fun Alpha5PublicationActionDialog(
                     minLines = 2,
                 )
                 if (action == Alpha5PublicationAction.REOPEN) {
-                    Text("Reopening keeps the publication record and sets this post back to Ready.", color = MutedText, fontSize = 8.5.sp)
+                    Text("Reopening keeps the publication record and sets this post back to Ready.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                 }
             }
         },
@@ -720,7 +720,7 @@ private fun Alpha5Field(
 
 @Composable
 private fun Alpha5Empty(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
     }
 }

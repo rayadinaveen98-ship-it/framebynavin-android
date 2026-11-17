@@ -83,7 +83,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
 
     WorkspaceAdaptiveFrame {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = BacklotUX10Tokens.pageGutter),
         ) {
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -114,9 +114,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
 
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Column(Modifier.padding(18.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -167,7 +167,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         Spacer(Modifier.height(18.dp))
                         Button(
                             onClick = primaryAction,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget),
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         ) {
@@ -194,9 +194,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 ) { Text("OPEN STAGE NOTES & EVIDENCE") }
                 Spacer(Modifier.height(14.dp))
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                     color = CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine.copy(alpha = .5f)),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
                         TextButton(
@@ -261,32 +261,64 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 Spacer(Modifier.height(18.dp))
                 Text("WORKSPACE", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MinimalWorkspaceToolCard(
-                        title = "Plan", detail = if (checklistTotal == 0) "Start planning" else checklistDone.toString() + "/" + checklistTotal + " tasks",
-                        icon = Icons.Outlined.Dashboard, modifier = Modifier.weight(1f), onClick = onOpenProject,
-                    )
-                    MinimalWorkspaceToolCard(
-                        title = "Script", detail = when {
-                            scriptBeats > 0 -> scriptBeats.toString() + " beats"
+                val tools = listOf(
+                    UX10CWorkspaceTool(
+                        title = "Plan",
+                        detail = if (checklistTotal == 0) "Start planning"
+                            else "${checklistDone}/${checklistTotal} tasks",
+                        icon = Icons.Outlined.Dashboard,
+                        onClick = onOpenProject,
+                    ),
+                    UX10CWorkspaceTool(
+                        title = "Script",
+                        detail = when {
+                            scriptBeats > 0 -> "${scriptBeats} beats"
                             hasScript -> "Draft started"
                             else -> "Not started"
                         },
-                        icon = Icons.Outlined.EditNote, modifier = Modifier.weight(1f), onClick = onOpenScript,
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MinimalWorkspaceToolCard(
-                        title = "Publish", detail = if (published > 0) published.toString() + " published"
-                            else if (workspace.deliverables.isNotEmpty()) workspace.deliverables.size.toString() + " planned"
+                        icon = Icons.Outlined.EditNote,
+                        onClick = onOpenScript,
+                    ),
+                    UX10CWorkspaceTool(
+                        title = "Publish",
+                        detail = if (published > 0) "${published} recorded published"
+                            else if (workspace.deliverables.isNotEmpty())
+                                "${workspace.deliverables.size} planned"
                             else "Not started",
-                        icon = Icons.Outlined.Publish, modifier = Modifier.weight(1f), onClick = onOpenPublish,
-                    )
-                    MinimalWorkspaceToolCard(
-                        title = "Guide", detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
-                        icon = Icons.Outlined.AutoAwesome, modifier = Modifier.weight(1f), onClick = onOpenBlueprint,
-                    )
+                        icon = Icons.Outlined.Publish,
+                        onClick = onOpenPublish,
+                    ),
+                    UX10CWorkspaceTool(
+                        title = "Guide",
+                        detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
+                        icon = Icons.Outlined.AutoAwesome,
+                        onClick = onOpenBlueprint,
+                    ),
+                )
+                val columns = UX10CWorkspacePresentationPolicy.columnsPerRow(
+                    screenWidthDp = androidx.compose.ui.platform.LocalConfiguration
+                        .current.screenWidthDp,
+                    fontScale = androidx.compose.ui.platform.LocalDensity
+                        .current.fontScale,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    tools.chunked(columns).forEach { toolRow ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            toolRow.forEach { tool ->
+                                MinimalWorkspaceToolCard(
+                                    title = tool.title,
+                                    detail = tool.detail,
+                                    icon = tool.icon,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = tool.onClick,
+                                )
+                            }
+                            if (toolRow.size < columns) Spacer(Modifier.weight(1f))
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -296,7 +328,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         .testTag("ux051c-open-creative-board"),
                     shape = RoundedCornerShape(17.dp),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -329,7 +361,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         .testTag("cw4-output-craft-entry"),
                     shape = RoundedCornerShape(17.dp),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(17.dp),
@@ -361,7 +393,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         .testTag("ux051d-open-output-learning"),
                     shape = RoundedCornerShape(17.dp),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(16.dp),
@@ -438,9 +470,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                 modifier = Modifier.fillMaxWidth()
                                     .padding(bottom = 9.dp)
                                     .testTag("v2285-focus-${hint.key}"),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                                 color = CinemaSurface,
-                                border = BorderStroke(1.dp, CinemaLine),
+                                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                             ) {
                                 Column(Modifier.padding(13.dp)) {
                                     Text(
@@ -495,7 +527,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         modifier = Modifier.padding(start = 5.dp, bottom = 9.dp)
                             .testTag("ux05-stage-navigation-disclosure"),
                     )
-                    Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                    Surface(shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius), color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                         Column(Modifier.fillMaxWidth().padding(14.dp)) {
                             template.stages.forEachIndexed { index, stage ->
                                 Row(
@@ -542,6 +574,14 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     }
 }
 
+/** Original Plan, Script, Publish and Guide destinations in stable order. */
+private data class UX10CWorkspaceTool(
+    val title: String,
+    val detail: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+)
+
 @Composable
 private fun MinimalWorkspaceToolCard(
     title: String,
@@ -553,16 +593,16 @@ private fun MinimalWorkspaceToolCard(
     Surface(
         onClick = onClick,
         modifier = modifier.heightIn(min = 124.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column(Modifier.fillMaxWidth().padding(15.dp)) {
             Icon(icon, contentDescription = null, tint = MutedGold, modifier = Modifier.size(23.dp))
             Spacer(Modifier.height(11.dp))
             Text(title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(2.dp))
-            Text(detail, color = MutedText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, color = MutedText, fontSize = BacklotUX10Tokens.supporting, maxLines = 2, lineHeight = 16.sp, overflow = TextOverflow.Ellipsis)
         }
     }
 }

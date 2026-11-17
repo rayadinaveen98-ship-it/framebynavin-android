@@ -254,7 +254,7 @@ internal fun V20NewProjectWizard(
                     Surface(
                         shape = RoundedCornerShape(100.dp),
                         color = MutedGold.copy(alpha = .10f),
-                        border = BorderStroke(1.dp, MutedGold.copy(alpha = .20f)),
+                        border = BacklotUX10Tokens.quietBorder(MutedGold, alpha = 0.35f),
                     ) {
                         Text(
                             if (showAdvancedSetup) "${(activeStage + 1).coerceIn(1, 7)}/7" else "QUICK",
@@ -276,7 +276,7 @@ internal fun V20NewProjectWizard(
 
                 Column(
                     Modifier.weight(1f).verticalScroll(scrollState)
-                        .padding(horizontal = 20.dp, vertical = 18.dp)
+                        .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 18.dp)
                         .padding(bottom = 30.dp),
                 ) {
                     if (!showAdvancedSetup) {
@@ -529,7 +529,7 @@ internal fun V20NewProjectWizard(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
                             color = CinemaSurface,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                         ) {
                             Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.touchTarget).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
@@ -625,7 +625,7 @@ internal fun V20NewProjectWizard(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             color = CinemaSurface,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                         ) {
                             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(20.dp))
@@ -813,7 +813,7 @@ internal fun V20NewProjectWizard(
                         modifier = Modifier.fillMaxWidth().testTag("quick-create-footer"),
                         color = CinemaSurfaceRaised,
                     ) {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 10.dp)) {
                             Text(
                                 "$platform · $contentType · ${v20WizardDateTime(dueAt)}",
                                 color = MutedText,
@@ -870,7 +870,7 @@ internal fun V174QuickReminderSummary(
         modifier = Modifier.fillMaxWidth().heightIn(min = 62.dp).testTag("quick-create-reminder-summary"),
         shape = RoundedCornerShape(16.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
@@ -913,9 +913,9 @@ private fun V20ProgressiveSection(
             if (active) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, RecRed.copy(alpha = .38f)),
+                    border = BacklotUX10Tokens.activeBorder(RecRed),
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Row(Modifier.bringIntoViewRequester(bringToStep), verticalAlignment = Alignment.CenterVertically) {
@@ -941,9 +941,9 @@ private fun V20ProgressiveSection(
                 Surface(
                     onClick = onEdit,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                     color = CinemaSurface.copy(alpha = .82f),
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.reviewRowMinHeight).padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -990,7 +990,7 @@ private fun V20DateTimeButton(label: String, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight),
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
         shape = RoundedCornerShape(14.dp),
     ) {
         Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(17.dp))
@@ -1013,7 +1013,7 @@ private fun V20WizardSummaryChip(label: String, value: String) {
 
 @Composable
 internal fun V20WizardReviewRow(label: String, value: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.reviewRowMinHeight).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(label, color = MutedText, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold, letterSpacing = .6.sp)
