@@ -21,11 +21,13 @@ Beginners see the next useful action. Advanced users opt into deeper contextual 
 
 **Not yet certified:** Kotlin compilation, visual/navigation QA, concurrency and process-death flows, accessibility, data restore and large project performance.
 
-## 05.1B — Context-aware Cockpit and Brief 2.0 (pending)
-- Current-stage next action based on missing stage-owned materials, script readiness, source verification and per-output publish readiness; no invented intelligence or fake completion.
-- Optional creative brief fields for objective, audience, success metric and constraints; preserve existing `audience`, `viewerProblem`, `promise`, `angle` as canonical.
-- Stage status labels reflect actual saved facts, never count time worked or infer platform publication.
-- Avoid large permanent summary cards; responsive compact and expanded modes.
+## 05.1B — Context-aware Cockpit and Brief 2.0 (source-staged in UX05.1B draft)
+- Pure read-only, stage-aware recommendations derived from saved project facts: evidence/source gaps, draft script beats, missing or unapproved cut records, missing deliverables, publication readiness and outstanding work. No paid AI calls, fabricated source verification or auto-advancement. Maximum two focus prompts.
+- Suggestions route directly to the actual Stage Desk, Script Studio, Output Craft, Publish Studio, Plan → Sources, Tasks or Outputs, or Plan → Brief. Stage primary Continue remains unchanged.
+- Existing audience/viewerProblem/promise/angle are canonical. Added **optional** `objective`, `successCriteria` and `constraints` as additive string fields, with defaults for old projects and positional legacy constructors preserved. Existing users are never required to fill them.
+- Both authoritative TaskStore JSON and local CreatorEditorDraftStore JSON serialize/deserialize the new fields. Held-draft previews and guarded historical text recovery include them. Non-Plan Publish saves reattach the latest authoritative optional brief fields.
+- Brief is collapsible in the hub, and the Plan Brief tab has an optional expand-on-demand editor; no duplicate source of truth and no new platform permissions.
+- **Not certified:** Source changes are staged only. Migration, restore, offline, small-screen, compiler and CI compatibility remain to be checked in the after-UX10 certification campaign. No external platform metrics are inferred.
 
 ## 05.1C — Connected creation modules (pending)
 - Contextual, optional Stage Desk modules: film scene evidence/shot plan; podcast segment notes; tutorial lesson plan; tech test matrix; travel location sequence; food method/shot plan.
