@@ -40,6 +40,7 @@ import java.util.Locale
 internal fun UX08ECalendarNavigation(
     view: UX08ECalendarView,
     selected: LocalDate,
+    highlightedDay: LocalDate?,
     today: LocalDate,
     items: List<CreatorCalendarItem>,
     zone: ZoneId,
@@ -135,8 +136,8 @@ internal fun UX08ECalendarNavigation(
                     (0L..6L).forEach { offset ->
                         val date = window.start.plusDays(offset)
                         UX08EDateCell(
-                            date = date, selected = selected, today = today,
-                            zone = zone, items = items,
+                            date = date, selected = highlightedDay ?: selected,
+                            today = today, zone = zone, items = items,
                             inViewedMonth = true, onDateSelect = onDateSelect,
                             modifier = Modifier.weight(1f),
                         )
@@ -161,7 +162,8 @@ internal fun UX08ECalendarNavigation(
                         ) {
                             week.forEach { date ->
                                 UX08EDateCell(
-                                    date = date, selected = selected,
+                                    date = date,
+                                    selected = highlightedDay ?: selected,
                                     today = today, zone = zone, items = items,
                                     inViewedMonth = YearMonth.from(date) ==
                                         YearMonth.from(selected),
@@ -184,7 +186,7 @@ internal fun UX08ECalendarNavigation(
                         if (UX08ECalendarPolicy.isSelectable(date, today)) {
                             UX08EAgendaDateChip(
                                 date = date,
-                                selected = selected,
+                                selected = highlightedDay ?: selected,
                                 zone = zone,
                                 items = items,
                                 onDateSelect = onDateSelect,
