@@ -645,6 +645,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             openStage(savedId ?: CreatorWorkflowEngine.currentStage(loaded).id)
                         }
                         Alpha6WorkspaceMode.BLUEPRINT -> mode = Alpha6WorkspaceMode.BLUEPRINT
+                        Alpha6WorkspaceMode.BOARD -> mode = Alpha6WorkspaceMode.BOARD
                         Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
                         Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
                         Alpha6WorkspaceMode.SCRIPT -> openScriptStudio(loaded)
