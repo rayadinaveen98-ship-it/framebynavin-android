@@ -1339,12 +1339,18 @@ internal fun V2232PersonalEditor(
                         Text(if (existing == null) "Make it yours" else "Your personal rhythm",
                             color = ProjectorIvory, fontSize = 19.sp,
                             fontWeight = FontWeight.Bold)
-                        if (composerStep >= 0) Text(
-                            "STEP ${composerStep + 1} OF 4  ·  " +
-                                listOf("Purpose", "Schedule", "Alert", "Review")[composerStep],
-                            color = MutedText, fontSize = 12.sp,
-                            modifier = Modifier.testTag("v296-composer-progress"),
-                        )
+                        if (composerStep >= 0) {
+                            V406PersonalComposerProgress(
+                                currentStep = composerStep,
+                                onReturnTo = { earlier ->
+                                    if (!saving && earlier < composerStep) {
+                                        composerStep = earlier
+                                        error = null
+                                    }
+                                },
+                                modifier = Modifier.testTag("v296-composer-progress"),
+                            )
+                        }
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Outlined.Close, contentDescription = "Close editor", tint = ProjectorIvory)
