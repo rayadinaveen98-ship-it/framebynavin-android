@@ -4,6 +4,10 @@
 -- Important: do not expose backlot_sync_internal through Supabase Data API.
 -- No Creator/Personal snapshot tables, live records, storage, Auth sessions,
 -- backups, restoration or account deletion are modified.
+-- ON DELETE CASCADE on the internal FK chain only supports FUTURE verified
+-- Auth account removal; no client DELETE privilege or account deletion RPC.
+-- Tombstones are retained for offline device convergence until explicit
+-- retention and full-account-deletion policy is implemented.
 --
 -- Server contract v1 deliberately supports Creator Projects and Ideas ONLY.
 -- This must not be used to advertise complete sync, backup or recovery.
@@ -52,7 +56,8 @@ create table backlot_sync_internal.changes (
     created_at timestamptz not null default now(),
     primary key (user_id, sequence),
     foreign key (user_id, domain, entity_id)
-      references backlot_sync_internal.entities(user_id, domain, entity_id),
+      references backlot_sync_internal.entities(user_id, domain, entity_id)
+      on delete cascade,
     check (deleted_at is null or payload = '{}'::jsonb)
 );
 create index changes_by_account_entity
@@ -71,6 +76,7 @@ create table backlot_sync_internal.applied_operations (
     primary key (user_id, operation_id),
     foreign key (user_id, sequence)
       references backlot_sync_internal.changes(user_id, sequence)
+      on delete cascade
 );
 create index applied_operations_by_account_sequence
     on backlot_sync_internal.applied_operations(user_id, sequence);
