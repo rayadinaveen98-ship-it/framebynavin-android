@@ -4,7 +4,7 @@
 **STATE:** FUTURE QA SPECIFICATION ONLY — **0/40 checks executed; 0/7 new source unit tests executed**.
 **No evidence:** no Kotlin/Gradle compile, JVM/CI, Compose instrumentation, Android/emulator, signed APK, device screenshots, TalkBack physical output, merge, release.
 **Exact source base:** UX10B PR #424 head `9ddfe99fb1e63c145c53ba325cc7cfbc61a4773f`.
-**Protected owner stable:** V337 P0 `815ba69775f75bb6e5f25bb838c2c17b4f09c203e`; must reconcile original accepted 19-commit/22-path protective delta before any releasable candidate. (Recheck exact baseline identifier using original accepted P0 head; never infer from a file display name.)
+**Protected owner stable:** V337 P0 `815ba69775f75b6e5f25bb838c2c17b4f09c203e`; must reconcile original accepted 19-commit/22-path protective delta before any releasable candidate.
 **Roadmap order:** UX09 account-level two-device sync explicitly postponed. UX10C is source-only, not a replacement for UX09 privacy, RLS, conflict or two-device tests.
 
 | ID | Priority | Scenario | Must verify on exact candidate |
