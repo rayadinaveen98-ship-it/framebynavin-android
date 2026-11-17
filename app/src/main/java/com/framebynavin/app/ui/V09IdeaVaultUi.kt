@@ -149,7 +149,7 @@ internal fun V09IdeaVaultScreen(
             ) {
                 if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
-                    Text("Ideas", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("Ideas", color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = {
                     showDeleted = !showDeleted
@@ -172,13 +172,13 @@ internal fun V09IdeaVaultScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(14.dp),
                     color = MutedGold.copy(alpha = .055f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
+                    border = BacklotUX10Tokens.quietBorder(MutedGold, alpha = 0.38f),
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("⚡", fontSize = 14.sp)
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("RELATED TO YOUR CHANNEL", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text("RELATED TO YOUR CHANNEL", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                             Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -189,7 +189,7 @@ internal fun V09IdeaVaultScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 placeholder = { Text("Search your ideas…") },
@@ -197,7 +197,7 @@ internal fun V09IdeaVaultScreen(
 
             Spacer(Modifier.height(9.dp))
             Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = BacklotUX10Tokens.pageGutter),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 FilterChip(selected = !showDeleted && statusFilter == null, onClick = { showDeleted = false; statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
@@ -213,7 +213,7 @@ internal fun V09IdeaVaultScreen(
             }
 
             Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter), verticalAlignment = Alignment.CenterVertically) {
                 Text("${filtered.size} ideas", color = MutedText, fontSize = 12.sp)
                 Spacer(Modifier.weight(1f))
                 if (!showDeleted && readyCount > 0) Text("$readyCount ready", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -236,7 +236,7 @@ internal fun V09IdeaVaultScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomNavigationClearance),
+                    contentPadding = PaddingValues(start = BacklotUX10Tokens.pageGutter, end = BacklotUX10Tokens.pageGutter, top = 8.dp, bottom = bottomNavigationClearance),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filtered, key = { it.id }) { idea ->
@@ -338,7 +338,7 @@ private fun V162DeletedIdeaCard(idea: CreatorIdea, onRestore: () -> Unit) {
     Surface(
         color = CinemaSurfaceRaised,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -694,8 +694,8 @@ internal fun V09NewIdeaCleanEditor(
                                 Icon(Icons.Outlined.Mic, null, tint = RecRed, modifier = Modifier.size(19.dp))
                                 Spacer(Modifier.width(7.dp))
                                 Column {
-                                    Text("RECORD", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                    Text(if (voiceRecording != null) "Recording ready" else "Original audio", color = MutedText, fontSize = 7.8.sp)
+                                    Text("RECORD", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
+                                    Text(if (voiceRecording != null) "Recording ready" else "Original audio", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                                 }
                             }
                         }
@@ -710,8 +710,8 @@ internal fun V09NewIdeaCleanEditor(
                                 Icon(Icons.Outlined.Mic, null, tint = MutedGold, modifier = Modifier.size(19.dp))
                                 Spacer(Modifier.width(7.dp))
                                 Column {
-                                    Text("DICTATE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                    Text("Speak to write an idea", color = MutedText, fontSize = 7.8.sp)
+                                    Text("DICTATE", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
+                                    Text("Speak to write an idea", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                                 }
                             }
                         }
@@ -748,14 +748,14 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
-                        border = BorderStroke(1.dp, CinemaLine),
+                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Notes, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("NOTES", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                Text(if (notes.isBlank()) "Optional context, references or details" else "Notes added", color = MutedText, fontSize = 7.8.sp)
+                                Text("NOTES", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
+                                Text(if (notes.isBlank()) "Optional context, references or details" else "Notes added", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                             }
                             Icon(if (showNotes) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -779,14 +779,14 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
-                        border = BorderStroke(1.dp, CinemaLine),
+                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Alarm, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("REMINDER", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                Text(if (reminderAtMillis > 0L) "Reminder configured" else "Optional — decide later when to revisit", color = MutedText, fontSize = 7.8.sp)
+                                Text("REMINDER", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
+                                Text(if (reminderAtMillis > 0L) "Reminder configured" else "Optional — decide later when to revisit", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                             }
                             Icon(if (showReminder) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -812,14 +812,14 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
-                        border = BorderStroke(1.dp, CinemaLine),
+                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Tune, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("ORGANIZE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                Text("Topic, status and where to post", color = MutedText, fontSize = 7.8.sp)
+                                Text("ORGANIZE", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
+                                Text("Topic, status and where to post", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                             }
                             Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -832,32 +832,32 @@ internal fun V09NewIdeaCleanEditor(
                             V09VaultLabel("CATEGORY")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 visibleCategories.forEach { value ->
-                                    FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 9.sp) })
+                                    FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = BacklotUX10Tokens.eyebrow) })
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("STATUS")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.ARCHIVED).forEach { value ->
-                                    FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 9.sp) })
+                                    FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = BacklotUX10Tokens.eyebrow) })
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("POTENTIAL")
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 IdeaPotential.entries.forEach { value ->
-                                    FilterChip(potential == value, { potential = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 9.sp) })
+                                    FilterChip(potential == value, { potential = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = BacklotUX10Tokens.eyebrow) })
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("LIKELY PLATFORM")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 9.sp) }) }
+                                platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = BacklotUX10Tokens.eyebrow) }) }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("LIKELY FORMAT")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 9.sp) }) }
+                                formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = BacklotUX10Tokens.eyebrow) }) }
                             }
                         }
                     }
@@ -1045,12 +1045,12 @@ private fun V09IdeaEditor(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     color = CinemaSurface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
+                    border = androidx.compose.foundation.BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("ORGANIZE IDEA · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                            Text("Topic, status and publishing hints", color = MutedText, fontSize = 8.5.sp)
+                            Text("ORGANIZE IDEA · OPTIONAL", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                            Text("Topic, status and publishing hints", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                         }
                         Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedGold)
                     }
@@ -1261,7 +1261,7 @@ internal fun V09ConvertIdeaDialog(
 
 @Composable
 private fun V09VaultLabel(text: String) {
-    Text(text, color = MutedGold, fontSize = 8.2.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
+    Text(text, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
 }
 
 private fun v09DefaultVoiceIdeaTitle(): String =
