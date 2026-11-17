@@ -1,6 +1,6 @@
 # Backlot UX05.1 — Advanced Creator Workspace
 
-**Owner-approved advancement plan; source implementation underway.**
+**UX05.1A–E source advancement staged in draft branches; never compiled or certified. UX06 is next.**
 **Parent:** UX05 draft PR #397 / `feature/backlot-ux05-project-workspace-20261117` at `ff6bc49f441f9c1564604d66f0ccc0e570c497c1`.
 **Protected:** `stable/backlot-v337-premiere-owner-testing-20261114`. No merges, releases or baseline edits.
 **Process:** Stage source changes sequentially; comprehensive build/unit/UI/integration/emulator/physical certification occurs after UX10 as previously approved. Source inspection is not certification.
@@ -48,10 +48,17 @@ Beginners see the next useful action. Advanced users opt into deeper contextual 
 - Reusable template enhancements and export features are intentionally deferred, pending UX05.1E sync, privacy and migration contract approval.
 - **Not yet certified:** compile, lint, JVM and instrumentation tests, V337 upgrade, legacy publication compatibility, multi-root and derivative selection, report/reopen history, process death, accessibility and physical-device review remain to be performed after UX10.
 
-## 05.1E — Integration and handoff before UX06/09/10 (pending)
-- Design explicit cross-reference IDs, serialization compatibility, restore round trips, offline-first conflict policy and deletion semantics before UX09 cloud sync.
-- Global visual tokens, type scale, density and reduced-motion behavior coordinated with UX10.
-- Keep current reminder system untouched until UX06.
+## 05.1E — Integration and handoff before UX06/09/10 (source-staged in UX05.1E draft)
+- **Creator workspace integration contract** documents all canonical writers, cross-reference identities, revision/restore-epoch checks, JSON/backup expectations, deletion safety, and a proposed **not approved or implemented** offline-first cloud conflict design for future UX09.
+- **Output Learning draft recovery gap closed in source:** a separate `CreatorOutputLearningDraftStore` now journals unfinished reflections locally with project/output/revision/restore-generation fences, matching existing Stage Desk principles. Only TaskStore writes final append-only learning. The exact matching journal is cleared on confirmed save or explicit discard; missing/older-generation entries never silently rebase.
+- Learning forms disable inputs and navigation during in-flight writes. System Back, explicit Back and output-switch discard paths now use one Activity-owned generation-checked clear route; failed clears do not claim a successful discard. Source review covered nullable output route, selected output identity, and old revision quarantine.
+- **Post-UX10 certification matrix** now defines G01–G25, including cumulative compile, V337 upgrade, restore and draft integrity, stage/cut/publication gates, 320dp/tablet/TalkBack, CI and real-device evidence.
+- All UX01–UX05.1D PRs have been confirmed stacked, open, draft and unmerged as of this source review. UX05.1E also remains an unmerged draft. No owner baseline mutation or unrelated Android reminder work.
+- Visual tokens, typography, density and motion must be unified during UX10 and then checked on physical devices. Current source inspection is **not** visual certification.
+- UX09 identity, hosting costs, database/remote schema, conflict resolution and account deletion require separate founder approval; the architecture draft is **not approval** to deploy paid/hosted services.
+- With this source-stage handoff, proceed to **UX06 — Reminder Experience**. Do not merge, release or label an APK stable until the complete after-UX10 gate passes.
+
+**Deliverables:** `docs/engineering/UX051E_CREATOR_WORKSPACE_INTEGRATION_CONTRACT.md`, `docs/qa/UX051E_WORKSPACE_CERTIFICATION_GATE_AFTER_UX10.md`, and UX05.1E handoff.
 
 ## Certification gates after UX10
 - In-place V337 upgrade with legacy and new projects; preserve entire histories.
