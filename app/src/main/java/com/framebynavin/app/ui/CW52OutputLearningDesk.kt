@@ -70,6 +70,10 @@ internal fun CW52OutputLearningDesk(
         output.status == CreatorDeliverableStatus.PUBLISHED && output.publishedAtMillis > 0L
     } == true && task.archivedAtMillis == 0L && task.status != TaskStatus.SKIPPED
 
+    val availableOutputIds = outputs.map { it.id }.toSet()
+    val unavailableOutputHistory = workspace.outputLearnings.filter {
+        it.deliverableId !in availableOutputIds
+    }.sortedByDescending { it.recordedAtMillis }
     val history = workspace.outputLearnings.filter { it.deliverableId == activeId }
         .sortedWith(
             compareByDescending<CreatorOutputLearning> { it.recordedAtMillis }
@@ -116,8 +120,12 @@ internal fun CW52OutputLearningDesk(
                     item {
                         Text("This project has no planned outputs yet.",
                             color = ProjectorIvory, fontSize = 14.sp)
-                        TextButton(onClick = onOpenPlanOutputs) {
-                            Text("PLAN FIRST OUTPUT", color = RecRed)
+                        if (task.archivedAtMillis == 0L &&
+                            task.status != TaskStatus.DONE &&
+                            task.status != TaskStatus.SKIPPED) {
+                            TextButton(onClick = onOpenPlanOutputs) {
+                                Text("PLAN FIRST OUTPUT", color = RecRed)
+                            }
                         }
                     }
                 } else {
@@ -313,6 +321,39 @@ internal fun CW52OutputLearningDesk(
                                     "Historical entry · original snapshot retained",
                                     color = MutedText, fontSize = 11.sp,
                                 )
+                            }
+                        }
+                    }
+                }
+                if (unavailableOutputHistory.isNotEmpty()) {
+                    item {
+                        Text("HISTORICAL LEARNING · OUTPUT UNAVAILABLE",
+                            color = MutedGold, fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold)
+                        Text(
+                            "Older learning is retained even when its original deliverable " +
+                                "is absent. No record was deleted or reassigned.",
+                            color = MutedText, fontSize = 12.sp,
+                        )
+                    }
+                    items(unavailableOutputHistory, key = { "missing:" + it.id }) { entry ->
+                        Surface(
+                            shape = RoundedCornerShape(15.dp),
+                            color = CinemaSurface,
+                            border = BorderStroke(1.dp, CinemaLine),
+                        ) {
+                            Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                                Text("Original output ID: ${entry.deliverableId}",
+                                    color = MutedGold, fontSize = 11.sp)
+                                Text(
+                                    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                                        .format(Date(entry.recordedAtMillis)),
+                                    color = MutedText, fontSize = 11.sp,
+                                )
+                                CW52SavedField("OBSERVED", entry.observedOutcome)
+                                CW52SavedField("WORKED", entry.whatWorked)
+                                CW52SavedField("IMPROVE", entry.improveNext)
+                                CW52SavedField("NEXT ACTION", entry.nextAction)
                             }
                         }
                     }
