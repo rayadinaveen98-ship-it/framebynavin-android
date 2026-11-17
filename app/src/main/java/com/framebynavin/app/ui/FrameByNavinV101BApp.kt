@@ -929,6 +929,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.DAILY_BRIEF -> V15DailyBriefScreen(
                 tasks = vm.tasks,
                 weeklySlots = vm.weeklySlots,
+                // Prevent an uninitialized project store from looking like
+                // a successful empty Daily Brief on the first app launch.
+                projectsLoaded = vm.tasksLoaded,
                 onClose = { overlay = POverlay.NONE },
                 onOpenProject = ::openProject,
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
