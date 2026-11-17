@@ -96,7 +96,6 @@ internal fun V289PersonalSpacesScreen(
     var entries by remember { mutableStateOf(emptyList<V289SpaceEntryEntity>()) }
     var linkedReminders by remember { mutableStateOf(emptyList<V289SpaceReminderLinkEntity>()) }
     var linkRemindersVisible by remember { mutableStateOf(false) }
-    var ux07dSpaceLinkSearch by remember(selectedSpaceId) { mutableStateOf("") }
     var newNoteVisible by remember { mutableStateOf(false) }
     var photos by remember { mutableStateOf(emptyList<V290SpacePhotoEntity>()) }
     var interruptedPhotos by remember { mutableStateOf(emptyList<V290InterruptedPhoto>()) }
@@ -106,6 +105,7 @@ internal fun V289PersonalSpacesScreen(
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    var ux07dSpaceLinkSearch by remember(selectedSpaceId) { mutableStateOf("") }
     // Each source has an independent availability status: on an I/O failure
     // never substitute an invented "zero logs/photos/links" user claim.
     var ux07cEntriesState by remember(selectedSpaceId) {
