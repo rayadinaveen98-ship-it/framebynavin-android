@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.framebynavin.app.R
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.widget.V2273WidgetKind
 
 /** The same layout resources declared by Backlot's three widget providers. */
@@ -66,11 +68,15 @@ internal fun V275WidgetPreview(kind: V2273WidgetKind) {
                 ))
             }
         },
-        modifier = Modifier.fillMaxWidth().height(174.dp)
+        modifier = Modifier.fillMaxWidth().height(
+            UX10EPresentationPolicy.widgetPreviewHeightDp(
+                LocalDensity.current.fontScale
+            ).dp
+        )
             .testTag("v275-widget-layout-${kind.name.lowercase()}"),
     )
     Text(
         "Actual Backlot widget layout · Example content, not live account data",
-        fontSize = 10.sp,
+        fontSize = BacklotUX10Tokens.eyebrow,
     )
 }
