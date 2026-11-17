@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -276,6 +278,10 @@ internal fun DashboardHabitReview(
             habit.startDate, today) + 1L).toInt()
     }
     val consistency = if (elapsedDays > 0) count * 100 / elapsedDays else 0
+    val dayGridColumns = UX10DPersonalPresentationPolicy.challengeDayGridColumns(
+        LocalConfiguration.current.screenWidthDp,
+        LocalDensity.current.fontScale,
+    )
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
         .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -313,7 +319,7 @@ internal fun DashboardHabitReview(
                     modifier = Modifier.testTag("habit-done-count"))
             }
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                (1..21).chunked(7).forEach { week ->
+                (1..21).chunked(dayGridColumns).forEach { week ->
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         week.forEach { index ->
@@ -349,6 +355,10 @@ internal fun DashboardHabitReview(
                                         BacklotAccent else BacklotSecondaryText,
                                     fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
+                        }
+                        // Keep final incomplete row the same cell width.
+                        repeat(dayGridColumns - week.size) {
+                            Spacer(Modifier.weight(1f))
                         }
                     }
                 }
