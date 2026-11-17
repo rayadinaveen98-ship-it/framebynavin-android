@@ -51,6 +51,8 @@ class HostedSafetyTests(TestCase):
             {"email": self.mail_b, "id": uid},
             {"email": self.mail_a, "id": uid, "is_anonymous": True},
             {"email": self.mail_a, "id": "garbage"},
+            {"email": None, "id": uid},
+            {"email": 42, "id": uid},
             {"email": self.mail_a, "id": str("00000000-0000-0000-0000-000000000000")},
             {"email": self.mail_a},
             None,
