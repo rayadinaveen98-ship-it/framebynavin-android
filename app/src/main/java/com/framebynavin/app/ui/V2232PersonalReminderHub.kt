@@ -1536,7 +1536,7 @@ internal fun V2232PersonalEditor(
                             fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            listOf(1, 2, 3).forEach { times ->
+                            listOf(1, 2, 3, 4, 5).forEach { times ->
                                 FilterChip(selected = personalVoiceCount == times,
                                     onClick = { personalVoiceCount = times },
                                     label = { Text(if (times == 1) "Once" else "$times times", fontSize = 11.sp) })
