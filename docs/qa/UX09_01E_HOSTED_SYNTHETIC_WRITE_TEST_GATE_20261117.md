@@ -1,6 +1,6 @@
 # Backlot UX09-01E — hosted synthetic Project/Idea write acceptance
 
-**Date: 2026-11-17 | STATUS: HOSTED QA WRITE CONTRACT E01–E15 PASSED, E16 CLEANUP PENDING.**
+**Date: 2026-11-17 | STATUS: HOSTED LAB WRITE CONTRACT E01–E16 ALL PASSED AND CLEANUP VERIFIED.**
 **Exclusive target:** Backlot Lab Supabase project `vasleafrmsovdbdlrcsw` (PG 17.12).
 **Change authorization:** founder approved continuation from the UX09-01D PASS into real synthetic Project/Idea testing, with original V337 and production database preserved. This does not authorize any stable merges, new paid resources, production releases, original Google-account mutation, account-delete product implementation, or unrelated schema change.
 
@@ -22,6 +22,23 @@
 **Certification decision:** `UX09-01E E01–E15: PASS` for the scoped **hosted Lab Project/Idea RPC contract**. `E16: PENDING` until the founder uses Dashboard to delete **only** the two disposable QA identities with the `backlot-ux09-a-b17c2026@gmail.com` and `backlot-ux09-b-b17c2026@gmail.com` suffixes, then the connected database confirms zero QA accounts and zero residual sync records. User Google account must never be deleted. Do not re-run E01-E15 on these accounts. Deleting QA identities before the evidence was recorded would have destroyed the positive test audit.
 
 **Still not implemented or verified:** Android offline outbox and multi-device sync, Personal/Spaces/Challenges, complete Backup/Restore/Account deletion, cumulative UX01–08/UX10 integration, physical APK acceptance and production release. Preserve V337 and original production backend.
+
+## 2026-11-17 E16 cleanup independently verified — UX09-01E COMPLETE
+
+**Owner action:** deleted **only** the two synthetic Backlot Lab QA accounts using the Supabase Dashboard.
+
+**Independent connected read-only SQL after deletion, against Backlot Lab project `vasleafrmsovdbdlrcsw`:**
+- `auth.users` **1 total**; QA A/B matching `backlot-ux09-[ab]-b17c2026@gmail.com` **0**; Google identity still present **1**.
+- QA Auth sessions **0**; total Auth sessions **1** (belongs to the surviving original Google user).
+- `backlot_sync_internal.account_sequences` **0**, `entities` **0**, `changes` **0**, `applied_operations` **0**. Tombstone records and operation history from UX09-01E were removed via the verified FK cascade after the temporary account deletion. No orphaned sync data remains.
+- Existing `public.creator_profiles=1`, `creator_sync_snapshots=1`, `creator_sync_heads=1`, `personal_sync_heads=0`, Storage objects **0**. Original app data remains in place.
+- Three hosted migrations remain installed: `20261117070805` Lab fresh install, `20261117070925` private voice policies, `20261117141908` UX09-01 Project/Idea contract.
+- Supabase security advisor reports only the previously known `auth_leaked_password_protection` warning; no new advisory detected.
+- **No writes or deletions were performed by this evidence check.** Original Backlot production backend and stable V337 source were not changed.
+
+**Final decision:** all UX09-01E scoped E01–E16 tests and cleanup **PASSED / CLOSED**. The server-side Creator Project/Idea synchronization RPC contract is certified on Backlot Lab for the tested scenarios. This **does not** certify Android synchronization, full Personal/Spaces/Challenges coverage, automatic backups, recovery/restore, account deletion product UX or APK release.
+
+**Next:** UX09-02 Android offline-first design/source audit and isolated implementation proposals, preserving protected V337 and UX10 P0 corrections. PR stays draft/unmerged; do not silently merge, mutate original production data or release.
 
 ## Prerequisites verified read-only on hosted Lab
 - Owner-executed signed read-only test succeeded for two independent disposable QA users, both HTTP 406 on private sync schema, read-only feeds empty, both signouts accepted (evidence in UX09-01D PR #434).
@@ -64,5 +81,5 @@
 - `UX09-01E` **will not certify** Android offline-first two-device auto-sync, personal/space/challenge sync, complete Backup/Restore, cloud-data or Auth Account Delete, UX01–08/UX10 integration, APK or Play release.
 
 ## Evidence acceptance
-- **Current**: owner-run E01–E15 PASS with independent SQL final-state verification; E16 account/data cleanup still PENDING. Prior 01D hosted read-only PASS remains valid.
+- **Current**: E01–E16 PASS; independent post-deletion SQL verified zero QA identities, sessions, synthetic sync rows and preserved owner Google account. Prior 01D hosted read-only PASS remains valid.
 - On owner-executed runner PASS, compare sanitized `Backlot-UX09E-Write-Report.txt` against independent connected Lab SQL row counts, exact QA user ownership and migration stability. Keep PR draft. An unverified report or partial pass must not advance the Android gate.
