@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,10 +19,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.CinemaBlack
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
@@ -50,7 +55,7 @@ internal fun V402FirstRunPermissionGuide(
             Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp, vertical = 22.dp),
+                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
             Text("BACKLOT / OPTIONAL SETUP", color = MutedGold, fontSize = 10.sp,
@@ -80,7 +85,8 @@ internal fun V402FirstRunPermissionGuide(
             )
             Button(
                 onClick = onContinue,
-                modifier = Modifier.fillMaxWidth().testTag("v402-permissions-continue"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
+                    .testTag("v402-permissions-continue"),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
             ) {
                 Text("CONTINUE TO BACKLOT", fontWeight = FontWeight.Black)
@@ -96,18 +102,45 @@ private fun V402PermissionRow(
     ready: Boolean,
     onOpen: () -> Unit,
 ) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(description, color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+    val stacked = UX10BPresentationPolicy.stackedFirstRunChoices(
+        screenWidthDp = LocalConfiguration.current.screenWidthDp,
+        fontScale = LocalDensity.current.fontScale,
+    )
+    val details: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = ProjectorIvory, fontSize = BacklotUX10Tokens.body,
+                fontWeight = FontWeight.SemiBold)
+            Text(description, color = MutedText, fontSize = BacklotUX10Tokens.supporting,
+                lineHeight = 17.sp)
             Text(if (ready) "Available" else "Optional · not enabled",
-                color = if (ready) MutedGold else MutedText, fontSize = 10.sp)
+                color = if (ready) MutedGold else MutedText,
+                fontSize = BacklotUX10Tokens.eyebrow)
         }
-        OutlinedButton(onClick = onOpen, enabled = !ready) {
-            Text(if (ready) "Ready" else "Review", fontSize = 11.sp)
+    }
+    val reviewButton: @Composable (Modifier) -> Unit = { modifier ->
+        OutlinedButton(
+            onClick = onOpen,
+            enabled = !ready,
+            modifier = modifier.heightIn(min = BacklotUX10Tokens.minimumTouchTarget),
+        ) {
+            Text(if (ready) "Ready" else "Review",
+                fontSize = BacklotUX10Tokens.supporting)
+        }
+    }
+    if (stacked) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            details()
+            reviewButton(Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) { details() }
+            reviewButton(Modifier)
         }
     }
 }
