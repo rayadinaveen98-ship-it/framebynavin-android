@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import com.framebynavin.app.data.CreatorIdea
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.CreatorWorkflowTimelineEvent
@@ -29,6 +30,7 @@ import com.framebynavin.app.ui.theme.*
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,18 +47,31 @@ internal fun V282ProgressHomeStrip(
     val context = LocalContext.current
     val store = remember(context) { CreatorWorkflowTimelineStore(context.applicationContext) }
     var timeline by remember { mutableStateOf(emptyList<CreatorWorkflowTimelineEvent>()) }
+    var timelineUnavailable by remember { mutableStateOf(false) }
+    var reading by remember { mutableStateOf(true) }
     LaunchedEffect(tasks, ideas) {
-        timeline = withContext(Dispatchers.IO) { store.loadAll() }
+        reading = true
+        timelineUnavailable = false
+        try {
+            timeline = withContext(Dispatchers.IO) { store.loadAll() }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            timeline = emptyList()
+            timelineUnavailable = true
+        } finally {
+            reading = false
+        }
     }
     val zone = remember { ZoneId.systemDefault() }
     val events = remember(tasks, ideas, timeline) { ProgressJourneyEngine.build(tasks, ideas, timeline) }
-    if (events.isEmpty()) return
+    if (events.isEmpty() && !timelineUnavailable) return
     val activeDays = remember(events, zone) { ProgressJourneyEngine.activeDays(events, zone) }
     val today = LocalDate.now(zone)
     val start = today.minusDays(6)
 
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)
+            .testTag("ux08b-home-journey-entry"),
         shape = RoundedCornerShape(18.dp),
         color = CinemaSurface,
         border = BorderStroke(1.dp, CinemaLine),
@@ -70,6 +85,18 @@ internal fun V282ProgressHomeStrip(
                 Icon(Icons.Outlined.ChevronRight, "Open Progress Journey", tint = MutedText,
                     modifier = Modifier.size(18.dp))
             }
+            if (timelineUnavailable) {
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "Workflow timeline unavailable · saved projects and ideas remain available",
+                    color = MutedText, fontSize = 11.sp,
+                    modifier = Modifier.testTag("ux08b-home-partial-history"),
+                )
+            } else if (reading) {
+                Spacer(Modifier.height(7.dp))
+                Text("Loading recorded journey…", color = MutedText, fontSize = 11.sp)
+            }
+            if (events.isNotEmpty()) {
             Spacer(Modifier.height(9.dp))
             Row(Modifier.fillMaxWidth()) {
                 repeat(7) { index ->
@@ -84,6 +111,7 @@ internal fun V282ProgressHomeStrip(
                             if (day in activeDays) SuccessGreen else Color.Transparent, CircleShape))
                     }
                 }
+            }
             }
         }
     }
