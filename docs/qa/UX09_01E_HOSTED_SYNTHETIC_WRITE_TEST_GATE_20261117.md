@@ -1,8 +1,27 @@
 # Backlot UX09-01E — hosted synthetic Project/Idea write acceptance
 
-**Date: 2026-11-17 | STATUS: LOCAL QA RUNNER PREPARED; LIVE WRITE ACCEPTANCE NOT RUN.**
+**Date: 2026-11-17 | STATUS: HOSTED QA WRITE CONTRACT E01–E15 PASSED, E16 CLEANUP PENDING.**
 **Exclusive target:** Backlot Lab Supabase project `vasleafrmsovdbdlrcsw` (PG 17.12).
 **Change authorization:** founder approved continuation from the UX09-01D PASS into real synthetic Project/Idea testing, with original V337 and production database preserved. This does not authorize any stable merges, new paid resources, production releases, original Google-account mutation, account-delete product implementation, or unrelated schema change.
+
+## 2026-11-17 live owner-run E01-E15 evidence — PASSED; cleanup E16 OPEN
+
+**Owner-uploaded sanitized artifact:** `Backlot-UX09E-Write-Report.txt`; SHA-256 `96eafc572082debc0333bfc7a064e2a7e1501b0b6eee94fd322661fd07a195ec`. The uploaded report states that all write, concurrency, input-negative, cursor, account-isolation, tombstone and signed sign-out checks passed. This is **owner-executed Windows V1**, not a hosted Github Actions write test. No passwords, user identifiers or raw payloads are included in that report.
+
+**Independent connected Backlot Lab read-only SQL after report:**
+- Exactly 3 Auth identities: 1 original non-QA + exactly 1 QA A + 1 QA B.
+- QA Auth sessions: A **0**, B **0** (original's session is not touched).
+- QA A: `account_sequences=1`, `entities=2` (1 `creator_project` tombstone at revision 3; 1 `creator_idea` at revision 1), `changes=4` (project seq 1,2,3; idea seq 4), `applied_operations=4`.
+- QA B: `account_sequences=1`, `entities=1` (creator project at revision 2, not tombstoned), `changes=2` (seq 1,2), `applied_operations=2`.
+- All four `backlot_sync_internal` tables contain **zero non-QA-owned records**. The installed UX09 migration count remains **one**.
+- Clean-up preflight: QA-owned `creator_profiles`, `creator_sync_snapshots`, `creator_sync_heads`, `personal_sync_heads`, and `storage.objects` all have **0 rows**; QA Auth session rows 0.
+- Existing FK constraints of all four new internal tables reference `auth.users` with `ON DELETE CASCADE`; app user tables also reference Auth users using cascades.
+- **Important evidence boundary:** server data independently corroborates final-state revision, sequencing, tombstone and identity isolation; the race result, idempotent replay response, and rejected-input HTTP behavior are evidenced by the runner's owner-uploaded report, not by a separate new independent CI replay.
+- No SQL writes, schema changes, account deletions, Auth provider setting changes, branch merges or stable app updates performed during this evidence review.
+
+**Certification decision:** `UX09-01E E01–E15: PASS` for the scoped **hosted Lab Project/Idea RPC contract**. `E16: PENDING` until the founder uses Dashboard to delete **only** the two disposable QA identities with the `backlot-ux09-a-b17c2026@gmail.com` and `backlot-ux09-b-b17c2026@gmail.com` suffixes, then the connected database confirms zero QA accounts and zero residual sync records. User Google account must never be deleted. Do not re-run E01-E15 on these accounts. Deleting QA identities before the evidence was recorded would have destroyed the positive test audit.
+
+**Still not implemented or verified:** Android offline outbox and multi-device sync, Personal/Spaces/Challenges, complete Backup/Restore/Account deletion, cumulative UX01–08/UX10 integration, physical APK acceptance and production release. Preserve V337 and original production backend.
 
 ## Prerequisites verified read-only on hosted Lab
 - Owner-executed signed read-only test succeeded for two independent disposable QA users, both HTTP 406 on private sync schema, read-only feeds empty, both signouts accepted (evidence in UX09-01D PR #434).
@@ -45,5 +64,5 @@
 - `UX09-01E` **will not certify** Android offline-first two-device auto-sync, personal/space/challenge sync, complete Backup/Restore, cloud-data or Auth Account Delete, UX01–08/UX10 integration, APK or Play release.
 
 ## Evidence acceptance
-- **Current**: static package safety only; 01D hosted read-only PASS. E01–E16 are all **PENDING**.
+- **Current**: owner-run E01–E15 PASS with independent SQL final-state verification; E16 account/data cleanup still PENDING. Prior 01D hosted read-only PASS remains valid.
 - On owner-executed runner PASS, compare sanitized `Backlot-UX09E-Write-Report.txt` against independent connected Lab SQL row counts, exact QA user ownership and migration stability. Keep PR draft. An unverified report or partial pass must not advance the Android gate.
