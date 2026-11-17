@@ -73,7 +73,11 @@ internal class Phase1HabitStore(context: Context) {
         require(after.id == before.id && after.archived == before.archived &&
             after.startDate == before.startDate &&
             after.activity == before.activity && after.zoneId == before.zoneId &&
-            after.alertTime == before.alertTime && after.alertKind == before.alertKind
+            after.alertTime == before.alertTime && after.alertKind == before.alertKind &&
+            after.voiceMusicMode == before.voiceMusicMode &&
+            after.voiceMusicUri == before.voiceMusicUri &&
+            after.voiceRepeatCount == before.voiceRepeatCount &&
+            after.voiceRepeatGapMillis == before.voiceRepeatGapMillis
         ) {
             "Progress updates cannot silently change challenge identity or alert schedule"
         }
@@ -94,6 +98,10 @@ internal class Phase1HabitStore(context: Context) {
         alertTime: java.time.LocalTime?,
         alertKind: Phase1HabitAlertKind?,
         completionMode: Phase1HabitCompletionMode,
+        voiceMusicMode: com.framebynavin.app.reminders.ReminderMusicMode = expected.voiceMusicMode,
+        voiceMusicUri: String = expected.voiceMusicUri,
+        voiceRepeatCount: Int = expected.voiceRepeatCount,
+        voiceRepeatGapMillis: Long = expected.voiceRepeatGapMillis,
     ): List<Phase1HabitChallenge> = mutate { current ->
         val index = current.indexOfFirst { it.id == id }
         require(index >= 0) { "Challenge was already removed" }
@@ -103,6 +111,7 @@ internal class Phase1HabitStore(context: Context) {
         }
         val next = Phase1HabitManagementPolicy.reviewedEdit(
             before, activity, startDate, alertTime, alertKind, completionMode,
+            voiceMusicMode, voiceMusicUri, voiceRepeatCount, voiceRepeatGapMillis,
         )
         current.toMutableList().apply { set(index, next) }
     }
