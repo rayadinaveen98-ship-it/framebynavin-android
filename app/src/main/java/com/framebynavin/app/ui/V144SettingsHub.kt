@@ -70,9 +70,28 @@ internal fun V144SettingsHub(
 ) {
     val context = LocalContext.current
     var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
+    var searchedDirectlyToDetail by rememberSaveable { mutableStateOf(false) }
     val section = V167SettingsNavigationPolicy.fromSavedName(sectionName)
-    fun navigateBack() { sectionName = V167SettingsNavigationPolicy.parent(section).name }
+    fun navigateBack() {
+        sectionName = if (searchedDirectlyToDetail &&
+            section in listOf(
+                V167SettingsSection.APPEARANCE,
+                V167SettingsSection.REMINDER_SCENES,
+                V167SettingsSection.GUIDE,
+                V167SettingsSection.VOICE,
+            )
+        ) {
+            searchedDirectlyToDetail = false
+            V167SettingsSection.HOME.name
+        } else V167SettingsNavigationPolicy.parent(section).name
+    }
     fun openSearchDestination(destination: V404SettingsDestination) {
+        searchedDirectlyToDetail = destination in setOf(
+            V404SettingsDestination.APPEARANCE,
+            V404SettingsDestination.REMINDER_SCENES,
+            V404SettingsDestination.COMPANION,
+            V404SettingsDestination.VOICE,
+        )
         when (destination) {
             V404SettingsDestination.ACCOUNT -> onProfile()
             V404SettingsDestination.APPEARANCE -> sectionName = V167SettingsSection.APPEARANCE.name
@@ -116,7 +135,10 @@ internal fun V144SettingsHub(
                 batteryReady = batteryReady,
                 onClose = onClose,
                 onProfile = onProfile,
-                onOpen = { sectionName = it.name },
+                onOpen = {
+                    searchedDirectlyToDetail = false
+                    sectionName = it.name
+                },
                 onSearchDestination = ::openSearchDestination,
             )
 
@@ -544,12 +566,14 @@ private fun V144SettingsHome(
             leadingIcon = {
                 Icon(Icons.Outlined.Search, contentDescription = null, tint = MutedGold)
             },
-            trailingIcon = if (searchText.isNotEmpty()) ({
-                IconButton(onClick = { searchText = "" }) {
-                    Icon(Icons.Outlined.Close, contentDescription = "Clear Settings search",
-                        tint = MutedText)
+            trailingIcon = {
+                if (searchText.isNotEmpty()) {
+                    IconButton(onClick = { searchText = "" }) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Clear Settings search",
+                            tint = MutedText)
+                    }
                 }
-            }) else null,
+            },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
         )
