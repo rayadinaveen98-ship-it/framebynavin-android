@@ -397,6 +397,13 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             },
                             confirmButton = {
                                 TextButton(onClick = {
+                                    if (CreatorDataGate.generation(applicationContext) != loadedGeneration) {
+                                        confirmEditorClose = false
+                                        pendingStageToolMode = null
+                                        error = "Project data changed while this editor was open. Reload the latest workspace."
+                                        return@TextButton
+                                    }
+                                    var stageDraftClearFailure: Throwable? = null
                                     task?.id?.let { projectId ->
                                         when (mode) {
                                             Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
@@ -411,15 +418,25 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                             }
                                             Alpha6WorkspaceMode.STAGE -> {
                                                 val templateId = CreatorWorkflowEngine.templateFor(task!!).id
-                                                runCatching {
+                                                stageDraftClearFailure = runCatching {
                                                     CreatorStageDraftStore(applicationContext).clear(
                                                         projectId, templateId, selectedStageId,
                                                         explicitDiscard = true,
                                                     )
-                                                }
+                                                }.exceptionOrNull()
                                             }
                                             Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB -> Unit
                                         }
+                                    }
+                                    if (stageDraftClearFailure != null) {
+                                        confirmEditorClose = false
+                                        pendingStageToolMode = null
+                                        android.widget.Toast.makeText(
+                                            applicationContext,
+                                            "Could not discard the stage draft. Your changes are kept; try again.",
+                                            android.widget.Toast.LENGTH_LONG,
+                                        ).show()
+                                        return@TextButton
                                     }
                                     val nextMode = pendingStageToolMode
                                     pendingStageToolMode = null
