@@ -151,7 +151,7 @@ internal fun FC13ChallengeDayDialog(
     onBackfill: () -> Unit,
     onSaveNote: () -> Unit,
 ) {
-    val today = LocalDate.ofInstant(now, ZoneId.of(challenge.zoneId))
+    val today = now.atZone(ZoneId.of(challenge.zoneId)).toLocalDate()
     val receipt = challenge.confirmations[day]
     val canBackfill = challenge.completionMode == Phase1HabitCompletionMode.FLEXIBLE &&
         day.isBefore(today) && receipt == null && !challenge.paused
