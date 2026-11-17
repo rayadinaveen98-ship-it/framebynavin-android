@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.PersonalReminder
 import com.framebynavin.app.personal.PersonalReminderStore
+import com.framebynavin.app.personal.PersonalAgendaPolicy
 import com.framebynavin.app.personal.PersonalCompletionEvent
 import com.framebynavin.app.personal.FC13GroupTodayProgress
 import com.framebynavin.app.personal.FC13ReminderGroupProgress
@@ -39,6 +40,9 @@ import com.framebynavin.app.personal.V298ReminderGroupStore
 import com.framebynavin.app.personal.V298ReminderGroupMergePolicy
 import com.framebynavin.app.ui.theme.*
 import java.io.ByteArrayOutputStream
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -403,11 +407,44 @@ internal fun V298ReminderGroupsScreen(
                                 Text(reminder?.title ?: "Reminder no longer available",
                                     color = ProjectorIvory, fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium)
-                                if (reminder != null) Text(
-                                    if (reminder.paused) "Paused"
-                                    else "Saved · ${reminder.repeat.name.replace('_', ' ')}",
-                                    color = MutedText, fontSize = 11.sp,
-                                ) else Text(
+                                if (reminder != null) {
+                                    Text(
+                                        if (reminder.paused) "Paused"
+                                        else "Saved · ${reminder.repeat.name.replace('_', ' ')}",
+                                        color = MutedText, fontSize = 11.sp,
+                                    )
+                                    val nextDue = runCatching {
+                                        PersonalAgendaPolicy.dueAtMillis(
+                                            reminder, System.currentTimeMillis(),
+                                        )
+                                    }.getOrNull()
+                                    Text(
+                                        if (reminder.paused) "Delivery paused"
+                                        else nextDue?.let { due ->
+                                            "Next · " + Instant.ofEpochMilli(due)
+                                                .atZone(reminder.zoneId)
+                                                .format(
+                                                    DateTimeFormatter.ofPattern(
+                                                        "EEE, d MMM · h:mm a",
+                                                        Locale.getDefault(),
+                                                    )
+                                                )
+                                        } ?: "No upcoming occurrence",
+                                        color = MutedText, fontSize = 11.sp,
+                                        modifier = Modifier.testTag("ux07d-group-next-due"),
+                                    )
+                                    val sharedCount = groups.count {
+                                        it.id != selected.id && id in it.reminderIds
+                                    }
+                                    if (sharedCount > 0) {
+                                        Text(
+                                            "Also linked in $sharedCount other " +
+                                                if (sharedCount == 1) "group" else "groups",
+                                            color = MutedGold, fontSize = 11.sp,
+                                            modifier = Modifier.testTag("ux07d-group-shared-member"),
+                                        )
+                                    }
+                                } else Text(
                                     "This saved link has no matching Personal reminder. Unlink only the reference; no other reminder is deleted.",
                                     color = RecRed, fontSize = 11.sp,
                                     modifier = Modifier.testTag("ux07d-group-stale-link"),
