@@ -1,6 +1,6 @@
 # Backlot UX09-01D — signed hosted Lab QA accounts: fail-closed acceptance gate
 
-**Date:** 2026-11-17 · **STATUS: SOURCE-STAGED SAFETY HARNESS; HOSTED SIGNED-USER TESTS NOT YET RUN.**
+**Date:** 2026-11-17 · **STATUS: NO-NETWORK HARNESS CI PASSED (9/9); HOSTED SIGNED-USER TESTS NOT YET RUN.**
 
 ## Baselines and last verified evidence
 - Original V337 accepted P0: `815ba69775f75b6e5f25bb838c2c17b4f09c203e` (protected).
@@ -14,6 +14,12 @@
 1. `tools/qa/backlot_ux09_01d_hosted_signed_readonly.py` is an allowlisted Lab-only HTTP harness. Requires **two already-provisioned** Auth accounts, distinct passwords, and an exact environment-mode acknowledgement; refuses all other target hosts, email identities or API paths. Only API routes: password sign-in, signed user identity read, **read-only** Project/Idea delta pull, private-schema deny, Auth session sign-out.
 2. `tools/qa/test_backlot_ux09_01d_hosted_signed_readonly.py` exercises identity, account-batch fencing, private schema, emptiness, network allowlist, simulated signed-user success and session-cleanup failure without network calls.
 3. `.github/workflows/backlot-ux09-01d-signed-qa-safety.yml` runs only no-network tests. It must not receive hosted passwords, admin/service-role API keys, or the original production credentials.
+
+## Executed harness CI evidence (NO hosted credentials)
+- [GitHub Actions run #44106327263](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44106327263): job `134119562336` **completed / success**. Python compilation and **nine** no-network unit tests all passed on source PR #434, exact tested commit `1349b4fd50c707678ee6d9c9f6489447c4f72d60`.
+- Tests cover exact Lab key/hostname, QA batch identity fencing, reject anonymous or mismatched users, refuse nonempty sync pulls, private-schema denial, prevent signup/admin/delete/app-write routes, require explicit mode, simulated signed two-user flow and logout failure.
+- **No real hosted JWT or Auth sign-in was used in this CI**. It must not be described as hosted two-account acceptance.
+- Fresh read-only Supabase preflight after CI: zero designated QA Auth users, zero rows in all four new sync tables, exactly one installed UX09 migration. No Lab user data modified by this stage.
 
 ## Bounded hosted identities and cleanup plan — NOT EXECUTED
 
@@ -32,9 +38,9 @@ Proposed safe protocol:
 ## Certification / risk matrix
 | Case | Acceptance | Current |
 |---|---|---|
-| D01 | Exact Lab-only hostname / publishable key | Source guard added, CI pending |
-| D02 | QA email domain, a/b batch, distinct passwords | Source guard added, CI pending |
-| D03 | No network/API mutation outside allowlist | Source guard added, CI pending |
+| D01 | Exact Lab-only hostname / publishable key | Source guard verified by 9 passing no-network tests |
+| D02 | QA email domain, a/b batch, distinct passwords | Source guard verified by 9 passing no-network tests |
+| D03 | No network/API mutation outside allowlist | Source guard verified by 9 passing no-network tests |
 | D04 | Non-anonymous, signed valid A/B Auth JWTs verified | NOT RUN hosted |
 | D05 | A/B distinct Auth IDs and signed empty deltas | NOT RUN hosted |
 | D06 | A/B forbidden `backlot_sync_internal` HTTP access | NOT RUN hosted |
