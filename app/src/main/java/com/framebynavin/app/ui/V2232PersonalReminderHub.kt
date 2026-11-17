@@ -106,6 +106,7 @@ internal fun V2232PersonalReminderHub(
     var busy by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PersonalReminder?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
+    var createMenuOpen by remember { mutableStateOf(false) }
     var availableEditorSpaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
     var availableEditorGroups by remember { mutableStateOf(emptyList<V298ReminderGroup>()) }
     var editorSpacesReady by remember { mutableStateOf(false) }
@@ -125,6 +126,7 @@ internal fun V2232PersonalReminderHub(
     var agendaNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     // Reduce alarm-list fatigue: show the day first, but never hide action-needed items.
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
+    var personalAttentionOnly by rememberSaveable { mutableStateOf(false) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var activityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     // Activity Center deep links only focus a real Personal reminder row;
@@ -220,7 +222,7 @@ internal fun V2232PersonalReminderHub(
         selectedPersonal = emptyMap()
         confirmBulkDelete = false
     }
-    LaunchedEffect(agendaScopeName, activityFocusId, personalPageName) {
+    LaunchedEffect(agendaScopeName, activityFocusId, personalPageName, personalAttentionOnly) {
         // Switching scopes must not secretly retain selected hidden reminders.
         selectedPersonal = emptyMap()
         confirmBulkDelete = false
@@ -326,12 +328,40 @@ internal fun V2232PersonalReminderHub(
                          else "Back to personal Today",
                      tint = MutedText)
             }
-            IconButton(
-                enabled = !busy && loadError == null,
-                onClick = { editing = null; editorOpen = true },
-                modifier = Modifier.testTag("v2232-personal-add"),
-            ) {
-                Icon(Icons.Outlined.AddCircleOutline, "Create personal reminder", tint = ProjectorIvory)
+            Box {
+                IconButton(
+                    enabled = !busy && loadError == null,
+                    onClick = { createMenuOpen = true },
+                    modifier = Modifier.testTag("v2232-personal-add"),
+                ) {
+                    Icon(
+                        Icons.Outlined.AddCircleOutline,
+                        "Create Personal reminder or open 21-day challenges",
+                        tint = ProjectorIvory,
+                    )
+                }
+                DropdownMenu(
+                    expanded = createMenuOpen,
+                    onDismissRequest = { createMenuOpen = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("New Personal reminder") },
+                        onClick = {
+                            createMenuOpen = false
+                            editing = null
+                            editorOpen = true
+                        },
+                        modifier = Modifier.testTag("ux06b-personal-create-reminder"),
+                    )
+                    DropdownMenuItem(
+                        text = { Text("21-day challenges") },
+                        onClick = {
+                            createMenuOpen = false
+                            challengesOpen = true
+                        },
+                        modifier = Modifier.testTag("ux06b-personal-create-challenge"),
+                    )
+                }
             }
         }
 
