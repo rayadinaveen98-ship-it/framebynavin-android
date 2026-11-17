@@ -843,6 +843,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 PTab.CALENDAR -> V15ContentCalendarScreen(
                     tasks = vm.tasks,
                     weeklySlots = vm.weeklySlots,
+                    projectsLoaded = vm.tasksLoaded,
                     onClose = null,
                     onOpenProject = ::openProject,
                     onOpenWeeklyPlan = { overlay = POverlay.WEEK },
@@ -940,6 +941,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.CALENDAR -> V15ContentCalendarScreen(
                 tasks = vm.tasks,
                 weeklySlots = vm.weeklySlots,
+                projectsLoaded = vm.tasksLoaded,
                 onClose = { overlay = POverlay.NONE },
                 onOpenProject = ::openProject,
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
