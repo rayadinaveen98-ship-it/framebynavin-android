@@ -82,7 +82,7 @@ internal object V404SettingsIndex {
         return entries.filter { entry ->
             val haystack = listOf(entry.title, entry.description, entry.keywords)
                 .joinToString(" ").lowercase(Locale.ROOT)
-            tokens.all(haystack::contains)
+            tokens.all { token -> haystack.contains(token) }
         }
     }
 }
