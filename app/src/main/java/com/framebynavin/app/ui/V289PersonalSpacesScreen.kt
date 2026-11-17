@@ -73,13 +73,17 @@ internal fun V289PersonalSpacesScreen(
     val personalStore = remember(context) { PersonalReminderStore(context) }
     var personalReminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
     var doneReceipts by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    var ux07cDoneReceiptsReady by remember { mutableStateOf(false) }
     var personalReadError by remember { mutableStateOf(false) }
     LaunchedEffect(personalStore) {
         try { personalStore.remindersFlow.collect { personalReminders = it } }
         catch (_: Exception) { personalReadError = true }
     }
     LaunchedEffect(personalStore) {
-        try { personalStore.completionHistoryFlow.collect { doneReceipts = it } }
+        try { personalStore.completionHistoryFlow.collect {
+            doneReceipts = it
+            ux07cDoneReceiptsReady = true
+        } }
         catch (_: Exception) { personalReadError = true }
     }
     val photoJournal = remember(context, dao) { V290PhotoJournal(context, dao) }
@@ -497,10 +501,23 @@ internal fun V289PersonalSpacesScreen(
                             progressEntries, System.currentTimeMillis()
                         )
                     }
-                    UX07CSpaceProgressSummary(
-                        summary = summary,
-                        linkedCount = linkedReminders.size,
-                    )
+                    when (ux07cEntriesState) {
+                        UX07CReadState.READY -> UX07CSpaceProgressSummary(
+                            summary = summary,
+                            linkedCount = if (ux07cLinksState == UX07CReadState.READY)
+                                linkedReminders.size else null,
+                        )
+                        UX07CReadState.LOADING -> Text(
+                            "Loading saved activity…",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07c-activity-loading"),
+                        )
+                        UX07CReadState.UNAVAILABLE -> Text(
+                            "Activity couldn't be read. Your saved logs weren't deleted.",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07c-activity-unavailable"),
+                        )
+                    }
 
                     val linkedIds = linkedReminders.mapTo(HashSet()) { it.reminderId }
                     val confirmedDone = doneReceipts.count { it.reminderId in linkedIds }
@@ -513,18 +530,36 @@ internal fun V289PersonalSpacesScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text("Linked reminders", color = BacklotPrimaryText,
                                         fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("${linkedReminders.size} linked · $confirmedDone confirmed Done",
+                                    Text(
+                                        when {
+                                            ux07cLinksState == UX07CReadState.LOADING ->
+                                                "Loading linked reminders…"
+                                            ux07cLinksState == UX07CReadState.UNAVAILABLE ->
+                                                "Linked reminders unavailable"
+                                            personalReadError -> "${linkedReminders.size} linked · Done history unavailable"
+                                            !ux07cDoneReceiptsReady -> "${linkedReminders.size} linked · Loading Done history"
+                                            else -> "${linkedReminders.size} linked · $confirmedDone confirmed Done"
+                                        },
                                         color = BacklotSecondaryText, fontSize = 12.sp,
                                         modifier = Modifier.testTag("v295-linked-done"))
                                 }
                                 TextButton(onClick = { linkRemindersVisible = true },
                                     enabled = !busy && !personalReadError &&
+                                        ux07cLinksState == UX07CReadState.READY &&
                                         selected.archivedAtMillis == null,
                                     modifier = Modifier.testTag("v295-link-open")) { Text("LINK") }
                             }
                             if (personalReadError) {
                                 Text("Couldn't load Personal reminders. Links weren't changed.",
                                     color = BacklotError, fontSize = 12.sp)
+                            } else if (ux07cLinksState != UX07CReadState.READY) {
+                                Text(
+                                    if (ux07cLinksState == UX07CReadState.LOADING)
+                                        "Loading linked reminders…" else
+                                        "Linked reminders can't be read. Nothing was changed.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp,
+                                    modifier = Modifier.testTag("ux07c-links-read-state"),
+                                )
                             } else if (linkedReminders.isEmpty()) {
                                 Text("Link a reminder to see it alongside your progress.",
                                     color = BacklotSecondaryText, fontSize = 12.sp)
@@ -584,7 +619,7 @@ internal fun V289PersonalSpacesScreen(
                         Column(Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Notes", color = BacklotPrimaryText, fontSize = 16.sp,
+                                Text("Private notes", color = BacklotPrimaryText, fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.weight(1f))
                                 TextButton(enabled = !busy && selected.archivedAtMillis == null,
@@ -592,8 +627,17 @@ internal fun V289PersonalSpacesScreen(
                                     modifier = Modifier.testTag("v295-note-open")) { Text("ADD NOTE") }
                             }
                             val notes = entries.filter { it.kind == V289SpaceEntryKind.NOTE.name }
-                            if (notes.isEmpty()) {
-                                Text("No notes yet.", color = BacklotSecondaryText, fontSize = 12.sp)
+                            if (ux07cEntriesState != UX07CReadState.READY) {
+                                Text(
+                                    if (ux07cEntriesState == UX07CReadState.LOADING)
+                                        "Loading saved notes…" else
+                                        "Notes are unavailable right now. No notes were erased.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp,
+                                    modifier = Modifier.testTag("ux07c-notes-read-state"),
+                                )
+                            } else if (notes.isEmpty()) {
+                                Text("No notes yet. Notes don't count as completed check-ins.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp)
                             } else {
                                 notes.take(if (allNotesVisible) notes.size else 3).forEach { item ->
                                     Text(Instant.ofEpochMilli(item.occurredAtMillis)
