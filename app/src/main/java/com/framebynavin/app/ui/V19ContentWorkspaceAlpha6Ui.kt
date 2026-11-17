@@ -201,7 +201,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                 .testTag("ux051-brief-toggle"),
                         ) {
-                            Icon(Icons.Outlined.LightbulbOutline, contentDescription = null,
+                            Icon(Icons.Outlined.Lightbulb, contentDescription = null,
                                 tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("CREATIVE BRIEF", color = ProjectorIvory, fontWeight = FontWeight.Bold)
