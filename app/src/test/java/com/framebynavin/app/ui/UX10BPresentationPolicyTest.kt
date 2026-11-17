@@ -44,7 +44,8 @@ class UX10BPresentationPolicyTest {
     @Test
     fun `narrow navigation keeps accessible icon-only controls`() {
         assertFalse(UX10BPresentationPolicy.showBottomNavigationText(45f, 1.0f, "Home"))
-        assertTrue(UX10BPresentationPolicy.showBottomNavigationText(50f, 1.0f, "Home"))
+        assertFalse(UX10BPresentationPolicy.showBottomNavigationText(50f, 1.0f, "Home"))
+        assertTrue(UX10BPresentationPolicy.showBottomNavigationText(60f, 1.0f, "Home"))
         assertFalse(UX10BPresentationPolicy.showBottomNavigationText(75f, 1.6f, "Home"))
     }
 
