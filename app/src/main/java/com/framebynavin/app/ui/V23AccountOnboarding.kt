@@ -114,40 +114,42 @@ internal fun V23AccountOnboarding(
     val route = CloudCreatorAccountPolicy.route(session, profile)
 
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(22.dp)) {
-            Text("BACKLOT", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding()
+            .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 20.dp)) {
+            Text("BACKLOT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow,
+                fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
             Spacer(Modifier.height(34.dp))
             when (route) {
                 CloudCreatorAccountRoute.SIGN_IN_REQUIRED -> {
                     Surface(Modifier.size(58.dp), RoundedCornerShape(18.dp), RecRed.copy(alpha=.13f)) { Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.PersonOutline, null, tint=RecRed) } }
                     Spacer(Modifier.height(18.dp))
                     Text("Welcome to Backlot", color=ProjectorIvory, fontSize=31.sp, lineHeight=35.sp, fontWeight=FontWeight.Black)
-                    Text("Sign in to back up your work. You can also use Backlot without an account.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Sign in for available cloud-backup options, or continue locally. Complete two-device synchronization is planned for a later update.", color=MutedText, fontSize=BacklotUX10Tokens.body, lineHeight=19.sp)
                     Spacer(Modifier.height(24.dp))
-                    Button(onClick=::startGoogleSignIn, enabled=!busy, modifier=Modifier.fillMaxWidth().height(54.dp), colors=ButtonDefaults.buttonColors(containerColor=ProjectorIvory, contentColor=CinemaBlack)) {
+                    Button(onClick=::startGoogleSignIn, enabled=!busy, modifier=Modifier.fillMaxWidth().heightIn(min=BacklotUX10Tokens.rowTarget), colors=ButtonDefaults.buttonColors(containerColor=ProjectorIvory, contentColor=CinemaBlack)) {
                         Text(if (busy) "CONNECTING…" else "CONTINUE WITH GOOGLE", fontWeight=FontWeight.Black)
                     }
                     Spacer(Modifier.height(10.dp))
-                    OutlinedButton(onClick=onContinueLocally, modifier=Modifier.fillMaxWidth().height(48.dp), border=BorderStroke(1.dp, CinemaLine)) { Text("CONTINUE WITHOUT ACCOUNT", color=MutedText) }
+                    OutlinedButton(onClick=onContinueLocally, modifier=Modifier.fillMaxWidth().heightIn(min=BacklotUX10Tokens.minimumTouchTarget), border=BorderStroke(1.dp, CinemaLine)) { Text("CONTINUE WITHOUT ACCOUNT", color=MutedText) }
                 }
                 CloudCreatorAccountRoute.RETURNING_CREATOR -> {
                     Surface(Modifier.size(58.dp), CircleShape, MutedGold.copy(alpha=.13f)) { Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.CloudDone, null, tint=MutedGold) } }
                     Spacer(Modifier.height(18.dp)); Text("Welcome back.", color=ProjectorIvory, fontSize=31.sp, fontWeight=FontWeight.Black)
-                    Text("Account found. We'll check for saved work. You'll choose what to keep if anything differs.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Account found. Backlot will check available saved work. Conflicting copies require a separate review before replacement.", color=MutedText, fontSize=BacklotUX10Tokens.body, lineHeight=19.sp)
                     Spacer(Modifier.height(18.dp)); CircularProgressIndicator(Modifier.size(20.dp), color=MutedGold, strokeWidth=2.dp)
                 }
                 CloudCreatorAccountRoute.CREATOR_ID_REQUIRED -> {
                     Text("Create your account", color=ProjectorIvory, fontSize=31.sp, fontWeight=FontWeight.Black)
-                    Text("Your account can back up your work automatically. Google Drive is optional.", color=MutedText, fontSize=12.sp, lineHeight=18.sp)
+                    Text("Cloud backup covers supported data and may need review when devices differ. Full automatic device synchronization is not available yet. Google Drive is optional.", color=MutedText, fontSize=BacklotUX10Tokens.body, lineHeight=19.sp)
                     Spacer(Modifier.height(20.dp))
                     OutlinedTextField(value=displayName, onValueChange={ displayName=it.take(40) }, modifier=Modifier.fillMaxWidth(), label={Text("Display name")}, singleLine=true)
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(value=username, onValueChange={ username=it.lowercase().filter { c -> c.isLetterOrDigit() || c=='_' }.take(24) }, modifier=Modifier.fillMaxWidth(), prefix={Text("@")}, label={Text("Username")}, supportingText={Text("3–24 letters, numbers or underscore")}, singleLine=true)
                     Spacer(Modifier.height(18.dp))
-                    Button(onClick=::claim, enabled=!busy && username.length in 3..24, modifier=Modifier.fillMaxWidth().height(54.dp), colors=ButtonDefaults.buttonColors(containerColor=RecRed)) { Text("CREATE ACCOUNT", fontWeight=FontWeight.Black) }
+                    Button(onClick=::claim, enabled=!busy && username.length in 3..24, modifier=Modifier.fillMaxWidth().heightIn(min=BacklotUX10Tokens.rowTarget), colors=ButtonDefaults.buttonColors(containerColor=RecRed)) { Text("CREATE ACCOUNT", fontWeight=FontWeight.Black) }
                 }
             }
-            error?.let { Spacer(Modifier.height(14.dp)); Text(it, color=ProjectorIvory, fontSize=12.sp) }
+            error?.let { Spacer(Modifier.height(14.dp)); Text(it, color=BacklotError, fontSize=BacklotUX10Tokens.body) }
         }
     }
 }

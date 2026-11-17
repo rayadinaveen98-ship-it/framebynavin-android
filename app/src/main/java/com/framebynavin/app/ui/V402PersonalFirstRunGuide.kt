@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -31,6 +32,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.CinemaBlack
 import com.framebynavin.app.ui.theme.MutedGold
 import com.framebynavin.app.ui.theme.MutedText
@@ -71,7 +73,7 @@ internal fun V402PersonalFirstRunGuide(onFinish: () -> Unit) {
             Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
+                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -86,8 +88,8 @@ internal fun V402PersonalFirstRunGuide(onFinish: () -> Unit) {
                 state = CinePulseState.WAVE,
                 modifier = Modifier.align(Alignment.CenterHorizontally).size(150.dp),
             )
-            Text(lesson.first, color = ProjectorIvory, fontSize = 28.sp,
-                fontWeight = FontWeight.Black, lineHeight = 34.sp,
+            Text(lesson.first, color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle,
+                fontWeight = FontWeight.Black, lineHeight = 30.sp,
                 modifier = Modifier.testTag("v402-personal-guide-heading"))
             Text(lesson.second, color = MutedGold, fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold)
@@ -105,7 +107,7 @@ internal fun V402PersonalFirstRunGuide(onFinish: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             Button(
                 onClick = { if (page == lessons.lastIndex) onFinish() else page++ },
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
                     .testTag("v402-personal-guide-next"),
                 colors = ButtonDefaults.buttonColors(containerColor = RecRed),
             ) {
@@ -114,6 +116,7 @@ internal fun V402PersonalFirstRunGuide(onFinish: () -> Unit) {
             }
             TextButton(onClick = onFinish,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
+                    .heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
                     .testTag("v402-personal-guide-skip")) {
                 Text("Skip introduction", color = MutedText, fontSize = 12.sp)
             }

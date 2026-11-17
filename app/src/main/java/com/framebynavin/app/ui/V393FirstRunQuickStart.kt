@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +46,7 @@ import com.framebynavin.app.data.CreatorModeRegistry
 import com.framebynavin.app.data.CreatorPlatformRegistry
 import com.framebynavin.app.data.CreatorProfile
 import com.framebynavin.app.data.ProductionStyleRegistry
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.CinemaBlack
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
@@ -117,7 +121,7 @@ internal fun V393FirstRunFocusScreen(onChoose: (V393FirstRunFocus) -> Unit) {
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 23.dp, vertical = 23.dp),
+                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
             Text("BACKLOT / FIRST RUN", color = MutedGold, fontSize = 10.sp,
@@ -130,11 +134,13 @@ internal fun V393FirstRunFocusScreen(onChoose: (V393FirstRunFocus) -> Unit) {
             Spacer(Modifier.height(10.dp))
             V393FirstRunFocus.entries.forEach { focus ->
                 Surface(
-                    Modifier.fillMaxWidth().clickable { onChoose(focus) }
+                    Modifier.fillMaxWidth()
+                        .heightIn(min = 102.dp)
+                        .clickable { onChoose(focus) }
                         .testTag("v393-focus-${focus.name}"),
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, if (focus == V393FirstRunFocus.BOTH)
-                        RecRed.copy(alpha = .58f) else CinemaLine),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
+                    // All three are equally valid; don't falsely preselect BOTH.
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     color = CinemaSurfaceRaised,
                 ) {
                     Column(Modifier.padding(19.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -174,7 +180,7 @@ internal fun V393QuickCreatorSetup(
     )
     Surface(Modifier.fillMaxSize().testTag("v393-quick-creator-setup"), color = CinemaBlack) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 20.dp, vertical = 18.dp),
+            .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("BACKLOT / CREATOR SETUP", color = MutedGold,
                 fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
@@ -238,29 +244,42 @@ private fun V393QuickChoiceGroup(
     selected: String,
     onSelected: (String) -> Unit,
 ) {
+    val stackChoices = UX10BPresentationPolicy.stackedFirstRunChoices(
+        screenWidthDp = LocalConfiguration.current.screenWidthDp,
+        fontScale = LocalDensity.current.fontScale,
+    )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(heading, color = MutedGold, fontSize = 10.sp,
+        Text(heading, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow,
             fontWeight = FontWeight.Bold, letterSpacing = 1.0.sp)
-        options.chunked(2).forEach { pair ->
+        options.chunked(if (stackChoices) 1 else 2).forEach { pair ->
             Row(Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 pair.forEach { option ->
                     val active = option == selected
                     Surface(
-                        modifier = Modifier.weight(1f).height(55.dp)
-                            .clickable { onSelected(option) }
+                        onClick = { onSelected(option) },
+                        modifier = Modifier.weight(1f)
+                            .heightIn(min = 64.dp)
                             .testTag("v393-pick-${heading.take(1)}-${option.hashCode()}"),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(BacklotUX10Tokens.compactRadius),
                         color = if (active) RecRed.copy(alpha = .17f) else CinemaSurface,
-                        border = BorderStroke(1.dp, if (active) RecRed else CinemaLine),
+                        border = if (active) BacklotUX10Tokens.activeBorder(RecRed)
+                            else BacklotUX10Tokens.quietBorder(CinemaLine),
                     ) {
-                        Box(Modifier.fillMaxSize().padding(horizontal = 6.dp),
-                            contentAlignment = Alignment.Center) {
-                            Text(option, color = ProjectorIvory,
-                                fontSize = 11.5.sp, lineHeight = 15.sp,
+                        Box(
+                            Modifier.fillMaxWidth().padding(
+                                horizontal = 10.dp, vertical = 12.dp
+                            ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                option, color = ProjectorIvory,
+                                fontSize = BacklotUX10Tokens.body,
+                                lineHeight = 18.sp,
                                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                                 textAlign = TextAlign.Center,
-                                maxLines = 2)
+                                maxLines = 3,
+                            )
                         }
                     }
                 }
