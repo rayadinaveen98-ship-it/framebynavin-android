@@ -1,0 +1,427 @@
+{
+  "version": 1,
+  "scope": "source-only nested serialization parity; NOT an upload codec",
+  "based_on_commit": "539c2f96db1fcee4c9c191bedb8466f119c943b3",
+  "backend_cap_bytes": 16384,
+  "feature_gate": "OFF",
+  "entries": [
+    {
+      "id": "CreatorContentDna",
+      "kotlin_model": "CreatorContentDna",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentDna.kt",
+      "fields": [
+        "creatorModeId",
+        "archetypeId",
+        "productionStyles",
+        "platform",
+        "deliveryFormat",
+        "legacyContentType",
+        "inferredFromLegacy"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeContentDna",
+      "span_start": "return JSONObject()",
+      "span_end": "private fun decodeContentDna",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorStageChecklistItem",
+      "kotlin_model": "CreatorStageChecklistItem",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorStageWork.kt",
+      "fields": [
+        "id",
+        "title",
+        "status"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "internal fun encodeStageWork",
+      "span_start": "stage.checklist.forEach",
+      "span_end": "val evidence = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorStageEvidence",
+      "kotlin_model": "CreatorStageEvidence",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorStageWork.kt",
+      "fields": [
+        "id",
+        "claim",
+        "timecode",
+        "notes",
+        "referenceId",
+        "assetId"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "internal fun encodeStageWork",
+      "span_start": "stage.evidence.forEach",
+      "span_end": "val decisions = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorStageDecision",
+      "kotlin_model": "CreatorStageDecision",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorStageWork.kt",
+      "fields": [
+        "id",
+        "text",
+        "recordedAtMillis"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "internal fun encodeStageWork",
+      "span_start": "stage.decisions.forEach",
+      "span_end": "fun ids(values",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorStageWork",
+      "kotlin_model": "CreatorStageWork",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorStageWork.kt",
+      "fields": [
+        "workflowTemplateId",
+        "stageId",
+        "notes",
+        "checklist",
+        "evidence",
+        "decisions",
+        "linkedReferenceIds",
+        "linkedAssetIds",
+        "linkedDeliverableIds",
+        "reviewedAtMillis"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "internal fun encodeStageWork",
+      "span_start": "array.put(JSONObject()",
+      "span_end": "internal fun decodeStageWork",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorStageTransitionReceipt",
+      "kotlin_model": "CreatorStageTransitionReceipt",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorWorkflowTransitionPolicy.kt",
+      "fields": [
+        "id",
+        "workflowTemplateId",
+        "stageId",
+        "fromStageIndex",
+        "approvedAtMillis",
+        "workspaceRevisionBefore",
+        "acknowledgedWarningCodes"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeStageTransitions",
+      "span_start": "output.put(JSONObject()",
+      "span_end": "private fun decodeStageTransitions",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorOutputScriptSnapshot",
+      "kotlin_model": "CreatorOutputScriptSnapshot",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorOutputCraft.kt",
+      "fields": [
+        "id",
+        "revision",
+        "atMillis",
+        "hook",
+        "narration",
+        "visualNotes",
+        "creatorNotes"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeOutputScripts",
+      "span_start": "history.put(JSONObject()",
+      "span_end": "out.put(JSONObject()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorOutputScript",
+      "kotlin_model": "CreatorOutputScript",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorOutputCraft.kt",
+      "fields": [
+        "deliverableId",
+        "revision",
+        "hook",
+        "narration",
+        "visualNotes",
+        "creatorNotes",
+        "adaptedFromDeliverableId",
+        "adaptedFromScriptRevision",
+        "updatedAtMillis",
+        "history"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeOutputScripts",
+      "span_start": "out.put(JSONObject()",
+      "span_end": "private fun encodeEditVersions",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorEditVersion",
+      "kotlin_model": "CreatorEditVersion",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorOutputCraft.kt",
+      "fields": [
+        "id",
+        "deliverableId",
+        "label",
+        "sourceLocation",
+        "notes",
+        "status",
+        "createdAtMillis",
+        "reviewedAtMillis"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeEditVersions",
+      "span_start": "out.put(JSONObject()",
+      "span_end": "private fun decodeOutputScripts",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorProjectReference",
+      "kotlin_model": "CreatorProjectReference",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "label",
+        "url"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "references.put(JSONObject()",
+      "span_end": "val checklist = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorChecklistItem",
+      "kotlin_model": "CreatorChecklistItem",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "title",
+        "status"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "checklist.put(JSONObject()",
+      "span_end": "val assets = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorProjectAsset",
+      "kotlin_model": "CreatorProjectAsset",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "label",
+        "location",
+        "kind",
+        "notes"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "assets.put(JSONObject()",
+      "span_end": "val deliverables = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorVariantIdea.title",
+      "kotlin_model": "CreatorVariantIdea",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "text"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "titleVariants.put(JSONObject()",
+      "span_end": "val thumbnailVariants = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorVariantIdea.thumbnail",
+      "kotlin_model": "CreatorVariantIdea",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "text"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "thumbnailVariants.put(JSONObject()",
+      "span_end": "val publishGate = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorPublishGateItem",
+      "kotlin_model": "CreatorPublishGateItem",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "title",
+        "status",
+        "required"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "publishGate.put(JSONObject()",
+      "span_end": "val publicationHistory = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorPublicationEvent",
+      "kotlin_model": "CreatorPublicationEvent",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "kind",
+        "atMillis",
+        "titleSnapshot",
+        "thumbnailSnapshot",
+        "descriptionSnapshot",
+        "tagsSnapshot",
+        "url",
+        "note"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "publicationHistory.put(JSONObject()",
+      "span_end": "deliverables.put(JSONObject()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorDeliverable",
+      "kotlin_model": "CreatorDeliverable",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "id",
+        "platform",
+        "format",
+        "title",
+        "status",
+        "deadlineLabel",
+        "description",
+        "tags",
+        "thumbnailConcept",
+        "parentDeliverableId",
+        "publishedAtMillis",
+        "publishedUrl",
+        "titleVariants",
+        "thumbnailVariants",
+        "publishGate",
+        "publicationHistory"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "deliverables.put(JSONObject()",
+      "span_end": "return JSONObject()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorContentWorkspace",
+      "kotlin_model": "CreatorContentWorkspace",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "fields": [
+        "revision",
+        "audience",
+        "viewerProblem",
+        "promise",
+        "angle",
+        "hook",
+        "script",
+        "references",
+        "checklist",
+        "assets",
+        "deliverables",
+        "learnings",
+        "scriptStudio",
+        "stageWork",
+        "outputScripts",
+        "editVersions",
+        "stageTransitions"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeWorkspace",
+      "span_start": "return JSONObject()",
+      "span_end": "private fun encodeScriptStudio",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorHookIdea",
+      "kotlin_model": "CreatorHookIdea",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorScriptStudio.kt",
+      "fields": [
+        "id",
+        "text",
+        "selected"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeScriptStudio",
+      "span_start": "hooks.put(JSONObject()",
+      "span_end": "val titles = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorTitleIdea",
+      "kotlin_model": "CreatorTitleIdea",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorScriptStudio.kt",
+      "fields": [
+        "id",
+        "text",
+        "selected"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeScriptStudio",
+      "span_start": "titles.put(JSONObject()",
+      "span_end": "val beats = JSONArray()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorScriptBeat",
+      "kotlin_model": "CreatorScriptBeat",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorScriptStudio.kt",
+      "fields": [
+        "id",
+        "label",
+        "purpose",
+        "narration",
+        "visualNotes",
+        "bRollNotes",
+        "onScreenText",
+        "status"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeScriptStudio",
+      "span_start": "beats.put(",
+      "span_end": "return JSONObject()",
+      "implicit_from_parent": []
+    },
+    {
+      "id": "CreatorScriptStudio",
+      "kotlin_model": "CreatorScriptStudio",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorScriptStudio.kt",
+      "fields": [
+        "projectId",
+        "revision",
+        "status",
+        "hooks",
+        "titles",
+        "beats",
+        "creatorNotes"
+      ],
+      "encoder_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "method_anchor": "private fun encodeScriptStudio",
+      "span_start": "return JSONObject()",
+      "span_end": "private fun decodeScriptStudio",
+      "implicit_from_parent": [
+        "projectId"
+      ]
+    }
+  ],
+  "hard_blocks": [
+    "Nested workspace and scripts may exceed 16KiB, no truncation or uploads",
+    "CreatorScriptStudio.projectId is derived from parent Project during decode",
+    "CreatorProjectAsset.location may contain content:// or file paths; never upload raw",
+    "CreatorEditVersion.sourceLocation may contain content:// and must be classified before upload",
+    "Existing whole-snapshot backup and future entity delta cannot run concurrently",
+    "Project and Idea legacy IDs and linked references require lossless mapping",
+    "This audit never activates a worker or model codec"
+  ]
+}
