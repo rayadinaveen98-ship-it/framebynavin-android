@@ -350,34 +350,37 @@ internal fun V157ReminderCenterUi(
                         actions = listOf(
                             V406ReminderScopeAction(
                                 id = "creator-attention", label = "Needs action",
-                                count = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size,
+                                count = searchMatching[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size,
                                 selected = !historyOpen &&
                                     hubFilter == V219ReminderHubFilter.ATTENTION,
                                 onSelect = {
                                     hubFilter = V219ReminderHubFilter.ATTENTION
                                     historyOpen = false
+                                    focusedTaskId = null
                                     selected = emptySet()
                                 },
                             ),
                             V406ReminderScopeAction(
                                 id = "creator-today", label = "Next 24h",
-                                count = grouped[ReminderCenterGroup.TODAY].orEmpty().size,
+                                count = searchMatching[ReminderCenterGroup.TODAY].orEmpty().size,
                                 selected = !historyOpen &&
                                     hubFilter == V219ReminderHubFilter.TODAY,
                                 onSelect = {
                                     hubFilter = V219ReminderHubFilter.TODAY
                                     historyOpen = false
+                                    focusedTaskId = null
                                     selected = emptySet()
                                 },
                             ),
                             V406ReminderScopeAction(
                                 id = "creator-upcoming", label = "Later",
-                                count = grouped[ReminderCenterGroup.UPCOMING].orEmpty().size,
+                                count = searchMatching[ReminderCenterGroup.UPCOMING].orEmpty().size,
                                 selected = !historyOpen &&
                                     hubFilter == V219ReminderHubFilter.UPCOMING,
                                 onSelect = {
                                     hubFilter = V219ReminderHubFilter.UPCOMING
                                     historyOpen = false
+                                    focusedTaskId = null
                                     selected = emptySet()
                                 },
                             ),
@@ -388,6 +391,7 @@ internal fun V157ReminderCenterUi(
                                 onSelect = {
                                     historyOpen = true
                                     hubFilter = V219ReminderHubFilter.ALL
+                                    focusedTaskId = null
                                     selected = emptySet()
                                 },
                             ),
