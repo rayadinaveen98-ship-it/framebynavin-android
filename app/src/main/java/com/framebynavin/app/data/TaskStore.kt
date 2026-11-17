@@ -451,7 +451,7 @@ class TaskStore(private val context: Context) {
                 evidence.put(JSONObject().put("id", item.id)
                     .put("claim", item.claim).put("timecode", item.timecode)
                     .put("notes", item.notes).put("referenceId", item.referenceId)
-                    .put("assetId", item.assetId))
+                    .put("assetId", item.assetId).put("scriptBeatId", item.scriptBeatId))
             }
             val decisions = JSONArray()
             stage.decisions.forEach { item ->
@@ -528,6 +528,7 @@ class TaskStore(private val context: Context) {
                             id = id, claim = item.optString("claim"),
                             timecode = item.optString("timecode"), notes = item.optString("notes"),
                             referenceId = item.optString("referenceId"), assetId = item.optString("assetId"),
+                            scriptBeatId = item.optString("scriptBeatId"),
                         ))
                     }
                 }
