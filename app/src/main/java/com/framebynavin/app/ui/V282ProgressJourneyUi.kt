@@ -138,7 +138,7 @@ internal fun V282ProgressJourneyScreen(
             Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = BacklotUX10Tokens.pageGutter)
                 .padding(bottom = 42.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -148,7 +148,7 @@ internal fun V282ProgressJourneyScreen(
                 Column(Modifier.weight(1f)) {
                     Text("YOUR JOURNEY", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp)
-                    Text("Progress calendar", color = ProjectorIvory, fontSize = 23.sp,
+                    Text("Progress calendar", color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle,
                         fontWeight = FontWeight.Bold)
                 }
             }
@@ -457,9 +457,9 @@ private fun V282ActivityRow(
         enabled = sourceOpen,
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             .testTag("ux08b-event-" + event.key),
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine.copy(alpha = 0.42f)),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 11.dp),

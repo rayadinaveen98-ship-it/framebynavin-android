@@ -81,11 +81,11 @@ internal fun V161QuickActionsHub(
         Modifier.fillMaxWidth()
             .heightIn(max = 730.dp)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = BacklotUX10Tokens.pageGutter)
             .padding(bottom = 36.dp),
     ) {
         Text("BACKLOT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        Text("Quick Actions", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Text("Quick Actions", color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Black)
         Text(
             "Make something, plan the next step or revisit genuine progress.",
             color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
@@ -296,8 +296,8 @@ internal fun V161QuickActionsHub(
 
 @Composable
 private fun V161SectionHeading(label: String, subtitle: String) {
-    Spacer(Modifier.height(17.dp))
-    Text(label, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+    Spacer(Modifier.height(BacklotUX10Tokens.compactSectionGap))
+    Text(label, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
     Text(subtitle, color = MutedText, fontSize = 11.sp)
     Spacer(Modifier.height(9.dp))
 }
@@ -313,10 +313,10 @@ private fun V161MainAction(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 118.dp).testTag(tag),
-        shape = RoundedCornerShape(18.dp),
+        modifier = modifier.heightIn(min = 112.dp).testTag(tag),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         color = CinemaSurfaceRaised,
-        border = BorderStroke(1.dp, RecRed.copy(alpha = .22f)),
+        border = BacklotUX10Tokens.quietBorder(RecRed, alpha = 0.25f),
     ) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Box(
@@ -341,10 +341,10 @@ private fun V161ActionRow(
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp)
-            .heightIn(min = 64.dp).testTag(tag),
-        shape = RoundedCornerShape(13.dp),
+            .heightIn(min = BacklotUX10Tokens.rowTarget).testTag(tag),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
         color = CinemaSurface.copy(alpha = 0.75f),
-        border = BorderStroke(1.dp, CinemaLine.copy(alpha = 0.34f)),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
