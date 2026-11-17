@@ -249,6 +249,75 @@ class Ux09SealedChainStoreTest {
         }
     }
 
+    @Test fun twoIndependentStoreInstancesCannotCommitSameExpectedRevision() {
+        val first = put(prepared())
+        assertEquals(1L, first.storageRevision)
+
+        val enteredLease = java.util.concurrent.CountDownLatch(1)
+        val releaseLease = java.util.concurrent.CountDownLatch(1)
+        val finished = java.util.concurrent.CountDownLatch(1)
+        val failed = java.util.concurrent.atomic.AtomicReference<Throwable?>(null)
+        val committed = java.util.concurrent.atomic.AtomicReference<Long?>(null)
+
+        // The key provider is invoked AFTER the writer has acquired the
+        // cross-instance lease, during the existing sealed blob read.
+        val heldStore = Ux09SealedChainStore(tmp.root, { account ->
+            enteredLease.countDown()
+            check(releaseLease.await(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                "Test lease was not released"
+            }
+            keyFor(account)
+        })
+        val holder = Thread {
+            try {
+                committed.set(
+                    heldStore.write(prepared(), accountA, 5, 7, 1L).storageRevision
+                )
+            } catch (error: Throwable) {
+                failed.set(error)
+            } finally {
+                finished.countDown()
+            }
+        }
+        holder.start()
+        try {
+            assertTrue("First writer did not enter protected critical section",
+                enteredLease.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            // Second store has another JVM monitor, but the same OS guard.
+            // Its stale revision is NOT allowed to overwrite the first store.
+            val contender = store()
+            assertThrows(IllegalStateException::class.java) {
+                contender.write(prepared(), accountA, 5, 7, 1L)
+            }
+        } finally {
+            releaseLease.countDown()
+            assertTrue("Holder did not complete", finished.await(10,
+                java.util.concurrent.TimeUnit.SECONDS))
+            holder.join(1000)
+        }
+        assertEquals(null, failed.get())
+        assertEquals(2L, committed.get())
+        assertEquals(2L, read()?.storageRevision)
+        assertEquals(prepared(), read()?.state)
+        val guard = File(file().parentFile, file().name + ".guard")
+        assertTrue("Stable guard inode must remain", guard.isFile)
+    }
+
+    @Test fun symlinkedGuardCannotRedirectFileLockToAnotherFile() {
+        val external = File(tmp.root, "external-guard.txt").apply { writeText("untouched") }
+        val dir = File(tmp.root, accountA)
+        assertTrue(dir.mkdirs())
+        val guard = File(dir, file().name + ".guard")
+        try {
+            java.nio.file.Files.createSymbolicLink(guard.toPath(), external.toPath())
+        } catch (_: UnsupportedOperationException) {
+            return
+        }
+        assertThrows(IllegalArgumentException::class.java) { put(prepared()) }
+        assertEquals("untouched", external.readText())
+        assertFalse(file().exists())
+    }
+
     @Test fun symlinkTargetIsNotOverwritten() {
         val originalFile = File(tmp.root, "external.txt").apply { writeText("external") }
         val accountDir = File(tmp.root, accountA)

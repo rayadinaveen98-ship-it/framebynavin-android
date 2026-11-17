@@ -49,6 +49,10 @@ internal class Ux09SealedChainStore(
         expectedStorageRevision: Long?,
     ): Snapshot = synchronized(lock) {
         assertIdentity(state, activeAccountId, activeAccountGeneration, activeRestoreGeneration)
+        // Cross-instance/process protection is essential: two independent store
+        // objects must not both observe the same expected storage revision.
+        // The OS lock is held across the read/CAS decision AND atomic rename.
+        withEntityFileLock(state.accountId, state.domain, state.entityId) {
         val plaintext = Ux09SealedChainJson.encode(state)
         require(plaintext.size <= maxPlaintext) {
             "Protected queue exceeds local prototype limit; nothing was discarded"
@@ -75,6 +79,7 @@ internal class Ux09SealedChainStore(
         )
         persistAtomically(target, bytes)
         Snapshot(state, nextRevision)
+        }
     }
 
     fun read(
@@ -162,6 +167,52 @@ internal class Ux09SealedChainStore(
         }
         // Domain is an enum constant, not a caller-provided path fragment.
         return File(directory, domain.wire + "-" + entityId + ".sealed")
+    }
+
+    /**
+     * Holds a durable file lock for the entire local optimistic-CAS update.
+     * The .guard inode is deliberately never deleted (deleting would allow two
+     * processes to lock different inodes under the same pathname).
+     *
+     * Do not silently treat lock contention as success. The caller may safely
+     * retry after re-reading the committed storage revision.
+     */
+    private fun <T> withEntityFileLock(
+        accountId: String,
+        domain: Ux09Domain,
+        entityId: String,
+        action: () -> T,
+    ): T {
+        val target = file(accountId, domain, entityId)
+        val dir = target.parentFile ?: error("Missing account-scoped protected directory")
+        require(dir.isDirectory || dir.mkdirs()) {
+            "Cannot establish account-scoped protected queue locking"
+        }
+        require(!Files.isSymbolicLink(dir.toPath()) &&
+            Files.isDirectory(dir.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            "Protected account lock directory must not be a symlink"
+        }
+        val guard = File(dir, target.name + ".guard")
+        if (Files.exists(guard.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+            ensureRegularFile(guard)
+        }
+        FileChannel.open(guard.toPath(),
+            StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+            LinkOption.NOFOLLOW_LINKS).use { channel ->
+            val lease = try {
+                channel.tryLock()
+            } catch (_: java.nio.channels.OverlappingFileLockException) {
+                throw IllegalStateException("Another offline writer holds the entity lock")
+            }
+            check(lease != null) {
+                "Another offline writer holds the entity lock; original queue preserved"
+            }
+            lease.use {
+                // The optimistic storage revision is re-read only AFTER the
+                // cross-process lease is acquired. Never trust a pre-lock read.
+                return action()
+            }
+        }
     }
 
     private fun ensureRegularFile(target: File) {
