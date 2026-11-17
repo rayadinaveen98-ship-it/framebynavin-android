@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.spaces.V289SpaceEntity
 import com.framebynavin.app.personal.spaces.V289SpaceEntryKind
+import com.framebynavin.app.personal.spaces.V289SpaceEntrySource
 import com.framebynavin.app.personal.spaces.V289SpaceProgressSummary
 import com.framebynavin.app.personal.spaces.V289SpaceType
 import com.framebynavin.app.ui.theme.BacklotBorder
@@ -44,12 +45,16 @@ internal object UX07CSpaceLabels {
         V289SpaceType.entries.firstOrNull { it.name == type }?.defaultTitle
             ?: "Personal Space"
 
-    fun entry(kind: String): String = when (kind) {
-        V289SpaceEntryKind.CHECK_IN.name -> "MANUAL CHECK-IN"
-        V289SpaceEntryKind.METRIC.name -> "MANUAL MEASUREMENT"
-        V289SpaceEntryKind.NOTE.name -> "PERSONAL NOTE"
-        V289SpaceEntryKind.MILESTONE.name -> "RECORDED MILESTONE"
-        else -> "RECORDED ACTIVITY"
+    fun entry(kind: String, source: String): String {
+        if (source == V289SpaceEntrySource.CONFIRMED_REMINDER_DONE.name)
+            return "CONFIRMED REMINDER DONE"
+        return when (kind) {
+            V289SpaceEntryKind.CHECK_IN.name -> "MANUAL CHECK-IN"
+            V289SpaceEntryKind.METRIC.name -> "MANUAL MEASUREMENT"
+            V289SpaceEntryKind.NOTE.name -> "PERSONAL NOTE"
+            V289SpaceEntryKind.MILESTONE.name -> "RECORDED MILESTONE"
+            else -> "RECORDED ACTIVITY"
+        }
     }
 }
 
