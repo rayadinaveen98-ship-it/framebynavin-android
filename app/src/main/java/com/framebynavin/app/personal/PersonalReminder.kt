@@ -2,6 +2,7 @@ package com.framebynavin.app.personal
 
 import com.framebynavin.app.reminders.ReminderMusicChoice
 import com.framebynavin.app.reminders.ReminderMusicMode
+import com.framebynavin.app.reminders.V403VoiceRepeatPolicy
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -94,7 +95,9 @@ internal data class PersonalReminder(
         }
         require(notes.length <= 2_000) { "Personal reminder notes are too long" }
         require(snoozeMinutes in setOf(5, 10, 15, 30)) { "Snooze must be 5, 10, 15 or 30 minutes" }
-        require(voiceRepeatCount in 1..3) { "Voice repeats must be 1, 2, or 3" }
+        require(voiceRepeatCount in V403VoiceRepeatPolicy.MIN_COUNT..V403VoiceRepeatPolicy.MAX_COUNT) {
+            "Voice repeats must be between 1 and 5"
+        }
         require(voiceRepeatGapMillis in setOf(2_500L, 5_000L, 10_000L, 20_000L, 30_000L, 60_000L)) { "Invalid Personal voice gap" }
         require(alarmDurationSeconds in setOf(30, 45, 60, 120, 180, 300)) { "Invalid Personal alarm duration" }
         require(autoRetryMinutes in PersonalAutoRetryPolicy.INTERVAL_CHOICES) { "Invalid automatic retry interval" }

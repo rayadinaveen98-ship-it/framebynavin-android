@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.*
+import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -286,12 +287,12 @@ internal fun V20NewProjectWizard(
                             lineHeight = 19.sp,
                         )
                         Spacer(Modifier.height(16.dp))
-                        V20FieldLabel("PROJECT NAME")
+                        V20FieldLabel("PROJECT TITLE · REQUIRED")
                         OutlinedTextField(
                             value = title,
                             onValueChange = onTitleChange,
                             modifier = Modifier.fillMaxWidth().testTag("quick-create-title"),
-                            placeholder = { Text("What are you making?") },
+                            placeholder = { Text("e.g. My next short film") },
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                         )
@@ -466,7 +467,9 @@ internal fun V20NewProjectWizard(
                             value = title,
                             onValueChange = onTitleChange,
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Project title") },
+                            label = { Text("Project title · Required") },
+                            placeholder = { Text("e.g. My next short film") },
+                            supportingText = { Text("Give this project a name you'll recognize later.") },
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                         )
@@ -764,6 +767,16 @@ internal fun V20NewProjectWizard(
                         V20WizardReviewRow("FORMAT", contentType) { activeStage = 3 }
                         V20WizardReviewRow("PUBLISH BY", v20WizardDateTime(dueAt)) { activeStage = 4 }
                         V20WizardReviewRow("SUPPORT", supportSummary) { activeStage = 5 }
+                        if (attentionPlan != ProjectAttentionPlan.OFF &&
+                            deliveryPreference != ReminderDeliveryPreference.NOTIFICATION &&
+                            deliveryPreference != ReminderDeliveryPreference.ALARM
+                        ) {
+                            val times = if (voiceRepeatCount == 1) "once" else "${voiceRepeatCount} times"
+                            V20WizardReviewRow(
+                                "IF SPOKEN",
+                                "${VoicePersonaEngine.label(voicePersona)} · ${times} · ${voiceRepeatGapSeconds}s gap",
+                            ) { activeStage = 5 }
+                        }
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                             V20WizardReviewRow("REMINDER", v20WizardDateTime(customReminderAt)) { activeStage = 5 }
                             V20WizardReviewRow("IMPORTANCE", pPriorityLabel(priority)) { activeStage = 5 }

@@ -374,7 +374,7 @@ class TaskStore(private val context: Context) {
                         voicePersona = runCatching {
                             VoicePersona.valueOf(item.optString("voicePersona", VoicePersona.WARM.name))
                         }.getOrDefault(VoicePersona.WARM),
-                        voiceRepeatCount = item.optInt("voiceRepeatCount", 3).coerceIn(1, 3),
+                        voiceRepeatCount = item.optInt("voiceRepeatCount", 3).coerceIn(1, 5),
                         voiceRepeatIntervalSeconds = item.optInt("voiceRepeatIntervalSeconds", 10).coerceIn(5, 60),
                         alarmTimeoutSeconds = item.optInt("alarmTimeoutSeconds", 120).coerceIn(30, 300),
                         snoozeMinutes = item.optInt("snoozeMinutes", 0).takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
