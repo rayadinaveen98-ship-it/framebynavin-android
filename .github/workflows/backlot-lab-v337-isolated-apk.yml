@@ -1,0 +1,80 @@
+name: Backlot Lab V337 - isolated sideload APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/backlot-lab-v337-fresh-backend-20261117
+    paths:
+      - app/**
+      - .github/workflows/backlot-lab-v337-isolated-apk.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-lab-v337-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lab-apk:
+    name: Compile and inspect isolated Lab APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - name: Refuse unrelated cloud credentials and accidental production packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle=Path('app/build.gradle.kts').read_text()
+          cloud=Path('app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt').read_text()
+          ai=Path('app/src/main/java/com/framebynavin/app/ai/CreatorGeminiVideoAutopsyProvider.kt').read_text()
+          assert 'if (backlotLabMode) "com.framebynavin.app.lab"' in gradle
+          assert 'providers.gradleProperty("backlotLab")' in gradle
+          assert 'vasleafrmsovdbdlrcsw.supabase.co' in cloud
+          assert 'BuildConfig.BACKLOT_LAB' in cloud and 'BuildConfig.BACKLOT_LAB' in ai
+          assert 'sb_secret_' not in cloud and 'service_role' not in cloud.lower()
+          assert Path('dev-signing/framebynavin-public-debug.jks').exists()
+          print('PASS isolated package, Lab URL, publishable-only client and optional AI fail-closed gate')
+          PY
+      - name: JVM tests, Android lint, and debug Lab APK
+        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug -PbacklotLab=true --stacktrace
+      - name: Verify independently installable package and label
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          "$aapt_bin" dump badging "$apk" > /tmp/backlot-lab-badging.txt
+          grep -q "package: name='com.framebynavin.app.lab'" /tmp/backlot-lab-badging.txt
+          grep -q "application-label:'Backlot Lab'" /tmp/backlot-lab-badging.txt
+          sha256sum "$apk"
+          echo 'PASS: isolated lab package and title. This is not a physical-device acceptance test.'
+      - name: Print PUBLIC development signing certificate fingerprints for Android OAuth registration
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks \
+            -storepass framebynavin-dev -alias framebynavin-dev \
+            | grep -E 'SHA1:|SHA256:'
+      - name: Upload test-only Lab APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-V337-ISOLATED-DEBUG
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
