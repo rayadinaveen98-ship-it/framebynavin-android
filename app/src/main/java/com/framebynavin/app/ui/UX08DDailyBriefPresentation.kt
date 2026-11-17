@@ -124,7 +124,7 @@ internal fun UX08DBriefSectionHeading(
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, color = color, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
+            Text(subtitle, color = MutedText, fontSize = BacklotUX10Tokens.supporting, lineHeight = 16.sp)
         }
         Text(count.toString(), color = MutedGold, fontSize = 12.sp)
     }
@@ -145,11 +145,11 @@ internal fun UX08DBriefProjectRow(
     } else "No deadline"
     Surface(
         onClick = { onOpenProject(task.id) },
-        modifier = modifier.fillMaxWidth().heightIn(min = 54.dp)
+        modifier = modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
             .testTag("ux08d-project-" + task.id),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine.copy(alpha = 0.4f)),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(
             Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
