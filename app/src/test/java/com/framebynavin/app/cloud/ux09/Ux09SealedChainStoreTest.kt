@@ -130,9 +130,9 @@ class Ux09SealedChainStoreTest {
 
     @Test fun differentEncryptionKeyCannotReadExistingQueue() {
         put(prepared())
-        val different = Ux09SealedChainStore(tmp.root) {
+        val different = Ux09SealedChainStore(tmp.root, {
             SecretKeySpec(ByteArray(32) { 0x12.toByte() }, "AES")
-        }
+        })
         assertThrows(IllegalStateException::class.java) {
             different.read(accountA, 5, 7, Ux09Domain.PROJECT, entity)
         }
