@@ -624,6 +624,8 @@ private fun V157ReminderGroup(
         val canSnooze = actionable && onSnooze != null && smartWindowReady
         val canReschedule = actionable && onReschedule != null
         val canPause = onPause != null && ReminderCenterPolicy.canPause(task, now)
+        val isSmartTarget = task.reminderMode == ReminderMode.SMART ||
+            task.smartEscalationEnabled
         var optionsOpen by remember(task.id) { mutableStateOf(false) }
 
         Surface(
@@ -720,7 +722,11 @@ private fun V157ReminderGroup(
                             ) {
                                 Icon(Icons.Outlined.Snooze, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("SNOOZE ${effectiveSnoozeMinutes}m", fontSize = 11.sp, maxLines = 1)
+                                Text(
+                                    if (isSmartTarget) "MOVE +${effectiveSnoozeMinutes}m"
+                                    else "SNOOZE ${effectiveSnoozeMinutes}m",
+                                    fontSize = 11.sp, maxLines = 1,
+                                )
                             }
                         }
                         if (canReschedule) {
@@ -737,11 +743,17 @@ private fun V157ReminderGroup(
                             }
                         }
                     }
-                    if (task.reminderMode == ReminderMode.SMART) {
+                    if (isSmartTarget) {
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            if (!smartWindowReady) "Smart escalation needs more time. Choose a later time."
-                            else "Snoozing moves the final Smart reminder time.",
+                            when {
+                                !smartWindowReady ->
+                                    "The Smart target cannot move by this amount within the allowed window."
+                                snoozeAt != null ->
+                                    "Moves the final Smart alert to ${pFormatDateTime(snoozeAt)}. " +
+                                        "Your project deadline stays unchanged."
+                                else -> "Choose a valid later Smart target.",
+                            },
                             color = MutedText,
                             fontSize = 11.sp,
                             lineHeight = 15.sp,
