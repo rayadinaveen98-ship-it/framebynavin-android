@@ -42,7 +42,7 @@ import androidx.core.app.NotificationManagerCompat
  * of permissions. This snapshot never proves delivered, viewed or heard.
  */
 internal enum class V407ReminderOwner { CREATOR, PERSONAL }
-internal enum class V407Access { ALLOWED, DEGRADED, BLOCKED, UNKNOWN }
+internal enum class V407Access { ALLOWED, DEGRADED, BLOCKED, UNKNOWN, NOT_APPLICABLE }
 
 internal data class V407ReminderAccessSnapshot(
     val notifications: V407Access,
@@ -58,6 +58,11 @@ internal data class V407ReminderAccessSnapshot(
 }
 
 internal object V407ReminderAccessInspector {
+    // Personal Voice only launches after a notification tap, not from an
+    // automatic full-screen intent. Do not recommend irrelevant permission.
+    fun fullScreenRelevant(owner: V407ReminderOwner, kind: ReminderCheckInKind): Boolean =
+        owner == V407ReminderOwner.CREATOR || kind == ReminderCheckInKind.ALARM
+
     fun inspect(
         context: Context, owner: V407ReminderOwner, kind: ReminderCheckInKind,
     ): V407ReminderAccessSnapshot {
@@ -91,7 +96,8 @@ internal object V407ReminderAccessInspector {
                 app.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
             ) V407Access.ALLOWED else V407Access.DEGRADED
         }.getOrDefault(V407Access.UNKNOWN)
-        val full = runCatching {
+        val full = if (!fullScreenRelevant(owner, kind)) V407Access.NOT_APPLICABLE
+        else runCatching {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
                 app.getSystemService(NotificationManager::class.java)
                     ?.canUseFullScreenIntent() == true
@@ -181,7 +187,8 @@ internal fun V407ReminderAccessDisclosure(
                             Text("NOTIFICATION SETTINGS", fontSize = 11.sp)
                         }
                     }
-                    if (snapshot?.fullScreen != V407Access.ALLOWED &&
+                    if (snapshot != null && snapshot.fullScreen != V407Access.ALLOWED &&
+                        snapshot.fullScreen != V407Access.NOT_APPLICABLE &&
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                         OutlinedButton(
                             onClick = {
@@ -232,6 +239,7 @@ private fun V407AccessRow(label: String, value: V407Access) {
                 V407Access.DEGRADED -> "Limited"
                 V407Access.BLOCKED -> "Blocked"
                 V407Access.UNKNOWN -> "Not known"
+                V407Access.NOT_APPLICABLE -> "Not used"
             },
             color = V336DirectorPalette.ivory,
             fontSize = 11.sp,
