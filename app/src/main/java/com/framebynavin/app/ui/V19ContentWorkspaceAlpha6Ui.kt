@@ -205,18 +205,21 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                             Icon(Icons.Outlined.Lightbulb, contentDescription = null,
                                 tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("CREATIVE BRIEF", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.weight(1f))
                             Text(
-                                if (wsBriefReady(workspace)) "ESSENTIALS SAVED" else "NEEDS FOCUS",
-                                color = MutedGold, fontSize = 11.sp,
+                                "CREATIVE BRIEF", color = ProjectorIvory,
+                                fontWeight = FontWeight.Bold, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                             )
-                            Spacer(Modifier.width(5.dp))
                             Icon(
                                 if (showBrief) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                                 contentDescription = null, tint = MutedGold,
                             )
                         }
+                        Text(
+                            if (wsBriefReady(workspace)) "ESSENTIALS SAVED" else "NEEDS FOCUS",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.padding(start = 20.dp, bottom = 4.dp),
+                        )
                         if (showBrief) {
                             Text(
                                 "One project brief; shared by every stage and output.",
