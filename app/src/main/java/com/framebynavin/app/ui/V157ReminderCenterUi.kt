@@ -476,7 +476,8 @@ internal fun V157ReminderCenterUi(
                                 modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
                                 shape = RoundedCornerShape(18.dp),
                                 colors = backlotFilterColors,
-                                border = BorderStroke(1.dp, if (activeFilter) BacklotAccent else BacklotBorder),
+                                border = if (activeFilter) BacklotUX10Tokens.activeBorder(BacklotAccent)
+                                else BacklotUX10Tokens.quietBorder(BacklotBorder),
                             )
                         }
                         FilterChip(
@@ -490,7 +491,8 @@ internal fun V157ReminderCenterUi(
                             modifier = Modifier.testTag("v2193-history-tab"),
                             shape = RoundedCornerShape(18.dp),
                             colors = backlotFilterColors,
-                            border = BorderStroke(1.dp, if (historyOpen) BacklotAccent else BacklotBorder),
+                            border = if (historyOpen) BacklotUX10Tokens.activeBorder(BacklotAccent)
+                            else BacklotUX10Tokens.quietBorder(BacklotBorder),
                         )
                     }
                     } else {
@@ -646,11 +648,11 @@ private fun V157InboxCount(label: String, count: Int, accent: Color, modifier: M
         modifier = modifier,
         shape = RoundedCornerShape(13.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 11.dp)) {
             Text(count.toString(), color = accent, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text(label, color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(label, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }
@@ -710,7 +712,8 @@ private fun V157ReminderGroup(
             ),
             shape = RoundedCornerShape(17.dp),
             color = if (chosen) RecRed.copy(alpha = .11f) else CinemaSurface,
-            border = BorderStroke(1.dp, if (chosen) RecRed else CinemaLine),
+            border = if (chosen) BacklotUX10Tokens.activeBorder(RecRed)
+                else BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Column(Modifier.padding(14.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
@@ -789,9 +792,9 @@ private fun V157ReminderGroup(
                     ) {
                         if (canSnooze) {
                             OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.rowTarget),
                                 onClick = { onSnooze?.invoke(task, effectiveSnoozeMinutes) },
-                                border = BorderStroke(1.dp, CinemaLine),
+                                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
@@ -806,9 +809,9 @@ private fun V157ReminderGroup(
                         }
                         if (canReschedule) {
                             OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.rowTarget),
                                 onClick = { onReschedule?.invoke(task) },
-                                border = BorderStroke(1.dp, CinemaLine),
+                                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
