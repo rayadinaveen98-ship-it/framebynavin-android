@@ -1,6 +1,6 @@
 # Backlot UX09-01 — Disposable Postgres contract package for Creator Projects + Ideas
 
-**Status (2026-11-17):** UX09-01 isolated SQL and synthetic test harness source-staged. **Executed disposable PostgreSQL 16 contract CI PASS:** [run #44089557376](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44089557376), exact tested SHA `19855a6adf75b6d963f878b9da11f45d61ffdf6e`. **NO hosted Lab SQL, no real Supabase signed-JWT test, no Android app changes, no migration merge, no two-device sync, no Backup/Restore/Delete implementation, no APK.**
+**Status (2026-11-17):** UX09-01 isolated SQL and synthetic test harness source-staged. **Executed disposable PostgreSQL 16 contract CI PASS:** [run #44090476691](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44090476691), exact tested SHA `da90847ccea9211896ae6c3e7fa4187618067a02`. **NO hosted Lab SQL, no real Supabase signed-JWT test, no Android app changes, no migration merge, no two-device sync, no Backup/Restore/Delete implementation, no APK.**
 **Parent:** BL-02/BL-03 documentation-only draft PR #429 at `9445aa62fcf8fd58fb300bc4dd7e15b10ef2537b`, stacked on owner-tested Backlot Lab V337 `4ba1263124d118d3917f988228aec2248068466f`.
 **Immutable protected baselines:** original accepted V337 P0 `815ba69775f75b6e5f25bb838c2c17b4f09c203e`, owner-tested Lab V337 `4ba1263124d118d3917f988228aec2248068466f`, staged UX10F `6654c730971309b5047473e2f69292fe799b3f46`.
 **Founder direction:** Start fresh, no historical cloud migration. **Do not interpret that as permission to delete existing app data, current Lab records, accounts, private media or production Supabase.**
@@ -42,6 +42,8 @@ For **additional actual local Supabase Auth/REST JWT testing** (beyond the compl
 5. Review snapshot/legacy data coexistence, Data API's **exposed schemas** setting (internal schema must NOT be exposed), role grants, RLS and App JWT behavior. Two-user negative tests MUST use ordinary authenticated REST RPC calls, not privileged admin SQL.
 6. Only after successful local contracts, architectural security review and founder authorization, generate a real migration file using `supabase migration new <approved_name>` and commit it with the tested SQL. No timestamp migration filename was guessed here because no local Supabase CLI exists.
 7. Hosted `vasleafrmsovdbdlrcsw` migration, paid branch creation, production/server key changes, Android sync client integration, cleanup or release require separate scoped founder approval. If hosted migration is ever approved, perform explicit before/after schema/role/policy/advisor verification and rollback review.
+
+Test evidence expands to **two distinct success cases for concurrent writes**: one wins when the same entity is created twice at once; both win with unique, consecutive sequences when different entity IDs are created at once. Real JWT/API testing remains pending.
 
 ## Security boundaries and open risk
 
