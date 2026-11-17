@@ -1055,26 +1055,43 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     .padding(bottom = 28.dp, start = 18.dp, end = 18.dp),
             )
         }
-        // Celebrate a confirmed, durable stage reward, never an optimistic tap.
+        // Only the live newly-credited feedback queue may cause celebratory
+        // effects. Imported and historical reward-ledger entries are never
+        // passed to the celebration renderer or used to mint extra XP.
+        val ux08cFeedback = vm.rewardFeedback
+        val ux08cFreshReward = ux08cFeedback?.takeIf {
+            UX08CCelebrationPolicy.verifiedFeedback(it, System.currentTimeMillis())
+        }
         V127StageCompletionPulse(
-            eventKey = V2284StageCelebrationPolicy.confirmedStageKey(vm.rewardFeedback),
+            eventKey = V2284StageCelebrationPolicy.confirmedStageKey(ux08cFreshReward),
             modifier = Modifier.align(Alignment.Center),
         )
+        UX08CCompanionCelebration(
+            creditedFeedback = ux08cFeedback,
+            // Never compete with owner-confirmed reminder responses, the
+            // Quick Actions sheet, or the guided first-run navigation.
+            suppress = showReminders || showControl || guidedTourStepName != null,
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 123.dp, start = 18.dp, end = 18.dp),
+        )
 
-        vm.rewardFeedback?.let { reward ->
+        ux08cFeedback?.let { reward ->
             LaunchedEffect(reward.eventKey) {
-                delay(2200L)
+                // The original single queue serializes short feedback.
+                // Keep its slot open until the ~3-second companion has
+                // completed its fade, without adding another event owner.
+                delay(UX08CCelebrationPolicy.FEEDBACK_QUEUE_SLOT_MS)
                 vm.consumeRewardFeedback(reward.eventKey)
             }
             V127RewardAura(
                 eventKey = reward.eventKey,
-                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 0.dp).size(190.dp),
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()
+                    .padding(top = 0.dp).size(190.dp),
             )
             V22RewardToast(
                 entry = reward,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()
                     .padding(top = 10.dp, start = 20.dp, end = 20.dp),
             )
         }
