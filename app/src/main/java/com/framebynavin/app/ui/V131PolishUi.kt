@@ -308,6 +308,7 @@ internal fun V131ReminderCenter(
     tasks: List<CreatorTask>,
     onDismiss: () -> Unit,
     onNew: () -> Unit,
+    onQuickNew: () -> Unit = onNew,
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
     onOpenReminderSettings: () -> Unit = onDismiss,
