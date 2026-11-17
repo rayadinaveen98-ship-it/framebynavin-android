@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -52,8 +53,8 @@ internal fun V20InsightsFoundationCard(
             reachStore.summary(snapshot.startDate, snapshot.endDate)
         else null
     }
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(BacklotUX10Tokens.cardRadius), CinemaSurface,
+        border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Audience", color = ProjectorIvory, fontSize = 15.sp,
