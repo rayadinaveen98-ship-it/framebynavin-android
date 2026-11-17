@@ -3,7 +3,6 @@ package com.framebynavin.app.cloud.ux09
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
-import java.util.Locale
 import java.util.UUID
 
 /**
@@ -54,7 +53,7 @@ internal object Ux09Contract {
 
     fun requireUuid(value: String): String {
         val id = runCatching { UUID.fromString(value) }.getOrNull()
-        require(id != null && id != UUID(0L, 0L) && id.toString() == value.lowercase(Locale.ROOT)) {
+        require(id != null && id != UUID(0L, 0L) && id.toString() == value) {
             "UX09 requires canonical nonzero UUIDs; imported legacy IDs need mapping review"
         }
         return id.toString()
