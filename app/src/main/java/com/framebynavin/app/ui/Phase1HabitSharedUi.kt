@@ -342,7 +342,7 @@ internal fun DashboardHabitReview(
                                     .clickable { onDaySelected(day) }
                                     .testTag("habit-day-$index")
                                     .semantics {
-                                        contentDescription = "Challenge day $index, " + (
+                                        contentDescription = "Challenge day $index, $day, " + (
                                             if (isDone) "confirmed"
                                             else if (current) "today, not confirmed"
                                             else "not confirmed"
