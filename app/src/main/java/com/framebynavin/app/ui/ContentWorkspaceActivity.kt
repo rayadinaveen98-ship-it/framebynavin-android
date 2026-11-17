@@ -1201,6 +1201,25 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
     }
 
+    /** Explicitly discard only the draft bound to the current project/revision/epoch. */
+    private fun discardLearningDraft(projectId: String, outputId: String, revision: Long): Boolean {
+        return runCatching {
+            CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+            if (outputId.isNotBlank()) {
+                val journal = CreatorOutputLearningDraftStore(applicationContext)
+                if (journal.load(projectId, outputId, revision) != null) {
+                    journal.clear(projectId, outputId, revision)
+                }
+            }
+            true
+        }.getOrElse { failure ->
+            android.util.Log.w(
+                "BacklotWorkspace", "Unable to discard output learning draft", failure,
+            )
+            false
+        }
+    }
+
     /** Learning may continue after a completed project, but never alters publication. */
     private fun appendOutputLearning(
         projectId: String,
@@ -1214,6 +1233,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
             ).show()
             return
         }
+        learningSaveInFlight = true
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val result = runCatching {
@@ -1225,6 +1245,17 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 }
                 withContext(Dispatchers.Main) {
                     result.onSuccess { saved ->
+                        // The real write has committed. A journal cleanup failure
+                        // is non-destructive: its older revision is quarantined.
+                        runCatching {
+                            CreatorOutputLearningDraftStore(applicationContext).clearSaved(
+                                projectId, draft.deliverableId, expectedRevision,
+                            )
+                        }.onFailure { failure ->
+                            android.util.Log.w(
+                                "BacklotWorkspace", "Learning draft cleanup deferred", failure,
+                            )
+                        }
                         task = saved
                         confirmEditorClose = false
                         mode = Alpha6WorkspaceMode.LEARN
@@ -1244,6 +1275,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 }
             } finally {
                 saveGate.end()
+                withContext(Dispatchers.Main) { learningSaveInFlight = false }
             }
         }
     }
