@@ -40,6 +40,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onOpenPublish: () -> Unit,
     onOpenStage: (String) -> Unit = { onOpenProject() },
     onOpenOutputCraft: () -> Unit = onOpenProject,
+    onOpenBoard: () -> Unit = onOpenProject,
 ) {
     val workspace = task.workspace
     val overview = V405WorkspaceOverviewPolicy.snapshot(task)
@@ -285,6 +286,39 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         title = "Guide", detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
                         icon = Icons.Outlined.AutoAwesome, modifier = Modifier.weight(1f), onClick = onOpenBlueprint,
                     )
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    onClick = onOpenBoard,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp)
+                        .testTag("ux051c-open-creative-board"),
+                    shape = RoundedCornerShape(17.dp),
+                    color = CinemaSurfaceRaised,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.ViewModule, contentDescription = null,
+                            tint = MutedGold, modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Creative Board", color = ProjectorIvory,
+                                fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                            Text(
+                                "${workspace.references.size + workspace.assets.size} sources & assets · " +
+                                    "${workspace.stageWork.sumOf { it.evidence.size }} evidence records · " +
+                                    "${workspace.scriptStudio?.beats?.size ?: 0} script beats",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 16.sp,
+                            )
+                        }
+                        Icon(Icons.Outlined.ArrowForward, contentDescription = null,
+                            tint = RecRed, modifier = Modifier.size(21.dp))
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
