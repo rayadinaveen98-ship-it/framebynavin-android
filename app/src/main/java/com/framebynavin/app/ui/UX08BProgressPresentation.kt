@@ -129,7 +129,7 @@ internal fun UX08BJourneySummaryStrip(
         if (includePersonal && personalStatus == null) {
             Text(
                 "${summary.personalDoneReceipts} accepted private Personal Done receipt" +
-                    if (summary.personalDoneReceipts == 1) "" else "s",
+                    (if (summary.personalDoneReceipts == 1) "" else "s"),
                 color = MutedText,
                 fontSize = 11.sp,
                 modifier = Modifier.testTag("ux08b-personal-done-count"),
