@@ -208,10 +208,43 @@ internal object Ux09OfflineChainPolicy {
         require(chain.remoteRevision in 0..(Long.MAX_VALUE - 2))
         require(chain.lastAcknowledgedSequence >= 0)
         require(SHA256.matches(chain.lastCommittedLocalSha256))
+        var expectedBefore = chain.lastCommittedLocalSha256
+        val distinctIds = mutableSetOf<String>()
+        chain.pendingEdits.forEachIndexed { index, edit ->
+            Ux09Contract.requireUuid(edit.localEditId)
+            require(distinctIds.add(edit.localEditId)) {
+                "Same local edit appears twice in a recovered queue"
+            }
+            require(SHA256.matches(edit.localBeforeSha256) &&
+                SHA256.matches(edit.localAfterSha256) &&
+                edit.localBeforeSha256 == expectedBefore &&
+                edit.localAfterSha256 != edit.localBeforeSha256) {
+                "Recovered local queue has a gap or unchanged payload"
+            }
+            require(edit.canonicalPayloadJson ==
+                Ux09Contract.canonicalPayload(edit.canonicalPayloadJson)) {
+                "Recovered draft content is not canonical"
+            }
+            if (edit.tombstone) {
+                require(index == chain.pendingEdits.lastIndex &&
+                    edit.canonicalPayloadJson == "{}") {
+                    "A permanent tombstone must be the final pending operation"
+                }
+            }
+            expectedBefore = edit.localAfterSha256
+        }
         if (chain.preparedRemoteOperation != null) {
             Ux09Contract.validate(chain.preparedRemoteOperation)
             require(chain.pendingEdits.isNotEmpty()) {
                 "An in-flight request cannot exist without its unchanged local edit"
+            }
+            val first = chain.pendingEdits.first()
+            require(chain.preparedRemoteOperation.expectedRevision == chain.remoteRevision &&
+                chain.preparedRemoteOperation.payloadJson == first.canonicalPayloadJson &&
+                chain.preparedRemoteOperation.tombstone == first.tombstone &&
+                chain.preparedRemoteOperation.localBeforeSha256 == first.localBeforeSha256 &&
+                chain.preparedRemoteOperation.localAfterSha256 == first.localAfterSha256) {
+                "Prepared remote body does not match first untouched queued local edit"
             }
             require(chain.preparedRemoteOperation.accountId == chain.accountId &&
                 chain.preparedRemoteOperation.entityId == chain.entityId &&
