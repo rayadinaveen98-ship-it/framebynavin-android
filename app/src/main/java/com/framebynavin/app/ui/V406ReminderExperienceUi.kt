@@ -15,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,7 +89,8 @@ internal fun V406ReminderScopeNavigator(
                         shape = RoundedCornerShape(15.dp),
                         border = BorderStroke(1.dp, BacklotAccent),
                         modifier = Modifier.heightIn(min = 64.dp)
-                            .testTag("ux06b-scope-${action.id}"),
+                            .testTag("ux06b-scope-${action.id}")
+                            .semantics { stateDescription = "Selected" },
                         content = tile,
                     )
                 } else {
@@ -97,7 +100,8 @@ internal fun V406ReminderScopeNavigator(
                         shape = RoundedCornerShape(15.dp),
                         border = BorderStroke(1.dp, BacklotBorder),
                         modifier = Modifier.heightIn(min = 64.dp)
-                            .testTag("ux06b-scope-${action.id}"),
+                            .testTag("ux06b-scope-${action.id}")
+                            .semantics { stateDescription = "Not selected" },
                         content = tile,
                     )
                 }
@@ -149,7 +153,7 @@ internal fun V406PersonalComposerProgress(
                         color = BacklotSurface,
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, BacklotBorder),
-                        modifier = Modifier.heightIn(min = 44.dp)
+                        modifier = Modifier.heightIn(min = 48.dp)
                             .testTag("ux06b-composer-step-$index"),
                         content = content,
                     )
@@ -160,7 +164,7 @@ internal fun V406PersonalComposerProgress(
                         border = BorderStroke(
                             1.dp, if (isCurrent) BacklotAccent else BacklotBorder,
                         ),
-                        modifier = Modifier.heightIn(min = 44.dp)
+                        modifier = Modifier.heightIn(min = 48.dp)
                             .testTag("ux06b-composer-step-$index"),
                         content = content,
                     )
