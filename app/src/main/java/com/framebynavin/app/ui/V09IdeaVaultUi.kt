@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Notes
@@ -247,9 +248,11 @@ internal fun V09IdeaVaultScreen(
                             onEdit = { editing = idea },
                             onConvert = { converting = idea },
                             onArchive = { onArchive(idea.id) },
-                            onOpenLinkedProject = idea.projectTaskId.takeIf { it.isNotBlank() }
-                                ?.let { projectId -> { onOpenLinkedProject?.invoke(projectId) } }
-                                .takeIf { onOpenLinkedProject != null },
+                            onOpenLinkedProject = if (idea.projectTaskId.isNotBlank() &&
+                                onOpenLinkedProject != null
+                            ) {
+                                { onOpenLinkedProject?.invoke(idea.projectTaskId) }
+                            } else null,
                         )
                     }
                 }
