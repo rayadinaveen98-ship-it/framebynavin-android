@@ -292,7 +292,8 @@ internal fun V306ActivityCenterScreen(
                                     UX10EPresentationPolicy.activityEmptyCopy(
                                         allSourcesReady = personalReady && receiptsReady &&
                                             creatorEvidence != null,
-                                        readFailure = personalFailure || receiptFailure,
+                                        readFailure = creatorEvidence == null ||
+                                            personalFailure || receiptFailure,
                                         viewName = filter.name,
                                     ),
                                     color = MutedText, fontSize = 13.sp,
