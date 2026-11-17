@@ -143,6 +143,7 @@ internal fun CW3StageDesk(
         else persisted
     }
     val experience = CW3StageExperiencePolicy.forStage(stage)
+    val contextualModule = CW51StageModulePolicy.forStage(task, stage)
     val canonicalDestination = StageWorkspaceRoutingPolicy.destination(stage)
     val hasOutputs = task.workspace.deliverables.isNotEmpty()
     val isProductionStage = stage.id in setOf(
@@ -261,7 +262,51 @@ internal fun CW3StageDesk(
                     )
                 }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
+            contextualModule?.let { module ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine.copy(alpha = .65f)),
+                    modifier = Modifier.fillMaxWidth().testTag("ux051c-stage-module"),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Text("STAGE FOCUS · ${module.name.uppercase()}",
+                            color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(module.guidance, color = ProjectorIvory, fontSize = 13.sp,
+                            lineHeight = 18.sp)
+                        Spacer(Modifier.height(8.dp))
+                        module.questions.forEach { question ->
+                            Text("• $question", color = MutedText, fontSize = 12.sp,
+                                lineHeight = 18.sp, modifier = Modifier.padding(vertical = 2.dp))
+                        }
+                        val missingSuggestions = module.suggestedTasks.filter { proposed ->
+                            checklist.none { it.title.equals(proposed, ignoreCase = true) }
+                        }
+                        if (editable && missingSuggestions.isNotEmpty()) {
+                            Spacer(Modifier.height(9.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    checklist = checklist + missingSuggestions.map { suggestion ->
+                                        CreatorStageChecklistItem(
+                                            id = UUID.randomUUID().toString(),
+                                            title = suggestion,
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051c-add-context-tasks"),
+                            ) {
+                                Text("ADD ${missingSuggestions.size} FOCUS TASK(S)", color = MutedGold)
+                            }
+                        }
+                        Text("Suggestions are optional. Save Stage Work to keep added tasks; no stage advances.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+            }
 
             Text("STAGE NOTES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             if (!editable) Text(
@@ -330,7 +375,7 @@ internal fun CW3StageDesk(
             Text("EVIDENCE & TIMECODES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(5.dp))
             Text(experience.evidencePrompt, color = MutedText, fontSize = 12.sp)
-            evidence.forEach { item ->
+            evidence.forEachIndexed { index, item ->
                 Surface(modifier = Modifier.fillMaxWidth().padding(top = 9.dp),
                     shape = RoundedCornerShape(12.dp), color = CinemaSurface,
                     border = BorderStroke(1.dp, CinemaLine)) {
@@ -354,8 +399,42 @@ internal fun CW3StageDesk(
                                 color = MutedGold, fontSize = 11.sp,
                             )
                         }
-                        if (editable) TextButton(onClick = { evidence = evidence.filterNot { it.id == item.id } }) {
-                            Text("REMOVE EVIDENCE", color = MutedText, fontSize = 10.sp)
+                        if (editable) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                IconButton(
+                                    enabled = index > 0,
+                                    onClick = {
+                                        evidence = evidence.toMutableList().also { list ->
+                                            val moved = list.removeAt(index)
+                                            list.add(index - 1, moved)
+                                        }
+                                    },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move evidence earlier",
+                                        tint = if (index > 0) MutedGold else MutedText)
+                                }
+                                IconButton(
+                                    enabled = index < evidence.lastIndex,
+                                    onClick = {
+                                        evidence = evidence.toMutableList().also { list ->
+                                            val moved = list.removeAt(index)
+                                            list.add(index + 1, moved)
+                                        }
+                                    },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move evidence later",
+                                        tint = if (index < evidence.lastIndex) MutedGold else MutedText)
+                                }
+                                TextButton(onClick = { evidence = evidence.filterNot { it.id == item.id } }) {
+                                    Text("REMOVE", color = MutedText, fontSize = 11.sp)
+                                }
+                            }
                         }
                     }
                 }
