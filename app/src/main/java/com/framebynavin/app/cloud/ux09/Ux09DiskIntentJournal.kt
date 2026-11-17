@@ -42,6 +42,16 @@ internal class Ux09DiskIntentJournal(private val root: File) {
             require(previous.intent == intent) { "Operation UUID was reused with different intent" }
             return@synchronized previous
         }
+        // The server CAS revision cannot be guessed for a second offline edit.
+        // Until an ordered dependency chain / safe pre-send coalescing exists,
+        // refuse a competing operation for this same account/domain/entity.
+        // Never rewrite an earlier operation ID or expected revision.
+        require(pending(intent.accountId).none { queued ->
+            queued.intent.domain == intent.domain &&
+                queued.intent.entityId == intent.entityId
+        }) {
+            "Unresolved offline edit for this entity: safe operation chaining is not implemented"
+        }
         val value = Stored(intent, Phase.PREPARED)
         persist(target, value)
         value
