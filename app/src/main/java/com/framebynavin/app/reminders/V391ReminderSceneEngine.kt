@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -267,8 +269,8 @@ internal fun V391ReminderSceneSettings() {
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("REMINDER SCENES", color = V336DirectorPalette.gold,
             fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-        Text("Animated backgrounds for both Creator and Personal reminders. " +
-            "Your reminder actions and sound settings stay the same.",
+        Text("Five curated cinematic looks and seven preserved Classic scenes " +
+            "for Creator and Personal Voice/Alarm. Sound and actions do not change.",
             color = V336DirectorPalette.muted, fontSize = 12.sp, lineHeight = 17.sp)
         for (kind in listOf(ReminderCheckInKind.VOICE, ReminderCheckInKind.ALARM)) {
             val selected = V391ReminderScenePrefs.selected(kind)
@@ -286,27 +288,56 @@ internal fun V391ReminderSceneSettings() {
                             modifier = Modifier.padding(17.dp))
                     }
                 }
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    for (scene in V391ReminderScene.entries) {
-                        OutlinedButton(
-                            onClick = { V391ReminderScenePrefs.set(kind, scene) },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (scene == selected)
-                                    V336DirectorPalette.wine else Color.Transparent,
-                                contentColor = V336DirectorPalette.ivory,
-                            ),
-                            modifier = Modifier.testTag("v391-pick-${kind.name}-${scene.name}"),
-                        ) { Text(scene.label, fontSize = 11.sp) }
+                for ((collectionTitle, scenes) in listOf(
+                    "CINEMATIC COLLECTION" to V406CinematicScenes.curated,
+                    "CLASSIC COLLECTION" to V406CinematicScenes.classic,
+                )) {
+                    Text(
+                        collectionTitle,
+                        color = V336DirectorPalette.muted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .testTag("ux06c-collection-${kind.name}-${collectionTitle.replace(' ', '-')}"),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        for (scene in scenes) {
+                            OutlinedButton(
+                                onClick = { V391ReminderScenePrefs.set(kind, scene) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (scene == selected)
+                                        V336DirectorPalette.wine else Color.Transparent,
+                                    contentColor = V336DirectorPalette.ivory,
+                                ),
+                                modifier = Modifier
+                                    .testTag("v391-pick-${kind.name}-${scene.name}")
+                                    .semantics {
+                                        stateDescription =
+                                            if (scene == selected) "Selected" else "Not selected"
+                                    },
+                            ) { Text(scene.label, fontSize = 11.sp) }
+                        }
                     }
                 }
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text("Scenes respect reduced-motion preferences and battery saver. " +
-            "Animations never hide or intercept reminder controls.",
+        Text("The previews use a lighter static render. In real alerts, movement " +
+            "follows Android motion and power settings; it cannot hide or intercept actions.",
             color = V336DirectorPalette.muted, fontSize = 11.sp, lineHeight = 16.sp)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Premiere is a separate opt-in full-screen presentation. When enabled, " +
+                "it takes priority over your chosen Classic or Cinematic background. " +
+                "Switch Premiere off to use this scene during live Voice/Alarm alerts.",
+            color = V336DirectorPalette.muted,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            modifier = Modifier.testTag("ux06c-premiere-precedence"),
+        )
         Spacer(Modifier.height(12.dp))
         V394PremiereSettingsSection()
     }
