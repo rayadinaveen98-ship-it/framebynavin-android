@@ -35,6 +35,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onOpenBlueprint: () -> Unit,
     onOpenProject: () -> Unit,
     onOpenBrief: () -> Unit = onOpenProject,
+    onOpenPlanSection: (String) -> Unit = { onOpenProject() },
     onOpenScript: () -> Unit,
     onOpenPublish: () -> Unit,
     onOpenStage: (String) -> Unit = { onOpenProject() },
@@ -207,7 +208,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                             Text("CREATIVE BRIEF", color = ProjectorIvory, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.weight(1f))
                             Text(
-                                if (wsBriefReady(workspace)) "SAVED" else "NEEDS FOCUS",
+                                if (wsBriefReady(workspace)) "ESSENTIALS SAVED" else "NEEDS FOCUS",
                                 color = MutedGold, fontSize = 11.sp,
                             )
                             Spacer(Modifier.width(5.dp))
@@ -343,6 +344,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                 hint.stageId.isNotBlank() -> { { onOpenStage(hint.stageId) } }
                                 hint.openOutputCraft -> onOpenOutputCraft
                                 hint.openBrief -> onOpenBrief
+                                hint.planSection.isNotBlank() -> { { onOpenPlanSection(hint.planSection) } }
                                 else -> when (hint.destination) {
                                     V2285WorkspaceDestination.PLAN -> onOpenProject
                                     V2285WorkspaceDestination.SCRIPT -> onOpenScript
@@ -353,6 +355,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                 hint.stageId.isNotBlank() -> "OPEN STAGE"
                                 hint.openOutputCraft -> "OPEN OUTPUT CRAFT"
                                 hint.openBrief -> "OPEN BRIEF"
+                                hint.planSection == "RESEARCH" -> "OPEN SOURCES"
+                                hint.planSection == "DELIVERABLES" -> "OPEN OUTPUTS"
+                                hint.planSection == "PRODUCTION" -> "OPEN TASKS"
                                 else -> "OPEN ${hint.destination.name}"
                             }
                             Surface(
