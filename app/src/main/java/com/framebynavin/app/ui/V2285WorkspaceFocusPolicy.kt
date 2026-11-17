@@ -161,9 +161,15 @@ internal object V2285WorkspaceFocusPolicy {
                         section = "DELIVERABLES",
                     )
                 } else {
-                    V2295PublishReadinessPolicy.hint(ws.deliverables)?.let { suggestions += it }
+                    val targets = CreatorOutputTargetPolicy.select(ws, stageWork)
+                    // A different deliverable's readiness cannot silently
+                    // satisfy this stage's intended publication.
+                    if (targets.resolved) {
+                        V2295PublishReadinessPolicy.hint(
+                            ws.deliverables.filter { it.id in targets.outputIds },
+                        )?.let { suggestions += it }
+                    }
                     if (stage.id in setOf("published", "send")) {
-                        val targets = CreatorOutputTargetPolicy.select(ws, stageWork)
                         if (!targets.resolved) {
                             stageHint(
                                 "stage-publish-target", "Identify what this stage will publish",
