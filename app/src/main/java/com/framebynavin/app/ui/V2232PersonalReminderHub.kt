@@ -140,6 +140,11 @@ internal fun V2232PersonalReminderHub(
         }
     }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
+    // UX07B Home preview targets a specific existing Space without copying it.
+    // A null preview target deliberately opens the overview, even after an
+    // earlier external Home deep link carried an exact Space ID.
+    var ux07bPreviewSpaceFocusId by rememberSaveable { mutableStateOf<String?>(null) }
+    var ux07bSpaceOpenedFromPreview by rememberSaveable { mutableStateOf(false) }
     // A Home Space link opens the very same owner workspace and retains the
     // exact requested Space ID. No Creator workflow or reminder is touched.
     LaunchedEffect(initialOpenSpaces, initialFocusSpaceId) {
@@ -382,7 +387,11 @@ internal fun V2232PersonalReminderHub(
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(
-                    onClick = { spacesOpen = true },
+                    onClick = {
+                        ux07bPreviewSpaceFocusId = null
+                        ux07bSpaceOpenedFromPreview = true
+                        spacesOpen = true
+                    },
                     enabled = loaded && loadError == null,
                     modifier = Modifier.testTag("v289-open-spaces"),
                 ) {
@@ -414,7 +423,11 @@ internal fun V2232PersonalReminderHub(
                         editing = reminder
                         editorOpen = true
                     },
-                    onOpenSpaces = { spacesOpen = true },
+                    onOpenSpaces = {
+                        ux07bPreviewSpaceFocusId = null
+                        ux07bSpaceOpenedFromPreview = true
+                        spacesOpen = true
+                    },
                     onOpenChallenges = { challengesOpen = true },
                     onOpenGroups = { reminderGroupsOpen = true },
                 )
@@ -556,6 +569,37 @@ internal fun V2232PersonalReminderHub(
                             }
                         }
                     }
+                    // UX07B keeps today's authoritative Done/Snooze card and
+                    // the full original agenda below. This is a concise
+                    // projection of saved recurring reminders, not a new store.
+                    UX07BPersonalRhythm(
+                        reminders = reminders,
+                        nowMillis = agendaNowMillis,
+                        enabled = !busy,
+                        challengeCount = if (challengesLoaded && challengeLoadError == null)
+                            challenges.size else null,
+                        onNewRoutine = {
+                            editing = null
+                            editorOpen = true
+                        },
+                        onEditReminder = { reminder ->
+                            editing = reminder
+                            editorOpen = true
+                        },
+                        onOpenChallenges = { challengesOpen = true },
+                        onOpenGroups = { reminderGroupsOpen = true },
+                    )
+                    // Reuse the Home's already implemented read-only Space
+                    // observer. No Room database is created if one is absent,
+                    // and private JPEG bytes are never loaded for this preview.
+                    V340HomeSpacesEntry(
+                        onOpenSpaces = { spaceId ->
+                            ux07bPreviewSpaceFocusId = spaceId
+                            ux07bSpaceOpenedFromPreview = true
+                            spacesOpen = true
+                        },
+                        modifier = Modifier.testTag("ux07b-myday-spaces-preview"),
+                    )
                 }
             if (challengeLoadError != null) {
                 Text(challengeLoadError.orEmpty(), color = RecRed,
@@ -918,12 +962,20 @@ internal fun V2232PersonalReminderHub(
 
     if (spacesOpen) {
         V289PersonalSpacesScreen(
-            onClose = { spacesOpen = false },
-            initialSelectedSpaceId = if (initialOpenSpaces) initialFocusSpaceId else null,
+            onClose = {
+                spacesOpen = false
+                ux07bSpaceOpenedFromPreview = false
+                ux07bPreviewSpaceFocusId = null
+            },
+            initialSelectedSpaceId = if (ux07bSpaceOpenedFromPreview)
+                ux07bPreviewSpaceFocusId
+            else if (initialOpenSpaces) initialFocusSpaceId else null,
             onEditReminder = { id ->
                 reminders.firstOrNull { it.id == id }?.let { reminder ->
                     editing = reminder
                     spacesOpen = false
+                    ux07bSpaceOpenedFromPreview = false
+                    ux07bPreviewSpaceFocusId = null
                     editorOpen = true
                 }
             },
