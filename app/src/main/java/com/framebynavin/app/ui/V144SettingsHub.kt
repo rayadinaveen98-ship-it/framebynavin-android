@@ -221,7 +221,11 @@ internal fun V144SettingsHub(
                     title = permissionSummary.title,
                     subtitle = permissionSummary.explanation,
                     icon = if (notificationsReady) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
-                    accent = if (notificationsReady) SuccessGreen else MutedGold,
+                    accent = when {
+                        !notificationsReady -> RecRed
+                        permissionSummary.advancedMissing > 0 -> MutedGold
+                        else -> SuccessGreen
+                    },
                 )
                 Spacer(Modifier.height(10.dp))
                 V144PermissionRow("Allow notifications", notificationsReady, onNotifications)
@@ -230,8 +234,12 @@ internal fun V144SettingsHub(
                     modifier = Modifier.fillMaxWidth().testTag("v169-advanced-permissions"),
                 ) {
                     Text(
-                        if (showExtraPermissions) "HIDE ANDROID ALARM OPTIONS"
-                        else "MORE ANDROID OPTIONS · ${permissionSummary.advancedMissing} NEED ATTENTION",
+                        when {
+                            showExtraPermissions -> "HIDE ANDROID ALARM OPTIONS"
+                            permissionSummary.advancedMissing > 0 ->
+                                "MORE ANDROID OPTIONS · ${permissionSummary.advancedMissing} NEED ATTENTION"
+                            else -> "SHOW ANDROID ALARM OPTIONS"
+                        },
                         color = MutedGold, fontSize = 11.sp,
                     )
                 }
@@ -246,7 +254,10 @@ internal fun V144SettingsHub(
                 }
 
                 Spacer(Modifier.height(18.dp))
-                V144SectionTitle("REMINDER DEFAULTS", "Used for new reminders. Existing project choices stay saved.")
+                V144SectionTitle(
+                    "CREATOR REMINDER DEFAULTS",
+                    "Used for newly created projects. Personal reminder choices stay separate.",
+                )
                 Spacer(Modifier.height(10.dp))
                 Text("Snooze", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
