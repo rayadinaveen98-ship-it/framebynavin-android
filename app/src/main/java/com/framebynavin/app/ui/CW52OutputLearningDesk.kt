@@ -35,7 +35,7 @@ import java.util.UUID
 @Composable
 internal fun CW52OutputLearningDesk(
     task: CreatorTask,
-    onBack: () -> Unit,
+    onBack: (String, Long) -> Unit,
     onOpenPublish: () -> Unit,
     onOpenPlanOutputs: () -> Unit,
     onSave: (Long, CreatorOutputLearning) -> Unit,
@@ -153,7 +153,8 @@ internal fun CW52OutputLearningDesk(
                 Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack, enabled = !saving, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = { onBack(activeId, revision) },
+                    enabled = !saving, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to workspace",
                         tint = ProjectorIvory)
                 }
@@ -272,27 +273,27 @@ internal fun CW52OutputLearningDesk(
                                     )
                                     Spacer(Modifier.height(12.dp))
                                     CW52Field("EXPECTED OUTCOME", expectation, { expectation = it },
-                                        "What were you hoping to achieve?")
+                                        "What were you hoping to achieve?", enabled = !saving)
                                     CW52Field("WHAT HAPPENED", observed, { observed = it },
-                                        "What did you actually observe?")
+                                        "What did you actually observe?", enabled = !saving)
                                     CW52Field("WHAT WORKED", worked, { worked = it },
-                                        "Strong moments and useful audience signals")
+                                        "Strong moments and useful audience signals", enabled = !saving)
                                     CW52Field("WHAT TO IMPROVE", improve, { improve = it },
-                                        "What should change next time?")
+                                        "What should change next time?", enabled = !saving)
                                     CW52Field("NEXT CREATIVE ACTION", nextAction, { nextAction = it },
-                                        "One concrete change for your next project")
+                                        "One concrete change for your next project", enabled = !saving)
                                     Text("OPTIONAL MANUALLY OBSERVED METRIC",
                                         color = MutedGold, fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold)
                                     Spacer(Modifier.height(7.dp))
                                     CW52Field("METRIC LABEL", metricLabel, { metricLabel = it },
-                                        "e.g. average view duration", minLines = 1)
+                                        "e.g. average view duration", minLines = 1, enabled = !saving)
                                     CW52Field("VALUE", metricValue, { metricValue = it },
-                                        "e.g. 2m 12s", minLines = 1)
+                                        "e.g. 2m 12s", minLines = 1, enabled = !saving)
                                     CW52Field("SOURCE / WHEN CHECKED", metricSource,
                                         { metricSource = it },
                                         "e.g. creator-entered Studio figures from day 7",
-                                        minLines = 1)
+                                        minLines = 1, enabled = !saving)
                                     if (hasDraft && !metricFieldsConsistent) {
                                         Text("Enter both the metric label and value, or clear both.",
                                             color = RecRed, fontSize = 12.sp)
@@ -492,13 +493,14 @@ private fun CW52Field(
     onChange: (String) -> Unit,
     hint: String,
     minLines: Int = 2,
+    enabled: Boolean = true,
 ) {
     Text(label, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(4.dp))
     OutlinedTextField(
         value = value, onValueChange = onChange,
         modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text(hint) }, minLines = minLines,
+        placeholder = { Text(hint) }, minLines = minLines, enabled = enabled,
         shape = RoundedCornerShape(13.dp),
     )
     Spacer(Modifier.height(10.dp))
