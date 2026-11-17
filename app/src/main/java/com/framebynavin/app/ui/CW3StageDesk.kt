@@ -56,7 +56,7 @@ internal object CW3StageExperiencePolicy {
             listOf("Verify each key claim", "Cross-check original sources"),
         )
         "idea", "concept", "promise", "audience", "question", "framework",
-        "intent", "learning_goal", "angle", "criteria", "brief", "structure" -> CW3StageExperience(
+        "intent", "learning_goal", "criteria", "brief", "structure" -> CW3StageExperience(
             "Creative brief", "Define the decision, creative promise and evidence you want to build on.",
             "Why this choice supports the audience and the project goal",
             listOf("Write the core promise", "Confirm intended audience"),
@@ -437,11 +437,6 @@ private fun CW3MaterialLinks(
 ) {
     Spacer(Modifier.height(8.dp))
     Text(label, color = ProjectorIvory, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-    if (available.isEmpty()) {
-        Text("None yet. Add items through Plan or Publish from the project hub.",
-            color = MutedText, fontSize = 11.sp)
-        return
-    }
     val unavailable = selected.filterNot { id -> available.any { it.first == id } }
     if (unavailable.isNotEmpty()) Text(
         "${unavailable.size} previously linked item(s) are unavailable here. " +
@@ -449,6 +444,11 @@ private fun CW3MaterialLinks(
         color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
         modifier = Modifier.testTag("ux05-unavailable-linked-materials"),
     )
+    if (available.isEmpty()) {
+        Text("None currently available. Add project materials through Plan or Publish.",
+            color = MutedText, fontSize = 11.sp)
+        return
+    }
     available.forEach { (id, name) ->
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Checkbox(
