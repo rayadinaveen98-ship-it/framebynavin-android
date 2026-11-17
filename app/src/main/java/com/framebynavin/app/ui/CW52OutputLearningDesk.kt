@@ -11,6 +11,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -31,36 +35,70 @@ import java.util.UUID
 @Composable
 internal fun CW52OutputLearningDesk(
     task: CreatorTask,
-    onBack: () -> Unit,
+    onBack: (String, Long) -> Unit,
     onOpenPublish: () -> Unit,
     onOpenPlanOutputs: () -> Unit,
     onSave: (Long, CreatorOutputLearning) -> Unit,
+    onSelectedOutput: (String) -> Unit = {},
+    onDiscardDraft: (String, Long) -> Boolean = { _, _ -> true },
+    saving: Boolean = false,
+    initialSelectedOutputId: String = "",
 ) {
+    val context = LocalContext.current
+    val journal = remember(task.id) {
+        CreatorOutputLearningDraftStore(context.applicationContext)
+    }
     val workspace = task.workspace
     val outputs = workspace.deliverables
     val revision = workspace.revision
     var selectedId by rememberSaveable(task.id) {
-        mutableStateOf(outputs.firstOrNull()?.id.orEmpty())
+        mutableStateOf(
+            outputs.firstOrNull { it.id == initialSelectedOutputId }?.id
+                ?: outputs.firstOrNull()?.id.orEmpty()
+        )
     }
     val selected = outputs.firstOrNull { it.id == selectedId } ?: outputs.firstOrNull()
     val activeId = selected?.id.orEmpty()
+    LaunchedEffect(task.id, activeId) { onSelectedOutput(activeId) }
+    val recovered = remember(task.id, activeId, revision) {
+        if (activeId.isBlank()) null else journal.load(task.id, activeId, revision)
+    }
+    var draftWarning by remember(task.id, activeId, revision) { mutableStateOf(false) }
     var showOutputMenu by remember { mutableStateOf(false) }
     var requestedSwitch by remember { mutableStateOf<String?>(null) }
     var pendingPublishNavigation by remember { mutableStateOf(false) }
 
-    var expectation by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var observed by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var worked by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var improve by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var nextAction by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var metricLabel by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var metricValue by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var metricSource by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
+    var expectation by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.expectation.orEmpty())
+    }
+    var observed by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.observedOutcome.orEmpty())
+    }
+    var worked by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.whatWorked.orEmpty())
+    }
+    var improve by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.improveNext.orEmpty())
+    }
+    var nextAction by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.nextAction.orEmpty())
+    }
+    var metricLabel by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.metricLabel.orEmpty())
+    }
+    var metricValue by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.metricValue.orEmpty())
+    }
+    var metricSource by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.metricSource.orEmpty())
+    }
 
-    val hasDraft = listOf(
-        expectation, observed, worked, improve, nextAction,
-        metricLabel, metricValue, metricSource,
-    ).any { it.isNotBlank() }
+    val currentDraft = CreatorOutputLearningDraft(
+        expectation = expectation, observedOutcome = observed,
+        whatWorked = worked, improveNext = improve, nextAction = nextAction,
+        metricLabel = metricLabel, metricValue = metricValue, metricSource = metricSource,
+    )
+    val hasDraft = currentDraft.hasContent()
     val hasReflection = listOf(expectation, observed, worked, improve, nextAction)
         .any { it.isNotBlank() }
     val metricFieldsConsistent =
@@ -69,6 +107,23 @@ internal fun CW52OutputLearningDesk(
     val allowedToWrite = selected?.let { output ->
         output.status == CreatorDeliverableStatus.PUBLISHED && output.publishedAtMillis > 0L
     } == true && task.archivedAtMillis == 0L && task.status != TaskStatus.SKIPPED
+
+    // Journal only when this selected output is actually editable.
+    // Never treat a local draft as a publication or a canonical learning.
+    LaunchedEffect(task.id, activeId, revision, currentDraft, allowedToWrite) {
+        if (!allowedToWrite || activeId.isBlank()) return@LaunchedEffect
+        delay(350)
+        val failure = withContext(Dispatchers.IO) {
+            runCatching {
+                if (currentDraft.hasContent()) {
+                    journal.save(task.id, activeId, revision, currentDraft)
+                } else if (journal.load(task.id, activeId, revision) != null) {
+                    journal.clear(task.id, activeId, revision)
+                }
+            }.exceptionOrNull()
+        }
+        if (failure != null) draftWarning = true
+    }
 
     val availableOutputIds = outputs.map { it.id }.toSet()
     val unavailableOutputHistory = workspace.outputLearnings.filter {
@@ -80,9 +135,20 @@ internal fun CW52OutputLearningDesk(
                 .thenByDescending { it.id }
         )
 
+    fun discardCurrentDraft(): Boolean {
+        // One Activity-owned discard path also handles system Back, so every
+        // explicit discard follows the same generation/revision safety check.
+        val result = runCatching { onDiscardDraft(activeId, revision) }
+        if (result.isFailure || result.getOrDefault(false) != true) {
+            draftWarning = true
+            return false
+        }
+        return true
+    }
     fun changeOutput(nextId: String) {
-        if (nextId == activeId) return
-        if (hasDraft) requestedSwitch = nextId else selectedId = nextId
+        if (saving || nextId == activeId) return
+        if (hasDraft) requestedSwitch = nextId
+        else if (discardCurrentDraft()) selectedId = nextId
     }
 
     WorkspaceAdaptiveFrame {
@@ -91,7 +157,8 @@ internal fun CW52OutputLearningDesk(
                 Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = { onBack(activeId, revision) },
+                    enabled = !saving, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to workspace",
                         tint = ProjectorIvory)
                 }
@@ -103,6 +170,14 @@ internal fun CW52OutputLearningDesk(
                         fontSize = 19.sp, fontWeight = FontWeight.Bold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
+            }
+            if (draftWarning) {
+                Text(
+                    "Could not securely retain or clear the unfinished reflection. " +
+                        "Keep this editor open and retry before discarding.",
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp),
+                    color = RecRed, fontSize = 12.sp,
+                )
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize().testTag("ux051d-output-learning"),
@@ -136,6 +211,7 @@ internal fun CW52OutputLearningDesk(
                         Box {
                             OutlinedButton(
                                 onClick = { showOutputMenu = true },
+                                enabled = !saving,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                                     .testTag("ux051d-select-output"),
                             ) {
@@ -201,27 +277,27 @@ internal fun CW52OutputLearningDesk(
                                     )
                                     Spacer(Modifier.height(12.dp))
                                     CW52Field("EXPECTED OUTCOME", expectation, { expectation = it },
-                                        "What were you hoping to achieve?")
+                                        "What were you hoping to achieve?", enabled = !saving)
                                     CW52Field("WHAT HAPPENED", observed, { observed = it },
-                                        "What did you actually observe?")
+                                        "What did you actually observe?", enabled = !saving)
                                     CW52Field("WHAT WORKED", worked, { worked = it },
-                                        "Strong moments and useful audience signals")
+                                        "Strong moments and useful audience signals", enabled = !saving)
                                     CW52Field("WHAT TO IMPROVE", improve, { improve = it },
-                                        "What should change next time?")
+                                        "What should change next time?", enabled = !saving)
                                     CW52Field("NEXT CREATIVE ACTION", nextAction, { nextAction = it },
-                                        "One concrete change for your next project")
+                                        "One concrete change for your next project", enabled = !saving)
                                     Text("OPTIONAL MANUALLY OBSERVED METRIC",
                                         color = MutedGold, fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold)
                                     Spacer(Modifier.height(7.dp))
                                     CW52Field("METRIC LABEL", metricLabel, { metricLabel = it },
-                                        "e.g. average view duration", minLines = 1)
+                                        "e.g. average view duration", minLines = 1, enabled = !saving)
                                     CW52Field("VALUE", metricValue, { metricValue = it },
-                                        "e.g. 2m 12s", minLines = 1)
+                                        "e.g. 2m 12s", minLines = 1, enabled = !saving)
                                     CW52Field("SOURCE / WHEN CHECKED", metricSource,
                                         { metricSource = it },
                                         "e.g. creator-entered Studio figures from day 7",
-                                        minLines = 1)
+                                        minLines = 1, enabled = !saving)
                                     if (hasDraft && !metricFieldsConsistent) {
                                         Text("Enter both the metric label and value, or clear both.",
                                             color = RecRed, fontSize = 12.sp)
@@ -245,7 +321,7 @@ internal fun CW52OutputLearningDesk(
                                                 ),
                                             )
                                         },
-                                        enabled = hasReflection && metricFieldsConsistent &&
+                                        enabled = !saving && hasReflection && metricFieldsConsistent &&
                                             listOf(expectation, observed, worked, improve, nextAction)
                                                 .all { it.length <= 2500 } &&
                                             metricLabel.length <= 120 &&
@@ -254,7 +330,7 @@ internal fun CW52OutputLearningDesk(
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                             .testTag("ux051d-save-learning"),
                                     ) {
-                                        Text("RECORD LEARNING")
+                                        Text(if (saving) "SAVING…" else "RECORD LEARNING")
                                     }
                                 }
                             }
@@ -273,7 +349,8 @@ internal fun CW52OutputLearningDesk(
                             if (task.archivedAtMillis == 0L &&
                                 task.status != TaskStatus.SKIPPED) {
                                 TextButton(onClick = {
-                                    if (hasDraft) pendingPublishNavigation = true else onOpenPublish()
+                                    if (hasDraft) pendingPublishNavigation = true
+                                    else if (discardCurrentDraft()) onOpenPublish()
                                 }) {
                                     Text("OPEN PUBLISH STUDIO", color = RecRed)
                                 }
@@ -373,9 +450,11 @@ internal fun CW52OutputLearningDesk(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    pendingPublishNavigation = false
-                    onOpenPublish()
-                }) { Text("DISCARD & OPEN") }
+                    if (discardCurrentDraft()) {
+                        pendingPublishNavigation = false
+                        onOpenPublish()
+                    }
+                }, enabled = !saving) { Text("DISCARD & OPEN") }
             },
             dismissButton = {
                 TextButton(onClick = { pendingPublishNavigation = false }) {
@@ -396,9 +475,11 @@ internal fun CW52OutputLearningDesk(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    selectedId = destination
-                    requestedSwitch = null
-                }) { Text("DISCARD & SWITCH") }
+                    if (discardCurrentDraft()) {
+                        selectedId = destination
+                        requestedSwitch = null
+                    }
+                }, enabled = !saving) { Text("DISCARD & SWITCH") }
             },
             dismissButton = {
                 TextButton(onClick = { requestedSwitch = null }) {
@@ -416,13 +497,14 @@ private fun CW52Field(
     onChange: (String) -> Unit,
     hint: String,
     minLines: Int = 2,
+    enabled: Boolean = true,
 ) {
     Text(label, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(4.dp))
     OutlinedTextField(
         value = value, onValueChange = onChange,
         modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text(hint) }, minLines = minLines,
+        placeholder = { Text(hint) }, minLines = minLines, enabled = enabled,
         shape = RoundedCornerShape(13.dp),
     )
     Spacer(Modifier.height(10.dp))
