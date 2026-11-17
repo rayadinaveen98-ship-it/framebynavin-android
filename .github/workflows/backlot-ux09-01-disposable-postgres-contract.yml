@@ -1,0 +1,64 @@
+name: Backlot UX09-01 disposable PostgreSQL contract
+
+on:
+  pull_request:
+    branches:
+      - docs/backlot-lab-ux09-architecture-acceptance-20261117
+    paths:
+      - 'supabase/prototypes/ux09_01_*.sql'
+      - 'tools/qa/backlot_ux09_01_postgres16_test.sh'
+      - '.github/workflows/backlot-ux09-01-disposable-postgres-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-01-disposable-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  disposable-postgres16-contract:
+    name: Synthetic Postgres16 RLS and CAS / no hosted credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: disposable-only
+          POSTGRES_DB: backlot_ux09_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backlot_ux09_disposable"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: disposable-only
+      PGDATABASE: backlot_ux09_disposable
+    steps:
+      - name: Checkout exact proposed PR SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify local PostgreSQL command availability
+        shell: bash
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client-16
+          fi
+          psql --version
+          jq --version
+      - name: Compile schema, assert security and run two-session CAS race
+        shell: bash
+        run: bash tools/qa/backlot_ux09_01_postgres16_test.sh
+      - name: Explicit limits of evidence
+        shell: bash
+        run: |
+          echo "This CI only verified DISPOSABLE Postgres16 + mocked Auth role checks."
+          echo "No Backlot Lab connection, no real Supabase Auth JWT, no hosted SQL."
+          echo "No Android sync client, APK, backup/restore or deletion was tested."
