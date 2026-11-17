@@ -87,6 +87,7 @@ internal fun ReminderCheckInScreen(
     notes: String,
     snoozeMinutes: Int,
     stageCheckIn: Boolean,
+    smartStageSnooze: Boolean = false,
     onStageDone: () -> Unit,
     onWorking: () -> Unit,
     onSnooze: () -> Unit,
@@ -104,6 +105,11 @@ internal fun ReminderCheckInScreen(
         .filter { it.isNotBlank() }
         .joinToString(" · ")
     val nextAction = V200ReminderLayoutPolicy.supportingAction(suggestedAction, title)
+    val snoozeLabel = if (smartStageSnooze) "REMIND IN ${snoozeMinutes}m"
+        else "SNOOZE ${snoozeMinutes} MIN"
+    val smartSnoozeHint =
+        if (smartStageSnooze) "Repeats this Smart stage; your final alert time stays unchanged."
+        else null
     val screen = LocalConfiguration.current
     val compact = V200ReminderLayoutPolicy.isCompact(screen.screenHeightDp)
     val wideActions = V200ReminderLayoutPolicy.useHorizontalActions(screen.screenWidthDp)
@@ -135,10 +141,10 @@ internal fun ReminderCheckInScreen(
             timeLabel = clockLabel,
             contextLabel = contextLine,
             supportingText = listOfNotNull(
-                nextAction, notes.takeIf { it.isNotBlank() }
+                nextAction, notes.takeIf { it.isNotBlank() }, smartSnoozeHint
             ).joinToString(" · "),
             primaryLabel = if (stageCheckIn) "STEP DONE" else "I'M WORKING",
-            snoozeLabel = "SNOOZE " + snoozeMinutes + " MIN",
+            snoozeLabel = snoozeLabel,
             onPrimary = if (stageCheckIn) onStageDone else onWorking,
             onSnooze = onSnooze,
             onDismiss = onDismiss,
@@ -363,7 +369,7 @@ internal fun ReminderCheckInScreen(
                         Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(7.dp))
-                        Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                        Text(snoozeLabel, color = BacklotPrimaryText,
                             fontSize = 12.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
                     }
                     TextButton(
@@ -389,7 +395,7 @@ internal fun ReminderCheckInScreen(
                     Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
                         modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                    Text(snoozeLabel, color = BacklotPrimaryText,
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 TextButton(
@@ -402,6 +408,18 @@ internal fun ReminderCheckInScreen(
                         color = BacklotPrimaryText, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold)
                 }
+            }
+
+            if (smartSnoozeHint != null) {
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    smartSnoozeHint,
+                    color = BacklotSecondaryText,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             AnimatedVisibility(

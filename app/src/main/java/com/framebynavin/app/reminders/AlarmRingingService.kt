@@ -437,7 +437,11 @@ internal fun Intent.toTask(): CreatorTask? {
         smartEscalationEnabled = reminderMode == ReminderMode.SMART,
         reminderMode = reminderMode,
         voicePersona = persona,
-        voiceRepeatCount = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, 3).coerceIn(1, 3),
+        // UX06A: match the canonical 1..5 repeat policy used by Creator Voice
+        // playback. Older absent Intent extras still default to three.
+        voiceRepeatCount = V403VoiceRepeatPolicy.count(
+            getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_COUNT, V403VoiceRepeatPolicy.DEFAULT_COUNT)
+        ),
         voiceRepeatIntervalSeconds = getIntExtra(ReminderConstants.EXTRA_VOICE_REPEAT_INTERVAL, 10).coerceIn(5, 60),
         alarmTimeoutSeconds = getIntExtra(ReminderConstants.EXTRA_ALARM_TIMEOUT_SECONDS, 120).coerceIn(30, 300),
         autoRetryEnabled = getBooleanExtra("backlot.creator.auto.retry.enabled", false),

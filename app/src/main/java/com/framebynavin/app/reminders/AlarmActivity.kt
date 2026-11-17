@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorWorkflowEngine
 import com.framebynavin.app.data.ProjectPulseEngine
+import com.framebynavin.app.data.ReminderMode
 import com.framebynavin.app.data.TaskStore
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import kotlinx.coroutines.Dispatchers
@@ -97,6 +98,9 @@ class AlarmActivity : ComponentActivity() {
                     notes = task.notes,
                     snoozeMinutes = snoozeMinutes,
                     stageCheckIn = ProjectPulseEngine.isStageCheckIn(task),
+                    // Live Smart Snooze repeats the reached stage; the final target is unchanged.
+                    smartStageSnooze = ProjectPulseEngine.isStageCheckIn(task) &&
+                        (task.reminderMode == ReminderMode.SMART || task.smartEscalationEnabled),
                     attentionPlan = task.attentionPlan,
                     onStageDone = { dispatchReminderAction(ReminderConstants.ACTION_STAGE_DONE, task.id) },
                     onWorking = { dispatchReminderAction(ReminderConstants.ACTION_STARTED, task.id) },
