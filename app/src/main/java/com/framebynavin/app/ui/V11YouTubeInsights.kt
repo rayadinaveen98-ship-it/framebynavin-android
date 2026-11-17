@@ -649,15 +649,31 @@ private fun YTChannelHeader(
 
 @Composable
 private fun YTMetrics(data: YouTubeAnalyticsSnapshot) {
-    Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            YTMetric("VIEWS", ytCompact(data.views), RecRed, Modifier.weight(1f))
-            YTMetric("WATCH TIME", ytWatch(data.watchMinutes), MutedGold, Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            YTMetric("NET SUBS", ytSigned(data.netSubscribers), if (data.netSubscribers >= 0) SuccessGreen else RecRed, Modifier.weight(1f))
-            YTMetric("AVG VIEW", ytDuration(data.averageViewDurationSeconds), ProjectorIvory, Modifier.weight(1f))
+    val columns = UX10FContinuityPolicy.metricColumns(
+        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp,
+        androidx.compose.ui.platform.LocalDensity.current.fontScale,
+    )
+    // One source-backed list: reflow four real metrics without substituting
+    // zeros, changing the reporting period, or duplicating analytics reads.
+    val metrics = listOf(
+        Triple("VIEWS", ytCompact(data.views), RecRed),
+        Triple("WATCH TIME", ytWatch(data.watchMinutes), MutedGold),
+        Triple(
+            "NET SUBS", ytSigned(data.netSubscribers),
+            if (data.netSubscribers >= 0) SuccessGreen else RecRed,
+        ),
+        Triple("AVG VIEW", ytDuration(data.averageViewDurationSeconds), ProjectorIvory),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        metrics.chunked(columns).forEach { group ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                group.forEach { (label, value, accent) ->
+                    YTMetric(label, value, accent, Modifier.weight(1f))
+                }
+            }
         }
     }
 }
