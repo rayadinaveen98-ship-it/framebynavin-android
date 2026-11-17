@@ -33,7 +33,7 @@ Via Supabase read-only SQL / project metadata on **the actual Backlot Lab**:
 | [GitHub PG16 run #44090476691](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44090476691) | Disposable Postgres16 + synthetic `auth.uid` | PASS: CAS, RLS mock roles, tombstones, account sequence same/different entity races |
 | [GitHub current PG16 run #44093822390](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44093822390) | Same DB contract on updated source | PASS |
 | [GitHub local GoTrue run #44093822510](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44093822510) | Disposable Supabase CLI `v2.122.1`, GoTrue and real signed JWTs, PostgREST | PASS: authentic two-account JWT API isolation, CAS, delete/tombstone, private-schema REST inaccessible |
-| **PG17 compatibility job (new)** | Disposable PostgreSQL 17, closest to hosted PG17.12 | **Await actual CI result; never mark PASS before execution** |
+| **PG17 compatibility job** | Disposable PostgreSQL 17.12, matching hosted server version | **PASS**: [GitHub Actions run #44096576969](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44096576969), tested SHA `ce064327ee2fd23e07ef5521fed44ba00422f9a1` |
 | Hosted Backlot Lab | Not modified | Preflight-only, no application RPCs yet |
 
 **Code coverage caveat:** The prototype is a generic JSON envelope that currently allows only Creator Projects and Ideas. It is NOT yet tied to Backlot's canonical Android codecs or project/idea relational invariants. Do not deploy a real Android writer until those are verified. It does NOT implement Sync/Backup/Restore/Delete for all app domains.
@@ -86,8 +86,8 @@ When ready and *after explicit founder authorization of the exact destination an
 
 ## 7. Explicit go/no-go gate
 
-**READY FOR REVIEW** if PG17 CI passes, schema/API exposure is checked with the owner, exact CLI migration generated and diff reviewed, rollback plan accepted and no unapproved data changes.
+**PG17 CI PASSED** at the tested SHA. **READY FOR HOSTED MIGRATION REVIEW**, but NOT YET APPROVED TO DEPLOY: the Dashboard Data API schema exposure, actual CLI-generated versioned migration/diff, live security review, reversible-disable protocol and founder's separate Lab-only SQL authorization are still pending.
 
 **NO-GO** if any of these occur: remote schema already exists/collides, `backlot_sync_internal` exposed in Data API, client-side service key, missing `auth.uid` ownership, public RPC with anonymous rights, workflow skips signed-JWT checks, Android claimed backup complete from this prototype, Personal Challenge guard removed, unreviewed paid deployment, or protected V337 modified.
 
-**Owner approval boundary:** this document authorizes nothing on hosted Lab by itself. NEXT: review actual PG17 CI result, then seek explicit agreement for a controlled **Lab-only** DDL change. No account data or cloud records erased.
+**Owner approval boundary:** this document authorizes nothing on hosted Lab by itself. PG17 tests PASS; NEXT: finish the Dashboard Exposed Schemas review, generate the exact versioned CLI migration, and seek explicit approval for a controlled **Lab-only** DDL change. No account data or cloud records erased.
