@@ -149,7 +149,8 @@ as $function$
 declare
     v_user uuid := auth.uid();
     v_seq bigint;
-    v_prev record;
+    v_previous_revision bigint;
+    v_previous_deleted_at timestamptz;
     v_exists boolean;
     v_revision bigint;
     v_request jsonb;
@@ -216,24 +217,24 @@ begin
         return v_prior_result;
     end if;
 
-    select revision, deleted_at into v_prev
+    select revision, deleted_at into v_previous_revision, v_previous_deleted_at
       from backlot_sync_internal.entities
      where user_id = v_user and domain = p_domain and entity_id = p_entity_id
      for update;
     v_exists := found;
     if (not v_exists and p_expected_revision <> 0)
-       or (v_exists and v_prev.revision <> p_expected_revision)
-       or (v_exists and v_prev.deleted_at is not null)
+       or (v_exists and v_previous_revision <> p_expected_revision)
+       or (v_exists and v_previous_deleted_at is not null)
        or (not v_exists and p_deleted) then
         return jsonb_build_object(
             'status', 'conflict',
-            'current_revision', case when v_exists then v_prev.revision else 0 end,
-            'deleted', case when v_exists then v_prev.deleted_at is not null else false end,
+            'current_revision', case when v_exists then v_previous_revision else 0 end,
+            'deleted', case when v_exists then v_previous_deleted_at is not null else false end,
             'domain', p_domain, 'entity_id', p_entity_id
         );
     end if;
 
-    v_revision := case when v_exists then v_prev.revision + 1 else 1 end;
+    v_revision := case when v_exists then v_previous_revision + 1 else 1 end;
     v_deleted_at := case when p_deleted then now() else null end;
     if v_exists then
         update backlot_sync_internal.entities
