@@ -77,6 +77,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var confirmEditorClose by mutableStateOf(false)
     /** A stage-tool switch is only performed after the existing discard confirmation. */
     private var planOpenBrief by mutableStateOf(false)
+    private var planOpenSection by mutableStateOf("")
     private var pendingStageToolMode by mutableStateOf<Alpha6WorkspaceMode?>(null)
     /** Captured at the tool-switch tap; saved only after a successful revision-gated write. */
     private var pendingStageToolDraft by mutableStateOf<Pair<Long, CreatorStageWork>?>(null)
@@ -146,10 +147,19 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onOpenBlueprint = { mode = Alpha6WorkspaceMode.BLUEPRINT },
                             onOpenProject = {
                                 planOpenBrief = false
+                                planOpenSection = ""
                                 mode = Alpha6WorkspaceMode.PROJECT
                             },
                             onOpenBrief = {
                                 planOpenBrief = true
+                                planOpenSection = ""
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onOpenPlanSection = { target ->
+                                planOpenBrief = false
+                                planOpenSection = target.takeIf {
+                                    it in setOf("RESEARCH", "ASSETS", "PRODUCTION", "DELIVERABLES")
+                                }.orEmpty()
                                 mode = Alpha6WorkspaceMode.PROJECT
                             },
                             onOpenScript = { openScriptStudio(task!!) },
@@ -219,6 +229,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onReviewHeld = { openHeldDraftReviews(task!!.id, "project") },
                             pendingFieldRecovery = planRecoveredField,
                             startOnBrief = planOpenBrief,
+                            startSectionName = planOpenSection,
                             onFieldRecoveryHandled = { nonce ->
                                 if (planRecoveredField?.nonce == nonce) planRecoveredField = null
                             },
@@ -550,6 +561,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         pendingStageToolMode = null
         pendingStageToolDraft = null
         planOpenBrief = false
+        planOpenSection = ""
         stageSwitchSaveInFlight = false
         heldDraftReviews = null
         pendingHeldField = null
