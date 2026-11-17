@@ -386,6 +386,14 @@ private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
     }
 }
 
+/** Read-only display data; preserves exact Creator metric-to-detail mapping. */
+private data class UX10FCreatorMetric(
+    val label: String,
+    val value: String,
+    val accent: Color,
+    val kind: V20CreatorDetailKind,
+)
+
 @Composable
 private fun V172Creator(
     snapshot: YouTubeAnalyticsSnapshot,
@@ -397,17 +405,39 @@ private fun V172Creator(
     val summary = remember(tasks, ideas, links) { YouTubeInsightEngine.creatorSummary(tasks, ideas, links) }
     Text("Creator Progress", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V172CreatorMetric("COMPLETED 30D", summary.completed30Days.toString(), MutedGold, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.PUBLISHED) }
-        V172CreatorMetric("ACTIVE", summary.active.toString(), RecRed, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.ACTIVE) }
+    val metricColumns = UX10FContinuityPolicy.metricColumns(
+        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp,
+        androidx.compose.ui.platform.LocalDensity.current.fontScale,
+    )
+    // Preserve the five canonical values and their original drilldown targets
+    // in one ordered list. Layout only; source data and routing are unchanged.
+    val metricCards = listOf(
+        UX10FCreatorMetric("COMPLETED 30D", summary.completed30Days.toString(),
+            MutedGold, V20CreatorDetailKind.PUBLISHED),
+        UX10FCreatorMetric("ACTIVE", summary.active.toString(),
+            RecRed, V20CreatorDetailKind.ACTIVE),
+        UX10FCreatorMetric("FINISHED", "${summary.completionRateOfStarted}%",
+            SuccessGreen, V20CreatorDetailKind.FINISHED),
+        UX10FCreatorMetric("VIDEOS CONNECTED", summary.linkedVideos.toString(),
+            ProjectorIvory, V20CreatorDetailKind.CONNECTED),
+        UX10FCreatorMetric("IDEAS READY", summary.readyIdeas.toString(),
+            MutedGold, V20CreatorDetailKind.IDEAS),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        metricCards.chunked(metricColumns).forEach { group ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                group.forEach { metric ->
+                    V172CreatorMetric(
+                        metric.label, metric.value, metric.accent,
+                        Modifier.weight(1f),
+                    ) { onDetail(metric.kind) }
+                }
+            }
+        }
     }
-    Spacer(Modifier.height(7.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        V172CreatorMetric("FINISHED", "${summary.completionRateOfStarted}%", SuccessGreen, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.FINISHED) }
-        V172CreatorMetric("VIDEOS CONNECTED", summary.linkedVideos.toString(), ProjectorIvory, Modifier.weight(1f)) { onDetail(V20CreatorDetailKind.CONNECTED) }
-    }
-    Spacer(Modifier.height(7.dp))
-    V172CreatorMetric("IDEAS READY", summary.readyIdeas.toString(), MutedGold, Modifier.fillMaxWidth()) { onDetail(V20CreatorDetailKind.IDEAS) }
 
     Spacer(Modifier.height(16.dp))
     var expanded by rememberSaveable { mutableStateOf(false) }
