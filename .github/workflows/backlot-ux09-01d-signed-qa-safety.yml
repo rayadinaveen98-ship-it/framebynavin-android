@@ -1,0 +1,45 @@
+name: Backlot UX09-01D signed Lab user safety — NO hosted auth
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-01-hosted-public-api-negative-gate-20261117
+    paths:
+      - 'tools/qa/backlot_ux09_01d_hosted_signed_readonly.py'
+      - 'tools/qa/test_backlot_ux09_01d_hosted_signed_readonly.py'
+      - '.github/workflows/backlot-ux09-01d-signed-qa-safety.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-01d-safety-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  no-network-hosted-auth-harness-tests:
+    name: Synthetic no-network identity / API allowlist / cleanup checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact proposed source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile harness source without secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/qa/backlot_ux09_01d_hosted_signed_readonly.py
+          python3 -m py_compile tools/qa/test_backlot_ux09_01d_hosted_signed_readonly.py
+      - name: Execute no-network safety tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v tools/qa/test_backlot_ux09_01d_hosted_signed_readonly.py
+      - name: Exact evidence boundary
+        shell: bash
+        run: |
+          echo "No GitHub Actions secret, hosted QA credential, Supabase Auth signup, hosted login, app write or account deletion."
+          echo "This is HARNESS-SAFETY testing only. Hosted two-account signed-JWT acceptance remains BLOCKED on QA provisioning and cleanup."
