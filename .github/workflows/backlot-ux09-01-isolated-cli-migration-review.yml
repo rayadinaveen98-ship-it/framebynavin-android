@@ -1,0 +1,50 @@
+name: Backlot UX09-01 isolated CLI migration REVIEW ONLY
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-01-lab-migration-readiness-20261117
+    paths:
+      - 'tools/qa/backlot_ux09_01_package_cli_migration_review.sh'
+      - '.github/workflows/backlot-ux09-01-isolated-cli-migration-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-01-isolated-cli-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-offline-migration:
+    name: CLI-generated migration artifact, no hosted access
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout proposed PR source only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install previously tested Supabase CLI v2.122.1
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.1
+      - name: Generate migration in disposable workdir
+        shell: bash
+        run: |
+          bash tools/qa/backlot_ux09_01_package_cli_migration_review.sh \
+            "${RUNNER_TEMP}/backlot-ux09-01-review"
+      - name: Ensure repo legacy migration tree not modified
+        shell: bash
+        run: |
+          test -z "$(git status --porcelain -- supabase/migrations)"
+          test -f "${RUNNER_TEMP}/backlot-ux09-01-review/review-artifact/REVIEW_ONLY.txt"
+          echo "No hosted Supabase credentials, migrations applied, or Android APK produced."
+      - name: Retain generated migration for founder source review
+        uses: actions/upload-artifact@v4
+        with:
+          name: UX09-01-CLI-GENERATED-REVIEW-ONLY-NO-DEPLOY
+          path: ${{ runner.temp }}/backlot-ux09-01-review/review-artifact/
+          retention-days: 7
+          if-no-files-found: error
