@@ -33,11 +33,11 @@ internal fun V405CurrentStageGlance(glance: V405StageGlance) {
     ) {
         Text("STAGE MATERIALS", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Text(
-            "\${glance.checklistDone} stage tasks done · \${glance.checklistOpen} open",
+            "${glance.checklistDone} stage tasks done · ${glance.checklistOpen} open",
             color = ProjectorIvory, fontSize = 13.sp,
         )
         Text(
-            "\${glance.evidenceCount} evidence records · \${glance.linkedMaterialCount} linked items" +
+            "${glance.evidenceCount} evidence records · ${glance.linkedMaterialCount} linked items" +
                 if (glance.notesPresent) " · notes saved" else "",
             color = MutedText, fontSize = 11.sp,
         )
@@ -57,12 +57,12 @@ internal fun V405OutputFacts(overview: V405WorkspaceOverview) {
     ) {
         Text("OUTPUT STATUS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Text(
-            "\${overview.outputPlanned} planned · \${overview.outputReady} ready · " +
-                "\${overview.outputPublished} recorded published",
+            "${overview.outputPlanned} planned · ${overview.outputReady} ready · " +
+                "${overview.outputPublished} recorded published",
             color = MutedText, fontSize = 12.sp,
         )
         Text(
-            "\${overview.scriptBeats} script beats · \${overview.recordedCuts} logged cut versions",
+            "${overview.scriptBeats} script beats · ${overview.recordedCuts} logged cut versions",
             color = MutedText, fontSize = 12.sp,
         )
         Text(
