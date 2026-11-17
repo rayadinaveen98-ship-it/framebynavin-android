@@ -429,6 +429,8 @@ private fun V282DayCell(
 @Composable
 private fun V282ActivityRow(
     event: ProgressJourneyEvent,
+    sourceOpen: Boolean,
+    zone: ZoneId,
     onOpenProject: (String) -> Unit,
     onOpenIdeas: () -> Unit,
 ) {
@@ -443,21 +445,64 @@ private fun V282ActivityRow(
     }
     val personal = event.kind == ProgressJourneyKind.PERSONAL_COMPLETED
     Surface(
-        onClick = { if (idea) onOpenIdeas() else if (!personal) onOpenProject(event.sourceId) },
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-        shape = RoundedCornerShape(15.dp),
+        onClick = {
+            if (sourceOpen) {
+                if (idea) onOpenIdeas() else onOpenProject(event.sourceId)
+            }
+        },
+        enabled = sourceOpen,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            .testTag("ux08b-event-" + event.key),
+        shape = RoundedCornerShape(13.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BorderStroke(1.dp, CinemaLine.copy(alpha = 0.42f)),
     ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = if (idea) MutedGold else SuccessGreen, modifier = Modifier.size(19.dp))
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (personal) MutedGold else if (idea) MutedGold else SuccessGreen,
+                modifier = Modifier.size(19.dp),
+            )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(event.title, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(event.description, color = MutedText, fontSize = 11.sp)
+                Text(
+                    UX08BProgressPolicy.sourceLabel(event.kind),
+                    color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    event.title, color = ProjectorIvory, fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    event.description, color = MutedText, fontSize = 11.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    Instant.ofEpochMilli(event.atMillis).atZone(zone).format(
+                        DateTimeFormatter.ofPattern("EEE, d MMM yyyy · h:mm a", Locale.getDefault())
+                    ),
+                    color = MutedText, fontSize = 10.sp,
+                )
+                if (!personal && !sourceOpen) {
+                    Text(
+                        "Original source is no longer available · history only",
+                        color = MutedText, fontSize = 11.sp,
+                        modifier = Modifier.testTag("ux08b-stale-source"),
+                    )
+                }
             }
-            if (!personal) Icon(Icons.Outlined.ChevronRight, "Open source", tint = MutedText, modifier = Modifier.size(18.dp))
+            if (sourceOpen) {
+                Icon(
+                    Icons.Outlined.ChevronRight,
+                    contentDescription = "Open original source",
+                    tint = MutedText, modifier = Modifier.size(18.dp),
+                )
+            }
         }
     }
 }
