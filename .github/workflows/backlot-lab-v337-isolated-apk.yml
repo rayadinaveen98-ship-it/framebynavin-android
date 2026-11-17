@@ -85,15 +85,39 @@ jobs:
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
             --console=plain --stacktrace
-      - name: JVM tests and lint for Lab variant
+      - name: Run Lab unit tests and lint with COMPLETE failure diagnostics
         shell: bash
         run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=20s 5200s gradle :app:testDebugUnitTest :app:lintDebug -PbacklotLab=true \
-            --no-daemon --no-parallel --max-workers=1 \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
-            --console=plain --stacktrace
+          set -uo pipefail
+          args=(-PbacklotLab=true --no-daemon --no-parallel --max-workers=1
+            -Pkotlin.compiler.execution.strategy=in-process
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8'
+            --console=plain)
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:testDebugUnitTest "${args[@]}"
+          test_status=$?
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:lintDebug "${args[@]}"
+          lint_status=$?
+          echo "----- Complete Android lint ERROR list (no suppression) -----"
+          if [ -f app/build/reports/lint-results-debug.txt ]; then
+            grep -n -C 1 'Error:' app/build/reports/lint-results-debug.txt || true
+            tail -n 12 app/build/reports/lint-results-debug.txt || true
+          else
+            find app/build -type f \( -name '*lint*.txt' -o -name '*lint*.xml' \) | head -30 || true
+          fi
+          echo "Unit test exit: $test_status; lint exit: $lint_status"
+          test "$test_status" -eq 0 && test "$lint_status" -eq 0
+      - name: Upload exact lint and JVM diagnostics on ALL outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-V337-Tests-Lint-Diagnostics
+          path: |
+            app/build/reports/lint-results-debug.txt
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify independently installable package and label
         shell: bash
