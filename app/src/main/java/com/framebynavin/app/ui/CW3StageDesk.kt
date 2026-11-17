@@ -163,6 +163,8 @@ internal fun CW3StageDesk(
     var decisionText by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var evidenceSourceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var evidenceAssetId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var evidenceBeatId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var beatMenuOpen by remember { mutableStateOf(false) }
     var sourceMenuOpen by remember { mutableStateOf(false) }
     var assetMenuOpen by remember { mutableStateOf(false) }
     var journalWarning by remember(task.id, stage.id, revision) { mutableStateOf(false) }
@@ -399,6 +401,16 @@ internal fun CW3StageDesk(
                                 color = MutedGold, fontSize = 11.sp,
                             )
                         }
+                        if (item.scriptBeatId.isNotBlank()) {
+                            val beat = task.workspace.scriptStudio?.beats?.firstOrNull {
+                                it.id == item.scriptBeatId
+                            }
+                            Text(
+                                "Narration beat: " + (beat?.label?.ifBlank { beat.purpose.ifBlank { "Untitled beat" } }
+                                    ?: "Unavailable beat (saved link retained)"),
+                                color = MutedGold, fontSize = 11.sp,
+                            )
+                        }
                         if (editable) {
                             Row(
                                 Modifier.fillMaxWidth(),
@@ -514,6 +526,47 @@ internal fun CW3StageDesk(
                         }
                     }
                 }
+                if (!task.workspace.scriptStudio?.beats.isNullOrEmpty()) {
+                    Spacer(Modifier.height(7.dp))
+                    Box {
+                        OutlinedButton(
+                            onClick = { beatMenuOpen = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("ux051c-evidence-script-beat"),
+                        ) {
+                            val selectedBeat = task.workspace.scriptStudio?.beats?.firstOrNull {
+                                it.id == evidenceBeatId
+                            }
+                            Text(
+                                "Narration beat: " + (selectedBeat?.label?.ifBlank {
+                                    selectedBeat.purpose.ifBlank { "Untitled beat" }
+                                } ?: "None"),
+                                maxLines = 1,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = beatMenuOpen,
+                            onDismissRequest = { beatMenuOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("No linked beat") },
+                                onClick = { evidenceBeatId = ""; beatMenuOpen = false },
+                            )
+                            task.workspace.scriptStudio?.beats.orEmpty().forEach { beat ->
+                                DropdownMenuItem(
+                                    text = { Text(beat.label.ifBlank {
+                                        beat.purpose.ifBlank { "Untitled beat" }
+                                    }, maxLines = 2) },
+                                    onClick = { evidenceBeatId = beat.id; beatMenuOpen = false },
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        "This links to the saved Script Studio beat; narration is never duplicated.",
+                        color = MutedText, fontSize = 11.sp,
+                    )
+                }
                 TextButton(
                     onClick = {
                         if (claim.isNotBlank()) {
@@ -526,9 +579,12 @@ internal fun CW3StageDesk(
                                 assetId = evidenceAssetId.takeIf { selected ->
                                     task.workspace.assets.any { it.id == selected }
                                 }.orEmpty(),
+                                scriptBeatId = evidenceBeatId.takeIf { selected ->
+                                    task.workspace.scriptStudio?.beats.orEmpty().any { it.id == selected }
+                                }.orEmpty(),
                             )
                             claim = ""; timecode = ""
-                            evidenceSourceId = ""; evidenceAssetId = ""
+                            evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
                         }
                     },
                     enabled = claim.isNotBlank(),
