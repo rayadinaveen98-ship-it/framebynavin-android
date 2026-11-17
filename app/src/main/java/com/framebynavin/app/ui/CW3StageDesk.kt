@@ -538,8 +538,8 @@ internal fun CW3StageDesk(
                                 it.id == evidenceBeatId
                             }
                             Text(
-                                "Narration beat: " + (selectedBeat?.label?.ifBlank {
-                                    selectedBeat.purpose.ifBlank { "Untitled beat" }
+                                "Narration beat: " + (selectedBeat?.let { beat ->
+                                    beat.label.ifBlank { beat.purpose.ifBlank { "Untitled beat" } }
                                 } ?: "None"),
                                 maxLines = 1,
                             )
