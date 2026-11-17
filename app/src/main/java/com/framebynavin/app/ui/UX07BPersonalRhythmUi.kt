@@ -101,8 +101,7 @@ internal fun UX07BPersonalRhythm(
                 )
                 Text(
                     if (recurringCount == 0) "Make room for the routines that matter."
-                    else "$recurringCount active recurring reminder" +
-                        if (recurringCount == 1) "" else "s",
+                    else "$recurringCount active recurring reminder${if (recurringCount == 1) "" else "s"}",
                     color = MutedText, fontSize = 11.sp,
                 )
             }
