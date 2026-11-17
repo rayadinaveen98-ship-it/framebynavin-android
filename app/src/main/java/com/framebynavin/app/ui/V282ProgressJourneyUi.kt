@@ -16,6 +16,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -201,24 +204,65 @@ internal fun V282ProgressJourneyScreen(
             }
             Spacer(Modifier.height(12.dp))
             if (view != "JOURNEY") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
-                        color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f))
-                    Text("$datesWithActivity active days", color = MutedText, fontSize = 10.sp)
-                    IconButton(onClick = {
-                        val previous = month.minusMonths(1)
-                        monthText = previous.toString()
-                        selectedDateText = previous.atDay(1).toString()
-                    }) {
-                        Icon(Icons.Outlined.ChevronLeft, "Previous month", tint = ProjectorIvory)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
+                        color = ProjectorIvory, fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        if (reading) "Loading records" else
+                            "$datesWithActivity days · ${monthEvents.size} events",
+                        color = MutedText, fontSize = 10.sp,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = {
+                            selectedDateText = today.toString()
+                            monthText = YearMonth.from(today).toString()
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                            .testTag("ux08b-jump-to-today"),
+                    ) { Text("TODAY", color = MutedGold, fontSize = 11.sp) }
+                    IconButton(
+                        onClick = {
+                            val (date, period) = UX08BProgressPolicy.shiftPeriod(
+                                view, selectedDate, month, -1L,
+                            )
+                            selectedDateText = date.toString()
+                            monthText = period.toString()
+                        },
+                        modifier = Modifier.testTag("ux08b-previous-period"),
+                    ) {
+                        Icon(
+                            Icons.Outlined.ChevronLeft,
+                            if (view == "WEEK") "Previous week" else "Previous month",
+                            tint = ProjectorIvory,
+                        )
                     }
-                    IconButton(onClick = {
-                        val next = month.plusMonths(1)
-                        monthText = next.toString()
-                        selectedDateText = next.atDay(1).toString()
-                    }) {
-                        Icon(Icons.Outlined.ChevronRight, "Next month", tint = ProjectorIvory)
+                    IconButton(
+                        onClick = {
+                            val (date, period) = UX08BProgressPolicy.shiftPeriod(
+                                view, selectedDate, month, 1L,
+                            )
+                            selectedDateText = date.toString()
+                            monthText = period.toString()
+                        },
+                        modifier = Modifier.testTag("ux08b-next-period"),
+                    ) {
+                        Icon(
+                            Icons.Outlined.ChevronRight,
+                            if (view == "WEEK") "Next week" else "Next month",
+                            tint = ProjectorIvory,
+                        )
                     }
                 }
                 if (view == "WEEK") {
@@ -255,16 +299,35 @@ internal fun V282ProgressJourneyScreen(
                     Text(selectedDate.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())),
                         color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f))
-                    Text("${selectedEvents.size} activities", color = MutedGold, fontSize = 11.sp)
+                    Text(
+                        if (reading) "Loading" else "${selectedEvents.size} recorded events",
+                        color = MutedGold, fontSize = 11.sp,
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
                 if (reading) {
                     CircularProgressIndicator(color = RecRed, modifier = Modifier.size(22.dp))
                 } else if (selectedEvents.isEmpty()) {
-                    Text("No recorded activity on this day.", color = MutedText, fontSize = 12.sp,
-                        modifier = Modifier.padding(vertical = 24.dp))
+                    Text(
+                        if (timelineUnavailable)
+                            "No events in the available records for this day. Workflow timeline history could not be read."
+                        else "No recorded events on this day.",
+                        color = MutedText, fontSize = 12.sp,
+                        modifier = Modifier.padding(vertical = 24.dp)
+                            .testTag("ux08b-selected-date-empty"),
+                    )
                 } else {
-                    selectedEvents.forEach { event -> V282ActivityRow(event, onOpenProject, onOpenIdeas) }
+                    selectedEvents.forEach { event ->
+                        V282ActivityRow(
+                            event = event,
+                            sourceOpen = UX08BProgressPolicy.canOpen(
+                                event, projectIds, ideaIds,
+                            ),
+                            zone = zone,
+                            onOpenProject = onOpenProject,
+                            onOpenIdeas = onOpenIdeas,
+                        )
+                    }
                 }
             } else {
                 Text("RECORDED MILESTONES", color = MutedGold, fontSize = 11.sp,
@@ -273,19 +336,43 @@ internal fun V282ProgressJourneyScreen(
                 if (reading) {
                     CircularProgressIndicator(color = RecRed)
                 } else if (events.isEmpty()) {
-                    Text("Your journey starts with your next project or idea.",
-                        color = MutedText, fontSize = 13.sp)
+                    Text(
+                        if (timelineUnavailable)
+                            "Workflow timeline history is unavailable. Your saved records were not erased."
+                        else "Your journey starts when a project or idea is recorded.",
+                        color = MutedText, fontSize = 13.sp,
+                        modifier = Modifier.testTag("ux08b-journey-empty"),
+                    )
                 } else {
+                    if (events.size > 100) {
+                        Text(
+                            "Showing the 100 most recent of ${events.size} recorded events. Earlier history remains saved.",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.testTag("ux08b-journey-window-info"),
+                        )
+                    }
                     events.take(100).groupBy { it.localDate(zone) }.forEach { (date, dayEvents) ->
-                        Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.getDefault())),
+                        Text(
+                            date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.getDefault())),
                             color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-                        dayEvents.forEach { event -> V282ActivityRow(event, onOpenProject, onOpenIdeas) }
+                            modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                        )
+                        dayEvents.forEach { event ->
+                            V282ActivityRow(
+                                event = event,
+                                sourceOpen = UX08BProgressPolicy.canOpen(
+                                    event, projectIds, ideaIds,
+                                ),
+                                zone = zone,
+                                onOpenProject = onOpenProject,
+                                onOpenIdeas = onOpenIdeas,
+                            )
+                        }
                     }
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text("Personal completions are local and hidden by default. This preview does not yet include history in Personal backup exports.",
+            Text("Personal Done history is private and only shown here after an explicit opt-in. Calendar views never award XP. Photo files and Personal Done history are not included in Space metadata exports.",
                 color = MutedText, fontSize = 10.sp, lineHeight = 14.sp)
         }
     }
@@ -314,7 +401,12 @@ private fun V282DayCell(
 ) {
     val active = date == selected
     Surface(
-        modifier = modifier.padding(2.dp).heightIn(min = 49.dp),
+        modifier = modifier.padding(2.dp).heightIn(min = 49.dp)
+            .testTag("ux08b-day-" + date)
+            .semantics {
+                contentDescription = date.toString() +
+                    if (hasActivity) ", recorded activity" else ", no recorded activity"
+            },
         shape = RoundedCornerShape(12.dp),
         color = if (active) CinemaSurfaceRaised else Color.Transparent,
         border = if (active) BorderStroke(1.dp, RecRed) else null,
