@@ -3,6 +3,7 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -139,29 +142,50 @@ internal fun V172InsightsBody(
 
 @Composable
 private fun V172TabRow(selected: V172InsightsTab, onSelect: (V172InsightsTab) -> Unit) {
+    val scrollTabs = UX10EPresentationPolicy.scrollInsightsTabs(
+        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp,
+        androidx.compose.ui.platform.LocalDensity.current.fontScale,
+    )
     Surface(
         Modifier.fillMaxWidth(),
-        RoundedCornerShape(18.dp),
+        RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
-        Row(Modifier.padding(5.dp)) {
+        Row(
+            modifier = (if (scrollTabs)
+                Modifier.horizontalScroll(rememberScrollState())
+            else Modifier.fillMaxWidth()).padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             V172InsightsTab.entries.forEach { tab ->
                 val active = tab == selected
                 Surface(
                     onClick = { onSelect(tab) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(13.dp),
+                    modifier = (if (scrollTabs)
+                        Modifier.widthIn(min = UX10EPresentationPolicy.INSIGHTS_MIN_TAB_WIDTH_DP.dp)
+                    else Modifier.weight(1f))
+                        .heightIn(min = BacklotUX10Tokens.rowTarget)
+                        .semantics { this.selected = active },
+                    shape = RoundedCornerShape(BacklotUX10Tokens.compactRadius),
                     color = if (active) BacklotSurfaceSelected else Color.Transparent,
                 ) {
-                    Text(
-                        tab.name.lowercase(Locale.getDefault()).replaceFirstChar { it.uppercase() },
-                        color = if (active) ProjectorIvory else MutedText,
-                        fontSize = 12.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        modifier = Modifier.padding(vertical = 9.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
+                    Box(
+                        Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
+                            .padding(horizontal = 5.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            tab.name.lowercase(Locale.getDefault()).replaceFirstChar {
+                                it.uppercase()
+                            },
+                            color = if (active) ProjectorIvory else MutedText,
+                            fontSize = BacklotUX10Tokens.supporting,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 2,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
                 }
             }
         }
@@ -218,7 +242,7 @@ private fun V172PulseCard(snapshot: YouTubeAnalyticsSnapshot, onDetail: (V20Insi
         Modifier.fillMaxWidth(),
         RoundedCornerShape(18.dp),
         CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column(Modifier.padding(14.dp)) {
             Text("Overview", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -297,7 +321,7 @@ private fun V172SignalCard(signal: YouTubeInsightSignal, onClick: () -> Unit) {
     Surface(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
         RoundedCornerShape(14.dp), CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(signal.title, color = ProjectorIvory, fontSize = 12.sp,
@@ -314,7 +338,7 @@ private fun V172SignalCard(signal: YouTubeInsightSignal, onClick: () -> Unit) {
 private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Unit) {
     val points = snapshot.trend.takeLast(14)
     val max = points.maxOfOrNull { it.views }?.coerceAtLeast(1L) ?: 1L
-    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(20.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Daily Views", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -339,7 +363,7 @@ private fun V172TrendCard(snapshot: YouTubeAnalyticsSnapshot, onClick: () -> Uni
 
 @Composable
 private fun V172FormatCard(rank: Int, format: YouTubeFormatPerformance) {
-    Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth().padding(bottom = 8.dp), RoundedCornerShape(18.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("#$rank", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
@@ -419,7 +443,7 @@ private fun V172Mini(label: String, value: String, modifier: Modifier) {
 
 @Composable
 private fun V172CreatorMetric(label: String, value: String, accent: Color, modifier: Modifier, onClick: () -> Unit) {
-    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(16.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(13.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
@@ -433,7 +457,7 @@ private fun V172CreatorMetric(label: String, value: String, accent: Color, modif
 
 @Composable
 private fun V172Empty(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(text, color = MutedText, fontSize = 11.sp, modifier = Modifier.padding(14.dp))
     }
 }
