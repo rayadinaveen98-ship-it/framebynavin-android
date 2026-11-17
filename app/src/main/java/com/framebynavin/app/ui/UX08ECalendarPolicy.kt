@@ -35,6 +35,7 @@ internal object UX08ECalendarPolicy {
     // stay intact; this is an on-demand projection, not 90 created projects.
     const val PLANNING_DAYS = 90L
     const val AGENDA_DAYS = 14L
+    const val MAX_VISIBLE_ROWS = 80
 
     fun horizonEnd(today: LocalDate): LocalDate =
         today.plusDays(PLANNING_DAYS - 1)
