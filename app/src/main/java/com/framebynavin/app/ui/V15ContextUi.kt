@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,92 +47,292 @@ internal fun V15DailyBriefScreen(
     onOpenProject: (String) -> Unit = {},
     onOpenWeeklyPlan: () -> Unit = {},
     onOpenCalendar: () -> Unit = {},
+    projectsLoaded: Boolean = true,
 ) {
-    val brief = CreatorDailyBriefEngine.build(tasks, weeklySlots)
+    val nowMillis = System.currentTimeMillis()
+    // Existing canonical priority/recommendation is never replaced.
+    val brief = if (projectsLoaded)
+        CreatorDailyBriefEngine.build(tasks, weeklySlots, nowMillis) else null
+    val sections = if (projectsLoaded)
+        UX08DDailyBriefPolicy.build(tasks, weeklySlots, nowMillis) else null
+
     Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp).padding(bottom = 36.dp)
+                .padding(horizontal = 20.dp).padding(bottom = 36.dp),
         ) {
             V15BackHeader("DAILY BRIEF", "What matters today", onClose)
-            Spacer(Modifier.height(18.dp))
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                V15Metric("ACTIVE", brief.activeCount.toString(), ProjectorIvory, Modifier.weight(1f))
-                V15Metric("DUE TODAY", brief.dueTodayCount.toString(), MutedGold, Modifier.weight(1f))
-                V15Metric("OVERDUE", brief.overdueCount.toString(), if (brief.overdueCount > 0) RecRed else SuccessGreen, Modifier.weight(1f))
-            }
-
-            Spacer(Modifier.height(18.dp))
-            Text("FOCUS", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Spacer(Modifier.height(7.dp))
-            Surface(Modifier.fillMaxWidth().clickable(enabled = brief.focusTask != null) { brief.focusTask?.id?.let(onOpenProject) }, RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(
-                        brief.focusTask?.title ?: "Your creator queue is clear",
-                        color = ProjectorIvory,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "A practical look at your saved Creator projects and Weekly Plan. " +
+                    "Open the original source to make changes.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                modifier = Modifier.testTag("ux08d-source-explanation"),
+            )
+            Spacer(Modifier.height(17.dp))
+            if (brief == null || sections == null) {
+                CircularProgressIndicator(
+                    color = RecRed, modifier = Modifier.size(24.dp)
+                        .testTag("ux08d-projects-loading"),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Loading Creator projects. An unread project list is not an empty workday.",
+                    color = MutedText, fontSize = 12.sp,
+                )
+            } else {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    V15Metric(
+                        "ACTIVE", brief.activeCount.toString(),
+                        ProjectorIvory, Modifier.weight(1f),
                     )
-                    Spacer(Modifier.height(5.dp))
-                    Text(brief.focusAction, color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp)
-                    Spacer(Modifier.height(5.dp))
-                    Text(brief.focusReason, color = MutedText, fontSize = 10.5.sp, lineHeight = 15.sp)
-                    if (brief.focusTask != null) Text("OPEN PROJECT →", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    V15Metric(
+                        "DUE DATE TODAY", brief.dueTodayCount.toString(),
+                        MutedGold, Modifier.weight(1f),
+                    )
+                    V15Metric(
+                        "PAST DEADLINE", brief.overdueCount.toString(),
+                        if (brief.overdueCount > 0) RecRed else SuccessGreen,
+                        Modifier.weight(1f),
+                    )
                 }
-            }
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "Today's deadline count includes items that became overdue earlier today. " +
+                        "A deadline is a plan, not proof of publication.",
+                    color = MutedText, fontSize = 10.sp, lineHeight = 14.sp,
+                )
 
-            if (brief.nudges.isNotEmpty()) {
-                Spacer(Modifier.height(20.dp))
-                Text("NEEDS ATTENTION", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-                Text("Things that may need your attention today.", color = MutedText, fontSize = 8.8.sp)
-                Spacer(Modifier.height(9.dp))
-                brief.nudges.forEach { nudge ->
-                    val accent = when (nudge.level) {
-                        CreatorContextNudgeLevel.NOW -> RecRed
-                        CreatorContextNudgeLevel.SOON -> MutedGold
-                        CreatorContextNudgeLevel.READY -> SuccessGreen
-                    }
-                    Surface(
-                        Modifier.fillMaxWidth().padding(bottom = 7.dp).clickable { onOpenProject(nudge.taskId) },
-                        RoundedCornerShape(16.dp),
-                        CinemaSurface,
-                        border = BorderStroke(1.dp, accent.copy(alpha = .35f)),
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    "START HERE", color = RecRed, fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    onClick = { brief.focusTask?.id?.let(onOpenProject) },
+                    enabled = brief.focusTask != null,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 78.dp)
+                        .testTag("ux08d-focus-original-project"),
+                    shape = RoundedCornerShape(17.dp),
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine.copy(alpha = 0.46f)),
+                ) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.Top) {
-                            Icon(
-                                if (nudge.level == CreatorContextNudgeLevel.READY) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber,
-                                null,
-                                tint = accent,
-                                modifier = Modifier.size(18.dp),
+                        Text(
+                            brief.focusTask?.title?.ifBlank { "Untitled project" }
+                                ?: "Your active Creator project queue is clear",
+                            color = ProjectorIvory, fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            brief.focusAction, color = MutedGold,
+                            fontSize = 12.sp, lineHeight = 16.sp,
+                        )
+                        Text(
+                            brief.focusReason, color = MutedText,
+                            fontSize = 11.sp, lineHeight = 15.sp,
+                        )
+                        if (brief.focusTask != null) {
+                            Text(
+                                "OPEN ORIGINAL PROJECT",
+                                color = RecRed, fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
                             )
-                            Spacer(Modifier.width(9.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(nudge.title, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                                Text(nudge.message, color = MutedText, fontSize = 8.8.sp, lineHeight = 13.sp)
-                                Spacer(Modifier.height(3.dp))
-                                Text("OPEN PROJECT · ${nudge.action}", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(20.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("NEXT 7 DAYS", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onOpenCalendar) { Text("VIEW CALENDAR", color = MutedGold, fontSize = 11.sp) }
-            }
-            Text("${brief.reminderCount} project reminders in the next 24 hours", color = MutedText, fontSize = 10.sp)
-            Spacer(Modifier.height(8.dp))
-            if (brief.calendar.isEmpty()) {
-                Text("Nothing scheduled yet.", color = MutedText, fontSize = 9.5.sp)
-            } else {
-                brief.calendar.forEach { item -> V15CalendarRow(item, onOpenProject, onOpenWeeklyPlan) }
+                if (sections.overdueTotal > 0 || sections.otherAttentionTotal > 0) {
+                    Spacer(Modifier.height(21.dp))
+                    UX08DBriefSectionHeading(
+                        "NEEDS REVIEW",
+                        "Past deadlines and other genuine project signals. " +
+                            "Your focus project is shown above, not duplicated below.",
+                        sections.overdueTotal + sections.otherAttentionTotal,
+                        color = if (sections.overdueTotal > 0) RecRed else ProjectorIvory,
+                        modifier = Modifier.testTag("ux08d-needs-review"),
+                    )
+                    Spacer(Modifier.height(9.dp))
+                    sections.overdue.forEach { task ->
+                        UX08DBriefProjectRow(
+                            task = task,
+                            prefix = "Past deadline",
+                            onOpenProject = onOpenProject,
+                        )
+                        Spacer(Modifier.height(7.dp))
+                    }
+                    sections.otherAttention.forEach { nudge ->
+                        val accent = when (nudge.level) {
+                            CreatorContextNudgeLevel.NOW -> RecRed
+                            CreatorContextNudgeLevel.SOON -> MutedGold
+                            CreatorContextNudgeLevel.READY -> SuccessGreen
+                        }
+                        Surface(
+                            onClick = { onOpenProject(nudge.taskId) },
+                            modifier = Modifier.fillMaxWidth()
+                                .heightIn(min = 54.dp)
+                                .padding(bottom = 7.dp)
+                                .testTag("ux08d-attention-" + nudge.taskId),
+                            color = CinemaSurface,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(
+                                1.dp, CinemaLine.copy(alpha = 0.42f),
+                            ),
+                        ) {
+                            Row(
+                                Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(
+                                    if (nudge.level == CreatorContextNudgeLevel.READY)
+                                        Icons.Outlined.CheckCircle
+                                    else Icons.Outlined.WarningAmber,
+                                    contentDescription = null,
+                                    tint = accent,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        nudge.title, color = ProjectorIvory,
+                                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        nudge.message, color = MutedText,
+                                        fontSize = 11.sp, lineHeight = 15.sp,
+                                    )
+                                    Text(
+                                        "OPEN PROJECT · " + nudge.action,
+                                        color = accent, fontSize = 10.sp,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    val reviewVisible = sections.overdue.size +
+                        sections.otherAttention.size +
+                        (if (sections.focusIsOverdue) 1 else 0)
+                    if (sections.overdueTotal + sections.otherAttentionTotal >
+                        reviewVisible
+                    ) {
+                        Text(
+                            "Showing the closest priorities. Open your Projects " +
+                                "list for remaining saved work.",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.testTag("ux08d-review-truncated"),
+                        )
+                    }
+                }
+
+                if (sections.dueLaterTodayTotal > 0) {
+                    Spacer(Modifier.height(21.dp))
+                    UX08DBriefSectionHeading(
+                        "DUE LATER TODAY",
+                        "Upcoming deadlines for active projects · local date",
+                        sections.dueLaterTodayTotal,
+                        modifier = Modifier.testTag("ux08d-due-later-today"),
+                    )
+                    Spacer(Modifier.height(9.dp))
+                    sections.dueLaterToday.forEach { task ->
+                        UX08DBriefProjectRow(
+                            task = task,
+                            prefix = "Planned deadline",
+                            onOpenProject = onOpenProject,
+                        )
+                        Spacer(Modifier.height(7.dp))
+                    }
+                    val dueLaterVisible = sections.dueLaterToday.size +
+                        (if (sections.focusIsDueLaterToday) 1 else 0)
+                    if (sections.dueLaterTodayTotal > dueLaterVisible) {
+                        Text(
+                            "Additional due-today projects remain in the original " +
+                                "Projects workspace.",
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(21.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "COMING UP",
+                            color = ProjectorIvory, fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            "Tomorrow onward · within the next 7-day window",
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                    }
+                    TextButton(
+                        onClick = onOpenCalendar,
+                        modifier = Modifier.heightIn(min = 48.dp)
+                            .testTag("ux08d-open-calendar"),
+                    ) { Text("CALENDAR", color = MutedGold, fontSize = 11.sp) }
+                }
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    "${brief.reminderCount} configured Creator project reminder times " +
+                        "within 24 hours · not delivery confirmations",
+                    color = MutedText, fontSize = 11.sp,
+                    modifier = Modifier.testTag("ux08d-reminders-source"),
+                )
+                Spacer(Modifier.height(8.dp))
+                if (sections.upcoming.isEmpty()) {
+                    Text(
+                        "No upcoming saved project deadlines or weekly-plan " +
+                            "occurrences in this window.",
+                        color = MutedText, fontSize = 12.sp,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                            .testTag("ux08d-upcoming-empty"),
+                    )
+                } else {
+                    sections.upcoming.forEach { item ->
+                        // The original row routes saved projects to Projects
+                        // and weekly templates to Weekly Plan; it never
+                        // materializes a new task just by being viewed.
+                        V15CalendarRow(item, onOpenProject, onOpenWeeklyPlan)
+                    }
+                    if (sections.upcomingTotal > sections.upcoming.size) {
+                        Text(
+                            "Showing ${sections.upcoming.size} of " +
+                                "${sections.upcomingTotal} upcoming saved dates. " +
+                                "View Calendar for the complete window.",
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                TextButton(
+                    onClick = onOpenWeeklyPlan,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("ux08d-open-weekly-plan"),
+                ) {
+                    Text("REVIEW WEEKLY PLAN", color = MutedGold, fontSize = 12.sp)
+                }
+                if (sections.isEmpty) {
+                    Text(
+                        "Nothing active or scheduled in these sources yet. " +
+                            "Create a project from Quick Actions or plan your first week.",
+                        color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
+                        modifier = Modifier.testTag("ux08d-empty-state"),
+                    )
+                }
             }
         }
     }
