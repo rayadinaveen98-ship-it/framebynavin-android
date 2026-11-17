@@ -105,7 +105,7 @@ internal fun ReminderCheckInScreen(
         .filter { it.isNotBlank() }
         .joinToString(" · ")
     val nextAction = V200ReminderLayoutPolicy.supportingAction(suggestedAction, title)
-    val snoozeLabel = if (smartStageSnooze) "REMIND IN ${snoozeMinutes} MIN"
+    val snoozeLabel = if (smartStageSnooze) "REMIND IN ${snoozeMinutes}m"
         else "SNOOZE ${snoozeMinutes} MIN"
     val smartSnoozeHint =
         if (smartStageSnooze) "Repeats this Smart stage; your final alert time stays unchanged."
