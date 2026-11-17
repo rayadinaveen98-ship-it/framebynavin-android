@@ -44,7 +44,12 @@ internal object Phase1HabitOccurrencePolicy {
             now - scheduledAt > 86_400_000L || challenge.paused ||
             challenge.alertKind == null) return false
         val due = Instant.ofEpochMilli(scheduledAt)
-        return challenge.nextAlertAfter(due.minusMillis(1))?.toInstant() == due
+        // P0 V337 compatibility: Android AlarmManager targets epoch milliseconds.
+        // Snooze instants may retain finer precision; Instant equality can
+        // discard a genuinely fired occurrence as stale after scheduling.
+        // Compare at the same precision as the scheduled PendingIntent.
+        return challenge.nextAlertAfter(due.minusMillis(1))
+            ?.toInstant()?.toEpochMilli() == scheduledAt
     }
 }
 
