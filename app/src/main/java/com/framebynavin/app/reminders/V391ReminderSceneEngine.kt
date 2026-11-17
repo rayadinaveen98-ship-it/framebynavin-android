@@ -52,7 +52,14 @@ internal enum class V391ReminderScene(val label: String) {
     CELESTIAL_DRIFT("Celestial Drift"),
     CRIMSON_PULSE("Crimson Pulse"),
     GLASSWAVE("Glasswave"),
-    EMBER_FIELD("Ember Field");
+    EMBER_FIELD("Ember Field"),
+    // UX06C values are appended. Existing enum names are persisted in
+    // SharedPreferences; changing/removing an older name would reset choices.
+    CINEMATIC_APERTURE("Aperture"),
+    PERSONAL_SUNRISE("Personal Sunrise"),
+    ATMOSPHERIC_PARTICLES("Atmospheric Particles"),
+    PROJECTOR_LIGHT("Projector Light"),
+    GLOWING_RINGS("Glowing Rings");
 }
 
 internal object V391ReminderScenePrefs {
@@ -106,6 +113,10 @@ internal fun V391ReminderBackdrop(
 ) {
     V391ReminderScenePrefs.initialize(LocalContext.current)
     val scene = previewScene ?: V391ReminderScenePrefs.selected(kind)
+    if (V406CinematicScenes.isCurated(scene)) {
+        V406CinematicReminderBackdrop(scene, motionEnabled, lowPower, modifier)
+        return
+    }
     if (scene == V391ReminderScene.DIRECTOR) {
         V336DirectorBackdrop(motionEnabled, lowPower, modifier)
         return
@@ -120,6 +131,11 @@ internal fun V391ReminderBackdrop(
             V391ReminderScene.GLASSWAVE -> listOf(Color(0xFF040F16), Color(0xFF0B2730), Color(0xFF071D25), Color(0xFF030B11))
             V391ReminderScene.EMBER_FIELD -> listOf(Color(0xFF0D0807), Color(0xFF21100C), Color(0xFF1D0B0A), Color(0xFF0B0708))
             V391ReminderScene.DIRECTOR -> error("Handled before Canvas")
+            V391ReminderScene.CINEMATIC_APERTURE,
+            V391ReminderScene.PERSONAL_SUNRISE,
+            V391ReminderScene.ATMOSPHERIC_PARTICLES,
+            V391ReminderScene.PROJECTOR_LIGHT,
+            V391ReminderScene.GLOWING_RINGS -> error("Curated scene handled by V406")
         }
         drawRect(Brush.verticalGradient(base))
         val w = size.width
@@ -203,6 +219,11 @@ internal fun V391ReminderBackdrop(
                 }
             }
             V391ReminderScene.DIRECTOR -> Unit
+            V391ReminderScene.CINEMATIC_APERTURE,
+            V391ReminderScene.PERSONAL_SUNRISE,
+            V391ReminderScene.ATMOSPHERIC_PARTICLES,
+            V391ReminderScene.PROJECTOR_LIGHT,
+            V391ReminderScene.GLOWING_RINGS -> Unit // Already rendered by V406.
         }
     }
 }
