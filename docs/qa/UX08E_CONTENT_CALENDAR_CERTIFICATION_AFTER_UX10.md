@@ -38,7 +38,7 @@
 | E28 | P0 | Original overdue active project last 14 days | Separate limited past-due list, opens original project, no wrong future dot |
 | E29 | P1 | 10+ overdue projects | First six visible, authentic full count, original tasks unchanged |
 | E30 | P1 | Mixed project + weekly preview on same day | Two source-distinct calendar indicators and separate source counts |
-| E31 | P1 | 30+ genuine projects in a month | Accurate per-date indicators/list, no duplicates, stable original IDs |
+| E31 | P1 | 30+ genuine projects in a month | Accurate per-date indicators/list, no duplicates, stable original IDs; at >80 source events the UI renders only 80 with honest count and date-filter guidance |
 | E32 | P1 | Local time zone and daylight-saving crossover | Source timestamps/date grouping honor actual local zone, no false recurrence |
 | E33 | P1 | Screen left open over midnight or zone change | Refresh correctly or documented lifecycle gap resolved before release |
 | E34 | P1 | 320dp device and 200% font scale | All three mode controls, 7-column Month/Week grid, arrows and event rows reachable |
