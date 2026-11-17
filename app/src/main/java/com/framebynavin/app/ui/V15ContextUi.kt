@@ -384,7 +384,10 @@ internal fun V15ContentCalendarScreen(
         )
     else visiblePeriod
     val windowCounts = UX08ECalendarPolicy.count(visiblePeriod)
-    val grouped = displayed.groupBy {
+    // The view has a bounded composition cost even with a large library.
+    // This does not trim or rewrite the original calendar data.
+    val rendered = displayed.take(UX08ECalendarPolicy.MAX_VISIBLE_ROWS)
+    val grouped = rendered.groupBy {
         Instant.ofEpochMilli(it.atMillis).atZone(zone).toLocalDate()
     }.toSortedMap()
     val overdue = if (projectsLoaded)
@@ -608,6 +611,16 @@ internal fun V15ContentCalendarScreen(
                             V15CalendarRow(item, onOpenProject, onOpenWeeklyPlan)
                         }
                     }
+                }
+                if (displayed.size > rendered.size) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Showing the first ${rendered.size} of ${displayed.size} " +
+                            "upcoming items in this period. Select a date or a " +
+                            "shorter view to inspect the remainder; nothing was deleted.",
+                        color = MutedText, fontSize = 11.sp,
+                        modifier = Modifier.testTag("ux08e-list-truncated"),
+                    )
                 }
                 Spacer(Modifier.height(16.dp))
                 TextButton(
