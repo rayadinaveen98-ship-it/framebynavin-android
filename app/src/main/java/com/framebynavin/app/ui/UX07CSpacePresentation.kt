@@ -36,6 +36,9 @@ import com.framebynavin.app.ui.theme.BacklotSurface
  * UX07C presentation rules. These never infer progress from notification
  * delivery, note-writing or photo viewing. Room and Personal remain owners.
  */
+/** Explicitly distinguishes unobserved, loaded and unreadable owner data. */
+internal enum class UX07CReadState { LOADING, READY, UNAVAILABLE }
+
 internal object UX07CSpaceLabels {
     fun type(type: String): String =
         V289SpaceType.entries.firstOrNull { it.name == type }?.defaultTitle
@@ -125,7 +128,7 @@ internal fun UX07CSpaceCard(
 @Composable
 internal fun UX07CSpaceProgressSummary(
     summary: V289SpaceProgressSummary,
-    linkedCount: Int,
+    linkedCount: Int?,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -158,8 +161,8 @@ internal fun UX07CSpaceProgressSummary(
                     Modifier.weight(1f),
                 )
                 UX07CMetric(
-                    linkedCount.toString(),
-                    "Linked reminders",
+                    linkedCount?.toString() ?: "—",
+                    if (linkedCount == null) "Links unavailable" else "Linked reminders",
                     Modifier.weight(1f),
                 )
             }
