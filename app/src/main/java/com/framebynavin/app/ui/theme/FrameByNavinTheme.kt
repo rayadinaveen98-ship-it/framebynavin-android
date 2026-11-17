@@ -308,7 +308,22 @@ private fun themeTypography(profile: FrameThemeProfile): Typography {
         titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
         bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal),
         bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 19.sp, fontWeight = FontWeight.Normal),
+        bodySmall = TextStyle(
+            fontSize = BacklotUX10Tokens.supporting,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Normal,
+        ),
         labelLarge = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold),
+        labelMedium = TextStyle(
+            fontSize = BacklotUX10Tokens.supporting,
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.Medium,
+        ),
+        labelSmall = TextStyle(
+            fontSize = BacklotUX10Tokens.eyebrow,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.Medium,
+        ),
     )
 }
 
