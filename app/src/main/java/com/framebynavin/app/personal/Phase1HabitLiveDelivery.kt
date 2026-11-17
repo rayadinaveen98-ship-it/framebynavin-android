@@ -377,7 +377,10 @@ internal class Phase1HabitVoiceService : Service() {
         music.start(musicChoice)
         engine = TextToSpeech(this) { status ->
             val tts = engine ?: return@TextToSpeech
-            if (current != generation || status != TextToSpeech.SUCCESS ||
+            // A stale TTS initializer must not log an error or stop the next
+            // challenge's newer foreground playback.
+            if (current != generation) return@TextToSpeech
+            if (status != TextToSpeech.SUCCESS ||
                 tts.setLanguage(Locale.getDefault()) < TextToSpeech.LANG_AVAILABLE) {
                 Phase1HabitDeliveryLedger.recordAsync(this, id, at,
                     Phase1HabitDeliveryStage.VOICE_TTS_UNAVAILABLE)
@@ -429,6 +432,8 @@ internal class Phase1HabitVoiceService : Service() {
                 }
                 @Deprecated("Android TextToSpeech")
                 override fun onError(utteranceId: String?) {
+                    if (current != generation ||
+                        utteranceId?.startsWith("$current-") != true) return
                     Phase1HabitDeliveryLedger.recordAsync(
                         this@Phase1HabitVoiceService, id, at,
                         Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED)
@@ -471,6 +476,7 @@ internal class Phase1HabitVoiceService : Service() {
                     if (service.currentChallengeId == challengeId) {
                         service.generation++
                         service.engine?.stop()
+                        service.music.stop()
                         service.stopSelf()
                     }
                 }
@@ -486,6 +492,7 @@ internal class Phase1HabitVoiceService : Service() {
                     ) {
                         service.generation++
                         service.engine?.stop()
+                        service.music.stop()
                         service.stopSelf()
                     }
                 }
