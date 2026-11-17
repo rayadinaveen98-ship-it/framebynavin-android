@@ -198,6 +198,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                 discardLearningDraft(task!!.id, outputId, expectedRevision)
                             },
                             saving = learningSaveInFlight,
+                            initialSelectedOutputId = selectedLearningOutputId,
                             onOpenPlanOutputs = {
                                 planOpenBrief = false
                                 planOpenSection = "DELIVERABLES"
