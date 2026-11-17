@@ -788,6 +788,22 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
                     onConvert = { _, _, _, _ -> null },
+                    onOpenLinkedProject = { projectId ->
+                        if (vm.tasks.none { it.id == projectId }) {
+                            Toast.makeText(
+                                context,
+                                "The linked project is unavailable. Your idea was kept.",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        } else {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(context, ContentWorkspaceActivity::class.java)
+                                        .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, projectId)
+                                )
+                            }.onFailure { openProject(projectId) }
+                        }
+                    },
                     onConvertDurably = { request ->
                         val projectId = vm.convertIdeaToProject(request)
                         if (V18CreatorJourney.afterProjectCreated(projectId) == V18JourneyDestination.CREATE) {
