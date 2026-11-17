@@ -159,7 +159,7 @@ internal object CW51CreativeBoardPolicy {
                 key = "cut:${cut.id}",
                 filter = CW51BoardFilter.OUTPUTS,
                 heading = "CUT VERSION",
-                title = cut.label,
+                title = cut.label.ifBlank { "Unnamed cut version" },
                 detail = listOfNotNull(
                     output?.title?.ifBlank { output.format }?.takeIf { it.isNotBlank() },
                     cut.notes.takeIf { it.isNotBlank() },
@@ -170,7 +170,9 @@ internal object CW51CreativeBoardPolicy {
             )
         }
 
-        return entries
+        // Old data can contain colliding IDs. Avoid Compose duplicate-key crashes
+        // while leaving authoritative records untouched for later review.
+        return entries.distinctBy { it.key }
     }
 }
 
