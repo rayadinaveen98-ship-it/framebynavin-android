@@ -24,11 +24,13 @@ import com.framebynavin.app.data.*
 import com.framebynavin.app.personal.PersonalCompletionEvent
 import com.framebynavin.app.personal.PersonalReminderStore
 import com.framebynavin.app.ui.theme.*
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collectLatest
@@ -48,28 +50,52 @@ internal fun V282ProgressJourneyScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val store = remember(context) { CreatorWorkflowTimelineStore(context.applicationContext) }
     val personalStore = remember(context) { PersonalReminderStore(context.applicationContext) }
-    var includePersonal by rememberSaveable { mutableStateOf(false) }
+    // A sensitive preference is not saveable: re-entry / process recreation
+    // must require a fresh explicit decision before showing private history.
+    var includePersonal by remember { mutableStateOf(false) }
     var personalHistory by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    var personalHistoryReady by remember { mutableStateOf(false) }
+    var personalHistoryUnavailable by remember { mutableStateOf(false) }
     LaunchedEffect(includePersonal) {
-        if (!includePersonal) {
-            personalHistory = emptyList()
-        } else {
-            personalStore.completionHistoryFlow.collectLatest { personalHistory = it }
+        personalHistory = emptyList()
+        personalHistoryReady = false
+        personalHistoryUnavailable = false
+        if (includePersonal) {
+            try {
+                personalStore.completionHistoryFlow.collectLatest {
+                    personalHistory = it
+                    personalHistoryReady = true
+                }
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                personalHistory = emptyList()
+                personalHistoryReady = false
+                personalHistoryUnavailable = true
+            }
         }
     }
     var timeline by remember { mutableStateOf(emptyList<CreatorWorkflowTimelineEvent>()) }
     var reading by remember { mutableStateOf(true) }
+    var timelineUnavailable by remember { mutableStateOf(false) }
     LaunchedEffect(tasks, ideas) {
         reading = true
-        timeline = withContext(Dispatchers.IO) { store.loadAll() }
-        reading = false
+        timelineUnavailable = false
+        try {
+            timeline = withContext(Dispatchers.IO) { store.loadAll() }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            timeline = emptyList()
+            timelineUnavailable = true
+        } finally {
+            reading = false
+        }
     }
     val now = System.currentTimeMillis()
     val zone = remember { ZoneId.systemDefault() }
-    val events = remember(tasks, ideas, timeline, includePersonal, personalHistory) {
+    val events = remember(tasks, ideas, timeline, includePersonal, personalHistory, now) {
         val creator = ProgressJourneyEngine.build(tasks, ideas, timeline, now)
-        if (!includePersonal) creator else {
-            (creator + personalHistory.filter { it.doneAtMillis in 1..now }.map { receipt ->
+        if (!includePersonal || !personalHistoryReady || personalHistoryUnavailable) creator else {
+            (creator + personalHistory.filter { it.doneAtMillis in 1..now }.distinctBy { it.stableKey }.map { receipt ->
                 ProgressJourneyEvent(
                     key = "personal-done:${receipt.stableKey}",
                     kind = ProgressJourneyKind.PERSONAL_COMPLETED,
@@ -92,6 +118,13 @@ internal fun V282ProgressJourneyScreen(
         ProgressJourneyEngine.onDay(events, selectedDate, zone)
     }
     val datesWithActivity = activeDays.count { YearMonth.from(it) == month }
+    val projectIds = remember(tasks) { tasks.mapTo(HashSet()) { it.id } }
+    val ideaIds = remember(ideas) {
+        ideas.filterNot { it.isTrashed }.mapTo(HashSet()) { it.id }
+    }
+    val monthEvents = remember(events, month, zone) {
+        UX08BProgressPolicy.forMonth(events, month, zone)
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = CinemaBlack) {
         Column(
@@ -122,7 +155,36 @@ internal fun V282ProgressJourneyScreen(
                 }
                 Switch(
                     checked = includePersonal,
-                    onCheckedChange = { includePersonal = it },
+                    onCheckedChange = {
+                        includePersonal = it
+                        if (!it) {
+                            personalHistory = emptyList()
+                            personalHistoryReady = false
+                        }
+                    },
+                    modifier = Modifier.testTag("ux08b-personal-opt-in"),
+                )
+            }
+            Spacer(Modifier.height(15.dp))
+
+            if (reading) {
+                CircularProgressIndicator(
+                    color = RecRed,
+                    modifier = Modifier.size(22.dp).testTag("ux08b-timeline-loading"),
+                )
+            } else {
+                UX08BJourneySummaryStrip(
+                    summary = UX08BProgressPolicy.summarize(events, zone),
+                    partialCreatorHistory = timelineUnavailable,
+                    personalStatus = when {
+                        !includePersonal -> null
+                        personalHistoryUnavailable ->
+                            "Private Personal Done history is unavailable. No stored history was erased."
+                        !personalHistoryReady ->
+                            "Private Personal Done history is loading; only Creator events are shown so far."
+                        else -> null
+                    },
+                    includePersonal = includePersonal,
                 )
             }
             Spacer(Modifier.height(15.dp))
