@@ -38,7 +38,7 @@
 | E28 | P0 | Original overdue active project last 14 days | Separate limited past-due list, opens original project, no wrong future dot |
 | E29 | P1 | 10+ overdue projects | First six visible, authentic full count, original tasks unchanged |
 | E30 | P1 | Mixed project + weekly preview on same day | Two source-distinct calendar indicators and separate source counts |
-| E31 | P1 | 30+ genuine projects in a month | Accurate per-date indicators/list, no duplicates, stable original IDs; at >80 source events the UI renders only 80 with honest count and date-filter guidance |
+| E31 | P1 | 30+ genuine projects in a month | Accurate per-date indicators/list, no duplicates, stable original IDs; >80 events paginated in source order with usable Previous/Next and true totals |
 | E32 | P1 | Local time zone and daylight-saving crossover | Source timestamps/date grouping honor actual local zone, no false recurrence |
 | E33 | P1 | Screen left open over midnight or zone change | Refresh correctly or documented lifecycle gap resolved before release |
 | E34 | P1 | 320dp device and 200% font scale | All three mode controls, 7-column Month/Week grid, arrows and event rows reachable |
@@ -51,13 +51,14 @@
 
 ## Deferred test source, not executed
 
-`app/src/test/java/com/framebynavin/app/ui/UX08ECalendarPolicyTest.kt` contains **8** authored source unit tests for:
+`app/src/test/java/com/framebynavin/app/ui/UX08ECalendarPolicyTest.kt` contains **9** authored source unit tests for:
 - strict inclusive 90-day window and correct date clamping;
 - Monday-first week and safe previous-week bound;
 - leap-year Month grid with exactly 42 cells;
 - 14-day Agenda window and period arrows;
 - actual Week/Month/date filtered original source items, discarding unsupported past/future dates;
 - date inspection without shifting the Agenda period anchor;
+- bounded 80-row pages that reach every source item and never erase data;
 - true project vs weekly source/marked Done counts and original project/weekly navigation semantics;
 - original recurring `scheduleOccurrenceKey` dedup without creating a project.
 
@@ -71,6 +72,6 @@ These source files are **NOT PASS evidence**; no compilation, JVM, CI, instrumen
 - Performance, physical visual density and time-change refresh still need the post-UX10 Android campaign. The 90-date range is a bounded design, not a benchmark claim.
 - Owner must explicitly approve accepted P0 corrective lineage reconciliation, compilation, verified unit/UI/Android tests and eventual release. Never merge by default.
 
-**Current result:** **0 / 40 UX08E QA checks executed**, **0 / 8 authored source tests executed**; source-staged drafts only, owner-stable V337 and main untouched.
+**Current result:** **0 / 40 UX08E QA checks executed**, **0 / 9 authored source tests executed**; source-staged drafts only, owner-stable V337 and main untouched.
 
 **Next UX08F:** original Quick Actions navigation/hierarchy and cross-screen UX08 integration, plus UX09 sync handoff under distinct approval/data-integrity gates. No release readiness asserted.
