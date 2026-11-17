@@ -75,6 +75,7 @@ import com.framebynavin.app.cloud.DriveVaultLocalStore
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.V280ReminderSnoozePolicy
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
@@ -1822,7 +1823,13 @@ private fun PSettingsScreen(
             Spacer(Modifier.height(9.dp))
             Text("Snooze", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                listOf(5, 10, 15, 20, 30).forEach { value -> FilterChip(settings.snoozeMinutes == value, { onSnooze(value) }, { Text("${value}m", fontSize = 10.sp) }) }
+                V280ReminderSnoozePolicy.CHOICES.sorted().forEach { value ->
+                    FilterChip(
+                        selected = settings.snoozeMinutes == value,
+                        onClick = { onSnooze(value) },
+                        label = { Text("${value}m", fontSize = 10.sp) },
+                    )
+                }
             }
             Spacer(Modifier.height(14.dp))
             Text("Alarm auto-stop", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
