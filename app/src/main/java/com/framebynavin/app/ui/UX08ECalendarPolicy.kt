@@ -79,7 +79,6 @@ internal object UX08ECalendarPolicy {
         if (view == UX08ECalendarView.AGENDA) {
             return proposed.takeIf { !it.isBefore(today) && !it.isAfter(horizonEnd(today)) }
         }
-        val proposedWindow = window(view, proposed, today)
         // Check real period BEFORE any in-range clamping, otherwise a previous
         // arrow on today's first week would appear enabled but do nothing.
         val realStart = when (view) {
