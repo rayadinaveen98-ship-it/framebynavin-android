@@ -94,7 +94,7 @@ internal fun V282ProgressJourneyScreen(
         }
     }
     val now = System.currentTimeMillis()
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = ZoneId.systemDefault()
     val events = remember(tasks, ideas, timeline, includePersonal, personalHistory, now) {
         val creator = ProgressJourneyEngine.build(tasks, ideas, timeline, now)
         if (!includePersonal || !personalHistoryReady || personalHistoryUnavailable) creator else {
@@ -110,12 +110,16 @@ internal fun V282ProgressJourneyScreen(
             }).sortedByDescending { it.atMillis }
         }
     }
-    val today = remember { LocalDate.now(zone) }
+    val today = LocalDate.now(zone)
     var selectedDateText by rememberSaveable { mutableStateOf(today.toString()) }
     var monthText by rememberSaveable { mutableStateOf(YearMonth.from(today).toString()) }
     var view by rememberSaveable { mutableStateOf("WEEK") }
-    val selectedDate = remember(selectedDateText) { LocalDate.parse(selectedDateText) }
-    val month = remember(monthText) { YearMonth.parse(monthText) }
+    val selectedDate = remember(selectedDateText, today) {
+        runCatching { LocalDate.parse(selectedDateText) }.getOrDefault(today)
+    }
+    val month = remember(monthText, today) {
+        runCatching { YearMonth.parse(monthText) }.getOrDefault(YearMonth.from(today))
+    }
     val activeDays = remember(events, zone) { ProgressJourneyEngine.activeDays(events, zone) }
     val selectedEvents = remember(events, selectedDate, zone) {
         ProgressJourneyEngine.onDay(events, selectedDate, zone)
@@ -405,7 +409,7 @@ private fun V282DayCell(
             .testTag("ux08b-day-" + date)
             .semantics {
                 contentDescription = date.toString() +
-                    if (hasActivity) ", recorded activity" else ", no recorded activity"
+                    (if (hasActivity) ", recorded activity" else ", no recorded activity")
             },
         shape = RoundedCornerShape(12.dp),
         color = if (active) CinemaSurfaceRaised else Color.Transparent,
