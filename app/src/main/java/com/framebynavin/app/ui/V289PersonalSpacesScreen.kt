@@ -643,7 +643,13 @@ internal fun V289PersonalSpacesScreen(
                                 Text("No notes yet. Notes don't count as completed check-ins.",
                                     color = BacklotSecondaryText, fontSize = 12.sp)
                             } else {
-                                notes.take(if (allNotesVisible) notes.size else 3).forEach { item ->
+                                notes.take(if (allNotesVisible) notes.size else 3)
+                                    .forEachIndexed { index, item ->
+                                    if (index > 0) {
+                                        HorizontalDivider(
+                                            color = BacklotBorder.copy(alpha = 0.35f),
+                                        )
+                                    }
                                     Text(Instant.ofEpochMilli(item.occurredAtMillis)
                                         .atZone(ZoneId.systemDefault())
                                         .format(DateTimeFormatter.ofPattern("d MMM · h:mm a")),
