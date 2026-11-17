@@ -30,6 +30,14 @@ internal data class UX08ECalendarCounts(
     val total: Int get() = savedProjects + weeklyPreviews
 }
 
+internal data class UX08ECalendarPage(
+    val items: List<CreatorCalendarItem>,
+    val index: Int,
+    val maxIndex: Int,
+    val offset: Int,
+    val total: Int,
+)
+
 internal object UX08ECalendarPolicy {
     // Modest, finite planning horizon. Existing storage and occurrence keys
     // stay intact; this is an on-demand projection, not 90 created projects.
@@ -135,6 +143,23 @@ internal object UX08ECalendarPolicy {
                 !date.isBefore(period.start) && !date.isAfter(period.endInclusive) &&
                 (!selectedDayOnly || date == constrainedDay)
         }
+    }
+
+    fun page(
+        items: List<CreatorCalendarItem>,
+        requestedIndex: Int,
+    ): UX08ECalendarPage {
+        val maxIndex = if (items.isEmpty()) 0
+            else (items.size - 1) / MAX_VISIBLE_ROWS
+        val index = requestedIndex.coerceIn(0, maxIndex)
+        val offset = index * MAX_VISIBLE_ROWS
+        return UX08ECalendarPage(
+            items = items.drop(offset).take(MAX_VISIBLE_ROWS),
+            index = index,
+            maxIndex = maxIndex,
+            offset = offset,
+            total = items.size,
+        )
     }
 
     fun countOnDate(
