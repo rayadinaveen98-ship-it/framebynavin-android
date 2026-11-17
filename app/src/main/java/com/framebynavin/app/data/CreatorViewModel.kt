@@ -18,6 +18,7 @@ import com.framebynavin.app.reminders.ReminderScheduler
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.SmartEscalationPolicy
 import com.framebynavin.app.reminders.SmartEscalationScheduler
+import com.framebynavin.app.reminders.V403VoiceRepeatPolicy
 import com.framebynavin.app.ui.V171ProjectEditSafety
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
@@ -355,7 +356,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
                 reminderMode = reminderMode,
                 deliveryPreference = deliveryPreference,
                 voicePersona = voicePersona,
-                voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
+                voiceRepeatCount = V403VoiceRepeatPolicy.count(voiceRepeatCount),
                 voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
                 alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
                 snoozeMinutes = snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
@@ -409,7 +410,7 @@ class CreatorViewModel(application: Application) : AndroidViewModel(application)
             reminderMode = reminderMode,
             deliveryPreference = deliveryPreference,
             voicePersona = voicePersona,
-            voiceRepeatCount = voiceRepeatCount.coerceIn(1, 3),
+            voiceRepeatCount = V403VoiceRepeatPolicy.count(voiceRepeatCount),
             voiceRepeatIntervalSeconds = voiceRepeatIntervalSeconds.coerceIn(5, 60),
             alarmTimeoutSeconds = alarmTimeoutSeconds.coerceIn(30, 300),
             snoozeMinutes = snoozeMinutes.takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
