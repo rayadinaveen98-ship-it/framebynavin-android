@@ -150,7 +150,7 @@ internal fun PTodayScreen(
     }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = bottomNavigationClearance)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = bottomNavigationClearance)) {
             V18CinematicHomeHero(
                 creatorName = homeGreetingName?.trim()?.takeIf { it.isNotBlank() }
                     ?: creatorProfile.safeDisplayName,
@@ -238,42 +238,14 @@ internal fun PTodayScreen(
                 // Phase 3F: at 2x system text scaling the old fixed 50dp CTA
                 // silently clipped "WORK". Preserve a complete visible label
                 // and a descriptive screen-reader action without changing routing.
-                val largeActionText = LocalDensity.current.fontScale >= 1.6f
-                val actionHeight = if (largeActionText) 76.dp else 50.dp
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { onContinueWork(selected.id) },
-                        modifier = Modifier.weight(1.35f).height(actionHeight)
-                            .testTag("phase3-home-continue")
-                            .semantics { contentDescription = "Continue work on ${selected.title}" },
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        shape = RoundedCornerShape(15.dp),
-                    ) {
-                        Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            if (largeActionText) "CONTINUE\nWORK" else "CONTINUE WORK",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 10.sp,
-                            lineHeight = 12.sp,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onFocus(selected.id)
-                        },
-                        modifier = Modifier.weight(1f).height(actionHeight).testTag("phase3-home-focus"),
-                        border = BorderStroke(1.dp, CinemaLine),
-                        shape = RoundedCornerShape(15.dp),
-                    ) {
-                        Icon(Icons.Outlined.Timer, null, modifier = Modifier.size(17.dp), tint = ProjectorIvory)
-                        Spacer(Modifier.width(4.dp))
-                        Text("FOCUS", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 10.sp)
-                    }
-                }
+                UX10BHomeProjectActions(
+                    projectTitle = selected.title,
+                    onContinue = { onContinueWork(selected.id) },
+                    onFocus = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onFocus(selected.id)
+                    },
+                )
             }
 
             // V219: Real reminder state is now reachable immediately after
