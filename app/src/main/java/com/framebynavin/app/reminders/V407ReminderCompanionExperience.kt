@@ -73,10 +73,10 @@ internal fun V407ReminderCompanionMoment(
 
     V144GuidePrefs.initialize(context)
     val guide = V144GuidePrefs.currentGuide
-    val reducedMotion = !ValueAnimator.areAnimatorsEnabled() ||
-        remember(context) {
-            context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
-        }
+    val lowPower = remember(context) {
+        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
+    }
+    val reducedMotion = !ValueAnimator.areAnimatorsEnabled() || lowPower
     var visible by remember(occurrenceKey) { mutableStateOf(true) }
     LaunchedEffect(occurrenceKey) {
         delay(3_000L)
