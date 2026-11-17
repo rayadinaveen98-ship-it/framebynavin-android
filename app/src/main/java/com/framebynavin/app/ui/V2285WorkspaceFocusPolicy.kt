@@ -22,6 +22,8 @@ internal data class V2285WorkspaceFocusHint(
     val stageId: String = "",
     val openOutputCraft: Boolean = false,
     val openBrief: Boolean = false,
+    /** Exact Plan tab, for actions that live inside the existing Plan editor. */
+    val planSection: String = "",
 )
 
 internal object V2285WorkspaceFocusPolicy {
@@ -57,9 +59,12 @@ internal object V2285WorkspaceFocusPolicy {
                 stageId = stage.id,
             )
         }
-        fun planHint(key: String, title: String, detail: String) {
+        fun planHint(
+            key: String, title: String, detail: String, section: String = "",
+        ) {
             suggestions += V2285WorkspaceFocusHint(
                 key, title, detail, V2285WorkspaceDestination.PLAN,
+                planSection = section,
             )
         }
         fun scriptHint(key: String, title: String, detail: String) {
@@ -80,7 +85,8 @@ internal object V2285WorkspaceFocusPolicy {
                 if (ws.references.isEmpty() && ws.assets.isEmpty()) {
                     planHint(
                         "stage-sources", "Collect material for ${stage.label}",
-                        "There are no saved sources or assets. Add originals in Plan → Sources or Assets.",
+                        "There are no saved sources or assets. Start with an original reference.",
+                        section = "RESEARCH",
                     )
                 } else if (stageWork?.evidence.isNullOrEmpty()) {
                     stageHint(
@@ -118,6 +124,7 @@ internal object V2285WorkspaceFocusPolicy {
                     planHint(
                         "stage-edit-output", "Plan the output you are editing",
                         "The project has no deliverable yet. Create it in Plan → Outputs.",
+                        section = "DELIVERABLES",
                     )
                 } else if (cuts.isEmpty()) {
                     suggestions += V2285WorkspaceFocusHint(
@@ -138,6 +145,7 @@ internal object V2285WorkspaceFocusPolicy {
                     planHint(
                         "stage-no-output", "Create a target output",
                         "There are no deliverables yet. Plan one before preparing publication.",
+                        section = "DELIVERABLES",
                     )
                 } else {
                     V2295PublishReadinessPolicy.hint(ws.deliverables)?.let { suggestions += it }
@@ -192,6 +200,7 @@ internal object V2285WorkspaceFocusPolicy {
             planHint(
                 "plan-tasks", "Review open production tasks",
                 "Your shared Plan still has unchecked production tasks.",
+                section = "PRODUCTION",
             )
         }
         if (ws.deliverables.isEmpty() && stage.id !in editingStages &&
@@ -199,6 +208,7 @@ internal object V2285WorkspaceFocusPolicy {
             planHint(
                 "plan-output", "Plan your first deliverable",
                 "Choose its platform and format in Plan → Outputs.",
+                section = "DELIVERABLES",
             )
         }
 
@@ -220,6 +230,7 @@ internal object V2285WorkspaceFocusPolicy {
                 it.stageId.isNotBlank() -> "stage"
                 it.openOutputCraft -> "output"
                 it.openBrief -> "brief"
+                it.planSection.isNotBlank() -> it.planSection
                 else -> it.destination.name
             }
         }.take(2)
