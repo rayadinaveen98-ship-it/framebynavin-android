@@ -1,6 +1,6 @@
 # Backlot UX09-01 — Database foundation certification / no production mutations
 
-**2026-11-17 | 40 total acceptance criteria.** A real disposable PostgreSQL 16 GitHub Actions job executed successfully: [run #44089557376](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44089557376), tested SHA `19855a6adf75b6d963f878b9da11f45d61ffdf6e`. Synthetic role/RLS, transaction, concurrency and data-contract cases are partially covered; **40/40 are NOT certified**. Real Supabase Auth signed JWT/API, actual Android, hosted migration, Backup/Restore/Account Delete and physical tests remain PENDING.
+**2026-11-17 | 40 total acceptance criteria.** A real disposable PostgreSQL 16 GitHub Actions job executed successfully: [run #44090476691](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44090476691), tested SHA `da90847ccea9211896ae6c3e7fa4187618067a02`. Synthetic role/RLS, transaction, concurrency and data-contract cases are partially covered; **40/40 are NOT certified**. Real Supabase Auth signed JWT/API, actual Android, hosted migration, Backup/Restore/Account Delete and physical tests remain PENDING.
 
 **Exact parent:** UX09 design docs PR #429 head `9445aa62fcf8fd58fb300bc4dd7e15b10ef2537b`; prototype stacked on owner-tested Lab V337 `4ba1263124d118d3917f988228aec2248068466f`.
 **Protected:** original V337 P0 `815ba69775f75b6e5f25bb838c2c17b4f09c203e`; cumulative UX10F `6654c730971309b5047473e2f69292fe799b3f46`.
@@ -58,6 +58,8 @@
 - Versioned migration creation must use an actual local `supabase migration new` command after test and security review; no invented migration filename in this PR.
 
 **Executed mock-PG checks:** 17 narrowly mapped cases in this matrix now read `PG16 MOCK PASS`. These run with synthetic roles/claims, **not real signed Google/Supabase JWTs**. Rows still labeled NOT RUN require additional assertions or implementation; the complete feature and 40-case matrix remain open. The exact successful CI run, job output and limitations are recorded in `UX09_01_DISPOSABLE_POSTGRES16_CI_EVIDENCE_20261117.md`.
+
+Test evidence expands to **two distinct success cases for concurrent writes**: one wins when the same entity is created twice at once; both win with unique, consecutive sequences when different entity IDs are created at once. Real JWT/API testing remains pending.
 
 ## Mandatory negative tests
 
