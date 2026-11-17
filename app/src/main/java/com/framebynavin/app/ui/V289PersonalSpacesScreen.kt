@@ -45,6 +45,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * V289 Personal Spaces — optional, local-only owner UI.
@@ -100,6 +101,20 @@ internal fun V289PersonalSpacesScreen(
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    // Each source has an independent availability status: on an I/O failure
+    // never substitute an invented "zero logs/photos/links" user claim.
+    var ux07cEntriesState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
+    var ux07cLinksState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
+    var ux07cPhotosState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
+    var ux07cRecoveryState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
     // A Home preview may become stale between the tap and the DB query.
     // Consume focus once; never redirect to an unrelated Space or reopen
     // detail after the owner explicitly goes back to the overview.
@@ -145,27 +160,50 @@ internal fun V289PersonalSpacesScreen(
     }
     LaunchedEffect(dao, selectedSpaceId) {
         val id = selectedSpaceId
-        entries = if (id == null) emptyList() else try {
-            dao.entriesForSpace(id)
-        } catch (_: Exception) {
+        if (id == null) {
+            entries = emptyList()
+            linkedReminders = emptyList()
+            photos = emptyList()
+            interruptedPhotos = emptyList()
+            ux07cEntriesState = UX07CReadState.READY
+            ux07cLinksState = UX07CReadState.READY
+            ux07cPhotosState = UX07CReadState.READY
+            ux07cRecoveryState = UX07CReadState.READY
+            return@LaunchedEffect
+        }
+        ux07cEntriesState = UX07CReadState.LOADING
+        ux07cLinksState = UX07CReadState.LOADING
+        ux07cPhotosState = UX07CReadState.LOADING
+        ux07cRecoveryState = UX07CReadState.LOADING
+        entries = try {
+            dao.entriesForSpace(id).also { ux07cEntriesState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cEntriesState = UX07CReadState.UNAVAILABLE
             error = "Entries could not be loaded. No data was changed."
             emptyList()
         }
-        linkedReminders = if (id == null) emptyList() else try {
-            dao.linksForSpace(id)
-        } catch (_: Exception) {
+        linkedReminders = try {
+            dao.linksForSpace(id).also { ux07cLinksState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cLinksState = UX07CReadState.UNAVAILABLE
             error = "Linked reminders could not be loaded. Nothing was changed."
             emptyList()
         }
-        photos = if (id == null) emptyList() else try {
-            dao.photosForSpace(id)
-        } catch (_: Exception) {
+        photos = try {
+            dao.photosForSpace(id).also { ux07cPhotosState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cPhotosState = UX07CReadState.UNAVAILABLE
             error = "Photos could not be loaded. No files were changed."
             emptyList()
         }
-        interruptedPhotos = if (id == null) emptyList() else try {
-            interruptedRecovery.find(id)
-        } catch (_: Exception) {
+        interruptedPhotos = try {
+            interruptedRecovery.find(id).also { ux07cRecoveryState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cRecoveryState = UX07CReadState.UNAVAILABLE
             error = "Unfinished photo saves could not be checked. No files were changed."
             emptyList()
         }
