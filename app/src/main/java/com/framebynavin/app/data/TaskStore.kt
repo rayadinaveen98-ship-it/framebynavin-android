@@ -822,6 +822,9 @@ class TaskStore(private val context: Context) {
             .put("viewerProblem", workspace.viewerProblem)
             .put("promise", workspace.promise)
             .put("angle", workspace.angle)
+            .put("objective", workspace.objective)
+            .put("successCriteria", workspace.successCriteria)
+            .put("constraints", workspace.constraints)
             .put("hook", workspace.hook)
             .put("script", workspace.script)
             .put("references", references)
@@ -1071,6 +1074,9 @@ class TaskStore(private val context: Context) {
             viewerProblem = item.optString("viewerProblem").trim(),
             promise = item.optString("promise").trim(),
             angle = item.optString("angle").trim(),
+            objective = item.optString("objective").trim(),
+            successCriteria = item.optString("successCriteria").trim(),
+            constraints = item.optString("constraints").trim(),
             hook = item.optString("hook").trim(),
             script = item.optString("script"),
             references = decodedReferences,
