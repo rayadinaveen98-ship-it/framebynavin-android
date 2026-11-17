@@ -464,7 +464,8 @@ internal fun V289PersonalSpacesScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         Button(
                             onClick = { activityVisible = true },
-                            enabled = !busy && selected.archivedAtMillis == null,
+                            enabled = !busy && selected.archivedAtMillis == null &&
+                                ux07cEntriesState == UX07CReadState.READY,
                             modifier = Modifier.testTag("v289-log-open"),
                         ) {
                             Icon(Icons.Outlined.EditNote, null,
@@ -597,7 +598,8 @@ internal fun V289PersonalSpacesScreen(
                                             Text("EDIT")
                                         }
                                     }
-                                    IconButton(enabled = !busy,
+                                    IconButton(enabled = !busy &&
+                                        ux07cLinksState == UX07CReadState.READY,
                                         onClick = {
                                             val id = selected.id
                                             write {
@@ -622,7 +624,9 @@ internal fun V289PersonalSpacesScreen(
                                 Text("Private notes", color = BacklotPrimaryText, fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.weight(1f))
-                                TextButton(enabled = !busy && selected.archivedAtMillis == null,
+                                TextButton(enabled = !busy &&
+                                    ux07cEntriesState == UX07CReadState.READY &&
+                                    selected.archivedAtMillis == null,
                                     onClick = { newNoteText = ""; newNoteVisible = true },
                                     modifier = Modifier.testTag("v295-note-open")) { Text("ADD NOTE") }
                             }
@@ -1274,9 +1278,11 @@ internal fun V289PersonalSpacesScreen(
             title = { Text("Delete this Space?") },
             text = {
                 Text(
-                    if (ux07cPhotosState != UX07CReadState.READY ||
+                    if (ux07cEntriesState != UX07CReadState.READY ||
+                        ux07cLinksState != UX07CReadState.READY ||
+                        ux07cPhotosState != UX07CReadState.READY ||
                         ux07cRecoveryState != UX07CReadState.READY)
-                        "Photo safety checks are not available yet. Review this Space again before deleting anything."
+                        "Some Space records or photo safety checks aren't available. Review this Space again before deleting anything."
                     else if (photos.isEmpty() && interruptedPhotos.isEmpty())
                         "This removes local notes, activity and reminder links. Personal reminders remain untouched."
                     else "Resolve all saved and interrupted private photos before deleting this Space."
@@ -1285,6 +1291,8 @@ internal fun V289PersonalSpacesScreen(
             confirmButton = {
                 TextButton(
                     enabled = !busy &&
+                        ux07cEntriesState == UX07CReadState.READY &&
+                        ux07cLinksState == UX07CReadState.READY &&
                         ux07cPhotosState == UX07CReadState.READY &&
                         ux07cRecoveryState == UX07CReadState.READY &&
                         photos.isEmpty() && interruptedPhotos.isEmpty(),
