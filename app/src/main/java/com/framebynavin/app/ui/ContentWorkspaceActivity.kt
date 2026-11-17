@@ -482,13 +482,13 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                     } else {
                                         mode = nextMode ?: Alpha6WorkspaceMode.HUB
                                     }
-                                }) {
+                                }, enabled = !stageSwitchSaveInFlight) {
                                     Text(
                                         if (stageSwitch && !unsavedStageSwitch) "OPEN"
                                         else if (pendingStageToolMode != null) "DISCARD & OPEN"
                                         else "DISCARD & CLOSE"
                                     )
-                                }, enabled = !stageSwitchSaveInFlight)
+                                }
                             },
                             dismissButton = {
                                 Column {
