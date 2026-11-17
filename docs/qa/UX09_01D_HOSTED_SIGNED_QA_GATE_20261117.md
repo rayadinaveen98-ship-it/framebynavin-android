@@ -16,7 +16,7 @@
 3. `.github/workflows/backlot-ux09-01d-signed-qa-safety.yml` runs only no-network tests. It must not receive hosted passwords, admin/service-role API keys, or the original production credentials.
 
 ## Executed harness CI evidence (NO hosted credentials)
-- [GitHub Actions run #44106327263](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44106327263): job `134119562336` **completed / success**. Python compilation and **nine** no-network unit tests all passed on source PR #434, exact tested commit `1349b4fd50c707678ee6d9c9f6489447c4f72d60`.
+- [GitHub Actions run #44106940351](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44106940351): **completed / success**. Python compilation and **nine** no-network unit tests passed on source PR #434, exact tested commit `62be158cbbb0247093628e34d2bad08de36fc66c` (including fail-closed handling of null/non-string Auth emails). Earlier run [#44106327263](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44106327263) also passed.
 - Tests cover exact Lab key/hostname, QA batch identity fencing, reject anonymous or mismatched users, refuse nonempty sync pulls, private-schema denial, prevent signup/admin/delete/app-write routes, require explicit mode, simulated signed two-user flow and logout failure.
 - **No real hosted JWT or Auth sign-in was used in this CI**. It must not be described as hosted two-account acceptance.
 - Fresh read-only Supabase preflight after CI: zero designated QA Auth users, zero rows in all four new sync tables, exactly one installed UX09 migration. No Lab user data modified by this stage.
