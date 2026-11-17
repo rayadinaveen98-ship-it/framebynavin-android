@@ -82,6 +82,10 @@ data class CreatorContentWorkspace(
     val viewerProblem: String = "",
     val promise: String = "",
     val angle: String = "",
+    /** UX05.1B optional brief details. Existing audience, problem, promise and angle stay canonical. */
+    val objective: String = "",
+    val successCriteria: String = "",
+    val constraints: String = "",
     val hook: String = "",
     val script: String = "",
     val references: List<CreatorProjectReference> = emptyList(),
@@ -101,7 +105,8 @@ data class CreatorContentWorkspace(
     val stageTransitions: List<CreatorStageTransitionReceipt> = emptyList(),
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
-        angle.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
+        angle.isBlank() && objective.isBlank() && successCriteria.isBlank() &&
+        constraints.isBlank() && hook.isBlank() && script.isBlank() && references.isEmpty() && checklist.isEmpty() &&
         assets.isEmpty() && deliverables.isEmpty() && learnings.isBlank() && stageWork.isEmpty() &&
         outputScripts.isEmpty() && editVersions.isEmpty() && stageTransitions.isEmpty() &&
         (scriptStudio == null || scriptStudio.isEmpty())
