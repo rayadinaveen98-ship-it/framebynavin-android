@@ -1,0 +1,142 @@
+{
+  "manifest_version": 1,
+  "purpose": "STRICT AUDIT ONLY; this does not authorize cloud encoding or app sync",
+  "source_anchor": "688c734169a7e1ceea98bd1ef7d4199d7ba95571",
+  "wire_domains": {
+    "creator_project": {
+      "model_class": "CreatorTask",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorTask.kt",
+      "store_path": "app/src/main/java/com/framebynavin/app/data/TaskStore.kt",
+      "store_encoder": "private fun encode(tasks:",
+      "device_local": [
+        "alarmSoundUri",
+        "snoozeCount",
+        "workingUntilMillis"
+      ],
+      "block_until_design": [
+        "workspace"
+      ],
+      "portable_candidate": [
+        "id",
+        "title",
+        "platform",
+        "contentType",
+        "dueLabel",
+        "status",
+        "progress",
+        "reminderEnabled",
+        "reminderAtMillis",
+        "priority",
+        "notes",
+        "alertType",
+        "voiceEnabled",
+        "smartEscalationEnabled",
+        "reminderMode",
+        "deliveryPreference",
+        "voicePersona",
+        "voiceRepeatCount",
+        "voiceRepeatIntervalSeconds",
+        "alarmTimeoutSeconds",
+        "snoozeMinutes",
+        "autoRetryEnabled",
+        "autoRetryMinutes",
+        "autoRetryMaxAttempts",
+        "dueAtMillis",
+        "workflowStageIndex",
+        "scheduleSlotId",
+        "scheduleOccurrenceKey",
+        "autoStageReminder",
+        "origin",
+        "sourceRefId",
+        "attentionPlan",
+        "pulseManagedReminder",
+        "checkpointStageId",
+        "checkpointAtMillis",
+        "completedAtMillis",
+        "archivedAtMillis",
+        "publishedAtMillis",
+        "publishedUrl",
+        "publicationIsLegacy",
+        "acknowledgedCheckpointStageId",
+        "acknowledgedCheckpointDueAtMillis",
+        "contentDna"
+      ]
+    },
+    "creator_idea": {
+      "model_class": "CreatorIdea",
+      "model_path": "app/src/main/java/com/framebynavin/app/data/IdeaVault.kt",
+      "store_path": "app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt",
+      "store_encoder": "private fun encode(ideas:",
+      "device_local": [
+        "audioLocalPath",
+        "audioSyncState",
+        "transcriptionError"
+      ],
+      "block_until_design": [
+        "projectTaskId",
+        "audioRemoteUrl"
+      ],
+      "portable_candidate": [
+        "id",
+        "title",
+        "topic",
+        "category",
+        "status",
+        "potential",
+        "platformHint",
+        "formatHint",
+        "notes",
+        "createdAtMillis",
+        "updatedAtMillis",
+        "sourceRefId",
+        "reminderAtMillis",
+        "reminderCadence",
+        "captureType",
+        "audioDurationMillis",
+        "audioMimeType",
+        "transcript",
+        "transcriptionState",
+        "tags",
+        "trashedAtMillis"
+      ]
+    }
+  },
+  "nested_audit": {
+    "CreatorContentWorkspace": {
+      "model_path": "app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt",
+      "device_local": [],
+      "block_until_design": [
+        "script",
+        "assets",
+        "deliverables",
+        "scriptStudio",
+        "stageWork",
+        "outputScripts",
+        "editVersions",
+        "stageTransitions"
+      ],
+      "portable_candidate": [
+        "revision",
+        "audience",
+        "viewerProblem",
+        "promise",
+        "angle",
+        "hook",
+        "references",
+        "checklist",
+        "learnings"
+      ]
+    }
+  },
+  "hard_gates": {
+    "server_payload_json_utf8_max_bytes": 16384,
+    "same_account_offline_concurrent_edits": "BLOCKED until durable op chaining/coalescing proven",
+    "project_workspace_full_fidelity": "BLOCKED until complete nested codec and oversized payload plan",
+    "idea_trash_is_reversible": "true; must never translate directly to server's permanent tombstone",
+    "legacy_non_uuid_ids": "BLOCKED until lossless stable mapping and link preservation",
+    "device_specific_local_uri": "NEVER upload",
+    "old_snapshot_handoff": "NOT activated",
+    "real_app_writers": "NOT connected",
+    "feature_gate": "OFF"
+  }
+}
