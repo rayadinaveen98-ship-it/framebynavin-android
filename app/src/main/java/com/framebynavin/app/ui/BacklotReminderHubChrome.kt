@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.BacklotBorder
 import com.framebynavin.app.ui.theme.BacklotPrimaryText
@@ -113,10 +114,10 @@ private fun BacklotReminderHubTab(
         foreground = BacklotPrimaryText,
         secondary = BacklotSecondaryText,
     )
-    val shape = RoundedCornerShape(13.dp)
+    val shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius)
     val content: @Composable () -> Unit = {
         Row(
-            Modifier.fillMaxWidth().height(43.dp),
+            Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
@@ -147,7 +148,7 @@ private fun BacklotReminderHubTab(
             modifier = modifier.testTag(tag),
             color = colors.surface,
             shape = shape,
-            border = BorderStroke(1.dp, colors.border),
+            border = BacklotUX10Tokens.quietBorder(colors.border),
             content = content,
         )
     }
