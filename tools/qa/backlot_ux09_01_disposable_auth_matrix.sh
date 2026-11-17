@@ -85,10 +85,10 @@ echo "PASS: authenticated A create / exact idempotent retry"
 
 # Reusing an operation UUID with a different payload must not silently succeed.
 mutated="$(make_change "$CREATE_OP" "creator_project" "$ENTITY" 0 '{"title":"tampered retry"}' false)"
-reused_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \\
-  -o "$tmp/reused" -w '%{http_code}' \\
-  -H "apikey: $KEY" -H "Authorization: Bearer $A" \\
-  -H "Content-Type: application/json" \\
+reused_status="$(curl --silent --show-error --connect-timeout 5 --max-time 20 \
+  -o "$tmp/reused" -w '%{http_code}' \
+  -H "apikey: $KEY" -H "Authorization: Bearer $A" \
+  -H "Content-Type: application/json" \
   -X POST "$BASE/rest/v1/rpc/backlot_ux09_apply_v1" --data-binary "$mutated")"
 [[ "$reused_status" -ge 400 && "$reused_status" -lt 500 ]] || {
   echo "FAILED: mutation with reused operation UUID was not rejected" >&2
