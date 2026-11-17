@@ -82,10 +82,6 @@ data class CreatorContentWorkspace(
     val viewerProblem: String = "",
     val promise: String = "",
     val angle: String = "",
-    /** UX05.1B optional brief details. Existing audience, problem, promise and angle stay canonical. */
-    val objective: String = "",
-    val successCriteria: String = "",
-    val constraints: String = "",
     val hook: String = "",
     val script: String = "",
     val references: List<CreatorProjectReference> = emptyList(),
@@ -103,6 +99,10 @@ data class CreatorContentWorkspace(
     val editVersions: List<CreatorEditVersion> = emptyList(),
     /** CW5 creator-confirmed workflow transitions; independent of publication events. */
     val stageTransitions: List<CreatorStageTransitionReceipt> = emptyList(),
+    /** Optional UX05.1B fields are appended to preserve positional legacy constructors. */
+    val objective: String = "",
+    val successCriteria: String = "",
+    val constraints: String = "",
 ) {
     fun isEmpty(): Boolean = audience.isBlank() && viewerProblem.isBlank() && promise.isBlank() &&
         angle.isBlank() && objective.isBlank() && successCriteria.isBlank() &&
