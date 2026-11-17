@@ -282,7 +282,10 @@ internal fun V298ReminderGroupsScreen(
                     }
                     visibleGroups.forEach { group ->
                         Surface(
-                            onClick = { selectedId = group.id },
+                            onClick = {
+                                ux07dBulkFeedback = null
+                                selectedId = group.id
+                            },
                             color = CinemaSurface,
                             border = BorderStroke(1.dp, CinemaLine),
                             shape = RoundedCornerShape(14.dp),
@@ -484,7 +487,7 @@ internal fun V298ReminderGroupsScreen(
             reminders = reminders, targetPaused = pause,
         )
         V298ConfirmBulkGroupDialog(
-            group = group, pause = pause, impact = impact, busy = busy,
+            pause = pause, impact = impact, busy = busy,
             enabled = readError == null && impact.missing == 0 &&
                 impact.changing > 0,
             onDismiss = { pendingBulkAction = null },
@@ -632,7 +635,6 @@ internal fun V298ReminderGroupsScreen(
 /** Dialogs are intentionally separate Compose functions to limit FIR control-flow analysis. */
 @Composable
 private fun V298ConfirmBulkGroupDialog(
-    group: V298ReminderGroup,
     pause: Boolean,
     impact: UX07DBulkImpact,
     busy: Boolean,
