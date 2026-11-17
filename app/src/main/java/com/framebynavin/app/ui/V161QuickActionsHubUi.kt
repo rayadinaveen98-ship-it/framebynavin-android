@@ -296,7 +296,7 @@ internal fun V161QuickActionsHub(
 
 @Composable
 private fun V161SectionHeading(label: String, subtitle: String) {
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(17.dp))
     Text(label, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
     Text(subtitle, color = MutedText, fontSize = 11.sp)
     Spacer(Modifier.height(9.dp))
@@ -340,11 +340,11 @@ private fun V161ActionRow(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp)
             .heightIn(min = 64.dp).testTag(tag),
-        shape = RoundedCornerShape(16.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        shape = RoundedCornerShape(13.dp),
+        color = CinemaSurface.copy(alpha = 0.75f),
+        border = BorderStroke(1.dp, CinemaLine.copy(alpha = 0.34f)),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
