@@ -114,6 +114,23 @@ begin
     null; -- original RLS WITH CHECK rejected
   end;
 
+  -- Foreign-owner UPDATE is invisible to tenant B due to USING + SELECT
+  -- RLS, and foreign-owner hard DELETE must lack table privileges entirely.
+  update backlot_sync_internal.entities
+     set payload = '{"title":"B overwrite attempt"}'::jsonb
+   where user_id = v_a and domain = 'creator_project' and entity_id = v_entity;
+  get diagnostics v_count = row_count;
+  if v_count <> 0 then
+    raise exception 'B modified an A-owned entity through direct UPDATE';
+  end if;
+  begin
+    delete from backlot_sync_internal.entities
+     where user_id = v_a and domain = 'creator_project' and entity_id = v_entity;
+    raise exception 'B was granted direct DELETE on private entity table';
+  exception when insufficient_privilege then
+    null;
+  end;
+
   -- Same entity UUID under B is a different account-owned record.
   v_r := public.backlot_ux09_apply_v1(gen_random_uuid(),'creator_project',
     v_entity,0,'{"title":"Synthetic B"}'::jsonb,false);
