@@ -370,58 +370,151 @@ private fun V09IdeaCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
-        shape = RoundedCornerShape(17.dp),
-        color = if (isOpportunity) MutedGold.copy(alpha = .07f) else CinemaSurfaceRaised,
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (isOpportunity) MutedGold.copy(alpha = .62f) else CinemaLine),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
+        color = if (isOpportunity) MutedGold.copy(alpha = .07f)
+            else CinemaSurfaceRaised,
+        // Opportunity is a meaningful state, not a heavy border on every row.
+        border = if (isOpportunity)
+            BacklotUX10Tokens.activeBorder(MutedGold)
+        else BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .22f))) {
-                    Text(IdeaVaultLabels.category(idea.category), color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+        Column(
+            Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // FlowRow is essential when a Voice or Momentum idea has multiple
+            // state badges and the device uses a 200% font scale.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(100.dp),
+                    color = MutedGold.copy(alpha = .08f),
+                    border = BacklotUX10Tokens.quietBorder(MutedGold),
+                ) {
+                    Text(
+                        IdeaVaultLabels.category(idea.category),
+                        color = MutedGold,
+                        fontSize = BacklotUX10Tokens.eyebrow,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                    )
                 }
-                Spacer(Modifier.width(6.dp))
-                Text(IdeaVaultLabels.status(idea.status).uppercase(), color = MutedText, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    IdeaVaultLabels.status(idea.status).uppercase(),
+                    color = MutedText,
+                    fontSize = BacklotUX10Tokens.eyebrow,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 5.dp),
+                )
                 if (idea.captureType == IdeaCaptureType.VOICE) {
-                    Spacer(Modifier.width(6.dp))
-                    Surface(shape = RoundedCornerShape(100.dp), color = RecRed.copy(alpha = .12f)) {
-                        Text("VOICE", color = RecRed, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(100.dp),
+                        color = RecRed.copy(alpha = .12f),
+                    ) {
+                        Text(
+                            "VOICE", color = RecRed,
+                            fontSize = BacklotUX10Tokens.eyebrow,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        )
                     }
                 }
-                Spacer(Modifier.weight(1f))
                 if (isOpportunity) {
-                    Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
-                        Text("⚡ MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(100.dp),
+                        color = MutedGold.copy(alpha = .12f),
+                    ) {
+                        Text(
+                            "⚡ MOMENTUM", color = MutedGold,
+                            fontSize = BacklotUX10Tokens.eyebrow,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                        )
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Text(idea.title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (idea.topic.isNotBlank()) Text(idea.topic, color = MutedGold, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(9.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${idea.platformHint} · ${idea.formatHint}", color = MutedText, fontSize = 8.8.sp)
-                Spacer(Modifier.weight(1f))
+            Text(
+                idea.title,
+                color = ProjectorIvory,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (idea.topic.isNotBlank()) {
+                Text(
+                    idea.topic, color = MutedGold,
+                    fontSize = BacklotUX10Tokens.supporting,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                "${idea.platformHint} · ${idea.formatHint}",
+                color = MutedText,
+                fontSize = BacklotUX10Tokens.supporting,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
                 if (idea.projectTaskId.isNotBlank() && onOpenLinkedProject != null) {
                     TextButton(
                         onClick = onOpenLinkedProject,
-                        modifier = Modifier.testTag("ux05-open-linked-project"),
+                        modifier = Modifier
+                            .heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
+                            .testTag("ux05-open-linked-project"),
                     ) {
-                        Icon(Icons.Outlined.FolderOpen, null, tint = RecRed,
-                            modifier = Modifier.size(15.dp))
+                        Icon(
+                            Icons.Outlined.FolderOpen, null, tint = RecRed,
+                            modifier = Modifier.size(16.dp),
+                        )
                         Spacer(Modifier.width(4.dp))
-                        Text("OPEN PROJECT", color = RecRed, fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold)
+                        Text(
+                            "OPEN PROJECT", color = RecRed,
+                            fontSize = BacklotUX10Tokens.supporting,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
-                if (idea.status != IdeaStatus.CONVERTED && idea.status != IdeaStatus.ARCHIVED) {
-                    TextButton(onClick = onConvert) {
-                        Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed, modifier = Modifier.size(15.dp))
+                if (idea.status != IdeaStatus.CONVERTED &&
+                    idea.status != IdeaStatus.ARCHIVED
+                ) {
+                    TextButton(
+                        onClick = onConvert,
+                        modifier = Modifier.heightIn(
+                            min = BacklotUX10Tokens.minimumTouchTarget
+                        ),
+                    ) {
+                        Icon(
+                            Icons.Outlined.RocketLaunch, null, tint = RecRed,
+                            modifier = Modifier.size(16.dp),
+                        )
                         Spacer(Modifier.width(4.dp))
-                        Text("MAKE A PROJECT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "MAKE A PROJECT", color = RecRed,
+                            fontSize = BacklotUX10Tokens.supporting,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
                 if (idea.status != IdeaStatus.ARCHIVED) {
-                    IconButton(onClick = onArchive, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Archive, "Archive idea", tint = MutedText, modifier = Modifier.size(20.dp)) }
+                    IconButton(
+                        onClick = onArchive,
+                        modifier = Modifier.size(
+                            BacklotUX10Tokens.minimumTouchTarget
+                        ),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Archive, "Archive idea",
+                            tint = MutedText, modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         }
