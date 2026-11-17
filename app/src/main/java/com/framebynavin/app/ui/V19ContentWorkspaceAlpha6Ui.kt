@@ -40,20 +40,22 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onOpenOutputCraft: () -> Unit = onOpenProject,
 ) {
     val workspace = task.workspace
+    val overview = V405WorkspaceOverviewPolicy.snapshot(task)
     val template = CreatorWorkflowEngine.templateFor(task)
     val stageIndex = CreatorWorkflowEngine.stageIndex(task)
     val currentStage = CreatorWorkflowEngine.currentStage(task)
     val nextAction = CreatorWorkflowEngine.nextAction(task)
     // This remains workflow progress; a completed optional checklist is not project completion.
-    val overallProgress = CreatorWorkflowEngine.progress(task).coerceIn(0, 100)
+    val overallProgress = overview.workflowPositionPercent
     val completed = task.status == TaskStatus.DONE
+    val readOnly = completed || task.status == TaskStatus.SKIPPED || task.archivedAtMillis != 0L
     val checklistDone = workspace.checklist.count { it.status == CreatorChecklistStatus.DONE }
     val checklistTotal = workspace.checklist.size
     val stageApprovals = workspace.stageTransitions.count {
         it.workflowTemplateId == template.id
     }
-    val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
-    val scriptBeats = workspace.scriptStudio?.beats?.size ?: 0
+    val published = overview.outputPublished
+    val scriptBeats = overview.scriptBeats
     val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
     var showStages by rememberSaveable(task.id) { mutableStateOf(false) }
     // Read-only prompts derived from canonical saved project content.
@@ -62,13 +64,13 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     // Keep Home Work On and this primary action on the same validated stage route.
     val stageDestination = StageWorkspaceRoutingPolicy.destination(currentStage)
     val primaryAction = when {
-        completed -> onOpenProject
+        readOnly -> { { onOpenStage(currentStage.id) } }
         stageDestination == StageWorkspaceDestination.SCRIPT -> onOpenScript
         stageDestination == StageWorkspaceDestination.PUBLISH -> onOpenPublish
         else -> { { onOpenStage(currentStage.id) } } // A deferred click callback, never navigate during composition.
     }
     val primaryLabel = when {
-        completed -> "OPEN PLAN"
+        readOnly -> "VIEW SAVED STAGE"
         stageDestination == StageWorkspaceDestination.SCRIPT -> "CONTINUE SCRIPT"
         stageDestination == StageWorkspaceDestination.PUBLISH -> "PREPARE TO PUBLISH"
         else -> "CONTINUE " + currentStage.label.uppercase()
@@ -85,7 +87,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     }
                     Spacer(Modifier.width(7.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("PROJECT", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("PROJECT WORKSPACE", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text(
                             task.title,
                             color = ProjectorIvory,
@@ -137,7 +139,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         }
                         Spacer(Modifier.height(16.dp))
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("PROGRESS", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("WORKFLOW POSITION", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Text(overallProgress.toString() + "%", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
@@ -147,7 +149,17 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                             modifier = Modifier.fillMaxWidth().height(5.dp),
                             color = RecRed, trackColor = CinemaLine,
                         )
-                        Spacer(Modifier.height(19.dp))
+                        Spacer(Modifier.height(9.dp))
+                        Text(
+                            "Stage ${if (completed) template.stages.size else stageIndex + 1} of ${template.stages.size} · " +
+                                "Stage tasks and publication are tracked separately.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = CinemaLine.copy(alpha = .5f))
+                        Spacer(Modifier.height(12.dp))
+                        V405CurrentStageGlance(overview.current)
+                        Spacer(Modifier.height(18.dp))
                         Button(
                             onClick = primaryAction,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
@@ -174,7 +186,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 OutlinedButton(
                     onClick = { onOpenStage(currentStage.id) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("cw3-stage-entry"),
-                ) { Text("OPEN ${currentStage.label.uppercase()} STAGE NOTES") }
+                ) { Text("OPEN STAGE NOTES & EVIDENCE") }
                 Spacer(Modifier.height(18.dp))
                 Text("WORKSPACE", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
@@ -238,7 +250,10 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     }
                 }
 
-                if (!completed && task.status != TaskStatus.SKIPPED) {
+                Spacer(Modifier.height(18.dp))
+                V405OutputFacts(overview)
+
+                if (!readOnly) {
                     Spacer(Modifier.height(24.dp))
                     Text(
                         "NEXT USEFUL MOVES", color = ProjectorIvory, fontSize = 17.sp,
@@ -299,7 +314,11 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     }
                 }
 
-                Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(23.dp))
+                HorizontalDivider(color = CinemaLine.copy(alpha = .65f))
+                Spacer(Modifier.height(13.dp))
+                V405StageApprovalHistory(task, overview)
+                Spacer(Modifier.height(22.dp))
                 HorizontalDivider(color = CinemaLine)
                 Spacer(Modifier.height(8.dp))
                 TextButton(
@@ -321,20 +340,20 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                     Modifier.fillMaxWidth().heightIn(min = 40.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    val done = completed || index < stageIndex
+                                    val earlier = completed || index < stageIndex
                                     Text(
-                                        when { done -> "✓"; index == stageIndex -> "●"; else -> "○" },
-                                        color = when { done -> MutedGold; index == stageIndex -> RecRed; else -> MutedText },
+                                        when { earlier -> "•"; index == stageIndex -> "●"; else -> "○" },
+                                        color = when { earlier -> MutedGold; index == stageIndex -> RecRed; else -> MutedText },
                                         fontSize = 17.sp, modifier = Modifier.width(30.dp),
                                     )
                                     Text(
-                                        stage.label, color = if (index == stageIndex || done) ProjectorIvory else MutedText,
+                                        stage.label, color = if (index == stageIndex || earlier) ProjectorIvory else MutedText,
                                         modifier = Modifier.weight(1f),
                                         fontSize = 13.sp, fontWeight = if (index == stageIndex) FontWeight.Bold else FontWeight.Normal,
                                     )
                                     TextButton(onClick = { onOpenStage(stage.id) },
                                         modifier = Modifier.heightIn(min = 48.dp)) {
-                                        Text("OPEN", color = RecRed, fontSize = 11.sp)
+                                        Text("NOTES", color = RecRed, fontSize = 11.sp)
                                     }
                                 }
                             }
