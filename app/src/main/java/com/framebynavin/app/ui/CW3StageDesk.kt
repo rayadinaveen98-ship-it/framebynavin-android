@@ -164,6 +164,7 @@ internal fun CW3StageDesk(
     var evidenceSourceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var evidenceAssetId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var evidenceBeatId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var editingEvidenceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var beatMenuOpen by remember { mutableStateOf(false) }
     var sourceMenuOpen by remember { mutableStateOf(false) }
     var assetMenuOpen by remember { mutableStateOf(false) }
@@ -443,7 +444,24 @@ internal fun CW3StageDesk(
                                     Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move evidence later",
                                         tint = if (index < evidence.lastIndex) MutedGold else MutedText)
                                 }
-                                TextButton(onClick = { evidence = evidence.filterNot { it.id == item.id } }) {
+                                TextButton(onClick = {
+                                    editingEvidenceId = item.id
+                                    claim = item.claim
+                                    timecode = item.timecode
+                                    evidenceSourceId = item.referenceId
+                                    evidenceAssetId = item.assetId
+                                    evidenceBeatId = item.scriptBeatId
+                                }) {
+                                    Text("EDIT", color = MutedGold, fontSize = 11.sp)
+                                }
+                                TextButton(onClick = {
+                                    evidence = evidence.filterNot { it.id == item.id }
+                                    if (editingEvidenceId == item.id) {
+                                        editingEvidenceId = ""
+                                        claim = ""; timecode = ""
+                                        evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
+                                    }
+                                }) {
                                     Text("REMOVE", color = MutedText, fontSize = 11.sp)
                                 }
                             }
@@ -452,6 +470,20 @@ internal fun CW3StageDesk(
                 }
             }
             if (editable) {
+                if (editingEvidenceId.isNotBlank()) {
+                    Row(
+                        Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("EDITING SAVED EVIDENCE · CHANGES ARE STILL A DRAFT",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.weight(1f))
+                        TextButton(onClick = {
+                            editingEvidenceId = ""
+                            claim = ""; timecode = ""
+                            evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
+                        }) { Text("CANCEL", color = MutedText) }
+                    }
+                }
                 OutlinedTextField(
                     value = claim, onValueChange = { claim = it },
                     modifier = Modifier.fillMaxWidth().testTag("cw3-evidence-claim"),
@@ -570,25 +602,50 @@ internal fun CW3StageDesk(
                 TextButton(
                     onClick = {
                         if (claim.isNotBlank()) {
-                            evidence = evidence + CreatorStageEvidence(
-                                id = UUID.randomUUID().toString(),
-                                claim = claim.trim(), timecode = timecode.trim(),
-                                referenceId = evidenceSourceId.takeIf { selected ->
-                                    task.workspace.references.any { it.id == selected }
-                                }.orEmpty(),
-                                assetId = evidenceAssetId.takeIf { selected ->
-                                    task.workspace.assets.any { it.id == selected }
-                                }.orEmpty(),
-                                scriptBeatId = evidenceBeatId.takeIf { selected ->
-                                    task.workspace.scriptStudio?.beats.orEmpty().any { it.id == selected }
-                                }.orEmpty(),
-                            )
+                            val old = evidence.firstOrNull { it.id == editingEvidenceId }
+                            val referenceId = evidenceSourceId.takeIf { selected ->
+                                task.workspace.references.any { it.id == selected } ||
+                                    (old != null && old.referenceId == selected)
+                            }.orEmpty()
+                            val assetId = evidenceAssetId.takeIf { selected ->
+                                task.workspace.assets.any { it.id == selected } ||
+                                    (old != null && old.assetId == selected)
+                            }.orEmpty()
+                            val scriptBeatId = evidenceBeatId.takeIf { selected ->
+                                task.workspace.scriptStudio?.beats.orEmpty().any { it.id == selected } ||
+                                    (old != null && old.scriptBeatId == selected)
+                            }.orEmpty()
+                            if (old != null) {
+                                evidence = evidence.map { record ->
+                                    if (record.id == old.id) record.copy(
+                                        claim = claim.trim(), timecode = timecode.trim(),
+                                        referenceId = referenceId, assetId = assetId,
+                                        scriptBeatId = scriptBeatId,
+                                    ) else record
+                                }
+                            } else if (editingEvidenceId.isBlank()) {
+                                evidence = evidence + CreatorStageEvidence(
+                                    id = UUID.randomUUID().toString(),
+                                    claim = claim.trim(), timecode = timecode.trim(),
+                                    referenceId = referenceId, assetId = assetId,
+                                    scriptBeatId = scriptBeatId,
+                                )
+                            }
+                            editingEvidenceId = ""
                             claim = ""; timecode = ""
                             evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
                         }
                     },
-                    enabled = claim.isNotBlank(),
-                ) { Text("ADD EVIDENCE", color = RecRed) }
+                    enabled = claim.isNotBlank() &&
+                        (editingEvidenceId.isBlank() || evidence.any { it.id == editingEvidenceId }),
+                ) {
+                    Text(if (editingEvidenceId.isNotBlank()) "UPDATE EVIDENCE DRAFT"
+                        else "ADD EVIDENCE", color = RecRed)
+                }
+                if (editingEvidenceId.isNotBlank()) {
+                    Text("Save Stage Work below to persist the edited evidence.",
+                        color = MutedText, fontSize = 11.sp)
+                }
             }
             Spacer(Modifier.height(20.dp))
 
