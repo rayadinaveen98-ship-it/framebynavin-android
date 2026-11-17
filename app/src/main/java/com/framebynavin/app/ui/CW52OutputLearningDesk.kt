@@ -11,6 +11,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +39,14 @@ internal fun CW52OutputLearningDesk(
     onOpenPublish: () -> Unit,
     onOpenPlanOutputs: () -> Unit,
     onSave: (Long, CreatorOutputLearning) -> Unit,
+    onSelectedOutput: (String) -> Unit = {},
+    onDiscardDraft: (String, Long) -> Boolean = { _, _ -> true },
+    saving: Boolean = false,
 ) {
+    val context = LocalContext.current
+    val journal = remember(task.id) {
+        CreatorOutputLearningDraftStore(context.applicationContext)
+    }
     val workspace = task.workspace
     val outputs = workspace.deliverables
     val revision = workspace.revision
@@ -44,23 +55,62 @@ internal fun CW52OutputLearningDesk(
     }
     val selected = outputs.firstOrNull { it.id == selectedId } ?: outputs.firstOrNull()
     val activeId = selected?.id.orEmpty()
+    LaunchedEffect(task.id, activeId) { onSelectedOutput(activeId) }
+    val recovered = remember(task.id, activeId, revision) {
+        if (activeId.isBlank()) null else journal.load(task.id, activeId, revision)
+    }
+    var draftWarning by remember(task.id, activeId, revision) { mutableStateOf(false) }
     var showOutputMenu by remember { mutableStateOf(false) }
     var requestedSwitch by remember { mutableStateOf<String?>(null) }
     var pendingPublishNavigation by remember { mutableStateOf(false) }
 
-    var expectation by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var observed by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var worked by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var improve by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var nextAction by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var metricLabel by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var metricValue by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
-    var metricSource by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
+    var expectation by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.expectation.orEmpty())
+    }
+    var observed by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.observedOutcome.orEmpty())
+    }
+    var worked by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.whatWorked.orEmpty())
+    }
+    var improve by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.improveNext.orEmpty())
+    }
+    var nextAction by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.nextAction.orEmpty())
+    }
+    var metricLabel by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.metricLabel.orEmpty())
+    }
+    var metricValue by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.metricValue.orEmpty())
+    }
+    var metricSource by rememberSaveable(task.id, activeId, revision) {
+        mutableStateOf(recovered?.metricSource.orEmpty())
+    }
 
-    val hasDraft = listOf(
-        expectation, observed, worked, improve, nextAction,
-        metricLabel, metricValue, metricSource,
-    ).any { it.isNotBlank() }
+    val currentDraft = CreatorOutputLearningDraft(
+        expectation = expectation, observedOutcome = observed,
+        whatWorked = worked, improveNext = improve, nextAction = nextAction,
+        metricLabel = metricLabel, metricValue = metricValue, metricSource = metricSource,
+    )
+    val hasDraft = currentDraft.hasContent()
+    // Journaling uses the current revision and restore epoch; it never
+    // writes the canonical learning history. A stale draft stays quarantined.
+    LaunchedEffect(task.id, activeId, revision, currentDraft) {
+        if (activeId.isBlank()) return@LaunchedEffect
+        delay(350)
+        val failure = withContext(Dispatchers.IO) {
+            runCatching {
+                if (currentDraft.hasContent()) {
+                    journal.save(task.id, activeId, revision, currentDraft)
+                } else if (journal.load(task.id, activeId, revision) != null) {
+                    journal.clear(task.id, activeId, revision)
+                }
+            }.exceptionOrNull()
+        }
+        if (failure != null) draftWarning = true
+    }
     val hasReflection = listOf(expectation, observed, worked, improve, nextAction)
         .any { it.isNotBlank() }
     val metricFieldsConsistent =
@@ -81,8 +131,20 @@ internal fun CW52OutputLearningDesk(
         )
 
     fun changeOutput(nextId: String) {
-        if (nextId == activeId) return
+        if (saving || nextId == activeId) return
         if (hasDraft) requestedSwitch = nextId else selectedId = nextId
+    }
+    fun discardCurrentDraft(): Boolean {
+        val result = runCatching {
+            if (activeId.isNotBlank() && journal.load(task.id, activeId, revision) != null)
+                journal.clear(task.id, activeId, revision)
+            onDiscardDraft(activeId, revision)
+        }
+        if (result.isFailure || result.getOrDefault(false) != true) {
+            draftWarning = true
+            return false
+        }
+        return true
     }
 
     WorkspaceAdaptiveFrame {
@@ -91,7 +153,7 @@ internal fun CW52OutputLearningDesk(
                 Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = onBack, enabled = !saving, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Outlined.ArrowBack, contentDescription = "Back to workspace",
                         tint = ProjectorIvory)
                 }
@@ -103,6 +165,14 @@ internal fun CW52OutputLearningDesk(
                         fontSize = 19.sp, fontWeight = FontWeight.Bold,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
+            }
+            if (draftWarning) {
+                Text(
+                    "Could not securely retain or clear the unfinished reflection. " +
+                        "Keep this editor open and retry before discarding.",
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp),
+                    color = RecRed, fontSize = 12.sp,
+                )
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize().testTag("ux051d-output-learning"),
@@ -136,6 +206,7 @@ internal fun CW52OutputLearningDesk(
                         Box {
                             OutlinedButton(
                                 onClick = { showOutputMenu = true },
+                                enabled = !saving,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                                     .testTag("ux051d-select-output"),
                             ) {
@@ -245,7 +316,7 @@ internal fun CW52OutputLearningDesk(
                                                 ),
                                             )
                                         },
-                                        enabled = hasReflection && metricFieldsConsistent &&
+                                        enabled = !saving && hasReflection && metricFieldsConsistent &&
                                             listOf(expectation, observed, worked, improve, nextAction)
                                                 .all { it.length <= 2500 } &&
                                             metricLabel.length <= 120 &&
@@ -254,7 +325,7 @@ internal fun CW52OutputLearningDesk(
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                                             .testTag("ux051d-save-learning"),
                                     ) {
-                                        Text("RECORD LEARNING")
+                                        Text(if (saving) "SAVING…" else "RECORD LEARNING")
                                     }
                                 }
                             }
@@ -373,9 +444,11 @@ internal fun CW52OutputLearningDesk(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    pendingPublishNavigation = false
-                    onOpenPublish()
-                }) { Text("DISCARD & OPEN") }
+                    if (discardCurrentDraft()) {
+                        pendingPublishNavigation = false
+                        onOpenPublish()
+                    }
+                }, enabled = !saving) { Text("DISCARD & OPEN") }
             },
             dismissButton = {
                 TextButton(onClick = { pendingPublishNavigation = false }) {
@@ -396,9 +469,11 @@ internal fun CW52OutputLearningDesk(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    selectedId = destination
-                    requestedSwitch = null
-                }) { Text("DISCARD & SWITCH") }
+                    if (discardCurrentDraft()) {
+                        selectedId = destination
+                        requestedSwitch = null
+                    }
+                }, enabled = !saving) { Text("DISCARD & SWITCH") }
             },
             dismissButton = {
                 TextButton(onClick = { requestedSwitch = null }) {
