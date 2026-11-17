@@ -325,6 +325,7 @@ internal fun V131ReminderCenter(
         tasks = tasks,
         onDismiss = onDismiss,
         onNew = onNew,
+        onQuickNew = onQuickNew,
         onEdit = onEdit,
         onDeleteReminders = onDeleteReminders,
         onOpenReminderSettings = onOpenReminderSettings,
