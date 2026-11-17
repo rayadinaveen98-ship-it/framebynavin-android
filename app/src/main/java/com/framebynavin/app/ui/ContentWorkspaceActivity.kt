@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE, OUTPUT }
+private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE, OUTPUT, BOARD }
 
 private data class V211HistoricalPlanFieldRequest(
     val sourceId: String,
@@ -112,7 +112,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 // The editors are Activity-owned screens now. Keep the same unsaved-draft
                 // confirmation on system Back that the previous Dialog window provided.
                 BackHandler(enabled = !confirmEditorClose && error == null && mode != Alpha6WorkspaceMode.HUB) {
-                    if (mode == Alpha6WorkspaceMode.BLUEPRINT) mode = Alpha6WorkspaceMode.HUB
+                    if (mode == Alpha6WorkspaceMode.BLUEPRINT || mode == Alpha6WorkspaceMode.BOARD)
+                        mode = Alpha6WorkspaceMode.HUB
                     else {
                         pendingStageToolMode = null
                         pendingStageToolDraft = null
@@ -165,6 +166,22 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onOpenScript = { openScriptStudio(task!!) },
                             onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
                             onOpenStage = { stageId -> openStage(stageId) },
+                            onOpenOutputCraft = { mode = Alpha6WorkspaceMode.OUTPUT },
+                            onOpenBoard = { mode = Alpha6WorkspaceMode.BOARD },
+                        )
+                        mode == Alpha6WorkspaceMode.BOARD -> CW51CreativeBoard(
+                            task = task!!,
+                            onBack = { mode = Alpha6WorkspaceMode.HUB },
+                            onOpenPlanSection = { target ->
+                                planOpenBrief = false
+                                planOpenSection = target.takeIf {
+                                    it in setOf("RESEARCH", "ASSETS", "PRODUCTION", "DELIVERABLES")
+                                }.orEmpty()
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onOpenStage = { id -> openStage(id) },
+                            onOpenScript = { openScriptStudio(task!!) },
+                            onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
                             onOpenOutputCraft = { mode = Alpha6WorkspaceMode.OUTPUT },
                         )
                         mode == Alpha6WorkspaceMode.OUTPUT -> CW4OutputCraftDesk(
@@ -477,7 +494,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                                     )
                                                 }.exceptionOrNull()
                                             }
-                                            Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB -> Unit
+                                            Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB,
+                                            Alpha6WorkspaceMode.BOARD -> Unit
                                         }
                                     }
                                     if (stageDraftClearFailure != null) {
@@ -627,6 +645,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             openStage(savedId ?: CreatorWorkflowEngine.currentStage(loaded).id)
                         }
                         Alpha6WorkspaceMode.BLUEPRINT -> mode = Alpha6WorkspaceMode.BLUEPRINT
+                        Alpha6WorkspaceMode.BOARD -> mode = Alpha6WorkspaceMode.BOARD
                         Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
                         Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
                         Alpha6WorkspaceMode.SCRIPT -> openScriptStudio(loaded)

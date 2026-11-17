@@ -143,6 +143,7 @@ internal fun CW3StageDesk(
         else persisted
     }
     val experience = CW3StageExperiencePolicy.forStage(stage)
+    val contextualModule = CW51StageModulePolicy.forStage(task, stage)
     val canonicalDestination = StageWorkspaceRoutingPolicy.destination(stage)
     val hasOutputs = task.workspace.deliverables.isNotEmpty()
     val isProductionStage = stage.id in setOf(
@@ -162,6 +163,9 @@ internal fun CW3StageDesk(
     var decisionText by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var evidenceSourceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var evidenceAssetId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var evidenceBeatId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var editingEvidenceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var beatMenuOpen by remember { mutableStateOf(false) }
     var sourceMenuOpen by remember { mutableStateOf(false) }
     var assetMenuOpen by remember { mutableStateOf(false) }
     var journalWarning by remember(task.id, stage.id, revision) { mutableStateOf(false) }
@@ -261,7 +265,51 @@ internal fun CW3StageDesk(
                     )
                 }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
+            contextualModule?.let { module ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine.copy(alpha = .65f)),
+                    modifier = Modifier.fillMaxWidth().testTag("ux051c-stage-module"),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Text("STAGE FOCUS · ${module.name.uppercase()}",
+                            color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(module.guidance, color = ProjectorIvory, fontSize = 13.sp,
+                            lineHeight = 18.sp)
+                        Spacer(Modifier.height(8.dp))
+                        module.questions.forEach { question ->
+                            Text("• $question", color = MutedText, fontSize = 12.sp,
+                                lineHeight = 18.sp, modifier = Modifier.padding(vertical = 2.dp))
+                        }
+                        val missingSuggestions = module.suggestedTasks.filter { proposed ->
+                            checklist.none { it.title.equals(proposed, ignoreCase = true) }
+                        }
+                        if (editable && missingSuggestions.isNotEmpty()) {
+                            Spacer(Modifier.height(9.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    checklist = checklist + missingSuggestions.map { suggestion ->
+                                        CreatorStageChecklistItem(
+                                            id = UUID.randomUUID().toString(),
+                                            title = suggestion,
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051c-add-context-tasks"),
+                            ) {
+                                Text("ADD ${missingSuggestions.size} FOCUS TASK(S)", color = MutedGold)
+                            }
+                        }
+                        Text("Suggestions are optional. Save Stage Work to keep added tasks; no stage advances.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+            }
 
             Text("STAGE NOTES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             if (!editable) Text(
@@ -330,7 +378,7 @@ internal fun CW3StageDesk(
             Text("EVIDENCE & TIMECODES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(5.dp))
             Text(experience.evidencePrompt, color = MutedText, fontSize = 12.sp)
-            evidence.forEach { item ->
+            evidence.forEachIndexed { index, item ->
                 Surface(modifier = Modifier.fillMaxWidth().padding(top = 9.dp),
                     shape = RoundedCornerShape(12.dp), color = CinemaSurface,
                     border = BorderStroke(1.dp, CinemaLine)) {
@@ -354,13 +402,88 @@ internal fun CW3StageDesk(
                                 color = MutedGold, fontSize = 11.sp,
                             )
                         }
-                        if (editable) TextButton(onClick = { evidence = evidence.filterNot { it.id == item.id } }) {
-                            Text("REMOVE EVIDENCE", color = MutedText, fontSize = 10.sp)
+                        if (item.scriptBeatId.isNotBlank()) {
+                            val beat = task.workspace.scriptStudio?.beats?.firstOrNull {
+                                it.id == item.scriptBeatId
+                            }
+                            Text(
+                                "Narration beat: " + (beat?.label?.ifBlank { beat.purpose.ifBlank { "Untitled beat" } }
+                                    ?: "Unavailable beat (saved link retained)"),
+                                color = MutedGold, fontSize = 11.sp,
+                            )
+                        }
+                        if (editable) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                IconButton(
+                                    enabled = index > 0,
+                                    onClick = {
+                                        evidence = evidence.toMutableList().also { list ->
+                                            val moved = list.removeAt(index)
+                                            list.add(index - 1, moved)
+                                        }
+                                    },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move evidence earlier",
+                                        tint = if (index > 0) MutedGold else MutedText)
+                                }
+                                IconButton(
+                                    enabled = index < evidence.lastIndex,
+                                    onClick = {
+                                        evidence = evidence.toMutableList().also { list ->
+                                            val moved = list.removeAt(index)
+                                            list.add(index + 1, moved)
+                                        }
+                                    },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move evidence later",
+                                        tint = if (index < evidence.lastIndex) MutedGold else MutedText)
+                                }
+                                TextButton(onClick = {
+                                    editingEvidenceId = item.id
+                                    claim = item.claim
+                                    timecode = item.timecode
+                                    evidenceSourceId = item.referenceId
+                                    evidenceAssetId = item.assetId
+                                    evidenceBeatId = item.scriptBeatId
+                                }) {
+                                    Text("EDIT", color = MutedGold, fontSize = 11.sp)
+                                }
+                                TextButton(onClick = {
+                                    evidence = evidence.filterNot { it.id == item.id }
+                                    if (editingEvidenceId == item.id) {
+                                        editingEvidenceId = ""
+                                        claim = ""; timecode = ""
+                                        evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
+                                    }
+                                }) {
+                                    Text("REMOVE", color = MutedText, fontSize = 11.sp)
+                                }
+                            }
                         }
                     }
                 }
             }
             if (editable) {
+                if (editingEvidenceId.isNotBlank()) {
+                    Row(
+                        Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("EDITING SAVED EVIDENCE · CHANGES ARE STILL A DRAFT",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.weight(1f))
+                        TextButton(onClick = {
+                            editingEvidenceId = ""
+                            claim = ""; timecode = ""
+                            evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
+                        }) { Text("CANCEL", color = MutedText) }
+                    }
+                }
                 OutlinedTextField(
                     value = claim, onValueChange = { claim = it },
                     modifier = Modifier.fillMaxWidth().testTag("cw3-evidence-claim"),
@@ -435,25 +558,94 @@ internal fun CW3StageDesk(
                         }
                     }
                 }
+                if (!task.workspace.scriptStudio?.beats.isNullOrEmpty()) {
+                    Spacer(Modifier.height(7.dp))
+                    Box {
+                        OutlinedButton(
+                            onClick = { beatMenuOpen = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("ux051c-evidence-script-beat"),
+                        ) {
+                            val selectedBeat = task.workspace.scriptStudio?.beats?.firstOrNull {
+                                it.id == evidenceBeatId
+                            }
+                            Text(
+                                "Narration beat: " + (selectedBeat?.let { beat ->
+                                    beat.label.ifBlank { beat.purpose.ifBlank { "Untitled beat" } }
+                                } ?: "None"),
+                                maxLines = 1,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = beatMenuOpen,
+                            onDismissRequest = { beatMenuOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("No linked beat") },
+                                onClick = { evidenceBeatId = ""; beatMenuOpen = false },
+                            )
+                            task.workspace.scriptStudio?.beats.orEmpty().forEach { beat ->
+                                DropdownMenuItem(
+                                    text = { Text(beat.label.ifBlank {
+                                        beat.purpose.ifBlank { "Untitled beat" }
+                                    }, maxLines = 2) },
+                                    onClick = { evidenceBeatId = beat.id; beatMenuOpen = false },
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        "This links to the saved Script Studio beat; narration is never duplicated.",
+                        color = MutedText, fontSize = 11.sp,
+                    )
+                }
                 TextButton(
                     onClick = {
                         if (claim.isNotBlank()) {
-                            evidence = evidence + CreatorStageEvidence(
-                                id = UUID.randomUUID().toString(),
-                                claim = claim.trim(), timecode = timecode.trim(),
-                                referenceId = evidenceSourceId.takeIf { selected ->
-                                    task.workspace.references.any { it.id == selected }
-                                }.orEmpty(),
-                                assetId = evidenceAssetId.takeIf { selected ->
-                                    task.workspace.assets.any { it.id == selected }
-                                }.orEmpty(),
-                            )
+                            val old = evidence.firstOrNull { it.id == editingEvidenceId }
+                            val referenceId = evidenceSourceId.takeIf { selected ->
+                                task.workspace.references.any { it.id == selected } ||
+                                    (old != null && old.referenceId == selected)
+                            }.orEmpty()
+                            val assetId = evidenceAssetId.takeIf { selected ->
+                                task.workspace.assets.any { it.id == selected } ||
+                                    (old != null && old.assetId == selected)
+                            }.orEmpty()
+                            val scriptBeatId = evidenceBeatId.takeIf { selected ->
+                                task.workspace.scriptStudio?.beats.orEmpty().any { it.id == selected } ||
+                                    (old != null && old.scriptBeatId == selected)
+                            }.orEmpty()
+                            if (old != null) {
+                                evidence = evidence.map { record ->
+                                    if (record.id == old.id) record.copy(
+                                        claim = claim.trim(), timecode = timecode.trim(),
+                                        referenceId = referenceId, assetId = assetId,
+                                        scriptBeatId = scriptBeatId,
+                                    ) else record
+                                }
+                            } else if (editingEvidenceId.isBlank()) {
+                                evidence = evidence + CreatorStageEvidence(
+                                    id = UUID.randomUUID().toString(),
+                                    claim = claim.trim(), timecode = timecode.trim(),
+                                    referenceId = referenceId, assetId = assetId,
+                                    scriptBeatId = scriptBeatId,
+                                )
+                            }
+                            editingEvidenceId = ""
                             claim = ""; timecode = ""
-                            evidenceSourceId = ""; evidenceAssetId = ""
+                            evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
                         }
                     },
-                    enabled = claim.isNotBlank(),
-                ) { Text("ADD EVIDENCE", color = RecRed) }
+                    enabled = claim.isNotBlank() &&
+                        (editingEvidenceId.isBlank() || evidence.any { it.id == editingEvidenceId }),
+                ) {
+                    Text(if (editingEvidenceId.isNotBlank()) "UPDATE EVIDENCE DRAFT"
+                        else "ADD EVIDENCE", color = RecRed)
+                }
+                if (editingEvidenceId.isNotBlank()) {
+                    Text("Save Stage Work below to persist the edited evidence.",
+                        color = MutedText, fontSize = 11.sp)
+                }
             }
             Spacer(Modifier.height(20.dp))
 

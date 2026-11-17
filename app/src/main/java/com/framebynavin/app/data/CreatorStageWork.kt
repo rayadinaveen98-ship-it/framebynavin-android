@@ -22,6 +22,8 @@ data class CreatorStageEvidence(
     val notes: String = "",
     val referenceId: String = "",
     val assetId: String = "",
+    /** Optional stable pointer to the canonical Script Studio beat (never copied narration). */
+    val scriptBeatId: String = "",
 )
 
 data class CreatorStageDecision(
@@ -126,6 +128,14 @@ object CreatorStageWorkPolicy {
             task.workspace.assets.map { it.id }.toSet(),
             previous?.evidence.orEmpty().map { it.assetId }.filter { it.isNotBlank() },
             "evidence asset",
+        )
+        // Never accept a new cross-project or fabricated script beat identity.
+        // Removed historical beats remain referenced until the owner reviews them.
+        ensureOwnLinks(
+            stage.evidence.map { it.scriptBeatId }.filter { it.isNotBlank() },
+            task.workspace.scriptStudio?.beats.orEmpty().map { it.id }.toSet(),
+            previous?.evidence.orEmpty().map { it.scriptBeatId }.filter { it.isNotBlank() },
+            "script beat",
         )
         require(stage.reviewedAtMillis >= 0L && stage.decisions.all { it.recordedAtMillis >= 0L }) {
             "Review timestamps cannot be negative"
