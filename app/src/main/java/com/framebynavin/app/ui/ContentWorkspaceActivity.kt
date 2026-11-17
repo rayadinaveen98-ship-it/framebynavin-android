@@ -177,6 +177,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                 confirmEditorClose = false
                                 mode = Alpha6WorkspaceMode.PUBLISH
                             },
+                            onOpenPlanOutputs = {
+                                planOpenBrief = false
+                                planOpenSection = "DELIVERABLES"
+                                confirmEditorClose = false
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
                             onSave = { expectedRevision, draft ->
                                 appendOutputLearning(task!!.id, expectedRevision, draft)
                             },
