@@ -15,8 +15,14 @@
    - Restart recovery decisions: NOT_SAVED (full local entity still equals before hash), READY_TO_RETRY (full local entity equals desired hash), NEEDS_MANUAL_RECONCILIATION (unexpected change/corruption), WRONG_ACCOUNT_OR_RESTORE (session/restore epochs changed).
    - Buffered writes not used; journal file contains checked SHA256. Pending entries and incomplete temp files are retained, not purged; stale/mismatched operation UUIDs fail closed. No outbox drain, cloud call, cursor updates, delete or legacy snapshot integration.
    - Prototype is plain-text JSON and **must never handle real user data** until a separately verified app-private storage and encryption threat model is approved. OS power-loss guarantees, Android directory fsync support, and cross-process locking remain untested; JVM restart simulation is not equivalent to physical power-cut certification.
-3. `app/src/test/java/com/framebynavin/app/cloud/ux09/Ux09OfflineContractAndJournalTest.kt` — 16 offline JVM test cases.
+3. `app/src/test/java/com/framebynavin/app/cloud/ux09/Ux09OfflineContractAndJournalTest.kt` — 17 offline JVM test cases.
 4. `.github/workflows/backlot-ux09-02a-contract-unit.yml` — focused Gradle unit CI. No Supabase secrets, hosted requests, Android APK, app distribution or data writes.
+
+## Additional 02A fail-closed fix: unresolved same-entity operations
+- **Source change:** `Ux09DiskIntentJournal.prepare()` refuses to journal a second operation targeting the same account, domain and entity while the first remains unresolved. Idempotent repeat of the exact same operation ID remains allowed; unrelated entities and accounts remain independent.
+- **Reason:** Both offline edits could otherwise carry stale `expectedRevision=0` and one would be incorrectly presumed safe. Remote operation UUID and expected revision must never be rewritten after uncertain delivery.
+- **Unit coverage:** `secondOfflineEditToSameEntityFailsClosedUntilRevisionChainingExists()` verifies second edit refused, previous intent retained and unrelated entity still queueable.
+- **Product limitation:** This is a deliberately restrictive safeguard in the **disconnected test prototype**, not acceptable finished offline-edit UX. A separate, durable per-entity operation-chain or safe unsent coalescing design must be implemented and crash-tested before any real app writer is connected. No existing edits are blocked because the new journal has no production caller.
 
 ## Explicitly untouched
 - `TaskStore`, `IdeaVaultStore`, `CreatorViewModel`, `CreatorDataGate` including V344 restore journal, existing `CloudSyncManager`, legacy `CreatorCloudSyncManager`, WorkManager and all user-facing UI.
