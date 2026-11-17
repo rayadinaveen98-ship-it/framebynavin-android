@@ -49,6 +49,18 @@ class Ux09OfflineContractAndJournalTest {
         }
     }
 
+    @Test fun uppercaseUuidAliasCannotCreateSecondAccountJournalPath() {
+        val journal = Ux09DiskIntentJournal(tmp.root)
+        journal.prepare(intent())
+        assertThrows(IllegalArgumentException::class.java) {
+            journal.prepare(intent(accountId = a.uppercase()))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Ux09Contract.validate(intent().copy(operationId = op.uppercase()))
+        }
+        assertEquals(1, journal.pending(a).size)
+    }
+
     @Test fun nestedDeviceUrisAndOwnerTokensAreRejected() {
         val bad = listOf(
             """{"audioLocalPath":"/data/user/0/audio.aac"}""",
