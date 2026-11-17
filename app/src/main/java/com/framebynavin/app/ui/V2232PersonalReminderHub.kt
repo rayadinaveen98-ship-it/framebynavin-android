@@ -387,7 +387,11 @@ internal fun V2232PersonalReminderHub(
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(
-                    onClick = { spacesOpen = true },
+                    onClick = {
+                        ux07bPreviewSpaceFocusId = null
+                        ux07bSpaceOpenedFromPreview = true
+                        spacesOpen = true
+                    },
                     enabled = loaded && loadError == null,
                     modifier = Modifier.testTag("v289-open-spaces"),
                 ) {
@@ -419,7 +423,11 @@ internal fun V2232PersonalReminderHub(
                         editing = reminder
                         editorOpen = true
                     },
-                    onOpenSpaces = { spacesOpen = true },
+                    onOpenSpaces = {
+                        ux07bPreviewSpaceFocusId = null
+                        ux07bSpaceOpenedFromPreview = true
+                        spacesOpen = true
+                    },
                     onOpenChallenges = { challengesOpen = true },
                     onOpenGroups = { reminderGroupsOpen = true },
                 )
