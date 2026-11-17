@@ -83,6 +83,7 @@ internal fun V298ReminderGroupsScreen(
     var completionsLoaded by remember { mutableStateOf(false) }
     var readError by remember { mutableStateOf<String?>(null) }
     var actionError by remember { mutableStateOf<String?>(null) }
+    var ux07dBulkFeedback by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var editVisible by remember { mutableStateOf(false) }
@@ -228,6 +229,12 @@ internal fun V298ReminderGroupsScreen(
             (readError ?: actionError)?.let {
                 Text(it, color = RecRed, fontSize = 12.sp,
                     modifier = Modifier.testTag("v298-group-error"))
+            }
+            if (readError == null && actionError == null) {
+                ux07dBulkFeedback?.let { notice ->
+                    Text(notice, color = MutedGold, fontSize = 12.sp,
+                        modifier = Modifier.testTag("ux07d-bulk-status"))
+                }
             }
             if (!groupsLoaded || !remindersLoaded || !completionsLoaded) {
                 CircularProgressIndicator()
@@ -447,10 +454,19 @@ internal fun V298ReminderGroupsScreen(
             onConfirm = {
                 val id = group.id
                 val ids = group.reminderIds.toList()
+                ux07dBulkFeedback = null
                 write {
-                    val changed = groupCommands.setAllPaused(id, ids, pause)
-                    actionError = "$changed linked reminders updated."
-                    pendingBulkAction = null
+                    try {
+                        val changed = groupCommands.setAllPaused(id, ids, pause)
+                        ux07dBulkFeedback =
+                            "$changed original Personal reminder state" +
+                            if (changed == 1) " saved." else "s saved."
+                    } finally {
+                        // If Android reconciliation fails after the DataStore
+                        // save, show the original recovery error instead of
+                        // leaving an actionable confirmation dialog open.
+                        pendingBulkAction = null
+                    }
                 }
             },
         )
