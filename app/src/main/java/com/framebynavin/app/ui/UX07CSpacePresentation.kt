@@ -157,8 +157,10 @@ internal fun UX07CSpaceProgressSummary(
             val metrics = listOf(
                 summary.totalRecordedEntries.toString() to "Recorded logs",
                 summary.daysWithActivityLastSeven.toString() to "Active days · last 7",
-                (linkedCount?.toString() ?: "—") to
-                    if (linkedCount == null) "Links unavailable" else "Linked reminders",
+                (linkedCount?.toString() ?: "—") to (
+                    if (linkedCount == null) "Links unavailable"
+                    else "Linked reminders"
+                ),
             )
             val stacked = UX10DPersonalPresentationPolicy.stackSpaceMetrics(
                 androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp,
