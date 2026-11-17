@@ -33,8 +33,8 @@ jobs:
 
   lab-apk:
     name: Compile and inspect isolated Lab APK
-    runs-on: ubuntu-latest
-    timeout-minutes: 65
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
     steps:
       - name: Checkout candidate
         uses: actions/checkout@v4
@@ -69,14 +69,32 @@ jobs:
         run: |
           cat >> gradle.properties <<'EOF'
           # CI-only overrides; not committed to application production settings.
-          org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8
           kotlin.compiler.execution.strategy=in-process
-          kotlin.daemon.jvmargs=-Xmx5g
+          kotlin.daemon.jvmargs=-Xmx8g
           org.gradle.workers.max=1
           org.gradle.parallel=false
           EOF
-      - name: JVM tests, Android lint, and debug Lab APK
-        run: gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug -PbacklotLab=true --max-workers=1 --stacktrace
+      - name: Build isolated APK with V337 proven JVM allocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          free -h
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:assembleDebug -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace
+      - name: JVM tests and lint for Lab variant
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:testDebugUnitTest :app:lintDebug -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace
+
       - name: Verify independently installable package and label
         shell: bash
         run: |
