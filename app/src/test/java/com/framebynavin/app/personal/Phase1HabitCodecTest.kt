@@ -3,6 +3,9 @@ package com.framebynavin.app.personal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.security.MessageDigest
+import com.framebynavin.app.reminders.ReminderMusicMode
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -19,7 +22,7 @@ class Phase1HabitCodecTest {
         alertKind = Phase1HabitAlertKind.ALARM,
     ).checked()
 
-    @Test fun emptyV2ArchiveRoundTripDoesNotTouchLegacy() {
+    @Test fun emptyV3ArchiveRoundTripDoesNotTouchLegacy() {
         assertEquals(emptyList<Phase1HabitChallenge>(), Phase1HabitCodec.decode(Phase1HabitCodec.encode(emptyList())))
         assertThrows(IllegalArgumentException::class.java) {
             Phase1HabitCodec.decode(V297ChallengeCodec.encode(emptyList()))
@@ -48,7 +51,59 @@ class Phase1HabitCodecTest {
             Phase1HabitCodec.decode(json.replace("single-activity-21day", "legacy-day-plan"))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            Phase1HabitCodec.decode(json.replace("\"version\":2", "\"version\":12"))
+            Phase1HabitCodec.decode(json.replace("\"version\":3", "\"version\":12"))
+        }
+    }
+
+    @Test fun voicePreferencesRoundTripWithoutChangingConfirmedDays() {
+        val voice = habit().copy(
+            alertKind = Phase1HabitAlertKind.VOICE,
+            voiceMusicMode = ReminderMusicMode.CUSTOM,
+            voiceMusicUri = "content://local.test/music/track1",
+            voiceRepeatCount = 5,
+            voiceRepeatGapMillis = 60_000L,
+        ).confirmToday(Instant.parse("2026-11-07T04:00:00Z"))
+        val archive = Phase1HabitCodec.encode(listOf(voice))
+        assertEquals(3, JSONObject(archive).getInt("version"))
+        assertEquals(listOf(voice), Phase1HabitCodec.decode(archive))
+    }
+
+    @Test fun previousV2VoiceDecodesToOriginalVoiceOnlyThreeTimesFiveSeconds() {
+        val source = habit().copy(alertKind = Phase1HabitAlertKind.VOICE)
+            .confirmToday(Instant.parse("2026-11-07T04:00:00Z"))
+        val root = JSONObject(Phase1HabitCodec.encode(listOf(source)))
+        val items = root.getJSONArray("items")
+        val item = items.getJSONObject(0)
+        for (key in listOf(
+            "voiceMusicMode", "voiceMusicUri", "voiceRepeatCount",
+            "voiceRepeatGapMillis",
+        )) item.remove(key)
+        root.put("version", 2)
+        val checksum = MessageDigest.getInstance("SHA-256")
+            .digest(items.toString().toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        root.put("itemsSha256", checksum)
+        val restored = Phase1HabitCodec.decode(root.toString()).single()
+        assertEquals(ReminderMusicMode.OFF, restored.voiceMusicMode)
+        assertEquals("", restored.voiceMusicUri)
+        assertEquals(3, restored.voiceRepeatCount)
+        assertEquals(5_000L, restored.voiceRepeatGapMillis)
+        assertEquals(source.confirmations, restored.confirmations)
+    }
+
+    @Test fun invalidNewVoiceValuesFailClosedRatherThanRewriteArchive() {
+        val valid = habit().copy(alertKind = Phase1HabitAlertKind.VOICE)
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1HabitCodec.encode(listOf(valid.copy(voiceRepeatCount = 6)))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1HabitCodec.encode(listOf(valid.copy(voiceRepeatGapMillis = 2_500L)))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Phase1HabitCodec.encode(listOf(valid.copy(
+                voiceMusicMode = ReminderMusicMode.CUSTOM,
+                voiceMusicUri = "file:///unapproved/song.mp3",
+            )))
         }
     }
 
