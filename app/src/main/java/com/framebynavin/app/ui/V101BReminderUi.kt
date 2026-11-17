@@ -123,7 +123,7 @@ internal fun PReminderCenter(
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 36.dp)) {
                     Spacer(Modifier.height(10.dp))
                     if (activeReminders.isEmpty()) {
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                             Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(Modifier.size(50.dp), contentAlignment = Alignment.Center) {
                                     Icon(Icons.Outlined.NotificationsNone, null, tint = MutedGold, modifier = Modifier.size(30.dp))
@@ -132,7 +132,7 @@ internal fun PReminderCenter(
                                 Text("No active reminders", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.height(13.dp))
                                 Button(onClick = onNew, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(14.dp)) {
-                                    Text("CREATE PROJECT", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                    Text("CREATE PROJECT", fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
                                 }
                             }
                         }
@@ -158,7 +158,7 @@ private fun PReminderGroup(
     onEdit: (String) -> Unit,
 ) {
     if (tasks.isEmpty()) return
-    Text("$label · ${tasks.size}", color = accent, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+    Text("$label · ${tasks.size}", color = accent, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
     Spacer(Modifier.height(8.dp))
     tasks.forEach { task ->
         Surface(
@@ -175,7 +175,7 @@ private fun PReminderGroup(
                 Column(Modifier.weight(1f)) {
                     Text(task.title, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(2.dp))
-                    Text("${pModeLabel(task.reminderMode)} · ${pFormatDateTime(task.reminderAtMillis)}", color = accent, fontSize = 9.sp)
+                    Text("${pModeLabel(task.reminderMode)} · ${pFormatDateTime(task.reminderAtMillis)}", color = accent, fontSize = BacklotUX10Tokens.eyebrow)
                 }
                 Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
             }
@@ -496,7 +496,7 @@ internal fun PProjectComposer(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
-                        border = BorderStroke(1.dp, CinemaLine),
+                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     ) {
                         Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.touchTarget).padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -513,7 +513,7 @@ internal fun PProjectComposer(
                     AnimatedVisibility(visible = showCreativeSetup) {
                         Column {
                             Spacer(Modifier.height(8.dp))
-                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                                     Column(Modifier.padding(14.dp)) {
                                         Text("MORE OPTIONS", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                                         Text("Add more details if you like.", color = MutedText, fontSize = V173ProjectUiMetrics.bodyText)
@@ -603,7 +603,7 @@ internal fun PProjectComposer(
                             Modifier.fillMaxWidth(),
                             RoundedCornerShape(16.dp),
                             CinemaSurfaceRaised,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                         ) {
                             Column(Modifier.padding(13.dp)) {
                                 Text("NEXT CHECK-IN", color = MutedGold, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold)
@@ -839,7 +839,8 @@ private fun PModeCard(mode: ReminderMode, selected: Boolean, enabled: Boolean, o
         modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         color = if (selected) RecRed.copy(alpha = .07f) else CinemaSurface,
-        border = BorderStroke(1.dp, if (selected) RecRed.copy(alpha = .55f) else CinemaLine),
+        border = if (selected) BacklotUX10Tokens.activeBorder(RecRed)
+        else BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
@@ -862,7 +863,7 @@ private fun PComposerLabel(text: String) {
 
 @Composable
 private fun PDateTimeButton(label: String, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight), border = BorderStroke(1.dp, CinemaLine), shape = RoundedCornerShape(14.dp)) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight), border = BacklotUX10Tokens.quietBorder(CinemaLine), shape = RoundedCornerShape(14.dp)) {
         Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(17.dp))
         Spacer(Modifier.width(8.dp))
         Text(label, color = ProjectorIvory, modifier = Modifier.weight(1f))
