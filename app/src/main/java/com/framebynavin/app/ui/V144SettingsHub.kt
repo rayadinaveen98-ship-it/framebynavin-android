@@ -754,7 +754,7 @@ private fun V144CategoryCard(title: String, subtitle: String, icon: ImageVector,
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         shape = RoundedCornerShape(18.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = null,
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).background(accent.copy(alpha = .11f), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
@@ -794,7 +794,8 @@ private fun V144StatusCard(title: String, subtitle: String, icon: ImageVector, a
 @Composable
 private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
     Surface(
-        onClick = if (ready) ({}) else onClick,
+        onClick = onClick,
+        enabled = !ready,
         modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp),
         shape = RoundedCornerShape(15.dp),
         color = CinemaSurface,
