@@ -153,7 +153,7 @@ internal fun V306ActivityCenterScreen(
             }
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = BacklotUX10Tokens.pageGutter)
                     .testTag("v306-activity-filters"),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -272,7 +272,7 @@ internal fun V306ActivityCenterScreen(
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 30.dp),
+                contentPadding = PaddingValues(start = BacklotUX10Tokens.pageGutter, end = BacklotUX10Tokens.pageGutter, top = 12.dp, bottom = 30.dp),
                 verticalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 if (visible.isEmpty()) {
@@ -280,7 +280,7 @@ internal fun V306ActivityCenterScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth().testTag("v306-activity-empty"),
                             shape = RoundedCornerShape(16.dp),
-                            color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine),
+                            color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine),
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -289,13 +289,12 @@ internal fun V306ActivityCenterScreen(
                             ) {
                                 Icon(Icons.Outlined.NotificationsActive, null, tint = RecRed)
                                 Text(
-                                    if (!personalReady || !receiptsReady || creatorEvidence == null)
-                                        "Loading available activity…"
-                                    else when (filter) {
-                                        V306ActivityFilter.NEEDS_ACTION -> "Nothing currently needs a response."
-                                        V306ActivityFilter.ALL -> "No recorded reminder activity yet."
-                                        V306ActivityFilter.HISTORY -> "No confirmed activity history yet."
-                                    },
+                                    UX10EPresentationPolicy.activityEmptyCopy(
+                                        allSourcesReady = personalReady && receiptsReady &&
+                                            creatorEvidence != null,
+                                        readFailure = personalFailure || receiptFailure,
+                                        viewName = filter.name,
+                                    ),
                                     color = MutedText, fontSize = 13.sp,
                                 )
                             }
@@ -314,8 +313,9 @@ internal fun V306ActivityCenterScreen(
                             .testTag("v306-item-${activity.domain.name.lowercase()}"),
                         color = CinemaSurface,
                         shape = RoundedCornerShape(15.dp),
-                        border = BorderStroke(1.dp,
-                            if (activity.deliveryProblem) RecRed.copy(alpha = .5f) else CinemaLine),
+                        border = if (activity.deliveryProblem)
+                            BacklotUX10Tokens.activeBorder(RecRed)
+                        else BacklotUX10Tokens.quietBorder(CinemaLine),
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
