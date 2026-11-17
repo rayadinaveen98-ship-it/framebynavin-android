@@ -1,5 +1,7 @@
 package com.framebynavin.app.ai
 
+import com.framebynavin.app.BuildConfig
+
 import com.framebynavin.app.data.CreatorAiEvidencePack
 import com.framebynavin.app.data.CreatorAiEvidencePackBuilder
 import com.google.firebase.Firebase
@@ -10,6 +12,9 @@ import com.google.firebase.ai.type.content
 /** Live Firebase AI Logic provider for the optional Video Autopsy feature. */
 class CreatorGeminiVideoAutopsyProvider {
     suspend fun analyze(pack: CreatorAiEvidencePack): CreatorAiAutopsyReport {
+        check(!BuildConfig.BACKLOT_LAB) {
+            "Optional Firebase AI is not configured for the isolated Backlot Lab package."
+        }
         require(pack.publicVideoUrl != null || pack.evidence.isNotEmpty()) {
             "Choose at least one evidence class before asking Gemini to analyze this video."
         }
