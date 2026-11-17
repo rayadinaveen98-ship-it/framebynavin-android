@@ -1168,6 +1168,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             tasks = vm.tasks,
             onDismiss = { creatorActivityFocusId = null; showReminders = false },
             onNew = { creatorActivityFocusId = null; showReminders = false; openComposer() },
+            onQuickNew = {
+                creatorActivityFocusId = null
+                showReminders = false
+                openComposer(quick = true)
+            },
             onEdit = { id -> showReminders = false; openComposer(id) },
             onDeleteReminders = vm::cancelReminders,
             initialFocusTaskId = creatorActivityFocusId,

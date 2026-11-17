@@ -54,6 +54,7 @@ internal fun V157ReminderCenterUi(
     tasks: List<CreatorTask>,
     onDismiss: () -> Unit,
     onNew: () -> Unit,
+    onQuickNew: () -> Unit = onNew,
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
     onOpenReminderSettings: () -> Unit,
@@ -88,6 +89,7 @@ internal fun V157ReminderCenterUi(
     val grouped = ReminderCenterPolicy.grouped(tasks, now)
     val activeIds = grouped.values.flatten().map { it.id }.toSet()
     var selected by remember { mutableStateOf(setOf<String>()) }
+    var createMenuOpen by remember { mutableStateOf(false) }
     var turnOffTarget by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     // V219: presentation-only filter, never changes reminder storage or action tokens.
@@ -258,8 +260,34 @@ internal fun V157ReminderCenterUi(
                         ) {
                             Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedText)
                         }
-                        IconButton(onClick = onNew) {
-                            Icon(Icons.Outlined.Add, "Add", tint = ProjectorIvory)
+                        Box {
+                            IconButton(
+                                onClick = { createMenuOpen = true },
+                                modifier = Modifier.testTag("ux06b-creator-create-menu"),
+                            ) {
+                                Icon(Icons.Outlined.Add, "Create Creator project", tint = ProjectorIvory)
+                            }
+                            DropdownMenu(
+                                expanded = createMenuOpen,
+                                onDismissRequest = { createMenuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Quick Creator project") },
+                                    onClick = {
+                                        createMenuOpen = false
+                                        onQuickNew()
+                                    },
+                                    modifier = Modifier.testTag("ux06b-creator-create-quick"),
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Full project setup") },
+                                    onClick = {
+                                        createMenuOpen = false
+                                        onNew()
+                                    },
+                                    modifier = Modifier.testTag("ux06b-creator-create-full"),
+                                )
+                            }
                         }
                     }
                 }
@@ -315,14 +343,61 @@ internal fun V157ReminderCenterUi(
                         lineHeight = 18.sp,
                     )
                     Spacer(Modifier.height(14.dp))
-                    val attentionCount = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size
-                    val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
-                    val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
-                        V157InboxCount("TODAY", todayCount, MutedText, Modifier.weight(1f))
-                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
-                    }
+                    // UX06B: one actionable overview, projected from the real
+                    // Creator groups. The existing filter chips, search, history,
+                    // bulk selection and response actions remain intact.
+                    V406ReminderScopeNavigator(
+                        actions = listOf(
+                            V406ReminderScopeAction(
+                                id = "creator-attention", label = "Needs action",
+                                count = searchMatching[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size,
+                                selected = !historyOpen &&
+                                    hubFilter == V219ReminderHubFilter.ATTENTION,
+                                onSelect = {
+                                    hubFilter = V219ReminderHubFilter.ATTENTION
+                                    historyOpen = false
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "creator-today", label = "Next 24h",
+                                count = searchMatching[ReminderCenterGroup.TODAY].orEmpty().size,
+                                selected = !historyOpen &&
+                                    hubFilter == V219ReminderHubFilter.TODAY,
+                                onSelect = {
+                                    hubFilter = V219ReminderHubFilter.TODAY
+                                    historyOpen = false
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "creator-upcoming", label = "Later",
+                                count = searchMatching[ReminderCenterGroup.UPCOMING].orEmpty().size,
+                                selected = !historyOpen &&
+                                    hubFilter == V219ReminderHubFilter.UPCOMING,
+                                onSelect = {
+                                    hubFilter = V219ReminderHubFilter.UPCOMING
+                                    historyOpen = false
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "creator-history", label = "History",
+                                count = null,
+                                selected = historyOpen,
+                                onSelect = {
+                                    historyOpen = true
+                                    hubFilter = V219ReminderHubFilter.ALL
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                        ),
+                        modifier = Modifier.testTag("ux06b-creator-focus-rail"),
+                    )
                     }
 
                     // Empty state keeps History reachable but does not show

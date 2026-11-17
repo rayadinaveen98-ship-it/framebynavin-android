@@ -106,6 +106,7 @@ internal fun V2232PersonalReminderHub(
     var busy by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PersonalReminder?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
+    var createMenuOpen by remember { mutableStateOf(false) }
     var availableEditorSpaces by remember { mutableStateOf(emptyList<V289SpaceEntity>()) }
     var availableEditorGroups by remember { mutableStateOf(emptyList<V298ReminderGroup>()) }
     var editorSpacesReady by remember { mutableStateOf(false) }
@@ -125,6 +126,7 @@ internal fun V2232PersonalReminderHub(
     var agendaNowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     // Reduce alarm-list fatigue: show the day first, but never hide action-needed items.
     var agendaScopeName by rememberSaveable { mutableStateOf(V285AgendaScope.TODAY.name) }
+    var personalAttentionOnly by rememberSaveable { mutableStateOf(false) }
     var personalPageName by rememberSaveable { mutableStateOf("TODAY") }
     var activityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     // Activity Center deep links only focus a real Personal reminder row;
@@ -134,6 +136,7 @@ internal fun V2232PersonalReminderHub(
             activityFocusId = initialFocusReminderId
             personalPageName = "TODAY"
             agendaScopeName = V285AgendaScope.ALL.name
+            personalAttentionOnly = false
         }
     }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
@@ -153,6 +156,7 @@ internal fun V2232PersonalReminderHub(
             activityFocusId = null
             personalPageName = "TODAY"
             agendaScopeName = V285AgendaScope.ALL.name
+            personalAttentionOnly = false
             challengesOpen = true
         }
     }
@@ -220,7 +224,7 @@ internal fun V2232PersonalReminderHub(
         selectedPersonal = emptyMap()
         confirmBulkDelete = false
     }
-    LaunchedEffect(agendaScopeName, activityFocusId, personalPageName) {
+    LaunchedEffect(agendaScopeName, activityFocusId, personalPageName, personalAttentionOnly) {
         // Switching scopes must not secretly retain selected hidden reminders.
         selectedPersonal = emptyMap()
         confirmBulkDelete = false
@@ -326,12 +330,40 @@ internal fun V2232PersonalReminderHub(
                          else "Back to personal Today",
                      tint = MutedText)
             }
-            IconButton(
-                enabled = !busy && loadError == null,
-                onClick = { editing = null; editorOpen = true },
-                modifier = Modifier.testTag("v2232-personal-add"),
-            ) {
-                Icon(Icons.Outlined.AddCircleOutline, "Create personal reminder", tint = ProjectorIvory)
+            Box {
+                IconButton(
+                    enabled = !busy && loadError == null,
+                    onClick = { createMenuOpen = true },
+                    modifier = Modifier.testTag("v2232-personal-add"),
+                ) {
+                    Icon(
+                        Icons.Outlined.AddCircleOutline,
+                        "Create Personal reminder or open 21-day challenges",
+                        tint = ProjectorIvory,
+                    )
+                }
+                DropdownMenu(
+                    expanded = createMenuOpen,
+                    onDismissRequest = { createMenuOpen = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("New Personal reminder") },
+                        onClick = {
+                            createMenuOpen = false
+                            editing = null
+                            editorOpen = true
+                        },
+                        modifier = Modifier.testTag("ux06b-personal-create-reminder"),
+                    )
+                    DropdownMenuItem(
+                        text = { Text("21-day challenges") },
+                        onClick = {
+                            createMenuOpen = false
+                            challengesOpen = true
+                        },
+                        modifier = Modifier.testTag("ux06b-personal-create-challenge"),
+                    )
+                }
             }
         }
 
@@ -575,6 +607,92 @@ internal fun V2232PersonalReminderHub(
                 val finishedChallengeCount = challengeSections.count {
                     it.section == PersonalAgendaSection.NO_UPCOMING
                 }
+                // UX06B: these are read-only projections from PersonalReminderStore
+                // plus the existing source-namespaced 21-day challenge agenda.
+                // Challenge reminders with Alert Off never enter these counts.
+                val allAgendaForFocus = remember(
+                    reminders, eligibleChallenges, agendaNowMillis,
+                ) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = reminders,
+                        challenges = eligibleChallenges,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.ALL,
+                    )
+                }
+                val todayAgendaForFocus = remember(
+                    reminders, eligibleChallenges, agendaNowMillis,
+                ) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = reminders,
+                        challenges = eligibleChallenges,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.TODAY,
+                    )
+                }
+                val weekAgendaForFocus = remember(
+                    reminders, eligibleChallenges, agendaNowMillis,
+                ) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = reminders,
+                        challenges = eligibleChallenges,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.SEVEN_DAYS,
+                    )
+                }
+                if (challengeLoadError == null) {
+                    V406ReminderScopeNavigator(
+                        actions = listOf(
+                            V406ReminderScopeAction(
+                                id = "personal-today", label = "Today + due",
+                                count = todayAgendaForFocus.sumOf { it.entries.size },
+                                selected = !personalAttentionOnly &&
+                                    agendaScopeName == V285AgendaScope.TODAY.name,
+                                onSelect = {
+                                    activityFocusId = null
+                                    personalAttentionOnly = false
+                                    agendaScopeName = V285AgendaScope.TODAY.name
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "personal-week", label = "Next 7 days",
+                                count = weekAgendaForFocus.sumOf { it.entries.size },
+                                selected = !personalAttentionOnly &&
+                                    agendaScopeName == V285AgendaScope.SEVEN_DAYS.name,
+                                onSelect = {
+                                    activityFocusId = null
+                                    personalAttentionOnly = false
+                                    agendaScopeName = V285AgendaScope.SEVEN_DAYS.name
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "personal-attention", label = "Needs action",
+                                count = allAgendaForFocus.firstOrNull {
+                                    it.section == PersonalAgendaSection.NEEDS_ATTENTION
+                                }?.entries?.size ?: 0,
+                                selected = personalAttentionOnly,
+                                onSelect = {
+                                    activityFocusId = null
+                                    agendaScopeName = V285AgendaScope.ALL.name
+                                    personalAttentionOnly = true
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "personal-all", label = "All",
+                                count = allAgendaForFocus.sumOf { it.entries.size },
+                                selected = !personalAttentionOnly &&
+                                    agendaScopeName == V285AgendaScope.ALL.name,
+                                onSelect = {
+                                    activityFocusId = null
+                                    personalAttentionOnly = false
+                                    agendaScopeName = V285AgendaScope.ALL.name
+                                },
+                            ),
+                        ),
+                        modifier = Modifier.padding(bottom = 5.dp)
+                            .testTag("ux06b-personal-focus-rail"),
+                    )
+                }
                 Row(Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -603,8 +721,12 @@ internal fun V2232PersonalReminderHub(
                 ) {
                     V285AgendaScope.entries.forEach { scope ->
                         FilterChip(
-                            selected = agendaScopeName == scope.name,
-                            onClick = { agendaScopeName = scope.name },
+                            selected = !personalAttentionOnly &&
+                                agendaScopeName == scope.name,
+                            onClick = {
+                                agendaScopeName = scope.name
+                                personalAttentionOnly = false
+                            },
                             label = { Text(scope.label, fontSize = 11.sp) },
                             modifier = Modifier.testTag("v285-agenda-scope-" + scope.name),
                         )
@@ -628,14 +750,19 @@ internal fun V2232PersonalReminderHub(
                 val challengeProjection = if (activityFocusId == null) challenges
                     else emptyList()
                 val agendaGroups = remember(
-                    filteredForActivity, challengeProjection, agendaNowMillis, agendaScopeName,
+                    filteredForActivity, challengeProjection, agendaNowMillis,
+                    agendaScopeName, personalAttentionOnly,
                 ) {
-                    V337UnifiedPersonalAgenda.groups(
+                    val projected = V337UnifiedPersonalAgenda.groups(
                         personal = filteredForActivity,
                         challenges = challengeProjection,
                         nowMillis = agendaNowMillis,
-                        scope = V285AgendaScope.valueOf(agendaScopeName),
+                        scope = if (personalAttentionOnly) V285AgendaScope.ALL
+                            else V285AgendaScope.valueOf(agendaScopeName),
                     )
+                    if (personalAttentionOnly) projected.filter {
+                        it.section == PersonalAgendaSection.NEEDS_ATTENTION
+                    } else projected
                 }
                 val visibleCount = agendaGroups.sumOf { it.entries.size }
                 if (selectingPersonal) {
@@ -673,12 +800,20 @@ internal fun V2232PersonalReminderHub(
                         ) { Text("CLEAR", color = MutedText) }
                     }
                 }
-                Text("$visibleCount shown · choose ALL for paused, archived or finished alerts",
+                Text(
+                    if (personalAttentionOnly) "$visibleCount need attention · no completion inferred"
+                    else "$visibleCount shown · choose ALL for paused, archived or finished alerts",
                     color = MutedText, fontSize = 10.sp,
-                    modifier = Modifier.testTag("v285-agenda-count"))
+                    modifier = Modifier.testTag("v285-agenda-count"),
+                )
                 if (agendaGroups.isEmpty()) {
-                    Text("No reminders in this time window. Select ALL to see " +
-                        "other upcoming or paused reminders.", color = MutedText, fontSize = 12.sp)
+                    Text(
+                        if (personalAttentionOnly) "Nothing needs a response right now. " +
+                            "That does not prove every scheduled alert was delivered."
+                        else "No reminders in this time window. Select ALL to see " +
+                            "other upcoming or paused reminders.",
+                        color = MutedText, fontSize = 12.sp,
+                    )
                 }
                 agendaGroups.forEach { group ->
                     Row(
@@ -1207,12 +1342,18 @@ internal fun V2232PersonalEditor(
                         Text(if (existing == null) "Make it yours" else "Your personal rhythm",
                             color = ProjectorIvory, fontSize = 19.sp,
                             fontWeight = FontWeight.Bold)
-                        if (composerStep >= 0) Text(
-                            "STEP ${composerStep + 1} OF 4  ·  " +
-                                listOf("Purpose", "Schedule", "Alert", "Review")[composerStep],
-                            color = MutedText, fontSize = 12.sp,
-                            modifier = Modifier.testTag("v296-composer-progress"),
-                        )
+                        if (composerStep >= 0) {
+                            V406PersonalComposerProgress(
+                                currentStep = composerStep,
+                                onReturnTo = { earlier ->
+                                    if (!saving && earlier < composerStep) {
+                                        composerStep = earlier
+                                        error = null
+                                    }
+                                },
+                                modifier = Modifier.testTag("v296-composer-progress"),
+                            )
+                        }
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Outlined.Close, contentDescription = "Close editor", tint = ProjectorIvory)
