@@ -42,6 +42,7 @@ internal fun CW52OutputLearningDesk(
     onSelectedOutput: (String) -> Unit = {},
     onDiscardDraft: (String, Long) -> Boolean = { _, _ -> true },
     saving: Boolean = false,
+    initialSelectedOutputId: String = "",
 ) {
     val context = LocalContext.current
     val journal = remember(task.id) {
@@ -51,7 +52,10 @@ internal fun CW52OutputLearningDesk(
     val outputs = workspace.deliverables
     val revision = workspace.revision
     var selectedId by rememberSaveable(task.id) {
-        mutableStateOf(outputs.firstOrNull()?.id.orEmpty())
+        mutableStateOf(
+            outputs.firstOrNull { it.id == initialSelectedOutputId }?.id
+                ?: outputs.firstOrNull()?.id.orEmpty()
+        )
     }
     val selected = outputs.firstOrNull { it.id == selectedId } ?: outputs.firstOrNull()
     val activeId = selected?.id.orEmpty()
