@@ -216,7 +216,7 @@ internal fun V298ReminderGroupsScreen(
     BackHandler(onBack = goBack)
     Surface(color = CinemaSurfaceRaised, modifier = Modifier.fillMaxSize()
         .testTag("v298-groups-screen")) {
-        Column(Modifier.fillMaxSize().padding(18.dp),
+        Column(Modifier.fillMaxSize().padding(BacklotUX10Tokens.pageGutter),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = goBack, modifier = Modifier.testTag("v298-back")) {
@@ -256,7 +256,7 @@ internal fun V298ReminderGroupsScreen(
                     Button(
                         onClick = { openEditor(null) },
                         enabled = !busy && readError == null,
-                        modifier = Modifier.fillMaxWidth().testTag("v298-create-open"),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v298-create-open"),
                     ) { Text("NEW REMINDER GROUP") }
                     if (groups.isNotEmpty()) {
                         OutlinedTextField(
@@ -287,7 +287,7 @@ internal fun V298ReminderGroupsScreen(
                                 selectedId = group.id
                             },
                             color = CinemaSurface,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth().testTag("v298-group-card"),
                         ) {
@@ -359,39 +359,26 @@ internal fun V298ReminderGroupsScreen(
                         Text("Only confirmed Personal Done receipts count toward today's progress.",
                             color = MutedText, fontSize = 11.sp)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        OutlinedButton(
-                            onClick = { openEditor(selected) }, enabled = !busy && readError == null,
-                            modifier = Modifier.weight(1f).testTag("v298-edit-group"),
-                        ) { Text("EDIT GROUP") }
-                        OutlinedButton(
-                            onClick = { deleteVisible = true },
-                            enabled = !busy && readError == null,
-                            modifier = Modifier.weight(1f).testTag("v298-delete-open"),
-                        ) { Text("DELETE GROUP") }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        OutlinedButton(
-                            onClick = { pendingBulkAction = selected to true },
-                            enabled = !busy && readError == null &&
-                                selected.reminderIds.isNotEmpty() &&
-                                selectedProgress?.missingLinks == 0 &&
-                                selected.reminderIds.any { indexedReminders[it]?.paused == false },
-                            modifier = Modifier.weight(1f).testTag("fc13-pause-group"),
-                        ) { Text("PAUSE ALL") }
-                        OutlinedButton(
-                            onClick = { pendingBulkAction = selected to false },
-                            enabled = !busy && readError == null &&
-                                selected.reminderIds.isNotEmpty() &&
-                                selectedProgress?.missingLinks == 0 &&
-                                selected.reminderIds.any { indexedReminders[it]?.paused == true },
-                            modifier = Modifier.weight(1f).testTag("fc13-resume-group"),
-                        ) { Text("RESUME ALL") }
-                    }
+                    UX10DGroupActionControls(
+                        canEdit = !busy && readError == null,
+                        canDelete = !busy && readError == null,
+                        canPause = !busy && readError == null &&
+                            selected.reminderIds.isNotEmpty() &&
+                            selectedProgress?.missingLinks == 0 &&
+                            selected.reminderIds.any { indexedReminders[it]?.paused == false },
+                        canResume = !busy && readError == null &&
+                            selected.reminderIds.isNotEmpty() &&
+                            selectedProgress?.missingLinks == 0 &&
+                            selected.reminderIds.any { indexedReminders[it]?.paused == true },
+                        onEdit = { openEditor(selected) },
+                        onDelete = { deleteVisible = true },
+                        onPause = { pendingBulkAction = selected to true },
+                        onResume = { pendingBulkAction = selected to false },
+                    )
                     Button(
                         onClick = { linkSearch = ""; linkVisible = true },
                         enabled = !busy && readError == null,
-                        modifier = Modifier.fillMaxWidth().testTag("v298-link-open"),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v298-link-open"),
                     ) { Text("LINK AN EXISTING REMINDER") }
                     if (selected.reminderIds.isEmpty()) {
                         Text("Nothing linked yet. Link any saved Personal reminder.",
@@ -403,7 +390,7 @@ internal fun V298ReminderGroupsScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth().testTag("v298-linked-row"),
                             color = CinemaSurface,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                             shape = RoundedCornerShape(13.dp),
                         ) {
                             Column(Modifier.padding(11.dp)) {
