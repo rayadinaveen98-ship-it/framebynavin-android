@@ -1,6 +1,7 @@
 package com.framebynavin.app.cloud
 
 import com.framebynavin.app.cloud.ux09.Ux09Contract
+import com.framebynavin.app.cloud.ux09.Ux09LabFeatureGate
 import com.framebynavin.app.cloud.ux09.Ux09Intent
 import com.framebynavin.app.cloud.ux09rpc.Ux09LabRpcContract
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,9 @@ class CloudApiClient {
         session: CloudSession,
         intent: Ux09Intent,
     ): String {
+        check(Ux09LabFeatureGate.ENABLED) {
+            "UX09 Project/Idea Lab sync is not activated"
+        }
         Ux09LabRpcContract.requireLabEndpoint(CloudConfig.SUPABASE_URL)
         Ux09Contract.validate(intent)
         require(session.userId == intent.accountId && session.accessToken.isNotBlank()) {
@@ -43,6 +47,9 @@ class CloudApiClient {
         afterSequence: Long,
         limit: Int,
     ): String {
+        check(Ux09LabFeatureGate.ENABLED) {
+            "UX09 Project/Idea Lab sync is not activated"
+        }
         Ux09LabRpcContract.requireLabEndpoint(CloudConfig.SUPABASE_URL)
         require(session.userId.isNotBlank() && session.accessToken.isNotBlank()) {
             "Signed-in user required for UX09 delta pull"
