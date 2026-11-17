@@ -21,13 +21,13 @@ object V403VoiceRepeatPolicy {
      * four 60-second gaps and a 15-second stop grace. No 300-second cap.
      */
     fun creatorWatchdogMillis(count: Int, gapSeconds: Int): Long {
-        val n = count(count)
+        val n = V403VoiceRepeatPolicy.count(count)
         val gap = gapSeconds.coerceIn(5, 60) * 1_000L
         return n * MAX_UTTERANCE_MILLIS + (n - 1) * gap + 15_000L
     }
 
     fun personalWatchdogMillis(count: Int, gapMillis: Long): Long {
-        val n = count(count)
+        val n = V403VoiceRepeatPolicy.count(count)
         val gap = gapMillis.coerceIn(2_500L, MAX_GAP_MILLIS)
         return n * MAX_UTTERANCE_MILLIS + (n - 1) * gap + 5_000L
     }
