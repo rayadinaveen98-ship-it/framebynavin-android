@@ -35,6 +35,16 @@ Proposed safe protocol:
 7. If removal is blocked, stop all further hosted testing and document leftover IDs privately (not in public PR).
 8. Real signed-user CAS writes, revision races, tombstones, replay/idempotency and cross-account data isolation are a **separate UX09-01E gate**, with a guaranteed cleanup path and its own exact approval. A successful 01D pull does not certify them.
 
+## Physical Windows QA execution — BLOCKED at test-account sign-in (2026-11-17)
+- Owner ran the Windows PowerShell native read-only runner from the supplied ZIP. It reached the target Auth endpoint, but stopped at `QA A sign-in: HTTP 400`; no A/B signed API acceptance, Project/Idea pull or private-schema signed check executed. Script reported `NOT CERTIFIED`. No new sync data was written.
+- Supabase Lab `auth_logs` at `2026-11-17T15:20:54Z` reported `error_code=invalid_credentials`, HTTP 400 for the attempted password sign-in. Two earlier requests at ~15:09Z reported `email_address_invalid`; those are separate and do **not** prove the current Windows run failed for the same reason.
+- Non-secret connected read-only `auth.users` metadata for *both* exact QA identities: email confirmed, encrypted password configured, provider `email`, not anonymous, not SSO, not banned, not soft-deleted. No password or hash was retrieved or changed.
+- This evidence indicates a mismatch between credentials entered and expected by Auth **or** another credential-validation issue; neither the precise password nor the mechanism can be determined without a subsequent controlled successful sign-in.
+- The screenshot shows a visually different count of masked characters for A and B, even though the owner intended identical passwords. This is a possible input typo, not a verified root cause.
+- **Recommended single safe retry:** re-open the existing Windows runner, carefully enter the original disposable passwords for both exact accounts, avoiding leading/trailing spaces. Do not use or share the owner's Google password. If same `invalid_credentials` repeats, STOP and review disposable-account reset/replacement **only** after a separate cleanup check; do not disable Auth security, change original account, or write directly into `auth.users`.
+- The intentionally reserved `@example.invalid` test domain may also require separate compatibility investigation; do not replace it with real-person email addresses without explicit reviewed plan.
+- **NO SECURITY ACCEPTANCE:** previous anonymous API denial and database checks remain valid; hosted signed-JWT acceptance is still blocked. Existing test accounts should not be deleted before review.
+
 ## Certification / risk matrix
 | Case | Acceptance | Current |
 |---|---|---|
