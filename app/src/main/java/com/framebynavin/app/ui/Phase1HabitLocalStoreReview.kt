@@ -84,6 +84,14 @@ internal fun Phase1HabitLocalStoreReview(
     // Alert delivery is not connected: default Off, refuse an unmet promise.
     var alertKind by remember { mutableStateOf<Phase1HabitAlertKind?>(null) }
     var alertTime by remember { mutableStateOf(LocalTime.of(7, 30)) }
+    // Only a newly created Voice challenge offers Piano by default. Migrated
+    // v1/v2 saved challenges are explicitly OFF and remain unchanged.
+    var voiceMusicMode by remember {
+        mutableStateOf(com.framebynavin.app.reminders.ReminderMusicMode.PIANO)
+    }
+    var voiceMusicUri by remember { mutableStateOf("") }
+    var voiceRepeatCount by remember { mutableIntStateOf(3) }
+    var voiceRepeatGapMillis by remember { mutableLongStateOf(5_000L) }
     var completionMode by remember { mutableStateOf(Phase1HabitCompletionMode.STRICT) }
     var detailDay by remember { mutableStateOf<LocalDate?>(null) }
     var detailNote by remember { mutableStateOf("") }
@@ -202,6 +210,10 @@ internal fun Phase1HabitLocalStoreReview(
                                 message = null
                                 startDate = LocalDate.now(zone)
                                 alertKind = null
+                                voiceMusicMode = com.framebynavin.app.reminders.ReminderMusicMode.PIANO
+                                voiceMusicUri = ""
+                                voiceRepeatCount = 3
+                                voiceRepeatGapMillis = 5_000L
                                 completionMode = Phase1HabitCompletionMode.STRICT
                             },
                             enabled = !saving,
@@ -223,7 +235,14 @@ internal fun Phase1HabitLocalStoreReview(
                             Text(message.orEmpty(), color = BacklotSecondaryText,
                                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
                         }
-                        EmptyHabitReview(onCreate = { creating = true })
+                        EmptyHabitReview(onCreate = {
+                            creating = true
+                            title = ""
+                            voiceMusicMode = com.framebynavin.app.reminders.ReminderMusicMode.PIANO
+                            voiceMusicUri = ""
+                            voiceRepeatCount = 3
+                            voiceRepeatGapMillis = 5_000L
+                        })
                     }
                 } else if (creating) {
                     CreateHabitReview(
@@ -238,6 +257,16 @@ internal fun Phase1HabitLocalStoreReview(
                         error = validationError,
                         completionMode = completionMode,
                         onCompletionMode = { completionMode = it },
+                        voiceRepeatCount = voiceRepeatCount,
+                        onVoiceRepeatCount = { voiceRepeatCount = it },
+                        voiceRepeatGapMillis = voiceRepeatGapMillis,
+                        onVoiceRepeatGapMillis = { voiceRepeatGapMillis = it },
+                        voiceMusicMode = voiceMusicMode,
+                        voiceMusicUri = voiceMusicUri,
+                        onVoiceMusicChange = { mode, uri ->
+                            voiceMusicMode = mode
+                            voiceMusicUri = uri
+                        },
                         onStart = {
                             val clean = title.trim()
                             when {
@@ -252,6 +281,10 @@ internal fun Phase1HabitLocalStoreReview(
                                         alertTime = if (alertKind == null) null else alertTime,
                                         alertKind = alertKind,
                                         completionMode = completionMode,
+                                        voiceMusicMode = voiceMusicMode,
+                                        voiceMusicUri = voiceMusicUri,
+                                        voiceRepeatCount = voiceRepeatCount,
+                                        voiceRepeatGapMillis = voiceRepeatGapMillis,
                                     ).checked()
                                     saving = true
                                     coroutineScope.launch {
@@ -369,12 +402,16 @@ internal fun Phase1HabitLocalStoreReview(
         Phase1HabitEditDialog(
             challenge = snapshot, busy = saving, saveError = manageError,
             onDismiss = { editTarget = null; manageError = null },
-            onSave = { activity, date, time, kind, mode ->
+            onSave = { activity, date, time, kind, mode,
+                       voiceMode, voiceUri, repeatCount, repeatGap ->
                 if (!saving) {
                     saving = true
                     coroutineScope.launch {
                         try {
-                            val result = manager.edit(snapshot, activity, date, time, kind, mode)
+                            val result = manager.edit(
+                                snapshot, activity, date, time, kind, mode,
+                                voiceMode, voiceUri, repeatCount, repeatGap,
+                            )
                             records = result.records
                             editTarget = null
                             manageError = null
