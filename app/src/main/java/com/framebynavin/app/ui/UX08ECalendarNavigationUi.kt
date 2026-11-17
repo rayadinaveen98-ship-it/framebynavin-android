@@ -219,7 +219,7 @@ private fun UX08EDateCell(
     Surface(
         onClick = { onDateSelect(date) },
         enabled = enabled,
-        modifier = modifier.heightIn(min = 51.dp)
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
             .testTag("ux08e-date-" + date)
             .semantics {
                 contentDescription = date.toString() + ", " +
@@ -276,12 +276,12 @@ private fun UX08EAgendaDateChip(
     val count = UX08ECalendarPolicy.countOnDate(items, date, zone)
     Surface(
         onClick = { onDateSelect(date) },
-        modifier = Modifier.heightIn(min = 49.dp)
+        modifier = Modifier.heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
             .testTag("ux08e-agenda-date-" + date),
         shape = RoundedCornerShape(11.dp),
         color = if (date == selected) CinemaSurfaceRaised else CinemaSurface,
         border = if (date == selected)
-            BorderStroke(1.dp, MutedGold.copy(alpha = 0.5f)) else null,
+            BacklotUX10Tokens.activeBorder(MutedGold) else null,
     ) {
         Column(
             Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
