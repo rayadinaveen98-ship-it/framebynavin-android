@@ -1,0 +1,100 @@
+name: Backlot UX09-01 hosted PostgreSQL 17 compatibility — disposable
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-01-disposable-sync-contract-20261117
+    paths:
+      - 'supabase/prototypes/ux09_01_*.sql'
+      - 'tools/qa/backlot_ux09_01_postgres16_test.sh'
+      - '.github/workflows/backlot-ux09-01-pg17-hosted-compatibility.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-01-pg17-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  disposable-pg17-compatibility:
+    name: Postgres17 contract / mock roles / revision races (NOT hosted)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable-only
+          POSTGRES_DB: backlot_ux09_disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backlot_ux09_disposable"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: disposable-only
+      PGDATABASE: backlot_ux09_disposable
+    steps:
+      - name: Checkout exact PR SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client and jq if absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null || ! command -v jq >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client-17 jq
+          fi
+          psql --version
+      - name: Verify this is a genuine isolated PostgreSQL 17 server
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(psql -XAt -v ON_ERROR_STOP=1 -c "show server_version_num")"
+          [[ "$actual" -ge 170000 && "$actual" -lt 180000 ]] || {
+            echo "REFUSED: expected disposable PostgreSQL major version 17" >&2
+            exit 2
+          }
+          echo "Confirmed synthetic PostgreSQL 17 instance"
+      - name: Apply same UX09-01 tested SQL and run all isolated contract cases
+        shell: bash
+        run: bash tools/qa/backlot_ux09_01_postgres16_test.sh
+      - name: Verify private sync schema and public RPC only
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          do $check$
+          begin
+            if to_regnamespace('backlot_sync_internal') is null then
+              raise exception 'Private sync schema not installed in disposable DB';
+            end if;
+            if exists (
+              select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname='backlot_sync_internal'
+            ) then
+              raise exception 'Unexpected callable private-schema function';
+            end if;
+            if (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                where n.nspname='public' and p.proname in
+                  ('backlot_ux09_apply_v1','backlot_ux09_pull_v1')) <> 2 then
+              raise exception 'Expected exactly two public Sync RPCs';
+            end if;
+            raise notice 'PASS: disposable PostgreSQL 17 private schema and RPC surface';
+          end;
+          $check$;
+          SQL
+      - name: Evidence limitation
+        if: always()
+        shell: bash
+        run: |
+          echo "Disposable PostgreSQL 17 only. NOT hosted Backlot Lab 17.12."
+          echo "No hosted credentials, migration, user records, Android app or APK."
+          echo "Real local GoTrue/JWT covered separately in prior successful run."
