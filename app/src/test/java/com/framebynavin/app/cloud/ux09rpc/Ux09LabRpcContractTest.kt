@@ -1,5 +1,9 @@
 package com.framebynavin.app.cloud.ux09rpc
 
+import com.framebynavin.app.cloud.CloudApiClient
+import com.framebynavin.app.cloud.CloudSession
+import com.framebynavin.app.cloud.ux09.Ux09LabFeatureGate
+import kotlinx.coroutines.runBlocking
 import com.framebynavin.app.cloud.ux09.Ux09Contract
 import com.framebynavin.app.cloud.ux09.Ux09Domain
 import com.framebynavin.app.cloud.ux09.Ux09Intent
@@ -64,6 +68,26 @@ class Ux09LabRpcContractTest {
     ): String = JSONObject()
         .put("changes", records).put("next_cursor", cursor)
         .put("has_more", more).toString()
+
+    @Test fun disabledRuntimeGatePreventsEitherRpcBeforeAnyNetworkAccess() {
+        assertFalse(Ux09LabFeatureGate.ENABLED)
+        val fake = CloudSession(
+            userId = owner,
+            email = "synthetic@example.invalid",
+            displayName = "Synthetic",
+            avatarUrl = "",
+            accessToken = "never-sent-to-network",
+            refreshToken = "never-sent-to-network",
+            expiresAtMillis = Long.MAX_VALUE,
+        )
+        val client = CloudApiClient()
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { client.backlotUx09LabApplyRaw(fake, sent()) }
+        }
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { client.backlotUx09LabPullRaw(fake, 0L, 25) }
+        }
+    }
 
     @Test fun originalProductionEndpointIsAlwaysRejected() {
         Ux09LabRpcContract.requireLabEndpoint("https://vasleafrmsovdbdlrcsw.supabase.co")
