@@ -33,6 +33,7 @@ internal fun CW52OutputLearningDesk(
     task: CreatorTask,
     onBack: () -> Unit,
     onOpenPublish: () -> Unit,
+    onOpenPlanOutputs: () -> Unit,
     onSave: (Long, CreatorOutputLearning) -> Unit,
 ) {
     val workspace = task.workspace
@@ -115,10 +116,8 @@ internal fun CW52OutputLearningDesk(
                     item {
                         Text("This project has no planned outputs yet.",
                             color = ProjectorIvory, fontSize = 14.sp)
-                        TextButton(onClick = {
-                            if (hasDraft) pendingPublishNavigation = true else onOpenPublish()
-                        }) {
-                            Text("OPEN PUBLISH STUDIO", color = RecRed)
+                        TextButton(onClick = onOpenPlanOutputs) {
+                            Text("PLAN FIRST OUTPUT", color = RecRed)
                         }
                     }
                 } else {
