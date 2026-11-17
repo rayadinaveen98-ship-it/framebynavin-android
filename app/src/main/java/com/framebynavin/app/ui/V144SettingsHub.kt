@@ -279,7 +279,7 @@ internal fun V144SettingsHub(
                 Spacer(Modifier.height(9.dp))
                 Surface(
                     Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -314,7 +314,7 @@ internal fun V144SettingsHub(
                 V144SectionTitle("QUIET HOURS", "Quiet standard notifications during your rest time.")
                 Spacer(Modifier.height(9.dp))
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine)) {
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Column(Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -371,7 +371,7 @@ internal fun V144SettingsHub(
                 }
 
                 Spacer(Modifier.height(18.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Helpful project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
@@ -407,7 +407,7 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.PLANNING -> V144SettingsPage("PLANNING & CALENDAR", "Recurring planning and calendar sync", { sectionName = V167SettingsSection.HOME.name }) {
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(36.dp).background(MutedGold.copy(alpha = .11f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                             Icon(Icons.Outlined.AutoAwesome, null, tint = MutedGold, modifier = Modifier.size(19.dp))
@@ -502,7 +502,7 @@ internal fun V144SettingsHub(
                     onClick = onReplayTour,
                 )
                 Spacer(Modifier.height(12.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Version", color = MutedText, fontSize = 10.sp)
                         Spacer(Modifier.weight(1f))
@@ -564,7 +564,7 @@ private fun V144SettingsHome(
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp).padding(bottom = 28.dp),
+            .padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("BACKLOT", "Settings", onClose)
         Spacer(Modifier.height(10.dp))
@@ -696,7 +696,7 @@ private fun V294QuietSettingRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -731,14 +731,14 @@ private fun V294QuietSettingRow(
 private fun V294QuietSettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = 52.dp, end = 14.dp),
-        thickness = 1.dp, color = CinemaLine,
+        thickness = 0.75.dp, color = CinemaLine.copy(alpha = 0.55f),
     )
 }
 
 @Composable
 private fun V144SettingsPage(kicker: String, title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader(kicker, title, onBack)
         Spacer(Modifier.height(18.dp))
@@ -753,7 +753,7 @@ private fun V144SettingsHeader(kicker: String, title: String, onBack: () -> Unit
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
             Text(kicker, color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
-            Text(title, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -810,7 +810,7 @@ private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit
         modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp),
         shape = RoundedCornerShape(15.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
@@ -829,7 +829,7 @@ private fun V144SectionTitle(title: String, subtitle: String) {
 
 @Composable
 private fun V144SettingsNote(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
     }
 }
