@@ -1,7 +1,7 @@
 package com.framebynavin.app.ui
 
 import com.framebynavin.app.data.CreatorChecklistStatus
-import com.framebynavin.app.data.CreatorContentWorkspace
+import com.framebynavin.app.data.CreatorPublicationEngine
 import com.framebynavin.app.data.CreatorDeliverableStatus
 import com.framebynavin.app.data.CreatorStageWorkPolicy
 import com.framebynavin.app.data.CreatorTask
@@ -86,8 +86,12 @@ internal object V405WorkspaceOverviewPolicy {
             hasOriginIdea = task.origin == CreatorTaskOrigin.IDEA_VAULT && task.sourceRefId.isNotBlank(),
             outputPlanned = task.workspace.deliverables.count { it.status == CreatorDeliverableStatus.PLANNED },
             outputReady = task.workspace.deliverables.count { it.status == CreatorDeliverableStatus.READY },
-            outputPublished = task.workspace.deliverables.count {
-                it.status == CreatorDeliverableStatus.PUBLISHED && it.publishedAtMillis > 0L
+            outputPublished = if (CreatorPublicationEngine.usesDeliverablePublication(task)) {
+                task.workspace.deliverables.count {
+                    it.status == CreatorDeliverableStatus.PUBLISHED && it.publishedAtMillis > 0L
+                }
+            } else {
+                if (task.publishedAtMillis > 0L && !task.publicationIsLegacy) 1 else 0
             },
             scriptBeats = task.workspace.scriptStudio?.beats?.size ?: 0,
             recordedCuts = task.workspace.editVersions.size,
