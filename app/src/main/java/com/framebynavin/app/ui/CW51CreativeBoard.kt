@@ -87,11 +87,16 @@ internal object CW51CreativeBoardPolicy {
             work?.evidence?.forEach { evidence ->
                 val source = sourceById[evidence.referenceId]
                 val asset = assetById[evidence.assetId]
+                val beat = ws.scriptStudio?.beats?.firstOrNull {
+                    it.id == evidence.scriptBeatId
+                }
                 val missing = (evidence.referenceId.isNotBlank() && source == null) ||
-                    (evidence.assetId.isNotBlank() && asset == null)
+                    (evidence.assetId.isNotBlank() && asset == null) ||
+                    (evidence.scriptBeatId.isNotBlank() && beat == null)
                 val connections = buildList {
                     if (source != null) add("Source: " + source.label.ifBlank { source.url })
                     if (asset != null) add("Asset: " + asset.label.ifBlank { "Unnamed asset" })
+                    if (beat != null) add("Narration: " + beat.label.ifBlank { beat.purpose.ifBlank { "Untitled beat" } })
                     if (missing) add("Earlier linked material unavailable")
                 }
                 entries += CW51BoardItem(
@@ -113,13 +118,19 @@ internal object CW51CreativeBoardPolicy {
         }
 
         ws.scriptStudio?.beats?.forEach { beat ->
+            val linkedEvidenceCount = ws.stageWork
+                .filter { it.workflowTemplateId == template.id }
+                .sumOf { work -> work.evidence.count { it.scriptBeatId == beat.id } }
             entries += CW51BoardItem(
                 key = "beat:${beat.id}",
                 filter = CW51BoardFilter.STORY,
                 heading = "SCRIPT BEAT",
                 title = beat.label.ifBlank { beat.purpose.ifBlank { "Untitled beat" } },
-                detail = listOf(beat.purpose, beat.narration, beat.visualNotes, beat.bRollNotes)
-                    .firstOrNull { it.isNotBlank() }.orEmpty().take(250),
+                detail = listOf(
+                    listOf(beat.purpose, beat.narration, beat.visualNotes, beat.bRollNotes)
+                        .firstOrNull { it.isNotBlank() }.orEmpty(),
+                    "$linkedEvidenceCount evidence link(s) saved in this project",
+                ).filter { it.isNotBlank() }.joinToString(" · ").take(250),
                 status = "Saved script status: ${beat.status.name.replace('_', ' ').lowercase()}",
                 route = CW51BoardRoute.SCRIPT,
             )
