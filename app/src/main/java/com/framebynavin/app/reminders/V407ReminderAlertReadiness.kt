@@ -92,16 +92,24 @@ internal object V407ReminderAccessInspector {
             }
         }.getOrDefault(V407Access.UNKNOWN)
         val precise = runCatching {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                app.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() == true
-            ) V407Access.ALLOWED else V407Access.DEGRADED
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) V407Access.ALLOWED
+            else {
+                val manager = app.getSystemService(AlarmManager::class.java)
+                    ?: return@runCatching V407Access.UNKNOWN
+                if (manager.canScheduleExactAlarms()) V407Access.ALLOWED
+                else V407Access.DEGRADED
+            }
         }.getOrDefault(V407Access.UNKNOWN)
         val full = if (!fullScreenRelevant(owner, kind)) V407Access.NOT_APPLICABLE
         else runCatching {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
-                app.getSystemService(NotificationManager::class.java)
-                    ?.canUseFullScreenIntent() == true
-            ) V407Access.ALLOWED else V407Access.DEGRADED
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                V407Access.ALLOWED
+            else {
+                val manager = app.getSystemService(NotificationManager::class.java)
+                    ?: return@runCatching V407Access.UNKNOWN
+                if (manager.canUseFullScreenIntent()) V407Access.ALLOWED
+                else V407Access.DEGRADED
+            }
         }.getOrDefault(V407Access.UNKNOWN)
         return V407ReminderAccessSnapshot(notif, channel, precise, full)
     }
@@ -199,7 +207,7 @@ internal fun V407ReminderAccessDisclosure(
                             Text("FULL-SCREEN ACCESS SETTINGS", fontSize = 11.sp)
                         }
                     }
-                    if (snapshot?.preciseTiming != V407Access.ALLOWED &&
+                    if (snapshot?.preciseTiming == V407Access.DEGRADED &&
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         OutlinedButton(
                             onClick = {
