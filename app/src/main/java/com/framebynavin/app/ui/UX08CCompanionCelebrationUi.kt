@@ -23,7 +23,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -80,9 +79,14 @@ internal fun UX08CCompanionCelebration(
 
         displayed = entry
         visible = true
-        delay(UX08CCelebrationPolicy.VISIBLE_HOLD_MS)
+        val animationsEnabled = ValueAnimator.areAnimatorsEnabled()
+        // Reduced-motion mode still holds the static celebration for ~3 sec.
+        delay(
+            UX08CCelebrationPolicy.VISIBLE_HOLD_MS +
+                if (animationsEnabled) 0L else UX08CCelebrationPolicy.EXIT_MS
+        )
         visible = false
-        delay(UX08CCelebrationPolicy.EXIT_MS)
+        if (animationsEnabled) delay(UX08CCelebrationPolicy.EXIT_MS)
         displayed = null
     }
 
