@@ -75,6 +75,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var selectedOutputCraftId by mutableStateOf("")
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
+    /** A stage-tool switch is only performed after the existing discard confirmation. */
+    private var pendingStageToolMode by mutableStateOf<Alpha6WorkspaceMode?>(null)
     private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
     private var pendingHeldField by mutableStateOf<V211HistoricalPlanFieldRequest?>(null)
     private var planRecoveredField by mutableStateOf<V211PlanFieldRecovery?>(null)
@@ -106,7 +108,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 // confirmation on system Back that the previous Dialog window provided.
                 BackHandler(enabled = !confirmEditorClose && error == null && mode != Alpha6WorkspaceMode.HUB) {
                     if (mode == Alpha6WorkspaceMode.BLUEPRINT) mode = Alpha6WorkspaceMode.HUB
-                    else confirmEditorClose = true
+                    else {
+                        pendingStageToolMode = null
+                        confirmEditorClose = true
+                    }
                 }
                 Box(Modifier.fillMaxSize().background(BacklotBackground)) {
                     when {
@@ -160,9 +165,25 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             stage = CreatorWorkflowEngine.templateFor(task!!).stages.firstOrNull {
                                 it.id == selectedStageId
                             } ?: CreatorWorkflowEngine.currentStage(task!!),
-                            onBack = { confirmEditorClose = true },
+                            onBack = {
+                                pendingStageToolMode = null
+                                confirmEditorClose = true
+                            },
                             onSave = { revision, edited ->
                                 saveStageWork(task!!.id, revision, edited)
+                            },
+                            onOpenMainTool = { destination ->
+                                pendingStageToolMode = when (destination) {
+                                    StageWorkspaceDestination.SCRIPT -> Alpha6WorkspaceMode.SCRIPT
+                                    StageWorkspaceDestination.PUBLISH -> Alpha6WorkspaceMode.PUBLISH
+                                    StageWorkspaceDestination.PLAN,
+                                    StageWorkspaceDestination.HUB -> Alpha6WorkspaceMode.PROJECT
+                                }
+                                confirmEditorClose = true
+                            },
+                            onOpenOutputCraft = {
+                                pendingStageToolMode = Alpha6WorkspaceMode.OUTPUT
+                                confirmEditorClose = true
                             },
                         )
                         mode == Alpha6WorkspaceMode.BLUEPRINT -> V20ContentBlueprintDialog(
@@ -357,9 +378,23 @@ class ContentWorkspaceActivity : ComponentActivity() {
 
                     if (confirmEditorClose && mode != Alpha6WorkspaceMode.HUB) {
                         AlertDialog(
-                            onDismissRequest = { confirmEditorClose = false },
-                            title = { Text("Close this editor?") },
-                            text = { Text("Changes since your last save will be discarded. Your previously saved project data stays safe.") },
+                            onDismissRequest = {
+                                confirmEditorClose = false
+                                pendingStageToolMode = null
+                            },
+                            title = {
+                                Text(if (pendingStageToolMode != null)
+                                    "Switch workspace tools?" else "Close this editor?")
+                            },
+                            text = {
+                                Text(
+                                    "Changes since your last save will be discarded. " +
+                                    "Your existing saved project and other stage records stay safe. " +
+                                    if (pendingStageToolMode != null)
+                                        "Select Keep Editing to save this stage before switching tools."
+                                    else ""
+                                )
+                            },
                             confirmButton = {
                                 TextButton(onClick = {
                                     task?.id?.let { projectId ->
@@ -386,13 +421,26 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                             Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB -> Unit
                                         }
                                     }
+                                    val nextMode = pendingStageToolMode
+                                    pendingStageToolMode = null
                                     confirmEditorClose = false
                                     scriptStudio = null
-                                    mode = Alpha6WorkspaceMode.HUB
-                                }) { Text("DISCARD & CLOSE") }
+                                    if (nextMode == Alpha6WorkspaceMode.SCRIPT) {
+                                        task?.let { openScriptStudio(it) }
+                                            ?: run { mode = Alpha6WorkspaceMode.HUB }
+                                    } else {
+                                        mode = nextMode ?: Alpha6WorkspaceMode.HUB
+                                    }
+                                }) {
+                                    Text(if (pendingStageToolMode != null)
+                                        "DISCARD & OPEN" else "DISCARD & CLOSE")
+                                }
                             },
                             dismissButton = {
-                                TextButton(onClick = { confirmEditorClose = false }) { Text("KEEP EDITING") }
+                                TextButton(onClick = {
+                                    pendingStageToolMode = null
+                                    confirmEditorClose = false
+                                }) { Text("KEEP EDITING") }
                             },
                         )
                     }
@@ -414,6 +462,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         scriptStudio = null
         mode = Alpha6WorkspaceMode.HUB
         confirmEditorClose = false
+        pendingStageToolMode = null
         heldDraftReviews = null
         pendingHeldField = null
         planRecoveredField = null
