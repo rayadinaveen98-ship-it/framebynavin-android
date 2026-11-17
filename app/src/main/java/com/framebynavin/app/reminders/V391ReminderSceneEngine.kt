@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -338,6 +340,33 @@ internal fun V391ReminderSceneSettings() {
             lineHeight = 16.sp,
             modifier = Modifier.testTag("ux06c-premiere-precedence"),
         )
+        V407ReminderCompanionPrefs.initialize(context)
+        Row(
+            Modifier.fillMaxWidth().testTag("ux06e-companion-setting"),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(
+                    "SHOW MY COMPANION ON LIVE ALERTS",
+                    color = V336DirectorPalette.ivory,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Optional 3-second Spark or Mira greeting inside the artwork. " +
+                        "Off by default; never hides or delays actions.",
+                    color = V336DirectorPalette.muted,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+            }
+            Switch(
+                checked = V407ReminderCompanionPrefs.showOnLiveAlerts,
+                onCheckedChange = { V407ReminderCompanionPrefs.set(it) },
+                modifier = Modifier.testTag("ux06e-companion-toggle"),
+            )
+        }
         Spacer(Modifier.height(12.dp))
         V394PremiereSettingsSection()
     }

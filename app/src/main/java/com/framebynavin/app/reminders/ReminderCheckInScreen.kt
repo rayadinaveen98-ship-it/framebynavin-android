@@ -238,16 +238,27 @@ internal fun ReminderCheckInScreen(
                 color = V336DirectorPalette.gold, fontWeight = FontWeight.Bold,
                 fontSize = 10.sp, letterSpacing = 3.sp,
             )
-            // This is a Native Compose Canvas, not an HTML image or fake UI.
-            V336DirectorSignalArt(
-                kind = kind,
-                motionEnabled = motionEnabled,
-                lowPower = lowPower,
-                modifier = Modifier.fillMaxWidth()
+            // UX06E: selected companion appears inside only the decorative
+            // hero, for at most three seconds when explicitly enabled.
+            // The full alert action column is never covered or delayed.
+            Box(
+                Modifier.fillMaxWidth()
                     .height(if (compact) 170.dp else 220.dp)
                     .testTag(if (kind == ReminderCheckInKind.VOICE)
                         "v195-voice-guide" else "v195-alarm-guide"),
-            )
+            ) {
+                V336DirectorSignalArt(
+                    kind = kind,
+                    motionEnabled = motionEnabled,
+                    lowPower = lowPower,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                V407ReminderCompanionMoment(
+                    occurrenceKey = "creator-${kind.name}-$title-$dueLabel-$stageLabel",
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                        .padding(end = 7.dp, bottom = 7.dp),
+                )
+            }
             Spacer(Modifier.height(if (compact) 3.dp else 7.dp))
             Text(
                 if (stageCheckIn) "CREATOR STAGE CHECK-IN" else "CREATOR REMINDER",
@@ -507,6 +518,12 @@ internal fun ReminderCheckInScreen(
                 }
             }
             }
+            Spacer(Modifier.height(8.dp))
+            V407ReminderAccessDisclosure(
+                owner = V407ReminderOwner.CREATOR,
+                kind = kind,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

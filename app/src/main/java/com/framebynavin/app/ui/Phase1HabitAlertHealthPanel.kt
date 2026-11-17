@@ -27,6 +27,8 @@ import com.framebynavin.app.personal.Phase1HabitDeliveryEvidencePolicy
 import com.framebynavin.app.personal.Phase1HabitDeliveryHealth
 import com.framebynavin.app.personal.Phase1HabitDeliveryLedger
 import com.framebynavin.app.personal.Phase1HabitDeliveryStage
+import com.framebynavin.app.personal.Phase1HabitAlertKind
+import com.framebynavin.app.reminders.ReminderMusicMode
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.BacklotBorder
 import com.framebynavin.app.ui.theme.BacklotPrimaryText
@@ -114,6 +116,25 @@ internal fun Phase1HabitAlertHealthPanel(
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
+                if (kind == Phase1HabitAlertKind.VOICE) {
+                    Text(
+                        "Saved Voice plan: ${challenge.voiceRepeatCount} announcement(s), " +
+                            "${challenge.voiceRepeatGapMillis / 1_000L}s between lines · " +
+                            when (challenge.voiceMusicMode) {
+                                ReminderMusicMode.PIANO -> "soft piano"
+                                ReminderMusicMode.CUSTOM -> "picked local audio"
+                                ReminderMusicMode.OFF -> "no backing music"
+                            },
+                        color = BacklotSecondaryText,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Text(
+                    "A notification or spoken line never marks a challenge day Done. " +
+                        "Only your explicit confirmation counts.",
+                    color = BacklotSecondaryText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 val description = when (health) {
                     null, Phase1HabitDeliveryHealth.NOT_RECORDED ->
                         "No delivery evidence recorded yet."
