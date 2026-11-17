@@ -64,7 +64,7 @@ internal fun V282ProgressHomeStrip(
     }
     val zone = remember { ZoneId.systemDefault() }
     val events = remember(tasks, ideas, timeline) { ProgressJourneyEngine.build(tasks, ideas, timeline) }
-    if (events.isEmpty() && !timelineUnavailable) return
+    if (events.isEmpty() && !timelineUnavailable && !reading) return
     val activeDays = remember(events, zone) { ProgressJourneyEngine.activeDays(events, zone) }
     val today = LocalDate.now(zone)
     val start = today.minusDays(6)
@@ -97,8 +97,8 @@ internal fun V282ProgressHomeStrip(
                 Text("Loading recorded journey…", color = MutedText, fontSize = 11.sp)
             }
             if (events.isNotEmpty()) {
-            Spacer(Modifier.height(9.dp))
-            Row(Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(9.dp))
+                Row(Modifier.fillMaxWidth()) {
                 repeat(7) { index ->
                     val day = start.plusDays(index.toLong())
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -111,7 +111,7 @@ internal fun V282ProgressHomeStrip(
                             if (day in activeDays) SuccessGreen else Color.Transparent, CircleShape))
                     }
                 }
-            }
+                }
             }
         }
     }
