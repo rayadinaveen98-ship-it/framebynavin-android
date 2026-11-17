@@ -14,9 +14,9 @@
 | M08 | Disposal PG16 SQL contract | RLS/CAS/serial source and same/different entity races | Passed previous CI |
 | M09 | GoTrue local signed JWT | Two accounts separate in local PostgREST | Passed previous CI |
 | M10 | Private schema local REST exclusion | Accept-Profile private schema denied | Passed previous CI |
-| M11 | PG17 SQL and mock RLS | Run unchanged contract in disposable Postgres17 | Pending new CI |
-| M12 | PG17 concurrent CAS | Same entity only 1 APPLIED, distinct entities 2 APPLIED | Pending new CI |
-| M13 | PG17 internal schema public RPC count | Four internal tables, two expected public RPCs | Pending new CI |
+| M11 | PG17 SQL and mock RLS | Run unchanged contract in disposable Postgres17 | Verified PG17.12 PASS |
+| M12 | PG17 concurrent CAS | Same entity only 1 APPLIED, distinct entities 2 APPLIED | Verified PG17.12 PASS |
+| M13 | PG17 internal schema public RPC count | Four internal tables, two expected public RPCs | Verified PG17.12 PASS |
 | M14 | Hosted Data API control-plane config | Internal schema not in Exposed Schemas list | Pending manual verification |
 | M15 | Exact versioned migration | Use actual CLI migration new + checksum/diff | Pending approval |
 | M16 | Hosted migration no data import | All current app objects, private voice and Auth untouched | Pending approval |
@@ -25,7 +25,7 @@
 | M19 | Emergency safe-disable | Revoke new sync RPC EXECUTE only, retain data | Source staged, unexecuted |
 | M20 | Android/backup/recovery/deletion scope | No green badges, no account deletion, no app cutover | Protected, future UX09 work |
 
-**Execution evidence boundary:** Previous PG16/signed-local-GoTrue jobs passed against UX09-01 code PR #430. The new PG17 job must be read AFTER it completes and tied to the exact tested SHA; no earlier job proves PG17. The Data API Exposed Schemas configuration is NOT verifiable from `current_setting('pgrst.db_schemas')` in the SQL connection. Confirm it in the Backlot Lab dashboard before and after any authorized migration.
+**Executed evidence:** Previous PG16/signed-local-GoTrue jobs passed against UX09-01 code PR #430. The new disposable [PG17.12 GitHub run #44096576969](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44096576969) completed SUCCESS on tested SHA `ce064327ee2fd23e07ef5521fed44ba00422f9a1`. Schema compilation, synthetic RLS, same-entity CAS race, independent-write sequence ordering and public RPC surface passed. The exact logs are recorded in `UX09_01_PG17_COMPATIBILITY_EXECUTED_EVIDENCE_20261117.md`. The Data API Exposed Schemas configuration is NOT verifiable from `current_setting('pgrst.db_schemas')` in the SQL connection. Confirm it in the Backlot Lab dashboard before and after any authorized migration.
 
 **No migration applied:** The proposal is in `supabase/prototypes`, NOT `supabase/migrations`. An actual migration must be generated with the verified Supabase CLI on a disposable environment, reviewed, and separately approved before hosted SQL. The emergency RPC disable file is unexecuted and preserves data.
 
