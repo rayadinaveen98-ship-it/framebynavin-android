@@ -1,0 +1,88 @@
+name: Backlot UX09-01 signed local Supabase Auth contract
+
+on:
+  pull_request:
+    branches:
+      - docs/backlot-lab-ux09-architecture-acceptance-20261117
+    paths:
+      - 'supabase/prototypes/ux09_01_project_idea_sync_contract_v1.sql'
+      - 'supabase/prototypes/ux09_01_security_assertions_v1.sql'
+      - 'tools/qa/backlot_ux09_01_disposable_auth_matrix.sh'
+      - 'tools/qa/backlot_ux09_01_local_supabase_gotrue.sh'
+      - '.github/workflows/backlot-ux09-01-local-supabase-gotrue-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-01-gotrue-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signed-local-supabase-contract:
+    name: Real LOCAL GoTrue JWT and PostgREST RLS, no hosted connections
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact proposed source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pinned stable Supabase CLI v2-compatible channel
+        uses: supabase/setup-cli@v3
+        with:
+          version: v2.stable
+      - name: Discover supported Supabase CLI flags and utilities
+        shell: bash
+        run: |
+          supabase --version
+          supabase start --help
+          supabase status --help
+          command -v jq
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client-16
+          fi
+      - name: Start isolated localhost GoTrue and PostgREST stack
+        shell: bash
+        timeout-minutes: 13
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/backlot-ux09-01-auth"
+          cd "$RUNNER_TEMP/backlot-ux09-01-auth"
+          supabase init
+          # Dev-only local stack: no link/login, no hosted access token, no user secrets.
+          # Only DB/Auth/Kong/PostgREST are needed for signed-JWT tests.
+          supabase start -x studio,realtime,storage-api,imgproxy,analytics,vector
+          supabase status -o json > "$RUNNER_TEMP/backlot-ux09-01-status.json"
+          echo "PASS: disposable local Supabase services started; keys not logged"
+      - name: Real GoTrue two-account signed JWT and owner isolation
+        shell: bash
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          set +x
+          status="$RUNNER_TEMP/backlot-ux09-01-status.json"
+          api="$(jq -er '.API_URL // .api_url // empty' "$status")"
+          db="$(jq -er '.DB_URL // .db_url // empty' "$status")"
+          key="$(jq -er '.PUBLISHABLE_KEY // .ANON_KEY // .anon_key // empty' "$status")"
+          case "$api" in
+            http://127.0.0.1:54321|http://localhost:54321) ;;
+            *) echo "REFUSED: expected local Supabase API" >&2; exit 2 ;;
+          esac
+          case "$db" in
+            *127.0.0.1:54322/*|*localhost:54322/*) ;;
+            *) echo "REFUSED: expected local Supabase DB" >&2; exit 2 ;;
+          esac
+          export UX09_LOCAL_SUPABASE_URL="$api"
+          export UX09_LOCAL_DB_URL="$db"
+          export UX09_LOCAL_PUBLISHABLE_KEY="$key"
+          bash tools/qa/backlot_ux09_01_local_supabase_gotrue.sh
+      - name: Evidence boundary
+        if: always()
+        shell: bash
+        run: |
+          echo "Signed JWT/API tests use only local ephemeral GoTrue identities."
+          echo "No Backlot Lab environment or Supabase service-role token used."
+          echo "No Android APK, real device, complete Backup/Restore or Account Delete tested."
