@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.framebynavin.app.personal.PersonalAgendaPolicy
 import com.framebynavin.app.personal.PersonalReminder
 import com.framebynavin.app.personal.PersonalRepeat
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.CinemaLine
 import com.framebynavin.app.ui.theme.CinemaSurface
 import com.framebynavin.app.ui.theme.MutedGold
@@ -108,7 +109,7 @@ internal fun UX07BPersonalRhythm(
             TextButton(
                 onClick = onNewRoutine,
                 enabled = enabled,
-                modifier = Modifier.heightIn(min = 48.dp).testTag("ux07b-new-routine"),
+                modifier = Modifier.heightIn(min = BacklotUX10Tokens.minimumTouchTarget).testTag("ux07b-new-routine"),
             ) {
                 Icon(Icons.Outlined.Add, null, Modifier.size(16.dp))
                 Spacer(Modifier.size(3.dp))
@@ -127,7 +128,7 @@ internal fun UX07BPersonalRhythm(
                 Surface(
                     onClick = { onEditReminder(reminder) },
                     enabled = enabled,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
                         .testTag("ux07b-rhythm-reminder-$index"),
                     shape = RoundedCornerShape(12.dp),
                     color = CinemaSurface,
@@ -173,7 +174,7 @@ internal fun UX07BPersonalRhythm(
             TextButton(
                 onClick = onOpenChallenges,
                 enabled = enabled,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
                     .testTag("ux07b-open-challenges"),
             ) {
                 Text(
@@ -186,7 +187,7 @@ internal fun UX07BPersonalRhythm(
             TextButton(
                 onClick = onOpenGroups,
                 enabled = enabled,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
                     .testTag("ux07b-open-groups"),
             ) {
                 Text("REMINDER GROUPS", color = ProjectorIvory, fontSize = 10.sp, maxLines = 2)

@@ -406,7 +406,7 @@ internal fun V2232PersonalReminderHub(
 
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(personalPageScroll)
-                .padding(horizontal = 18.dp, vertical = 10.dp)
+                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 10.dp)
                 .padding(bottom = 56.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -437,7 +437,7 @@ internal fun V2232PersonalReminderHub(
             Surface(
                 color = CinemaSurface,
                 shape = RoundedCornerShape(15.dp),
-                border = BorderStroke(1.dp, CinemaLine),
+                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 modifier = Modifier.fillMaxWidth().testTag("v2283-follow-up-settings"),
             ) {
                 Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -634,7 +634,7 @@ internal fun V2232PersonalReminderHub(
                 challenges.none { it.alertKind != null }) {
                 Surface(
                     color = CinemaSurface, shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     modifier = Modifier.fillMaxWidth().testTag("v2232-personal-empty"),
                 ) {
                     Column(Modifier.padding(23.dp), horizontalAlignment = Alignment.CenterHorizontally,
@@ -1175,8 +1175,9 @@ private fun V2232PersonalItem(
     Surface(
         color = CinemaSurface,
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (needsAttention) RecRed.copy(alpha = .55f)
-            else CinemaLine),
+        border = if (needsAttention)
+            BacklotUX10Tokens.activeBorder(RecRed)
+        else BacklotUX10Tokens.quietBorder(CinemaLine),
         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-item"),
     ) {
         Column(
@@ -1232,18 +1233,12 @@ private fun V2232PersonalItem(
                 }
             }
             if (actionReady && !selectionMode) {
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    OutlinedButton(
-                        enabled = !busy,
-                        onClick = { onRespond(PersonalDeliveryContract.ACTION_DONE) },
-                        modifier = Modifier.testTag("v288-row-done"),
-                    ) { Text("DONE", fontSize = 11.sp) }
-                    OutlinedButton(
-                        enabled = !busy,
-                        onClick = { onRespond(PersonalDeliveryContract.ACTION_SNOOZE) },
-                        modifier = Modifier.testTag("v288-row-snooze"),
-                    ) { Text("SNOOZE ${reminder.snoozeMinutes}m", fontSize = 11.sp) }
-                }
+                UX10DReminderQuickResponseActions(
+                    busy = busy,
+                    snoozeMinutes = reminder.snoozeMinutes,
+                    onDone = { onRespond(PersonalDeliveryContract.ACTION_DONE) },
+                    onSnooze = { onRespond(PersonalDeliveryContract.ACTION_SNOOZE) },
+                )
             }
             if (expanded && !selectionMode) {
                 if (reminder.notes.isNotBlank()) {
@@ -1837,7 +1832,7 @@ internal fun V2232PersonalEditor(
                         modifier = Modifier.fillMaxWidth().testTag("v274-personal-review"),
                         color = CinemaSurface,
                         shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, CinemaLine),
+                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
                     ) {
                         Column(Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(5.dp)) {

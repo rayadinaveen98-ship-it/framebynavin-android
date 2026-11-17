@@ -15,8 +15,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,7 +53,8 @@ private fun ReviewPanel(featured: Boolean = false,
         modifier = Modifier.fillMaxWidth(),
         color = if (featured) BacklotSurfaceSelected else BacklotSurface,
         shape = RoundedCornerShape(15.dp),
-        border = BorderStroke(1.dp, if (featured) BacklotAccent else BacklotBorder),
+        border = if (featured) BacklotUX10Tokens.activeBorder(BacklotAccent)
+            else BacklotUX10Tokens.quietBorder(BacklotBorder),
     ) {
         Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
@@ -70,9 +75,12 @@ private fun Hint(label: String) {
 @Composable
 private fun Choice(label: String, active: Boolean, onClick: () -> Unit) {
     Surface(
-        onClick = onClick, shape = RoundedCornerShape(20.dp),
+        onClick = onClick,
+        modifier = Modifier.heightIn(min = BacklotUX10Tokens.minimumTouchTarget),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
         color = if (active) BacklotSurfaceSelected else BacklotSurfaceRaised,
-        border = BorderStroke(1.dp, if (active) BacklotAccent else BacklotBorder),
+        border = if (active) BacklotUX10Tokens.activeBorder(BacklotAccent)
+            else BacklotUX10Tokens.quietBorder(BacklotBorder),
     ) {
         Text(label, color = if (active) BacklotPrimaryText else BacklotSecondaryText,
             fontSize = 11.sp, modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp))
@@ -87,7 +95,7 @@ private fun Choice(label: String, active: Boolean, onClick: () -> Unit) {
 internal fun EmptyHabitReview(onCreate: () -> Unit) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 18.dp),
+            .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AccentLabel("PERSONAL / CHALLENGES")
@@ -107,7 +115,7 @@ internal fun EmptyHabitReview(onCreate: () -> Unit) {
                 "or sample completion has been added.")
             Button(
                 onClick = onCreate,
-                modifier = Modifier.fillMaxWidth().height(50.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
                     .testTag("habit-empty-create"),
                 shape = RoundedCornerShape(13.dp),
             ) { Text("Create my first challenge", fontWeight = FontWeight.Bold) }
@@ -145,7 +153,7 @@ internal fun CreateHabitReview(
     val context = LocalContext.current
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             AccentLabel("ONE ACTION · 21 DAYS")
             Text("Make it achievable.", color = BacklotPrimaryText,
@@ -237,7 +245,7 @@ internal fun CreateHabitReview(
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Button(onClick = onStart,
-                modifier = Modifier.fillMaxWidth().height(50.dp).testTag("habit-start"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).testTag("habit-start"),
                 shape = RoundedCornerShape(13.dp)) {
                 Text("Create challenge", fontWeight = FontWeight.Bold)
             }
@@ -270,8 +278,12 @@ internal fun DashboardHabitReview(
             habit.startDate, today) + 1L).toInt()
     }
     val consistency = if (elapsedDays > 0) count * 100 / elapsedDays else 0
+    val dayGridColumns = UX10DPersonalPresentationPolicy.challengeDayGridColumns(
+        LocalConfiguration.current.screenWidthDp,
+        LocalDensity.current.fontScale,
+    )
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-        .padding(horizontal = 18.dp, vertical = 12.dp),
+        .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         AccentLabel("PERSONAL / YOUR CHALLENGE")
         Text(habit.activity, color = BacklotPrimaryText,
@@ -307,7 +319,7 @@ internal fun DashboardHabitReview(
                     modifier = Modifier.testTag("habit-done-count"))
             }
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                (1..21).chunked(7).forEach { week ->
+                (1..21).chunked(dayGridColumns).forEach { week ->
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         week.forEach { index ->
@@ -328,7 +340,14 @@ internal fun DashboardHabitReview(
                                         RoundedCornerShape(11.dp),
                                     )
                                     .clickable { onDaySelected(day) }
-                                    .testTag("habit-day-$index"),
+                                    .testTag("habit-day-$index")
+                                    .semantics {
+                                        contentDescription = "Challenge day $index, " + (
+                                            if (isDone) "confirmed"
+                                            else if (current) "today, not confirmed"
+                                            else "not confirmed"
+                                        )
+                                    },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(if (isDone) "✓" else "$index",
@@ -336,6 +355,10 @@ internal fun DashboardHabitReview(
                                         BacklotAccent else BacklotSecondaryText,
                                     fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
+                        }
+                        // Keep final incomplete row the same cell width.
+                        repeat(dayGridColumns - week.size) {
+                            Spacer(Modifier.weight(1f))
                         }
                     }
                 }
@@ -367,13 +390,13 @@ internal fun DashboardHabitReview(
         if (dayNumber != null && !habit.archived) {
             if (doneToday) {
                 Button(onClick = onUndo,
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
                         .testTag("habit-undo")) {
                     Text("Undo today's completion")
                 }
             } else {
                 Button(onClick = onDone, enabled = !habit.paused,
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
                         .testTag("habit-done")) {
                     Text(if (habit.paused) "Resume to mark today" else "Mark today done")
                 }
@@ -383,6 +406,7 @@ internal fun DashboardHabitReview(
             OutlinedButton(
                 onClick = onSnooze,
                 modifier = Modifier.fillMaxWidth()
+                    .heightIn(min = BacklotUX10Tokens.rowTarget)
                     .testTag("fc13-challenge-snooze"),
             ) { Text("SNOOZE TODAY'S ALERT 10 MIN") }
         }
@@ -394,6 +418,7 @@ internal fun DashboardHabitReview(
         }
         if (!habit.archived) {
             OutlinedButton(onClick = onPause, modifier = Modifier.fillMaxWidth()
+                .heightIn(min = BacklotUX10Tokens.rowTarget)
                 .testTag("habit-pause")) {
                 Text(if (habit.paused) "Resume challenge" else "Pause challenge")
             }

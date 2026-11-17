@@ -292,7 +292,7 @@ internal fun V289PersonalSpacesScreen(
     CreatorAdaptiveFullScreen(onDismissRequest = onClose) {
         Column(
             Modifier.fillMaxSize()
-                .padding(horizontal = 18.dp, vertical = 12.dp)
+                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 12.dp)
                 .testTag("v289-spaces-root"),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
@@ -314,8 +314,8 @@ internal fun V289PersonalSpacesScreen(
                 Column(Modifier.weight(1f)) {
                     Text("BACKLOT / PERSONAL", color = BacklotSecondaryAccent, fontSize = 10.sp)
                     Text(selected?.title ?: "My Spaces", color = BacklotPrimaryText,
-                        fontSize = 21.sp, fontWeight = FontWeight.Bold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Bold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton(
                     onClick = { backupVisible = true },
@@ -360,8 +360,8 @@ internal fun V289PersonalSpacesScreen(
                     } else if (spaces.isEmpty()) {
                         Surface(
                             color = BacklotSurface,
-                            border = BorderStroke(1.dp, BacklotBorder),
-                            shape = RoundedCornerShape(18.dp),
+                            border = BacklotUX10Tokens.quietBorder(BacklotBorder),
+                            shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
                             modifier = Modifier.fillMaxWidth().testTag("v289-spaces-empty"),
                         ) {
                             Column(Modifier.padding(18.dp),
@@ -524,7 +524,7 @@ internal fun V289PersonalSpacesScreen(
                     val linkedIds = linkedReminders.mapTo(HashSet()) { it.reminderId }
                     val confirmedDone = doneReceipts.count { it.reminderId in linkedIds }
                     Surface(color = BacklotSurface, shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
+                        border = BacklotUX10Tokens.quietBorder(BacklotBorder),
                         modifier = Modifier.fillMaxWidth().testTag("v295-linked-reminders")) {
                         Column(Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -620,7 +620,7 @@ internal fun V289PersonalSpacesScreen(
                         }
                     }
                     Surface(color = BacklotSurface, shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
+                        border = BacklotUX10Tokens.quietBorder(BacklotBorder),
                         modifier = Modifier.fillMaxWidth().testTag("v295-space-notes")) {
                         Column(Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -720,7 +720,7 @@ internal fun V289PersonalSpacesScreen(
                     } else {
                         progressEntries.forEach { item ->
                             Surface(color = BacklotSurface,
-                                border = BorderStroke(1.dp, BacklotBorder.copy(alpha = 0.42f)),
+                                border = BacklotUX10Tokens.quietBorder(BacklotBorder),
                                 shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth().testTag("v289-entry")) {
                                 Column(Modifier.padding(12.dp),

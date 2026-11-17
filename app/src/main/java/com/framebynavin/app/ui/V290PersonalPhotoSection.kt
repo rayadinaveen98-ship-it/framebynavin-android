@@ -25,6 +25,7 @@ import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290PrivatePhotoFiles
 import com.framebynavin.app.personal.spaces.V290PhotoJournal
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.BacklotBorder
 import com.framebynavin.app.ui.theme.BacklotPrimaryText
@@ -60,8 +61,8 @@ internal fun V290PersonalPhotoSection(
     }
     Surface(
         color = BacklotSurface,
-        border = BorderStroke(1.dp, BacklotBorder.copy(alpha = 0.4f)),
-        shape = RoundedCornerShape(18.dp),
+        border = BacklotUX10Tokens.quietBorder(BacklotBorder, alpha = 0.55f),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         modifier = Modifier.fillMaxWidth().testTag("v290-photo-journal"),
     ) {
         Column(
@@ -84,7 +85,7 @@ internal fun V290PersonalPhotoSection(
                     onClick = onAddPhoto,
                     enabled = enabled && allowNewPhotos,
                     contentPadding = PaddingValues(horizontal = 10.dp),
-                    modifier = Modifier.heightIn(min = 48.dp)
+                    modifier = Modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
                         .testTag("v290-pick-photo"),
                 ) {
                     Icon(Icons.Outlined.AddPhotoAlternate, null, modifier = Modifier.size(18.dp))

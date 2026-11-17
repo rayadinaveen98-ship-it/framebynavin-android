@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.BacklotBorder
 import com.framebynavin.app.ui.theme.BacklotPrimaryText
@@ -65,7 +66,7 @@ internal fun V406ReminderScopeNavigator(
                 val tile: @Composable () -> Unit = {
                     Column(
                         Modifier.padding(horizontal = 13.dp, vertical = 10.dp)
-                            .widthIn(min = 82.dp),
+                            .widthIn(min = 100.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         Text(
@@ -78,8 +79,8 @@ internal fun V406ReminderScopeNavigator(
                             action.label,
                             color = if (action.selected) BacklotPrimaryText else BacklotSecondaryText,
                             fontWeight = if (action.selected) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 11.sp,
-                            maxLines = 1,
+                            fontSize = BacklotUX10Tokens.supporting,
+                            maxLines = 2,
                         )
                     }
                 }
@@ -88,7 +89,7 @@ internal fun V406ReminderScopeNavigator(
                         color = BacklotSurfaceSelected,
                         shape = RoundedCornerShape(15.dp),
                         border = BorderStroke(1.dp, BacklotAccent),
-                        modifier = Modifier.heightIn(min = 64.dp)
+                        modifier = Modifier.heightIn(min = 72.dp)
                             .testTag("ux06b-scope-${action.id}")
                             .semantics { stateDescription = "Selected" },
                         content = tile,
@@ -98,8 +99,8 @@ internal fun V406ReminderScopeNavigator(
                         onClick = action.onSelect,
                         color = BacklotSurface,
                         shape = RoundedCornerShape(15.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        modifier = Modifier.heightIn(min = 64.dp)
+                        border = BacklotUX10Tokens.quietBorder(BacklotBorder),
+                        modifier = Modifier.heightIn(min = 72.dp)
                             .testTag("ux06b-scope-${action.id}")
                             .semantics { stateDescription = "Not selected" },
                         content = tile,
@@ -152,8 +153,8 @@ internal fun V406PersonalComposerProgress(
                         onClick = { onReturnTo(index) },
                         color = BacklotSurface,
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        modifier = Modifier.heightIn(min = 48.dp)
+                        border = BacklotUX10Tokens.quietBorder(BacklotBorder),
+                        modifier = Modifier.heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
                             .testTag("ux06b-composer-step-$index"),
                         content = content,
                     )
@@ -161,10 +162,10 @@ internal fun V406PersonalComposerProgress(
                     Surface(
                         color = if (isCurrent) BacklotSurfaceSelected else BacklotSurface,
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(
-                            1.dp, if (isCurrent) BacklotAccent else BacklotBorder,
-                        ),
-                        modifier = Modifier.heightIn(min = 48.dp)
+                        border = if (isCurrent)
+                            BacklotUX10Tokens.activeBorder(BacklotAccent)
+                        else BacklotUX10Tokens.quietBorder(BacklotBorder),
+                        modifier = Modifier.heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
                             .testTag("ux06b-composer-step-$index"),
                         content = content,
                     )
