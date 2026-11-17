@@ -156,7 +156,7 @@ internal fun V23ProfileAccountScreen(
             Spacer(Modifier.height(9.dp))
             V23ActionRow(
                 title = if (session == null) "Google account" else "Google account connected",
-                subtitle = if (session == null) "Sign in and back up your work" else session?.email.orEmpty(),
+                subtitle = if (session == null) "Manage Google sign-in and connected features" else session?.email.orEmpty(),
                 icon = Icons.Outlined.AccountCircle,
                 onClick = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
             )
@@ -169,14 +169,15 @@ internal fun V23ProfileAccountScreen(
 
             V23ActionRow(
                 title = "Data & Privacy",
-                subtitle = "Separate backups, cloud account and account deletion status",
+                subtitle = "Review saved information, privacy and account-data controls",
                 icon = Icons.Outlined.Shield,
                 onClick = { context.startActivity(Intent(context, V269DataPrivacyActivity::class.java)) },
             )
 
             Spacer(Modifier.height(15.dp))
             Text(
-                "For backup, recovery and saved Google Drive copies, open Settings → Backup & Data.",
+                "Backlot account data and local device data are different. " +
+                    "Review Data & Privacy for current controls.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
             )
 
