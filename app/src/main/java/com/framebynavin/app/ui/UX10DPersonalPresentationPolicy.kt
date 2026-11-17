@@ -24,6 +24,16 @@ internal object UX10DPersonalPresentationPolicy {
     fun stackChallengeDayNavigation(screenWidthDp: Int, fontScale: Float): Boolean =
         stackReminderResponses(screenWidthDp, fontScale)
 
+    /**
+     * A seven-column grid needs roughly 48dp per date and can exceed the
+     * available space once the Personal screen/panel gutters are considered.
+     * Reflow to four columns; the canonical 21 dates and callbacks are unchanged.
+     */
+    fun challengeDayGridColumns(screenWidthDp: Int, fontScale: Float): Int =
+        if (screenWidthDp < 480 || !fontScale.isFinite() ||
+            fontScale <= 0f || fontScale >= ACCESSIBLE_TEXT_SCALE
+        ) 4 else 7
+
     /** A purpose choice may expand but is never silently truncated or saved. */
     fun purposeCardWidthDp(fontScale: Float): Int =
         if (!fontScale.isFinite() || fontScale <= 0f || fontScale >= ACCESSIBLE_TEXT_SCALE)
