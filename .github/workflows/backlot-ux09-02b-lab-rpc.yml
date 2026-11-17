@@ -1,0 +1,68 @@
+name: Backlot UX09-02B Strict Lab RPC Contract JVM Gate
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-02a-sealed-multiprocess-lock-20261117
+    paths:
+      - 'app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt'
+      - 'app/src/main/java/com/framebynavin/app/cloud/ux09rpc/**'
+      - 'app/src/test/java/com/framebynavin/app/cloud/ux09rpc/**'
+      - '.github/workflows/backlot-ux09-02b-lab-rpc.yml'
+      - 'docs/engineering/UX09_02B_LAB_RPC_GATE_20261117.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-02b-rpc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lab-contract-only:
+    name: Compile Android and verify strict Lab RPC protocol (NOT an APK)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Prove Lab-only endpoint and inactive sync engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const val ENABLED = false' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09SyncContract.kt
+          grep -Fq 'https://vasleafrmsovdbdlrcsw.supabase.co' app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabRpcContract.kt
+          grep -Fq 'requireLabEndpoint(CloudConfig.SUPABASE_URL)' app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          grep -Fq 'account.withFreshSession' app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabSignedRpcClient.kt
+          ! grep -ER 'WorkManager|CreatorCloudSyncWorker|TaskStore|IdeaVaultStore' app/src/main/java/com/framebynavin/app/cloud/ux09rpc
+          echo 'No app editor, worker, production endpoint, or automatic sync activation.'
+      - name: Compile and test 16 strict Lab RPC scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 3900s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.cloud.ux09rpc.Ux09LabRpcContractTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee ux09-02b-rpc-jvm.log
+      - name: Upload evidence, not an APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02B-Lab-RPC-JVM-NO-APK
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            ux09-02b-rpc-jvm.log
+          if-no-files-found: warn
+          retention-days: 14
