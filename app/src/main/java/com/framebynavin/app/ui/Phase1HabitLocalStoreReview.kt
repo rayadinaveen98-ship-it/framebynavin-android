@@ -402,12 +402,16 @@ internal fun Phase1HabitLocalStoreReview(
         Phase1HabitEditDialog(
             challenge = snapshot, busy = saving, saveError = manageError,
             onDismiss = { editTarget = null; manageError = null },
-            onSave = { activity, date, time, kind, mode ->
+            onSave = { activity, date, time, kind, mode,
+                       voiceMode, voiceUri, repeatCount, repeatGap ->
                 if (!saving) {
                     saving = true
                     coroutineScope.launch {
                         try {
-                            val result = manager.edit(snapshot, activity, date, time, kind, mode)
+                            val result = manager.edit(
+                                snapshot, activity, date, time, kind, mode,
+                                voiceMode, voiceUri, repeatCount, repeatGap,
+                            )
                             records = result.records
                             editTarget = null
                             manageError = null
