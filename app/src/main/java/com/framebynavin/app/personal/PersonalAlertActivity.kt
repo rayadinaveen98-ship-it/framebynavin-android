@@ -46,6 +46,9 @@ import com.framebynavin.app.reminders.ReminderCheckInKind
 import com.framebynavin.app.reminders.V336DirectorBackdrop
 import com.framebynavin.app.reminders.V336DirectorSignalArt
 import com.framebynavin.app.reminders.V336DirectorPalette
+import com.framebynavin.app.reminders.V407ReminderCompanionMoment
+import com.framebynavin.app.reminders.V407ReminderAccessDisclosure
+import com.framebynavin.app.reminders.V407ReminderOwner
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -318,9 +321,21 @@ internal fun V2233PersonalAlertScreen(
                 }
                 return@Column
             }
-            // Native Canvas: visually matches Creator, with the existing
-            // Personal alert type and exact response callbacks unchanged.
-            V2233PersonalParticleWave(reminder.alert)
+            // The optional companion appears only AFTER the existing
+            // locked/invalid checks. Never show private decoration or
+            // response affordances over the keyguard.
+            Box(
+                Modifier.fillMaxWidth()
+                    .height(if (compact) 176.dp else 220.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                V2233PersonalParticleWave(reminder.alert)
+                V407ReminderCompanionMoment(
+                    occurrenceKey = "personal-${reminder.id}-${reminder.pendingToken}",
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                        .padding(end = 7.dp, bottom = 7.dp),
+                )
+            }
             Text(
                 "PERSONAL REMINDER",
                 color = V336DirectorPalette.hot,
@@ -427,6 +442,20 @@ internal fun V2233PersonalAlertScreen(
                 Text(error, color = V336DirectorPalette.hot,
                     textAlign = TextAlign.Center)
             }
+            Text(
+                "Done records an explicit completion. Dismiss does not.",
+                color = V336DirectorPalette.muted,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+                    .testTag("ux06e-personal-action-meaning"),
+            )
+            V407ReminderAccessDisclosure(
+                owner = V407ReminderOwner.PERSONAL,
+                kind = if (reminder.alert == PersonalAlert.VOICE)
+                    ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(18.dp))
         }
     }
