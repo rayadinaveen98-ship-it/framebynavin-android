@@ -75,16 +75,34 @@ jobs:
           org.gradle.workers.max=1
           org.gradle.parallel=false
           EOF
-      - name: Build isolated APK with V337 proven JVM allocation
+      - name: Build isolated APK with bounded dependency-resolution retry
         shell: bash
         run: |
           set -euo pipefail
+          # Fresh CI only. Repository tracks historical app/build output which
+          # must never be mistaken for this candidate's compiled APK or lint evidence.
+          rm -rf app/build
           free -h
-          timeout --signal=TERM --kill-after=20s 5200s gradle :app:assembleDebug -PbacklotLab=true \
-            --no-daemon --no-parallel --max-workers=1 \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
-            --console=plain --stacktrace
+          mkdir -p ci-reports
+          args=(:app:assembleDebug -PbacklotLab=true
+            --no-daemon --no-parallel --max-workers=1
+            -Pkotlin.compiler.execution.strategy=in-process
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8'
+            --console=plain --stacktrace)
+          set +e
+          timeout --signal=TERM --kill-after=20s 5200s gradle "${args[@]}" 2>&1 | tee ci-reports/assemble-attempt-1.log
+          first_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$first_status" -ne 0 ]; then
+            if grep -Eq 'UnknownPluginException|Plugin \[id: .* was not found|Could not resolve.*plugin artifact|Could not GET|Connection reset|Read timed out' ci-reports/assemble-attempt-1.log; then
+              echo 'Transient dependency-resolution signature detected; retrying ONCE without changing versions.'
+              sleep 7
+              timeout --signal=TERM --kill-after=20s 5200s gradle "${args[@]}" 2>&1 | tee ci-reports/assemble-attempt-2.log
+            else
+              echo "Build failed for non-resolution reason; no automatic retry."
+              exit "$first_status"
+            fi
+          fi
       - name: Run Lab unit tests and lint with COMPLETE failure diagnostics
         shell: bash
         run: |
@@ -116,6 +134,7 @@ jobs:
             app/build/reports/lint-results-debug.html
             app/build/reports/lint-results-debug.xml
             app/build/test-results/testDebugUnitTest/
+            ci-reports/
           if-no-files-found: warn
           retention-days: 14
 
@@ -130,8 +149,12 @@ jobs:
           "$aapt_bin" dump badging "$apk" > /tmp/backlot-lab-badging.txt
           grep -q "package: name='com.framebynavin.app.lab'" /tmp/backlot-lab-badging.txt
           grep -q "application-label:'Backlot Lab'" /tmp/backlot-lab-badging.txt
-          sha256sum "$apk"
-          echo 'PASS: isolated lab package and title. This is not a physical-device acceptance test.'
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$signer_bin"
+          "$signer_bin" verify --verbose --print-certs "$apk" > ci-reports/lab-apk-signature.txt
+          grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' ci-reports/lab-apk-signature.txt
+          sha256sum "$apk" > ci-reports/lab-apk-sha256.txt
+          echo 'PASS: isolated lab package, title and expected public development signer. Physical certification pending.'
       - name: Print PUBLIC development signing certificate fingerprints for Android OAuth registration
         shell: bash
         run: |
