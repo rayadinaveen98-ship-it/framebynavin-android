@@ -29,11 +29,15 @@ Beginners see the next useful action. Advanced users opt into deeper contextual 
 - Brief is collapsible in the hub, and the Plan Brief tab has an optional expand-on-demand editor; no duplicate source of truth and no new platform permissions.
 - **Not certified:** Source changes are staged only. Migration, restore, offline, small-screen, compiler and CI compatibility remain to be checked in the after-UX10 certification campaign. No external platform metrics are inferred.
 
-## 05.1C — Connected creation modules (pending)
-- Contextual, optional Stage Desk modules: film scene evidence/shot plan; podcast segment notes; tutorial lesson plan; tech test matrix; travel location sequence; food method/shot plan.
-- A lightweight Creative Board built from references to project sources, existing assets and linked outputs. No infinite-canvas dependency, shadow editor or copied media bytes.
-- Add structured stage-task priority, due date and dependency only after migration/restore/sync contract is documented and reviewed.
-- Link evidence to appropriate Script Studio beat IDs via stable relationships, keeping script text in Script Studio.
+## 05.1C — Connected Creative Board and Stage Modules (source-staged in UX05.1C draft)
+- New **Connected Creative Board** is a filtered, lazy-rendered card collection of real project Sources/Assets, stage Evidence, Script Studio beats, planned/ready/creator-recorded published outputs, and cut version records. Cards route to existing canonical editors; no shadow media, independent text editor, drag-and-drop promise or infinite-canvas implementation.
+- Uses actual identifiers, with item keys scoped to reference/asset/workflow+stage/evidence/beat/deliverable/cut. Broken old links are shown as unavailable, never deleted. Board is read-only; creators edit and order records inside their existing owners.
+- **Contextual Stage Modules** now provide focused questions and optional task suggestions for film analysis, podcasts, tech tests, food production, travel, education, news, capture and editing. Suggested checklist items are explicit opt-in; they save through canonical Stage Desk, not on opening.
+- Stage evidence may be reordered using Up/Down controls; changes remain local drafts until an explicit Stage Save.
+- Evidence optionally links directly to a **stable canonical Script Studio beat ID**, reusing `CreatorStageEvidence` with an appended `scriptBeatId` defaulting to empty. `TaskStore.encodeStageWork/decodeStageWork` and the existing Stage Draft Store journal retain it, including legacy absent-key fallback. The Stage Work ownership policy rejects new fake/cross-project beat IDs but preserves historical unavailable beat links.
+- Preserves Board state through Activity recreation; System Back returns to project hub without a destructive discard dialog, because Board itself is read-only.
+- **Not part of this stage:** inline media preview/editor, user-drawn freeform canvas, independent custom board cards, background processing, structured due-date/dependency task schema and expensive video/audio preview hosting. Task metadata extension remains pending architecture review before UX09 sync.
+- **Not certified:** compile, UI tests, Kotlin exhaustive paths, persistence round trips, V337 in-place upgrade, TalkBack/320dp/tablet and stress testing remain deferred to the post-UX10 campaign.
 
 ## 05.1D — Output-specific review and learning (pending)
 - Resolve explicit target deliverable(s) in stage approval checks and editing reviews. Project-wide `any published` must not stand in for the intended output; retain legacy compatibility in migration rules.
