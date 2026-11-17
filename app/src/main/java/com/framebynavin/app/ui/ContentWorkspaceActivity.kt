@@ -77,6 +77,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var confirmEditorClose by mutableStateOf(false)
     /** A stage-tool switch is only performed after the existing discard confirmation. */
     private var pendingStageToolMode by mutableStateOf<Alpha6WorkspaceMode?>(null)
+    /** Captured at the tool-switch tap; saved only after a successful revision-gated write. */
+    private var pendingStageToolDraft by mutableStateOf<Pair<Long, CreatorStageWork>?>(null)
+    private var stageSwitchSaveInFlight by mutableStateOf(false)
     private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
     private var pendingHeldField by mutableStateOf<V211HistoricalPlanFieldRequest?>(null)
     private var planRecoveredField by mutableStateOf<V211PlanFieldRecovery?>(null)
@@ -110,6 +113,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     if (mode == Alpha6WorkspaceMode.BLUEPRINT) mode = Alpha6WorkspaceMode.HUB
                     else {
                         pendingStageToolMode = null
+                        pendingStageToolDraft = null
                         confirmEditorClose = true
                     }
                 }
@@ -167,12 +171,14 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             } ?: CreatorWorkflowEngine.currentStage(task!!),
                             onBack = {
                                 pendingStageToolMode = null
+                                pendingStageToolDraft = null
                                 confirmEditorClose = true
                             },
                             onSave = { revision, edited ->
                                 saveStageWork(task!!.id, revision, edited)
                             },
-                            onOpenMainTool = { destination ->
+                            onOpenMainTool = { destination, revision, edited ->
+                                pendingStageToolDraft = revision to edited
                                 pendingStageToolMode = when (destination) {
                                     StageWorkspaceDestination.SCRIPT -> Alpha6WorkspaceMode.SCRIPT
                                     StageWorkspaceDestination.PUBLISH -> Alpha6WorkspaceMode.PUBLISH
@@ -181,7 +187,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                 }
                                 confirmEditorClose = true
                             },
-                            onOpenOutputCraft = {
+                            onOpenOutputCraft = { revision, edited ->
+                                pendingStageToolDraft = revision to edited
                                 pendingStageToolMode = Alpha6WorkspaceMode.OUTPUT
                                 confirmEditorClose = true
                             },
@@ -377,10 +384,27 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     }
 
                     if (confirmEditorClose && mode != Alpha6WorkspaceMode.HUB) {
+                        val stageSwitch = mode == Alpha6WorkspaceMode.STAGE &&
+                            pendingStageToolMode != null
+                        val pendingStage = if (stageSwitch) pendingStageToolDraft else null
+                        val unsavedStageSwitch = pendingStage?.second?.let { edited ->
+                            val current = task?.workspace?.let {
+                                CreatorStageWorkPolicy.find(
+                                    it, edited.workflowTemplateId, edited.stageId,
+                                )
+                            } ?: CreatorStageWork(
+                                workflowTemplateId = edited.workflowTemplateId,
+                                stageId = edited.stageId,
+                            )
+                            edited != current
+                        } == true
                         AlertDialog(
                             onDismissRequest = {
-                                confirmEditorClose = false
-                                pendingStageToolMode = null
+                                if (!stageSwitchSaveInFlight) {
+                                    confirmEditorClose = false
+                                    pendingStageToolMode = null
+                                    pendingStageToolDraft = null
+                                }
                             },
                             title = {
                                 Text(if (pendingStageToolMode != null)
@@ -388,11 +412,18 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             },
                             text = {
                                 Text(
-                                    "Changes since your last save will be discarded. " +
-                                    "Your existing saved project and other stage records stay safe. " +
-                                    if (pendingStageToolMode != null)
-                                        "Select Keep Editing to save this stage before switching tools."
-                                    else ""
+                                    if (stageSwitch) {
+                                        if (unsavedStageSwitch)
+                                            "This stage contains unsaved changes. Save & Open keeps them; " +
+                                                "Discard & Open loses only those unsaved changes. " +
+                                                "Keep Editing returns without saving or switching."
+                                        else
+                                            "Your stage is saved. Open the selected tool or keep editing. " +
+                                                "No workflow stage will advance."
+                                    } else {
+                                        "Unsaved editor changes will be discarded. " +
+                                            "Your previously saved project data stays safe."
+                                    }
                                 )
                             },
                             confirmButton = {
@@ -400,6 +431,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                     if (CreatorDataGate.generation(applicationContext) != loadedGeneration) {
                                         confirmEditorClose = false
                                         pendingStageToolMode = null
+                                        pendingStageToolDraft = null
                                         error = "Project data changed while this editor was open. Reload the latest workspace."
                                         return@TextButton
                                     }
@@ -431,6 +463,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                     if (stageDraftClearFailure != null) {
                                         confirmEditorClose = false
                                         pendingStageToolMode = null
+                                        pendingStageToolDraft = null
                                         android.widget.Toast.makeText(
                                             applicationContext,
                                             "Could not discard the stage draft. Your changes are kept; try again.",
@@ -440,6 +473,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                     }
                                     val nextMode = pendingStageToolMode
                                     pendingStageToolMode = null
+                                    pendingStageToolDraft = null
                                     confirmEditorClose = false
                                     scriptStudio = null
                                     if (nextMode == Alpha6WorkspaceMode.SCRIPT) {
@@ -449,15 +483,40 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                         mode = nextMode ?: Alpha6WorkspaceMode.HUB
                                     }
                                 }) {
-                                    Text(if (pendingStageToolMode != null)
-                                        "DISCARD & OPEN" else "DISCARD & CLOSE")
-                                }
+                                    Text(
+                                        if (stageSwitch && !unsavedStageSwitch) "OPEN"
+                                        else if (pendingStageToolMode != null) "DISCARD & OPEN"
+                                        else "DISCARD & CLOSE"
+                                    )
+                                }, enabled = !stageSwitchSaveInFlight)
                             },
                             dismissButton = {
-                                TextButton(onClick = {
-                                    pendingStageToolMode = null
-                                    confirmEditorClose = false
-                                }) { Text("KEEP EDITING") }
+                                Column {
+                                    if (stageSwitch && unsavedStageSwitch && pendingStage != null) {
+                                        Button(
+                                            onClick = {
+                                                val next = pendingStageToolMode
+                                                val current = task
+                                                if (next != null && current != null) {
+                                                    saveStageWork(
+                                                        current.id, pendingStage.first,
+                                                        pendingStage.second, nextMode = next,
+                                                    )
+                                                }
+                                            },
+                                            enabled = !stageSwitchSaveInFlight,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) { Text(if (stageSwitchSaveInFlight) "SAVING…" else "SAVE & OPEN") }
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            pendingStageToolMode = null
+                                            pendingStageToolDraft = null
+                                            confirmEditorClose = false
+                                        },
+                                        enabled = !stageSwitchSaveInFlight,
+                                    ) { Text("KEEP EDITING") }
+                                }
                             },
                         )
                     }
@@ -480,6 +539,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         mode = Alpha6WorkspaceMode.HUB
         confirmEditorClose = false
         pendingStageToolMode = null
+        pendingStageToolDraft = null
+        stageSwitchSaveInFlight = false
         heldDraftReviews = null
         pendingHeldField = null
         planRecoveredField = null
@@ -953,8 +1014,16 @@ class ContentWorkspaceActivity : ComponentActivity() {
         projectId: String,
         expectedWorkspaceRevision: Long,
         edited: CreatorStageWork,
+        nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
-        if (!saveGate.tryBegin()) return
+        if (!saveGate.tryBegin()) {
+            android.widget.Toast.makeText(
+                applicationContext, "A workspace save is already in progress.",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        if (nextMode != Alpha6WorkspaceMode.HUB) stageSwitchSaveInFlight = true
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val result = runCatching {
@@ -971,10 +1040,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     ) ?: error("The project no longer exists")
                 }
                 withContext(Dispatchers.Main) {
+                    stageSwitchSaveInFlight = false
                     result.onSuccess { saved ->
                         task = saved
                         confirmEditorClose = false
-                        mode = Alpha6WorkspaceMode.HUB
+                        pendingStageToolMode = null
+                        pendingStageToolDraft = null
                         runCatching {
                             CreatorStageDraftStore(applicationContext).clear(
                                 projectId, edited.workflowTemplateId, edited.stageId,
@@ -982,6 +1053,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         }.onFailure {
                             android.util.Log.w("BacklotWorkspace", "Stage draft cleanup deferred", it)
                         }
+                        // Transition only after the canonical project save completed.
+                        if (nextMode == Alpha6WorkspaceMode.SCRIPT) openScriptStudio(saved)
+                        else mode = nextMode
                     }.onFailure {
                         error = it.message ?: "Could not save this stage. The prior project data is safe."
                     }
