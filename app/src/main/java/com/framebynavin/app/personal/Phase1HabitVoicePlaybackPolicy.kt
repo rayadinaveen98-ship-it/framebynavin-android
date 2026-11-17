@@ -28,9 +28,9 @@ internal object Phase1HabitVoicePlaybackPolicy {
         value.takeIf { it in ALLOWED_GAPS_MILLIS } ?: REPEAT_GAP_MILLIS
 
     /** Add time for TTS startup, five long phrases, four max gaps and cleanup. */
-    fun watchdogMillis(count: Int, gapMillis: Long): Long =
+    fun watchdogMillis(count: Int, requestedGapMillis: Long): Long =
         10_000L + V403VoiceRepeatPolicy.count(count) * PER_UTTERANCE_ALLOWANCE_MILLIS +
-            (V403VoiceRepeatPolicy.count(count) - 1) * gapMillis(gapMillis) +
+            (V403VoiceRepeatPolicy.count(count) - 1) * gapMillis(requestedGapMillis) +
             5_000L
 
     /** Returns null only after the last exact completed utterance. */
