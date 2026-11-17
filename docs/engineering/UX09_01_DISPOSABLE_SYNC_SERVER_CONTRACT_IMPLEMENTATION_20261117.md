@@ -1,6 +1,6 @@
 # Backlot UX09-01 — Disposable Postgres contract package for Creator Projects + Ideas
 
-**Status (2026-11-17):** SOURCE CODE / TEST HARNESS STAGED on a draft GitHub branch. **No hosted Lab SQL, no local disposable PostgreSQL execution, no Android app changes, no merged migration, no CI PASS, no two-device sync, no APK.**
+**Status (2026-11-17):** UX09-01 isolated SQL and synthetic test harness source-staged. **Executed disposable PostgreSQL 16 contract CI PASS:** [run #44089557376](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/44089557376), exact tested SHA `19855a6adf75b6d963f878b9da11f45d61ffdf6e`. **NO hosted Lab SQL, no real Supabase signed-JWT test, no Android app changes, no migration merge, no two-device sync, no Backup/Restore/Delete implementation, no APK.**
 **Parent:** BL-02/BL-03 documentation-only draft PR #429 at `9445aa62fcf8fd58fb300bc4dd7e15b10ef2537b`, stacked on owner-tested Backlot Lab V337 `4ba1263124d118d3917f988228aec2248068466f`.
 **Immutable protected baselines:** original accepted V337 P0 `815ba69775f75b6e5f25bb838c2c17b4f09c203e`, owner-tested Lab V337 `4ba1263124d118d3917f988228aec2248068466f`, staged UX10F `6654c730971309b5047473e2f69292fe799b3f46`.
 **Founder direction:** Start fresh, no historical cloud migration. **Do not interpret that as permission to delete existing app data, current Lab records, accounts, private media or production Supabase.**
@@ -24,17 +24,21 @@ UX09 is **Sync + Backup + Restore + Delete**, but a dependable core requires str
 2. `supabase/prototypes/ux09_01_security_assertions_v1.sql` — read-only disposable-database assertions for RLS, role grants, two authenticated-only RPCs, no direct hard-delete grant and no security-definer RPCs.
 3. `tools/qa/backlot_ux09_01_disposable_auth_matrix.sh` — localhost:54321-only two-JWT black-box API test: A/B identity and same entity UUID isolation, version conflicts, retry idempotency, changed-payload reuse rejection, deltas/pagination, tombstone/no resurrection, both Creator domains, invalid-domain rejection. Redacts JWT/body from failures.
 4. `docs/engineering/UX09_01_DISPOSABLE_SYNC_SERVER_CONTRACT_IMPLEMENTATION_20261117.md` — this implementation and safety handoff.
-5. `docs/qa/UX09_01_SERVER_CONTRACT_CERTIFICATION_20261117.md` — proposed automated/security acceptance list, **UNEXECUTED**.
+5. `docs/qa/UX09_01_SERVER_CONTRACT_CERTIFICATION_20261117.md` — 40 acceptance cases with a verified synthetic PostgreSQL subset and remaining real-JWT/feature tests clearly pending.
+6. `supabase/prototypes/ux09_01_disposable_pg_auth_fixture.sql` and `ux09_01_disposable_pg_scenarios.sql` — mock Auth + real Postgres16 SQL/tenant/CAS tests, executed in CI.
+7. `tools/qa/backlot_ux09_01_postgres16_test.sh` — localhost-only synthetic PG16 runner including two concurrent SQL sessions.
+8. `.github/workflows/backlot-ux09-01-disposable-postgres-contract.yml` — isolated GitHub Actions job with an ephemeral PG16 container; no Supabase credentials.
+9. `docs/qa/UX09_01_DISPOSABLE_POSTGRES16_CI_EVIDENCE_20261117.md` — exact run/job/log evidence and remaining untested operations.
 
-## SQL application procedure: NOT PERFORMED
+## SQL execution evidence and hosted Lab boundary
 
-The environment accessible to this task has **no Supabase CLI, Docker or PostgreSQL executable**, so there is no safe disposable database on which to compile or dynamically test this source. The user-facing connected Supabase plugin points to the actual hosted Lab project; its read-only audits are NOT a sandbox. **Do not run this prototype against hosted Lab in order to claim testing.**
+The direct chat container lacks Supabase CLI, Docker and PostgreSQL, **but an isolated GitHub Actions job executed the actual SQL using PostgreSQL 16**: SQL and RLS assertions, synthetic two-account tests, and two-session concurrent CAS all passed at a recorded commit. This is genuine PostgreSQL compilation/runtime evidence, not only inspection. The test fixtures mock `auth.uid()`/`auth.jwt()`, so **real Supabase Auth signed-JWT/GoTrue/Data API tests remain unexecuted**. The connected Supabase plugin points to the actual hosted Lab and must **not** be used as a disposable SQL test target. See evidence report linked above.
 
-After a developer is on a disposable LOCAL Supabase CLI stack (with a working Docker backend):
+For **additional actual local Supabase Auth/REST JWT testing** (beyond the completed synthetic Postgres16 CI):
 1. Verify `supabase --version` and read `supabase --help` / `supabase migration --help`; check [official CLI docs](https://supabase.com/docs/reference/cli/introduction).
 2. Start a **disposable local** instance with two distinct disposable authenticated users. Do not use real Google identities, production tokens, private photos or actual account data.
-3. Apply `supabase/prototypes/ux09_01_project_idea_sync_contract_v1.sql` to that local database with the CLI/psql `ON_ERROR_STOP=1` option. The source is one explicit PostgreSQL transaction; any error means NO PASS.
-4. Run `supabase/prototypes/ux09_01_security_assertions_v1.sql` and local-only `tools/qa/backlot_ux09_01_disposable_auth_matrix.sh`. Capture redacted logs and SQL fixture/test exit codes. **No tests have run as of this document**.
+3. Apply the already PG16-compiled `supabase/prototypes/ux09_01_project_idea_sync_contract_v1.sql` to a new local Supabase stack using CLI/psql `ON_ERROR_STOP=1`; passing mock PG16 checks does **not** substitute for this new signed-JWT GoTrue/REST test.
+4. Run `supabase/prototypes/ux09_01_security_assertions_v1.sql` and the separate local-only signed-JWT `tools/qa/backlot_ux09_01_disposable_auth_matrix.sh`. Capture redacted logs, two actual Supabase Auth identities and negative REST API results. **This actual JWT/API acceptance has NOT run as of this document.**
 5. Review snapshot/legacy data coexistence, Data API's **exposed schemas** setting (internal schema must NOT be exposed), role grants, RLS and App JWT behavior. Two-user negative tests MUST use ordinary authenticated REST RPC calls, not privileged admin SQL.
 6. Only after successful local contracts, architectural security review and founder authorization, generate a real migration file using `supabase migration new <approved_name>` and commit it with the tested SQL. No timestamp migration filename was guessed here because no local Supabase CLI exists.
 7. Hosted `vasleafrmsovdbdlrcsw` migration, paid branch creation, production/server key changes, Android sync client integration, cleanup or release require separate scoped founder approval. If hosted migration is ever approved, perform explicit before/after schema/role/policy/advisor verification and rollback review.
