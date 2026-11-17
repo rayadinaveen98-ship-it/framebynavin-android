@@ -50,7 +50,7 @@ internal data class Phase1HabitChallenge(
             require(!day.isBefore(startDate) && !day.isAfter(endDate)) {
                 "Confirmation is outside the 21-day challenge"
             }
-            val confirmedOn = LocalDate.ofInstant(at, zone)
+            val confirmedOn = at.atZone(zone).toLocalDate()
             require(confirmedOn == day || (
                 completionMode == Phase1HabitCompletionMode.FLEXIBLE &&
                     confirmedOn.isAfter(day)
@@ -75,7 +75,7 @@ internal data class Phase1HabitChallenge(
             require(alertKind != null && alertTime != null &&
                 !snoozedDay.isBefore(startDate) && !snoozedDay.isAfter(endDate) &&
                 snoozedDay !in confirmations &&
-                LocalDate.ofInstant(snoozedUntil, zone) == snoozedDay
+                snoozedUntil.atZone(zone).toLocalDate() == snoozedDay
             ) { "Snooze must remain on an active, unfinished challenge date" }
         }
         return this
@@ -85,7 +85,7 @@ internal data class Phase1HabitChallenge(
     val scheduleKey: String get() = "phase1-habit-$id"
 
     fun dayNumber(now: Instant): Int? {
-        val day = LocalDate.ofInstant(now, ZoneId.of(zoneId))
+        val day = now.atZone(ZoneId.of(zoneId)).toLocalDate()
         val index = java.time.temporal.ChronoUnit.DAYS.between(startDate, day)
         return if (index in 0L..20L) index.toInt() + 1 else null
     }
@@ -93,7 +93,7 @@ internal data class Phase1HabitChallenge(
     fun status(day: LocalDate, now: Instant): Phase1HabitDayStatus {
         require(!day.isBefore(startDate) && !day.isAfter(endDate))
         if (confirmations.containsKey(day)) return Phase1HabitDayStatus.DONE
-        val today = LocalDate.ofInstant(now, ZoneId.of(zoneId))
+        val today = now.atZone(ZoneId.of(zoneId)).toLocalDate()
         return when {
             day.isBefore(today) -> Phase1HabitDayStatus.MISSED
             day == today -> Phase1HabitDayStatus.TODAY
@@ -106,7 +106,7 @@ internal data class Phase1HabitChallenge(
         checked()
         require(!archived) { "Restore an archived challenge before confirming" }
         require(!paused) { "Resume the challenge to confirm a day" }
-        val today = LocalDate.ofInstant(now, ZoneId.of(zoneId))
+        val today = now.atZone(ZoneId.of(zoneId)).toLocalDate()
         require(!today.isBefore(startDate) && !today.isAfter(endDate)) {
             "Only an active challenge date can be confirmed"
         }
@@ -126,7 +126,7 @@ internal data class Phase1HabitChallenge(
         checked()
         require(!archived) { "Restore an archived challenge before confirming" }
         require(!paused) { "Resume the challenge before confirming a day" }
-        val today = LocalDate.ofInstant(at, ZoneId.of(zoneId))
+        val today = at.atZone(ZoneId.of(zoneId)).toLocalDate()
         require(!day.isBefore(startDate) && !day.isAfter(endDate) &&
             !day.isAfter(today)) { "Choose a current or past challenge day" }
         require(day == today || completionMode == Phase1HabitCompletionMode.FLEXIBLE) {
@@ -173,7 +173,7 @@ internal data class Phase1HabitChallenge(
     fun canSnooze(at: Instant): Boolean {
         if (archived || paused || alertTime == null || alertKind == null) return false
         val zone = ZoneId.of(zoneId)
-        val day = LocalDate.ofInstant(at, zone)
+        val day = at.atZone(zone).toLocalDate()
         if (day.isBefore(startDate) || day.isAfter(endDate) || day in confirmations) return false
         return !at.isBefore(day.atTime(alertTime).atZone(zone).toInstant())
     }
@@ -184,9 +184,9 @@ internal data class Phase1HabitChallenge(
         require(canSnooze(at)) {
             "This challenge is not awaiting today's alert; snooze was not saved"
         }
-        val day = LocalDate.ofInstant(at, ZoneId.of(zoneId))
+        val day = at.atZone(ZoneId.of(zoneId)).toLocalDate()
         val next = at.plusSeconds(minutes.toLong() * 60L)
-        require(LocalDate.ofInstant(next, ZoneId.of(zoneId)) == day) {
+        require(next.atZone(ZoneId.of(zoneId)).toLocalDate() == day) {
             "Snooze cannot cross into another challenge day"
         }
         return copy(snoozedDay = day, snoozedUntil = next).checked()
@@ -195,7 +195,7 @@ internal data class Phase1HabitChallenge(
     /** Confirmed consecutive dates, including today if marked; never assumes Done. */
     fun currentStreak(now: Instant): Int {
         checked()
-        val today = LocalDate.ofInstant(now, ZoneId.of(zoneId))
+        val today = now.atZone(ZoneId.of(zoneId)).toLocalDate()
         if (today.isBefore(startDate)) return 0
         var cursor = if (today.isAfter(endDate)) endDate else today
         if (!confirmations.containsKey(cursor) && cursor == today) cursor = cursor.minusDays(1)

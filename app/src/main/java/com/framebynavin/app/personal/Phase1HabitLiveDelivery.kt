@@ -143,7 +143,7 @@ internal object Phase1HabitNotification {
     }
 
     fun cancelPosted(context: Context, challenge: Phase1HabitChallenge, at: Long) {
-        val day = LocalDate.ofInstant(Instant.ofEpochMilli(at), ZoneId.of(challenge.zoneId))
+        val day = Instant.ofEpochMilli(at).atZone(ZoneId.of(challenge.zoneId)).toLocalDate()
         context.getSystemService(NotificationManager::class.java).cancel(
             "backlot:habit:" + challenge.id + ":" + day,
             challenge.id.hashCode(),
@@ -255,8 +255,7 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
                                     Phase1HabitDeliveryStage.CHANNEL_BLOCKED)
                             } else {
                                 try {
-                                    val day = LocalDate.ofInstant(Instant.ofEpochMilli(at),
-                                        ZoneId.of(record.zoneId))
+                                    val day = Instant.ofEpochMilli(at).atZone(ZoneId.of(record.zoneId)).toLocalDate()
                                     manager.notify("backlot:habit:" + record.id + ":" + day,
                                         record.id.hashCode(),
                                         Phase1HabitNotification.build(app, record, at))

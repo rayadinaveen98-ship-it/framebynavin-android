@@ -40,7 +40,7 @@ internal data class Phase1HabitAlarmLease(
             "Alarm occurrence must be within the fixed 21-day window"
         }
         require(ZoneId.of(challenge.zoneId).let {
-            LocalDate.ofInstant(fireAt, it) == day
+            fireAt.atZone(it).toLocalDate() == day
         }) { "Alarm occurrence day does not match the challenge time zone" }
         require(token.matches(Regex("[A-Za-z0-9_-]{8,128}"))) {
             "Invalid lease token"

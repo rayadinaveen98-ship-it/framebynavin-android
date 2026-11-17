@@ -1,0 +1,261 @@
+name: Backlot Lab V337 - isolated sideload APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/backlot-lab-v337-fresh-backend-20261117
+    paths:
+      - app/**
+      - .github/workflows/backlot-lab-v337-isolated-apk.yml
+      - .github/scripts/backlot-lab-startup-smoke.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-lab-v337-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api26-source-audit:
+    name: Fast API-26 compatibility source scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block known unsafe API-34 LocalDate.ofInstant usages
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -F 'LocalDate.ofInstant(' -- app/src/main/java app/src/debug/java app/src/release/java app/src/personalStable/java; then
+            echo 'FAIL: replace API-34 LocalDate.ofInstant calls with Instant.atZone(...).toLocalDate()'
+            exit 1
+          fi
+          echo 'PASS: no unsupported LocalDate.ofInstant calls in main/debug/release/personalStable Android sources'
+
+  certificate:
+    name: Verify public Lab signing fingerprint
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print exact signing SHA-1 for Google OAuth
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks \
+            -storepass framebynavin-dev -alias framebynavin-dev \
+            | grep -E 'SHA1:|SHA256:'
+
+  lab-apk:
+    name: Compile and inspect isolated Lab APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - name: Refuse unrelated cloud credentials and accidental production packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle=Path('app/build.gradle.kts').read_text()
+          cloud=Path('app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt').read_text()
+          ai=Path('app/src/main/java/com/framebynavin/app/ai/CreatorGeminiVideoAutopsyProvider.kt').read_text()
+          appcheck=Path('app/src/debug/java/com/framebynavin/app/CreatorAppCheck.kt').read_text()
+          assert 'if (backlotLabMode) "com.framebynavin.app.lab"' in gradle
+          assert 'providers.gradleProperty("backlotLab")' in gradle
+          assert 'vasleafrmsovdbdlrcsw.supabase.co' in cloud
+          assert 'BuildConfig.BACKLOT_LAB' in cloud and 'BuildConfig.BACKLOT_LAB' in ai
+          assert 'if (BuildConfig.BACKLOT_LAB) return' in appcheck
+          assert 'FirebaseAppCheck.getInstance()' in appcheck
+          assert 'sb_secret_' not in cloud and 'service_role' not in cloud.lower()
+          assert Path('dev-signing/framebynavin-public-debug.jks').exists()
+          print('PASS isolated package, Lab URL, publishable-only client and optional AI fail-closed gate')
+          PY
+      - name: Configure bounded CI-only Kotlin heap
+        shell: bash
+        run: |
+          cat >> gradle.properties <<'EOF'
+          # CI-only overrides; not committed to application production settings.
+          org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8
+          kotlin.compiler.execution.strategy=in-process
+          kotlin.daemon.jvmargs=-Xmx8g
+          org.gradle.workers.max=1
+          org.gradle.parallel=false
+          EOF
+      - name: Build isolated APK with bounded dependency-resolution retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Fresh CI only. Repository tracks historical app/build output which
+          # must never be mistaken for this candidate's compiled APK or lint evidence.
+          rm -rf app/build
+          free -h
+          mkdir -p ci-reports
+          args=(:app:assembleDebug -PbacklotLab=true
+            --no-daemon --no-parallel --max-workers=1
+            -Pkotlin.compiler.execution.strategy=in-process
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8'
+            --console=plain --stacktrace)
+          set +e
+          timeout --signal=TERM --kill-after=20s 5200s gradle "${args[@]}" 2>&1 | tee ci-reports/assemble-attempt-1.log
+          first_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$first_status" -ne 0 ]; then
+            if grep -Eq 'UnknownPluginException|Plugin \[id: .* was not found|Could not resolve.*plugin artifact|Could not GET|Connection reset|Read timed out' ci-reports/assemble-attempt-1.log; then
+              echo 'Transient dependency-resolution signature detected; retrying ONCE without changing versions.'
+              sleep 7
+              timeout --signal=TERM --kill-after=20s 5200s gradle "${args[@]}" 2>&1 | tee ci-reports/assemble-attempt-2.log
+            else
+              echo "Build failed for non-resolution reason; no automatic retry."
+              exit "$first_status"
+            fi
+          fi
+      - name: Run Lab unit tests and lint with COMPLETE failure diagnostics
+        shell: bash
+        run: |
+          set -uo pipefail
+          args=(-PbacklotLab=true --no-daemon --no-parallel --max-workers=1
+            -Pkotlin.compiler.execution.strategy=in-process
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8'
+            --console=plain)
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:testDebugUnitTest "${args[@]}"
+          test_status=$?
+          timeout --signal=TERM --kill-after=20s 5200s gradle :app:lintDebug "${args[@]}"
+          lint_status=$?
+          echo "----- Complete Android lint ERROR list (no suppression) -----"
+          if [ -f app/build/reports/lint-results-debug.txt ]; then
+            grep -n -C 1 'Error:' app/build/reports/lint-results-debug.txt || true
+            tail -n 12 app/build/reports/lint-results-debug.txt || true
+          else
+            find app/build -type f \( -name '*lint*.txt' -o -name '*lint*.xml' \) | head -30 || true
+          fi
+          echo "Unit test exit: $test_status; lint exit: $lint_status"
+          test "$test_status" -eq 0 && test "$lint_status" -eq 0
+      - name: Upload exact lint and JVM diagnostics on ALL outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-V337-Tests-Lint-Diagnostics
+          path: |
+            app/build/reports/lint-results-debug.txt
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+            app/build/test-results/testDebugUnitTest/
+            ci-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Verify independently installable package and label
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt_bin"
+          "$aapt_bin" dump badging "$apk" > /tmp/backlot-lab-badging.txt
+          grep -q "package: name='com.framebynavin.app.lab'" /tmp/backlot-lab-badging.txt
+          grep -q "application-label:'Backlot Lab'" /tmp/backlot-lab-badging.txt
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$signer_bin"
+          "$signer_bin" verify --verbose --print-certs "$apk" > ci-reports/lab-apk-signature.txt
+          grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' ci-reports/lab-apk-signature.txt
+          sha256sum "$apk" > ci-reports/lab-apk-sha256.txt
+          echo 'PASS: isolated lab package, title and expected public development signer. Physical certification pending.'
+      - name: Print PUBLIC development signing certificate fingerprints for Android OAuth registration
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -list -v -keystore dev-signing/framebynavin-public-debug.jks \
+            -storepass framebynavin-dev -alias framebynavin-dev \
+            | grep -E 'SHA1:|SHA256:'
+      - name: Upload test-only Lab APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-V337-STARTUP-FIX-CANDIDATE
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+  startup-emulator:
+    name: Lab Android API ${{ matrix.api }} actual first-launch smoke
+    needs: [lab-apk, api26-source-audit, certificate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
+    steps:
+      - name: Checkout exact Lab source and smoke script
+        uses: actions/checkout@v4
+      - name: Download same-run signed Lab APK
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-V337-STARTUP-FIX-CANDIDATE
+          path: lab-candidate
+      - name: Enable KVM acceleration for CI emulator
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and launch Lab APK on Android API ${{ matrix.api }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+      - name: Preserve package startup logs and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-API-${{ matrix.api }}-Startup-Smoke-Evidence
+          path: startup-smoke-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish-startup-verified:
+    name: Publish ONLY emulator startup-verified Lab APK
+    needs: [lab-apk, api26-source-audit, certificate, startup-emulator]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-V337-STARTUP-FIX-CANDIDATE
+          path: accepted
+      - name: Verify exactly one nonempty Lab APK candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s accepted/app-debug.apk
+          test "$(find accepted -maxdepth 1 -name '*.apk' -type f | wc -l)" -eq 1
+          sha256sum accepted/app-debug.apk
+          echo 'Passed unit tests, strict lint, signing/package and Android API30/API35 startup smoke.'
+          echo 'Google OAuth and physical device acceptance still require real user testing.'
+      - name: Publish emulator startup-verified owner testing candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-V337-STARTUP-SMOKE-VERIFIED
+          path: accepted/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

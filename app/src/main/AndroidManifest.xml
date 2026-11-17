@@ -25,7 +25,7 @@
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/backlot_v198_launcher"
         android:roundIcon="@mipmap/backlot_v198_launcher"
-        android:label="Backlot"
+        android:label="@string/backlot_install_label"
         android:supportsRtl="true"
         android:theme="@style/Theme.FrameByNavin">
 
@@ -99,7 +99,7 @@
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/backlot_v198_launcher"
-            android:label="Backlot"
+            android:label="@string/backlot_install_label"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -111,7 +111,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/backlot_v198_launcher"
-            android:label="Backlot"
+            android:label="@string/backlot_install_label"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -123,7 +123,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/backlot_v198_launcher"
-            android:label="Backlot"
+            android:label="@string/backlot_install_label"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -135,7 +135,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/backlot_v198_launcher"
-            android:label="Backlot"
+            android:label="@string/backlot_install_label"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

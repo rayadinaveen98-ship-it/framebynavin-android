@@ -40,7 +40,7 @@ internal suspend fun FC13ApplyChallengeOperation(
             message = "Progress saved; Android alert scheduling needs attention."
         }
         FC13ChallengeOperation.UNDO -> {
-            val day = LocalDate.ofInstant(Instant.now(), ZoneId.of(challenge.zoneId))
+            val day = Instant.now().atZone(ZoneId.of(challenge.zoneId)).toLocalDate()
             updated = store.undoDay(challenge.id, day)
             message = "Progress saved; Android alert scheduling needs attention."
         }
@@ -51,7 +51,7 @@ internal suspend fun FC13ApplyChallengeOperation(
         FC13ChallengeOperation.SNOOZE -> {
             val requestedAt = Instant.now()
             val zone = ZoneId.of(challenge.zoneId)
-            val localDay = LocalDate.ofInstant(requestedAt, zone)
+            val localDay = requestedAt.atZone(zone).toLocalDate()
             val previousDue = challenge.snoozedUntil
                 ?.takeIf { !it.isAfter(requestedAt) }
                 ?: localDay.atTime(requireNotNull(challenge.alertTime)).atZone(zone).toInstant()

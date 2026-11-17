@@ -142,7 +142,7 @@ internal fun Phase1HabitInteractiveReview(scene: String = "create") {
                     current, now,
                     onDone = { challenge = current.confirmToday(now) },
                     onUndo = {
-                        challenge = current.undoDay(LocalDate.ofInstant(now, zone))
+                        challenge = current.undoDay(now.atZone(zone).toLocalDate())
                     },
                     onPause = { challenge = current.setPaused(!current.paused) },
                     previewOnly = true,

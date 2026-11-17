@@ -7,7 +7,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
-    id("com.google.gms.google-services")
+}
+
+// Opt-in, dedicated test-only backend identity. Standard V337 builds remain unchanged.
+val backlotLabMode = providers.gradleProperty("backlotLab").orNull == "true"
+if (!backlotLabMode) {
+    // The existing Firebase configuration is registered only for com.framebynavin.app.
+    // Do not force it onto a separately installed Lab APK.
+    apply(plugin = "com.google.gms.google-services")
 }
 
 val releaseStoreFilePath = providers.gradleProperty("FRAMEBYNAVIN_RELEASE_STORE_FILE")
@@ -60,12 +67,14 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.framebynavin.app"
+        applicationId = if (backlotLabMode) "com.framebynavin.app.lab" else "com.framebynavin.app"
+        buildConfigField("boolean", "BACKLOT_LAB", backlotLabMode.toString())
+        resValue("string", "backlot_install_label", if (backlotLabMode) "Backlot Lab" else "Backlot")
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
         versionCode = 337
-        versionName = "2.28.7-premiere-cinematic-enhanced-02"
+        versionName = "2.28.7-premiere-cinematic-enhanced-02" + if (backlotLabMode) "-lab" else ""
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

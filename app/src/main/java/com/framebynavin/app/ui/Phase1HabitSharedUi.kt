@@ -238,7 +238,7 @@ internal fun DashboardHabitReview(
     linkedGroupLabel: String? = null,
     onOpenLinkedSpace: (() -> Unit)? = null,
 ) {
-    val today = LocalDate.ofInstant(now, ZoneId.of(habit.zoneId))
+    val today = now.atZone(ZoneId.of(habit.zoneId)).toLocalDate()
     val dayNumber = habit.dayNumber(now)
     val doneToday = today in habit.confirmations
     val count = habit.confirmations.size

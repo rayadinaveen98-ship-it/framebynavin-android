@@ -39,7 +39,7 @@ internal object FC13ReminderGroupProgress {
         val scheduled = linked.filter { reminder ->
             if (reminder.paused) return@filter false
             val zone = reminder.zoneId
-            val day = LocalDate.ofInstant(now, zone)
+            val day = now.atZone(zone).toLocalDate()
             val from = day.atStartOfDay(zone).toInstant().toEpochMilli() - 1L
             val to = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
             val candidate = PersonalRecurrence.nextAfter(
@@ -48,13 +48,11 @@ internal object FC13ReminderGroupProgress {
             candidate != null && candidate < to
         }
         val completed = scheduled.count { reminder ->
-            val today = LocalDate.ofInstant(now, reminder.zoneId)
+            val today = now.atZone(reminder.zoneId).toLocalDate()
             doneReceipts.any { event ->
                 event.reminderId == reminder.id &&
                     event.occurrenceMillis > 0L &&
-                    LocalDate.ofInstant(
-                        Instant.ofEpochMilli(event.occurrenceMillis), reminder.zoneId,
-                    ) == today
+                    Instant.ofEpochMilli(event.occurrenceMillis).atZone(reminder.zoneId).toLocalDate() == today
             }
         }
         return FC13GroupTodayProgress(
