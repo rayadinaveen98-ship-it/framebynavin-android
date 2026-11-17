@@ -64,6 +64,7 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     onReviewHeld: () -> Unit = {},
     pendingFieldRecovery: V211PlanFieldRecovery? = null,
     onFieldRecoveryHandled: (Long) -> Unit = {},
+    startOnBrief: Boolean = false,
 ) {
     val context = LocalContext.current
     val originalRevision = task.workspace.revision
@@ -72,11 +73,23 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         draftStore.loadProject(task.id, originalRevision)
     }
     val initial = recovered ?: task.workspace
-    var section by remember { mutableStateOf(Alpha3Section.OVERVIEW) }
+    var section by remember(task.id, originalRevision, startOnBrief) {
+        mutableStateOf(if (startOnBrief) Alpha3Section.BRIEF else Alpha3Section.OVERVIEW)
+    }
     var audience by remember(task.id, originalRevision) { mutableStateOf(initial.audience) }
     var viewerProblem by remember(task.id, originalRevision) { mutableStateOf(initial.viewerProblem) }
     var promise by remember(task.id, originalRevision) { mutableStateOf(initial.promise) }
     var angle by remember(task.id, originalRevision) { mutableStateOf(initial.angle) }
+    var objective by remember(task.id, originalRevision) { mutableStateOf(initial.objective) }
+    var successCriteria by remember(task.id, originalRevision) { mutableStateOf(initial.successCriteria) }
+    var constraints by remember(task.id, originalRevision) { mutableStateOf(initial.constraints) }
+    var showAdvancedBrief by remember(task.id, originalRevision) {
+        mutableStateOf(
+            initial.objective.isNotBlank() ||
+                initial.successCriteria.isNotBlank() ||
+                initial.constraints.isNotBlank()
+        )
+    }
     val hook = task.workspace.hook
     val script = task.workspace.script
     var references by remember(task.id, originalRevision) { mutableStateOf(initial.references) }
@@ -98,6 +111,9 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
             "Viewer problem" -> viewerProblem = selection.text
             "Promise" -> promise = selection.text
             "Angle" -> angle = selection.text
+            "Objective" -> { objective = selection.text; showAdvancedBrief = true }
+            "Success criteria" -> { successCriteria = selection.text; showAdvancedBrief = true }
+            "Constraints" -> { constraints = selection.text; showAdvancedBrief = true }
             "Learnings" -> learnings = selection.text
         }
         // Consuming prevents a later tab switch or editor remount from
@@ -115,6 +131,9 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
         viewerProblem = viewerProblem,
         promise = promise,
         angle = angle,
+        objective = objective,
+        successCriteria = successCriteria,
+        constraints = constraints,
         hook = hook,
         script = script,
         references = references,
@@ -131,7 +150,10 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
     )
 
     var draftWarningShown by remember(task.id, originalRevision) { mutableStateOf(false) }
-    LaunchedEffect(audience, viewerProblem, promise, angle, references, checklist, assets, deliverables, learnings) {
+    LaunchedEffect(
+        audience, viewerProblem, promise, angle, objective, successCriteria,
+        constraints, references, checklist, assets, deliverables, learnings,
+    ) {
         delay(350)
         val snapshot = draft()
         val saveError = withContext(Dispatchers.IO) {
@@ -272,6 +294,36 @@ internal fun V19ContentWorkspaceAlpha3Dialog(
                             A3Field("VIEWER PROBLEM", viewerProblem, { viewerProblem = it }, "What question or need are they bringing?")
                             A3Field("PROMISE", promise, { promise = it }, "What will they get by staying?")
                             A3Field("ANGLE", angle, { angle = it }, "Why is your take different?")
+                            Spacer(Modifier.height(8.dp))
+                            TextButton(
+                                onClick = { showAdvancedBrief = !showAdvancedBrief },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            ) {
+                                Icon(
+                                    if (showAdvancedBrief) Icons.Outlined.ExpandLess
+                                    else Icons.Outlined.ExpandMore,
+                                    contentDescription = null,
+                                )
+                                Spacer(Modifier.width(7.dp))
+                                Text(
+                                    if (showAdvancedBrief) "HIDE OPTIONAL PLANNING"
+                                    else "ADDITIONAL PLANNING (OPTIONAL)",
+                                    color = MutedGold,
+                                )
+                            }
+                            if (showAdvancedBrief) {
+                                Text(
+                                    "Go deeper only when useful. These fields never block stage approval.",
+                                    color = MutedText, fontSize = 12.sp,
+                                )
+                                Spacer(Modifier.height(9.dp))
+                                A3Field("OBJECTIVE", objective, { objective = it },
+                                    "What is this project trying to achieve?")
+                                A3Field("SUCCESS CRITERIA", successCriteria, { successCriteria = it },
+                                    "What would make the outcome successful?")
+                                A3Field("CONSTRAINTS", constraints, { constraints = it },
+                                    "Time, budget, access, rights or other limits")
+                            }
                         }
                         Alpha3Section.RESEARCH -> {
                             A3Title("SOURCES", "")
