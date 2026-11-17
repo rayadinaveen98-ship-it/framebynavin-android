@@ -7,7 +7,7 @@ Backlot Lab project `vasleafrmsovdbdlrcsw` has a deployed and independently sign
 
 Previous disconnected Android engine: journal PR #437 and field audit PRs #438–439 passed CI. Operation-chain PR #440 passed 31 focus tests. Encrypted store #441 and file lease #442 remained under exact-head CI at branch creation.
 
-## Exact five-file implementation
+## Exact six-file implementation
 1. `app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabRpcContract.kt` (NEW): strict apply/pull response parsing, known wire domains, exact response shapes, bounded page size, monotonic event sequence and matching cursor, authenticated operation revision/identity/tombstone checks, canonical JSON and local-path filtering.
 2. `app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt` (ADDITIVE): exactly two **internal** method entrypoints for the known `/rest/v1/rpc/backlot_ux09_apply_v1` and `pull_v1` endpoints, reusing the existing authenticated HTTP request, publishable-key configuration, no-store cache policy and error path. Both invoke the **hardcoded Lab-only endpoint refusal guard before any HTTP**. Apply requires `session.userId == intent.accountId`.
 3. `app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabSignedRpcClient.kt` (NEW): uses `CloudSyncManager.withFreshSession` to fence signed account transitions before/after RPC I/O; exposes typed `apply()`/`pull()` only. **No production caller**; no legacy snapshot change.
