@@ -45,6 +45,7 @@ internal fun CW52OutputLearningDesk(
     val activeId = selected?.id.orEmpty()
     var showOutputMenu by remember { mutableStateOf(false) }
     var requestedSwitch by remember { mutableStateOf<String?>(null) }
+    var pendingPublishNavigation by remember { mutableStateOf(false) }
 
     var expectation by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
     var observed by rememberSaveable(task.id, activeId, revision) { mutableStateOf("") }
@@ -64,9 +65,9 @@ internal fun CW52OutputLearningDesk(
     val metricFieldsConsistent =
         metricLabel.isBlank() == metricValue.isBlank() &&
         (metricSource.isBlank() || metricValue.isNotBlank())
-    val allowedToWrite = selected?.status == CreatorDeliverableStatus.PUBLISHED &&
-        selected.publishedAtMillis > 0L &&
-        task.archivedAtMillis == 0L && task.status != TaskStatus.SKIPPED
+    val allowedToWrite = selected?.let { output ->
+        output.status == CreatorDeliverableStatus.PUBLISHED && output.publishedAtMillis > 0L
+    } == true && task.archivedAtMillis == 0L && task.status != TaskStatus.SKIPPED
 
     val history = workspace.outputLearnings.filter { it.deliverableId == activeId }
         .sortedWith(
@@ -114,7 +115,9 @@ internal fun CW52OutputLearningDesk(
                     item {
                         Text("This project has no planned outputs yet.",
                             color = ProjectorIvory, fontSize = 14.sp)
-                        TextButton(onClick = onOpenPublish) {
+                        TextButton(onClick = {
+                            if (hasDraft) pendingPublishNavigation = true else onOpenPublish()
+                        }) {
                             Text("OPEN PUBLISH STUDIO", color = RecRed)
                         }
                     }
@@ -260,7 +263,9 @@ internal fun CW52OutputLearningDesk(
                             )
                             if (task.archivedAtMillis == 0L &&
                                 task.status != TaskStatus.SKIPPED) {
-                                TextButton(onClick = onOpenPublish) {
+                                TextButton(onClick = {
+                                    if (hasDraft) pendingPublishNavigation = true else onOpenPublish()
+                                }) {
                                     Text("OPEN PUBLISH STUDIO", color = RecRed)
                                 }
                             }
@@ -315,6 +320,27 @@ internal fun CW52OutputLearningDesk(
                 }
             }
         }
+    }
+    if (pendingPublishNavigation) {
+        AlertDialog(
+            onDismissRequest = { pendingPublishNavigation = false },
+            title = { Text("Leave this unsaved reflection?") },
+            text = {
+                Text("Opening Publish Studio will discard unsaved reflection text. " +
+                    "Previously recorded learning stays safe.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingPublishNavigation = false
+                    onOpenPublish()
+                }) { Text("DISCARD & OPEN") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingPublishNavigation = false }) {
+                    Text("KEEP EDITING")
+                }
+            },
+        )
     }
     requestedSwitch?.let { destination ->
         AlertDialog(
