@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.ProjectorIvory
 import com.framebynavin.app.ui.theme.RecRed
 
@@ -62,10 +63,10 @@ private fun PersonalSaveButton(
     Button(
         onClick = onSave,
         enabled = !saving,
-        modifier = modifier.heightIn(min = 52.dp)
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
             .testTag("v2232-personal-save"),
         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
     ) {
         Text(
             if (saving) "SAVING" else "SAVE",
@@ -81,8 +82,8 @@ private fun PersonalSaveButton(
 private fun PersonalCancelButton(onCancel: () -> Unit, modifier: Modifier) {
     OutlinedButton(
         onClick = onCancel,
-        modifier = modifier.heightIn(min = 52.dp).testTag("v2271-personal-cancel"),
-        shape = RoundedCornerShape(15.dp),
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v2271-personal-cancel"),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
     ) {
         Text("CANCEL", color = ProjectorIvory, fontSize = 13.sp, maxLines = 2)
     }
