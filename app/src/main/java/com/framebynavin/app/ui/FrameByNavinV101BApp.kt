@@ -439,6 +439,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     pendingWorkflowApproval?.let { request ->
+        var warningAcknowledged by remember(
+            request.projectId, request.stageId, request.workspaceRevision,
+        ) { mutableStateOf(false) }
         val current = vm.tasks.firstOrNull { it.id == request.projectId }
         val isCurrent = current != null &&
             CreatorWorkflowEngine.currentStage(current).id == request.stageId &&
@@ -471,10 +474,21 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         Text("Your project changed while this approval was open. Close this dialog and review the latest stage.",
                             color = MutedText, fontSize = 13.sp)
                     } else {
+                        val stageNumber = current?.let {
+                            CreatorWorkflowEngine.stageIndex(it) + 1
+                        } ?: 0
+                        val stageCount = current?.let {
+                            CreatorWorkflowEngine.templateFor(it).stages.size
+                        } ?: 0
+                        Text(
+                            "STAGE $stageNumber / $stageCount · ${assessment?.stageLabel.orEmpty()}",
+                            color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.testTag("ux05-approval-stage-identity"),
+                        )
                         Text(
                             if (assessment?.willFinishProject == true)
-                                "Finishing this project is separate from publishing an output."
-                            else "Approving this step records an explicit stage transition. It does not publish, approve a cut or complete another stage.",
+                                "This confirms the final workflow stage. It does not publish an output."
+                            else "Approval records only this workflow step; saved notes, scripts, cut decisions and publication remain separate.",
                             color = MutedText, fontSize = 13.sp, lineHeight = 19.sp,
                         )
                         assessment?.blockers?.forEach { notice ->
@@ -490,8 +504,23 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                                 color = ProjectorIvory, fontSize = 13.sp)
                         }
                         if (assessment?.warnings?.isNotEmpty() == true) {
-                            Text("You may confirm despite these warnings. They will be recorded in the stage approval receipt.",
-                                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("ux05-acknowledge-stage-warnings"),
+                            ) {
+                                Checkbox(
+                                    checked = warningAcknowledged,
+                                    onCheckedChange = { warningAcknowledged = it },
+                                )
+                                Text(
+                                    "I reviewed these warnings and choose to advance this stage. " +
+                                        "The warnings will be recorded in its approval receipt.",
+                                    color = ProjectorIvory, fontSize = 12.sp,
+                                    lineHeight = 17.sp,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }
@@ -519,7 +548,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         Text("RECORD PUBLICATION")
                     }
                     current != null -> Button(
-                        enabled = assessment?.allowed == true && vm.writeError == null,
+                        enabled = assessment?.allowed == true && vm.writeError == null &&
+                            (assessment.warnings.isEmpty() || warningAcknowledged),
                         onClick = {
                             val destination = V18CreatorJourney.afterWorkflowAdvance(current)
                             pendingCommittedStageJourney = CW6PendingCommittedStageJourney(
@@ -758,6 +788,22 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
                     onConvert = { _, _, _, _ -> null },
+                    onOpenLinkedProject = { projectId ->
+                        if (vm.tasks.none { it.id == projectId }) {
+                            Toast.makeText(
+                                context,
+                                "The linked project is unavailable. Your idea was kept.",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        } else {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(context, ContentWorkspaceActivity::class.java)
+                                        .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, projectId)
+                                )
+                            }.onFailure { openProject(projectId) }
+                        }
+                    },
                     onConvertDurably = { request ->
                         val projectId = vm.convertIdeaToProject(request)
                         if (V18CreatorJourney.afterProjectCreated(projectId) == V18JourneyDestination.CREATE) {

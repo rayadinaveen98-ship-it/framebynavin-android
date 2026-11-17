@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Notes
@@ -72,6 +73,8 @@ internal fun V09IdeaVaultScreen(
     // Root route owns New Idea, above bottom nav; standalone previews can
     // still use the same Activity-owned overlay locally.
     onCreateIdeaRequested: (() -> Unit)? = null,
+    /** UX05G: open the canonical linked project, never repeat idea conversion. */
+    onOpenLinkedProject: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val creatorProfile = remember { CreatorOsSettingsStore(context.applicationContext).snapshot().creatorProfile }
@@ -245,6 +248,11 @@ internal fun V09IdeaVaultScreen(
                             onEdit = { editing = idea },
                             onConvert = { converting = idea },
                             onArchive = { onArchive(idea.id) },
+                            onOpenLinkedProject = if (idea.projectTaskId.isNotBlank() &&
+                                onOpenLinkedProject != null
+                            ) {
+                                { onOpenLinkedProject?.invoke(idea.projectTaskId) }
+                            } else null,
                         )
                     }
                 }
@@ -358,6 +366,7 @@ private fun V09IdeaCard(
     onEdit: () -> Unit,
     onConvert: () -> Unit,
     onArchive: () -> Unit,
+    onOpenLinkedProject: (() -> Unit)? = null,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
@@ -392,6 +401,18 @@ private fun V09IdeaCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("${idea.platformHint} · ${idea.formatHint}", color = MutedText, fontSize = 8.8.sp)
                 Spacer(Modifier.weight(1f))
+                if (idea.projectTaskId.isNotBlank() && onOpenLinkedProject != null) {
+                    TextButton(
+                        onClick = onOpenLinkedProject,
+                        modifier = Modifier.testTag("ux05-open-linked-project"),
+                    ) {
+                        Icon(Icons.Outlined.FolderOpen, null, tint = RecRed,
+                            modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("OPEN PROJECT", color = RecRed, fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold)
+                    }
+                }
                 if (idea.status != IdeaStatus.CONVERTED && idea.status != IdeaStatus.ARCHIVED) {
                     TextButton(onClick = onConvert) {
                         Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed, modifier = Modifier.size(15.dp))
