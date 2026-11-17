@@ -450,12 +450,14 @@ internal fun V2233PersonalAlertScreen(
                 modifier = Modifier.fillMaxWidth()
                     .testTag("ux06e-personal-action-meaning"),
             )
-            V407ReminderAccessDisclosure(
-                owner = V407ReminderOwner.PERSONAL,
-                kind = if (reminder.alert == PersonalAlert.VOICE)
-                    ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (reminder.alert != PersonalAlert.NOTIFICATION) {
+                V407ReminderAccessDisclosure(
+                    owner = V407ReminderOwner.PERSONAL,
+                    kind = if (reminder.alert == PersonalAlert.VOICE)
+                        ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(18.dp))
         }
     }
