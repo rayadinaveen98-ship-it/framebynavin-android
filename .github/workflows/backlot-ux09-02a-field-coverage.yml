@@ -1,0 +1,40 @@
+name: Backlot UX09-02A Project Idea Full-Field Coverage Guard
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-02a-durable-journal-prototype-20261117
+    paths:
+      - 'app/src/main/java/com/framebynavin/app/data/CreatorTask.kt'
+      - 'app/src/main/java/com/framebynavin/app/data/IdeaVault.kt'
+      - 'app/src/main/java/com/framebynavin/app/data/CreatorContentWorkspace.kt'
+      - 'app/src/main/java/com/framebynavin/app/data/TaskStore.kt'
+      - 'app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt'
+      - 'tools/qa/backlot_ux09_02a_field_coverage.py'
+      - 'docs/engineering/UX09_02A_FIELD_COVERAGE_MANIFEST_20261117.json'
+      - '.github/workflows/backlot-ux09-02a-field-coverage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-field-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact Kotlin field coverage and fail-closed mutations
+        run: python3 tools/qa/backlot_ux09_02a_field_coverage.py --selftest
+      - name: Prove no network calls or app source edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -En 'urllib|requests|https?://|supabase.co|CloudApiClient|WorkManager' tools/qa/backlot_ux09_02a_field_coverage.py
+          git diff --quiet -- app/src/main
+          echo 'Audit-only, no Android code modifications, no hosted requests.'
