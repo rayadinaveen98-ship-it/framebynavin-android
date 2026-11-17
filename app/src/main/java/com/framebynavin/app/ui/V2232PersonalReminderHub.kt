@@ -136,6 +136,7 @@ internal fun V2232PersonalReminderHub(
             activityFocusId = initialFocusReminderId
             personalPageName = "TODAY"
             agendaScopeName = V285AgendaScope.ALL.name
+            personalAttentionOnly = false
         }
     }
     var spacesOpen by rememberSaveable { mutableStateOf(false) }
@@ -155,6 +156,7 @@ internal fun V2232PersonalReminderHub(
             activityFocusId = null
             personalPageName = "TODAY"
             agendaScopeName = V285AgendaScope.ALL.name
+            personalAttentionOnly = false
             challengesOpen = true
         }
     }
