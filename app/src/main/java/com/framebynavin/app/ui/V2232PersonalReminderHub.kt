@@ -605,6 +605,92 @@ internal fun V2232PersonalReminderHub(
                 val finishedChallengeCount = challengeSections.count {
                     it.section == PersonalAgendaSection.NO_UPCOMING
                 }
+                // UX06B: these are read-only projections from PersonalReminderStore
+                // plus the existing source-namespaced 21-day challenge agenda.
+                // Challenge reminders with Alert Off never enter these counts.
+                val allAgendaForFocus = remember(
+                    reminders, eligibleChallenges, agendaNowMillis,
+                ) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = reminders,
+                        challenges = eligibleChallenges,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.ALL,
+                    )
+                }
+                val todayAgendaForFocus = remember(
+                    reminders, eligibleChallenges, agendaNowMillis,
+                ) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = reminders,
+                        challenges = eligibleChallenges,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.TODAY,
+                    )
+                }
+                val weekAgendaForFocus = remember(
+                    reminders, eligibleChallenges, agendaNowMillis,
+                ) {
+                    V337UnifiedPersonalAgenda.groups(
+                        personal = reminders,
+                        challenges = eligibleChallenges,
+                        nowMillis = agendaNowMillis,
+                        scope = V285AgendaScope.SEVEN_DAYS,
+                    )
+                }
+                if (challengeLoadError == null) {
+                    V406ReminderScopeNavigator(
+                        actions = listOf(
+                            V406ReminderScopeAction(
+                                id = "personal-today", label = "Today + due",
+                                count = todayAgendaForFocus.sumOf { it.entries.size },
+                                selected = !personalAttentionOnly &&
+                                    agendaScopeName == V285AgendaScope.TODAY.name,
+                                onSelect = {
+                                    activityFocusId = null
+                                    personalAttentionOnly = false
+                                    agendaScopeName = V285AgendaScope.TODAY.name
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "personal-week", label = "Next 7 days",
+                                count = weekAgendaForFocus.sumOf { it.entries.size },
+                                selected = !personalAttentionOnly &&
+                                    agendaScopeName == V285AgendaScope.SEVEN_DAYS.name,
+                                onSelect = {
+                                    activityFocusId = null
+                                    personalAttentionOnly = false
+                                    agendaScopeName = V285AgendaScope.SEVEN_DAYS.name
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "personal-attention", label = "Needs action",
+                                count = allAgendaForFocus.firstOrNull {
+                                    it.section == PersonalAgendaSection.NEEDS_ATTENTION
+                                }?.entries?.size ?: 0,
+                                selected = personalAttentionOnly,
+                                onSelect = {
+                                    activityFocusId = null
+                                    agendaScopeName = V285AgendaScope.ALL.name
+                                    personalAttentionOnly = true
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "personal-all", label = "All",
+                                count = allAgendaForFocus.sumOf { it.entries.size },
+                                selected = !personalAttentionOnly &&
+                                    agendaScopeName == V285AgendaScope.ALL.name,
+                                onSelect = {
+                                    activityFocusId = null
+                                    personalAttentionOnly = false
+                                    agendaScopeName = V285AgendaScope.ALL.name
+                                },
+                            ),
+                        ),
+                        modifier = Modifier.padding(bottom = 5.dp)
+                            .testTag("ux06b-personal-focus-rail"),
+                    )
+                }
                 Row(Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
@@ -634,7 +720,10 @@ internal fun V2232PersonalReminderHub(
                     V285AgendaScope.entries.forEach { scope ->
                         FilterChip(
                             selected = agendaScopeName == scope.name,
-                            onClick = { agendaScopeName = scope.name },
+                            onClick = {
+                                agendaScopeName = scope.name
+                                personalAttentionOnly = false
+                            },
                             label = { Text(scope.label, fontSize = 11.sp) },
                             modifier = Modifier.testTag("v285-agenda-scope-" + scope.name),
                         )
@@ -658,14 +747,19 @@ internal fun V2232PersonalReminderHub(
                 val challengeProjection = if (activityFocusId == null) challenges
                     else emptyList()
                 val agendaGroups = remember(
-                    filteredForActivity, challengeProjection, agendaNowMillis, agendaScopeName,
+                    filteredForActivity, challengeProjection, agendaNowMillis,
+                    agendaScopeName, personalAttentionOnly,
                 ) {
-                    V337UnifiedPersonalAgenda.groups(
+                    val projected = V337UnifiedPersonalAgenda.groups(
                         personal = filteredForActivity,
                         challenges = challengeProjection,
                         nowMillis = agendaNowMillis,
-                        scope = V285AgendaScope.valueOf(agendaScopeName),
+                        scope = if (personalAttentionOnly) V285AgendaScope.ALL
+                            else V285AgendaScope.valueOf(agendaScopeName),
                     )
+                    if (personalAttentionOnly) projected.filter {
+                        it.section == PersonalAgendaSection.NEEDS_ATTENTION
+                    } else projected
                 }
                 val visibleCount = agendaGroups.sumOf { it.entries.size }
                 if (selectingPersonal) {
@@ -703,12 +797,20 @@ internal fun V2232PersonalReminderHub(
                         ) { Text("CLEAR", color = MutedText) }
                     }
                 }
-                Text("$visibleCount shown · choose ALL for paused, archived or finished alerts",
+                Text(
+                    if (personalAttentionOnly) "$visibleCount need attention · no completion inferred"
+                    else "$visibleCount shown · choose ALL for paused, archived or finished alerts",
                     color = MutedText, fontSize = 10.sp,
-                    modifier = Modifier.testTag("v285-agenda-count"))
+                    modifier = Modifier.testTag("v285-agenda-count"),
+                )
                 if (agendaGroups.isEmpty()) {
-                    Text("No reminders in this time window. Select ALL to see " +
-                        "other upcoming or paused reminders.", color = MutedText, fontSize = 12.sp)
+                    Text(
+                        if (personalAttentionOnly) "Nothing needs a response right now. " +
+                            "That does not prove every scheduled alert was delivered."
+                        else "No reminders in this time window. Select ALL to see " +
+                            "other upcoming or paused reminders.",
+                        color = MutedText, fontSize = 12.sp,
+                    )
                 }
                 agendaGroups.forEach { group ->
                     Row(
