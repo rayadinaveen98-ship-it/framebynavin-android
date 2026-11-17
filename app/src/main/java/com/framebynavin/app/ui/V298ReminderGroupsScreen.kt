@@ -595,10 +595,10 @@ private fun V298ConfirmBulkGroupDialog(
                 "${impact.changing} of ${impact.linked} linked Personal reminders will " +
                     "actually ${if (pause) "pause" else "resume"}; " +
                     "${impact.unchanged} already have this state. " +
-                    if (impact.missing > 0)
+                    (if (impact.missing > 0)
                         "${impact.missing} missing links must be reviewed first. "
                     else
-                        "${impact.sharedWithOtherGroups} changing reminders are also in other groups. " +
+                        "${impact.sharedWithOtherGroups} changing reminders are also in other groups. ") +
                     "These are the original reminders; changes affect every group that links them. " +
                     "Your confirmed Done history stays intact. Android alerts will be reconciled.",
             )
