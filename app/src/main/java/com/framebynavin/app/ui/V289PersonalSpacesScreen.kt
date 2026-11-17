@@ -716,7 +716,7 @@ internal fun V289PersonalSpacesScreen(
                                 Column(Modifier.padding(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(
-                                        UX07CSpaceLabels.entry(item.kind),
+                                        UX07CSpaceLabels.entry(item.kind, item.source),
                                         color = BacklotSecondaryAccent,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.SemiBold,
