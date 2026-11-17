@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE, OUTPUT, BOARD }
+private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE, OUTPUT, BOARD, LEARN }
 
 private data class V211HistoricalPlanFieldRequest(
     val sourceId: String,
@@ -168,6 +168,18 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             onOpenStage = { stageId -> openStage(stageId) },
                             onOpenOutputCraft = { mode = Alpha6WorkspaceMode.OUTPUT },
                             onOpenBoard = { mode = Alpha6WorkspaceMode.BOARD },
+                            onOpenLearning = { mode = Alpha6WorkspaceMode.LEARN },
+                        )
+                        mode == Alpha6WorkspaceMode.LEARN -> CW52OutputLearningDesk(
+                            task = task!!,
+                            onBack = { confirmEditorClose = true },
+                            onOpenPublish = {
+                                confirmEditorClose = false
+                                mode = Alpha6WorkspaceMode.PUBLISH
+                            },
+                            onSave = { expectedRevision, draft ->
+                                appendOutputLearning(task!!.id, expectedRevision, draft)
+                            },
                         )
                         mode == Alpha6WorkspaceMode.BOARD -> CW51CreativeBoard(
                             task = task!!,
@@ -495,7 +507,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                                 }.exceptionOrNull()
                                             }
                                             Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB,
-                                            Alpha6WorkspaceMode.BOARD -> Unit
+                                            Alpha6WorkspaceMode.BOARD, Alpha6WorkspaceMode.LEARN -> Unit
                                         }
                                     }
                                     if (stageDraftClearFailure != null) {
@@ -646,6 +658,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         }
                         Alpha6WorkspaceMode.BLUEPRINT -> mode = Alpha6WorkspaceMode.BLUEPRINT
                         Alpha6WorkspaceMode.BOARD -> mode = Alpha6WorkspaceMode.BOARD
+                        Alpha6WorkspaceMode.LEARN -> mode = Alpha6WorkspaceMode.LEARN
                         Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
                         Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
                         Alpha6WorkspaceMode.SCRIPT -> openScriptStudio(loaded)
@@ -932,6 +945,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             outputScripts = current.workspace.outputScripts,
                             editVersions = current.workspace.editVersions,
                             stageTransitions = current.workspace.stageTransitions,
+                            // Outcome snapshots have a distinct writer; Plan and Publish
+                            // drafts must never erase them while saving unrelated fields.
+                            outputLearnings = current.workspace.outputLearnings,
                         )
                     normalized = when (editorMode) {
                         Alpha6WorkspaceMode.PROJECT -> CreatorContentStabilization.prepareProjectEditorSave(
@@ -1142,6 +1158,53 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         }
                     }.onFailure {
                         error = it.message ?: "Output history could not be saved. Your prior project data is safe."
+                    }
+                }
+            } finally {
+                saveGate.end()
+            }
+        }
+    }
+
+    /** Learning may continue after a completed project, but never alters publication. */
+    private fun appendOutputLearning(
+        projectId: String,
+        expectedRevision: Long,
+        draft: CreatorOutputLearning,
+    ) {
+        if (!saveGate.tryBegin()) {
+            android.widget.Toast.makeText(
+                applicationContext, "Another workspace save is in progress.",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = runCatching {
+                    val epoch = loadedGeneration
+                    CreatorDataGate.checkGeneration(applicationContext, epoch)
+                    store.appendOutputLearning(
+                        projectId, epoch, expectedRevision, draft,
+                    ) ?: error("This project was removed. No learning was saved.")
+                }
+                withContext(Dispatchers.Main) {
+                    result.onSuccess { saved ->
+                        task = saved
+                        confirmEditorClose = false
+                        mode = Alpha6WorkspaceMode.LEARN
+                        android.widget.Toast.makeText(
+                            applicationContext, "Learning recorded for this output.",
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    }.onFailure { failure ->
+                        // Keep the editor composed so the user's unsaved reflection
+                        // remains available to revise/retry. No misleading success.
+                        android.widget.Toast.makeText(
+                            applicationContext,
+                            failure.message ?: "Learning was not saved. Review and retry.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
                     }
                 }
             } finally {
