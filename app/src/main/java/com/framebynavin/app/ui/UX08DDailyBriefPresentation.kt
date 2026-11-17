@@ -46,6 +46,8 @@ internal data class UX08DBriefSections(
     val otherAttentionTotal: Int,
     val upcomingTotal: Int,
     val activeTotal: Int,
+    val focusIsOverdue: Boolean,
+    val focusIsDueLaterToday: Boolean,
 ) {
     val isEmpty: Boolean get() =
         activeTotal == 0 && otherAttentionTotal == 0 && upcomingTotal == 0
@@ -78,7 +80,8 @@ internal object UX08DDailyBriefPolicy {
         // time as a separate task card in another section.
         val overdue = allOverdue.filterNot { it.id == focusId }.take(MAX_OVERDUE)
         val dueLaterToday = allDueLater.filterNot { it.id == focusId }.take(MAX_DUE_TODAY)
-        val occupiedIds = (allOverdue + allDueLater).mapTo(HashSet()) { it.id }
+        val occupiedIds = (allOverdue + allDueLater)
+            .mapTo(hashSetOf<String>()) { it.id }
         if (focusId != null) occupiedIds += focusId
 
         val allAdditionalNudges = CreatorContextNudgeEngine.nudges(tasks, nowMillis)
@@ -104,6 +107,8 @@ internal object UX08DDailyBriefPolicy {
             otherAttentionTotal = allAdditionalNudges.size,
             upcomingTotal = upcoming.size,
             activeTotal = ranked.size,
+            focusIsOverdue = allOverdue.any { it.id == focusId },
+            focusIsDueLaterToday = allDueLater.any { it.id == focusId },
         )
     }
 }
@@ -129,7 +134,6 @@ internal fun UX08DBriefSectionHeading(
 internal fun UX08DBriefProjectRow(
     task: CreatorTask,
     prefix: String,
-    nowMillis: Long,
     onOpenProject: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
