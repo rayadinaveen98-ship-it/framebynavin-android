@@ -1,0 +1,69 @@
+name: Backlot UX09-02A Sealed Offline Queue Crypto JVM Gate
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-02a-offline-operation-chain-20261117
+    paths:
+      - 'app/src/main/java/com/framebynavin/app/cloud/ux09/**'
+      - 'app/src/test/java/com/framebynavin/app/cloud/ux09/**'
+      - '.github/workflows/backlot-ux09-02a-sealed-chain.yml'
+      - 'docs/engineering/UX09_02A_SEALED_CHAIN_GATE_20261117.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-02a-sealed-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sealed-synthetic-jvm:
+    name: Synthetic AES-GCM chain tests (NOT physical device or APK)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assert no real-data feature activation or backend integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const val ENABLED = false' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09SyncContract.kt
+          ! grep -ER 'https?://|CloudApiClient|CreatorCloudSyncWorker|WorkManager' \
+            app/src/main/java/com/framebynavin/app/cloud/ux09/
+          grep -Fq 'AES/GCM/NoPadding' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09SealedChainStore.kt
+          grep -Fq 'AndroidKeyStore' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09AndroidKeyProvider.kt
+          echo 'No backend calls or app entrypoints. Only isolated, synthetic sealed-storage code.'
+      - name: Compile Android and run existing plus sealed synthetic JVM tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 3900s \
+            gradle :app:testDebugUnitTest \
+              --tests 'com.framebynavin.app.cloud.ux09.Ux09OfflineContractAndJournalTest' \
+              --tests 'com.framebynavin.app.cloud.ux09.Ux09OfflineChainPolicyTest' \
+              --tests 'com.framebynavin.app.cloud.ux09.Ux09SealedChainStoreTest' \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              --no-daemon --no-parallel --max-workers=1 \
+              '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1250m -Dfile.encoding=UTF-8' \
+              --console=plain 2>&1 | tee ux09-02a-sealed-jvm-tests.log
+      - name: Upload synthetic JVM evidence only (NO APK)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02A-Sealed-Queue-JVM-NO-RELEASE
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            ux09-02a-sealed-jvm-tests.log
+          if-no-files-found: warn
+          retention-days: 14
