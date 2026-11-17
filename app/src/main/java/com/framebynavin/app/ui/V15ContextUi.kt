@@ -360,6 +360,12 @@ internal fun V15ContentCalendarScreen(
         today,
     )
     var selectedDayOnly by rememberSaveable { mutableStateOf(false) }
+    // The date being inspected must NOT shift the Agenda's 14-day window.
+    // Period arrows and Today are the only controls that move that window.
+    var selectedDayText by rememberSaveable { mutableStateOf<String?>(null) }
+    val focusedDay = selectedDayText?.let { date ->
+        runCatching { LocalDate.parse(date) }.getOrNull()
+    }?.takeIf { UX08ECalendarPolicy.isSelectable(it, today) } ?: selectedDate
 
     // The engine is the *existing* project/Weekly Plan projection. A 90-day
     // read-only horizon provides actual future month navigation, not 90 writes.
@@ -374,6 +380,7 @@ internal fun V15ContentCalendarScreen(
         UX08ECalendarPolicy.visibleItems(
             upcoming, view, selectedDate, today, zone,
             selectedDayOnly = true,
+            focusedDay = focusedDay,
         )
     else visiblePeriod
     val windowCounts = UX08ECalendarPolicy.count(visiblePeriod)
@@ -415,19 +422,22 @@ internal fun V15ContentCalendarScreen(
                 UX08ECalendarNavigation(
                     view = view,
                     selected = selectedDate,
+                    highlightedDay = if (selectedDayOnly) focusedDay else null,
                     today = today,
                     items = upcoming,
                     zone = zone,
                     onViewChange = { chosen ->
                         viewName = chosen.name
                         selectedDayOnly = false
+                        selectedDayText = null
                     },
                     onDateSelect = { date ->
-                        selectedDateText = date.toString()
+                        selectedDayText = date.toString()
                         selectedDayOnly = true
                     },
                     onMoveTo = { date ->
                         selectedDateText = date.toString()
+                        selectedDayText = null
                         selectedDayOnly = false
                     },
                 )
@@ -526,7 +536,7 @@ internal fun V15ContentCalendarScreen(
                         )
                         Text(
                             if (selectedDayOnly)
-                                selectedDate.format(DateTimeFormatter.ofPattern(
+                                focusedDay.format(DateTimeFormatter.ofPattern(
                                     "EEE, d MMM yyyy", Locale.getDefault()
                                 )) + " · ${displayed.size} recorded plan item(s)"
                             else "${displayed.size} upcoming item(s) in this view",
@@ -535,7 +545,10 @@ internal fun V15ContentCalendarScreen(
                     }
                     if (selectedDayOnly) {
                         TextButton(
-                            onClick = { selectedDayOnly = false },
+                            onClick = {
+                                selectedDayOnly = false
+                                selectedDayText = null
+                            },
                             modifier = Modifier.heightIn(min = 48.dp)
                                 .testTag("ux08e-show-full-period"),
                         ) {
