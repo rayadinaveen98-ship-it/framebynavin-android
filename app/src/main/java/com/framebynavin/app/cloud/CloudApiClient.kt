@@ -1,5 +1,8 @@
 package com.framebynavin.app.cloud
 
+import com.framebynavin.app.cloud.ux09.Ux09Contract
+import com.framebynavin.app.cloud.ux09.Ux09Intent
+import com.framebynavin.app.cloud.ux09rpc.Ux09LabRpcContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -15,6 +18,42 @@ class CloudHttpException(val statusCode: Int, override val message: String) : Ex
 
 /** Supabase owns creator identity plus private, account-scoped creator snapshot sync. */
 class CloudApiClient {
+    /**
+     * UX09-02B LAB-ONLY RPC primitives. No existing app/worker calls these.
+     * Reuses the original authenticated HTTP client; never talks to production.
+     */
+    internal suspend fun backlotUx09LabApplyRaw(
+        session: CloudSession,
+        intent: Ux09Intent,
+    ): String {
+        Ux09LabRpcContract.requireLabEndpoint(CloudConfig.SUPABASE_URL)
+        Ux09Contract.validate(intent)
+        require(session.userId == intent.accountId && session.accessToken.isNotBlank()) {
+            "UX09 account ownership changed; remote operation blocked"
+        }
+        return request(
+            "POST", "/rest/v1/rpc/backlot_ux09_apply_v1",
+            token = session.accessToken,
+            body = Ux09Contract.rpcApplyBody(intent).toString(),
+        )
+    }
+
+    internal suspend fun backlotUx09LabPullRaw(
+        session: CloudSession,
+        afterSequence: Long,
+        limit: Int,
+    ): String {
+        Ux09LabRpcContract.requireLabEndpoint(CloudConfig.SUPABASE_URL)
+        require(session.userId.isNotBlank() && session.accessToken.isNotBlank()) {
+            "Signed-in user required for UX09 delta pull"
+        }
+        return request(
+            "POST", "/rest/v1/rpc/backlot_ux09_pull_v1",
+            token = session.accessToken,
+            body = Ux09LabRpcContract.pullBody(afterSequence, limit),
+        )
+    }
+
     suspend fun signInWithGoogle(idToken: String): CloudSession {
         val body = JSONObject().put("id_token", idToken).put("provider", "google")
         return parseSession(JSONObject(request("POST", "/auth/v1/token?grant_type=id_token", body = body.toString(), authenticated = false)), null)
