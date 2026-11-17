@@ -166,7 +166,6 @@ internal fun V15DailyBriefScreen(
                         UX08DBriefProjectRow(
                             task = task,
                             prefix = "Past deadline",
-                            nowMillis = nowMillis,
                             onOpenProject = onOpenProject,
                         )
                         Spacer(Modifier.height(7.dp))
@@ -223,7 +222,7 @@ internal fun V15DailyBriefScreen(
                     }
                     val reviewVisible = sections.overdue.size +
                         sections.otherAttention.size +
-                        if (brief.focusTask?.dueAtMillis in 1 until nowMillis) 1 else 0
+                        (if (sections.focusIsOverdue) 1 else 0)
                     if (sections.overdueTotal + sections.otherAttentionTotal >
                         reviewVisible
                     ) {
@@ -249,16 +248,13 @@ internal fun V15DailyBriefScreen(
                         UX08DBriefProjectRow(
                             task = task,
                             prefix = "Planned deadline",
-                            nowMillis = nowMillis,
                             onOpenProject = onOpenProject,
                         )
                         Spacer(Modifier.height(7.dp))
                     }
-                    if (sections.dueLaterTodayTotal >
-                        sections.dueLaterToday.size +
-                        if (brief.focusTask?.dueAtMillis != null &&
-                            brief.focusTask.dueAtMillis >= nowMillis) 1 else 0
-                    ) {
+                    val dueLaterVisible = sections.dueLaterToday.size +
+                        (if (sections.focusIsDueLaterToday) 1 else 0)
+                    if (sections.dueLaterTodayTotal > dueLaterVisible) {
                         Text(
                             "Additional due-today projects remain in the original " +
                                 "Projects workspace.",
@@ -279,7 +275,7 @@ internal fun V15DailyBriefScreen(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "Tomorrow through the next seven calendar dates",
+                            "Tomorrow onward · within the next 7-day window",
                             color = MutedText, fontSize = 11.sp,
                         )
                     }
