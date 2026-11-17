@@ -915,13 +915,5 @@ internal fun pFormatDateTime(millis: Long): String {
 }
 
 private fun pComposerPreviewVoice(context: Context, persona: VoicePersona) {
-    var tts: TextToSpeech? = null
-    tts = TextToSpeech(context.applicationContext) { status ->
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.getDefault()
-            tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "composer-${persona.name}")
-            Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
-        } else tts?.shutdown()
-    }
+    V403VoicePreviewPlayer.play(context, persona)
 }
