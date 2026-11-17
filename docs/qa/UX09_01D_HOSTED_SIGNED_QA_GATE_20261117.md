@@ -1,6 +1,21 @@
-# Backlot UX09-01D — signed hosted Lab QA accounts: fail-closed acceptance gate
+# Backlot UX09-01D — hosted Lab signed read-only acceptance & evidence
 
-**Date:** 2026-11-17 · **STATUS: NO-NETWORK HARNESS CI PASSED (9/9); HOSTED SIGNED-USER TESTS NOT YET RUN.**
+**Date:** 2026-11-17 · **STATUS: owner-executed Windows V4 hosted signed READ-ONLY acceptance PASSED; 9/9 no-network harness CI also passed; CAS writes and Android remain separate gates.**
+
+## UX09-01D HOSTED SIGNED READ-ONLY ACCEPTANCE — PASSED (owner-executed V4)
+
+**Latest verified state, 2026-11-17:** The founder uploaded `Backlot-UX09-Signed-QA-Report(1).txt`, the sanitized output from the locally delivered **Windows V4** runner. This is owner-executed evidence, **not a hosted signed-JWT GitHub Actions run**. The report includes:
+
+- QA A and B account formats accepted; signed Supabase Auth tokens obtained for both.
+- Non-anonymous identities verified for A and B; distinct user IDs and tokens.
+- Each account's signed Project/Idea `pull_v1` succeeded and returned the expected empty feed.
+- Both authenticated users received **HTTP 406** when requesting the private `backlot_sync_internal` schema.
+- Signout accepted for both QA sessions.
+- No Creator/Personal application writes. **Read-only signed-user acceptance: PASS.**
+
+**Independent connected Lab SQL after receiving the report:** Auth user count `3` (owner + QA A + QA B, each QA test suffix uniquely present); QA auth sessions `0`; all new sync table row counts `0`; exactly one installed `backlot_ux09_01_creator_project_idea_records` migration. No unrelated table or Auth operation was performed by this review. The security advisor still reports the pre-existing leaked-password-protection warning.
+
+**Limitations / next gate:** This confirms authenticated empty-feed reads and signed private-schema denial, **not** cross-account data isolation with populated records. UX09-01E must separately exercise synthetic Project/Idea CAS writes, stale revision detection, idempotent replay, operation-UUID mutation refusal, cursor ordering, tombstones/no resurrection, and true cross-account exclusion. That stage must only mutate the two disposable QA identities and must have a verified session/record cleanup procedure. Android durable outbox, two-device auto-sync, complete Backup/Restore and Auth/data deletion remain unimplemented and untested. **Keep QA accounts until the next separate test decision; no release or stable merge.**
 
 ## Baselines and last verified evidence
 - Original V337 accepted P0: `815ba69775f75b6e5f25bb838c2c17b4f09c203e` (protected).
@@ -67,10 +82,10 @@ Proposed safe protocol:
 | D01 | Exact Lab-only hostname / publishable key | Source guard verified by 9 passing no-network tests |
 | D02 | QA email domain, a/b batch, distinct passwords | Source guard verified by 9 passing no-network tests |
 | D03 | No network/API mutation outside allowlist | Source guard verified by 9 passing no-network tests |
-| D04 | Non-anonymous, signed valid A/B Auth JWTs verified | NOT RUN hosted |
-| D05 | A/B distinct Auth IDs and signed empty deltas | NOT RUN hosted |
-| D06 | A/B forbidden `backlot_sync_internal` HTTP access | NOT RUN hosted |
-| D07 | A/B Auth sessions logout reported and verified | NOT RUN hosted |
+| D04 | Non-anonymous, signed valid A/B Auth JWTs verified | PASS owner-executed V4 report |
+| D05 | A/B distinct Auth IDs and signed empty deltas | PASS owner-executed V4 report |
+| D06 | A/B forbidden `backlot_sync_internal` HTTP access | PASS owner-executed V4 report, HTTP 406 for both |
+| D07 | A/B Auth sessions logout reported and verified | PASS owner report; independent SQL zero QA sessions |
 | D08 | Admin QA identity removal + zero residuals | NOT RUN |
 | D09 | Live CAS create/update/duplicate/tombstone and RLS | Separate gate NOT RUN |
 | D10 | Android outbox, 2-device sync, Personal/Backup/Restore/Delete | Not implemented |
