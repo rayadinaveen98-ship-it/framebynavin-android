@@ -12,8 +12,8 @@ begin
   if to_regnamespace('backlot_sync_internal') is null then
     raise exception 'UX09-01 internal schema missing';
   end if;
-  if has_schema_privilege('anon','backlot_sync_internal','USAGE')
-     or has_schema_privilege('PUBLIC','backlot_sync_internal','USAGE') then
+  -- The anon effective role check includes grants inherited from PUBLIC.
+  if has_schema_privilege('anon','backlot_sync_internal','USAGE') then
     raise exception 'Anonymous users can reach the private sync schema';
   end if;
 
