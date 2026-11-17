@@ -52,7 +52,7 @@ def validate_qa_emails(a: str, b: str) -> None:
         raise StopCheck("Both emails must be dedicated ux09-qa-a/b-<same 8-16 lowercase hex>@example.invalid")
 
 def validate_auth_user(profile: object, expected_email: str) -> str:
-    if not isinstance(profile, dict) or profile.get("email", "").lower() != expected_email:
+    if not isinstance(profile, dict) or not isinstance(profile.get("email"), str) or profile["email"].lower() != expected_email:
         raise StopCheck("Supabase Auth identity did not match exact disposable QA email")
     if profile.get("is_anonymous") is True:
         raise StopCheck("Anonymous user cannot certify non-anonymous sync")
