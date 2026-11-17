@@ -63,7 +63,7 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(BacklotCardRadius),
             color = CinemaSurface,
-            border = BorderStroke(BacklotBorderWidth, CinemaLine),
+            border = BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                 Surface(Modifier.size(34.dp), RoundedCornerShape(BacklotSmallRadius), RecRed.copy(alpha = .12f)) {
@@ -100,7 +100,7 @@ private fun V148AppearanceCard(
         color = CinemaSurface,
         border = BorderStroke(
             width = if (active) 1.5.dp else BacklotBorderWidth,
-            color = if (active) RecRed else CinemaLine,
+            color = if (active) RecRed else CinemaLine.copy(alpha = 0.4f),
         ),
     ) {
         Column(Modifier.padding(12.dp)) {
@@ -116,7 +116,7 @@ private fun V148AppearanceCard(
                         Row(Modifier.padding(horizontal = 9.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(6.dp).background(RecRed, CircleShape))
                             Spacer(Modifier.width(5.dp))
-                            Text("ACTIVE", color = RecRed, fontSize = 7.4.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+                            Text("ACTIVE", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
                         }
                     }
                 }
