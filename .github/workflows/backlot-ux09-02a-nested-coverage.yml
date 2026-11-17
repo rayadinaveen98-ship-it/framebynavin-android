@@ -1,0 +1,42 @@
+name: Backlot UX09-02A Nested Creator Export Coverage Gate
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-02a-field-coverage-gate-20261117
+    paths:
+      - 'app/src/main/java/com/framebynavin/app/data/**'
+      - 'tools/qa/backlot_ux09_02a_nested_coverage.py'
+      - 'docs/engineering/UX09_02A_NESTED_SERIALIZATION_MANIFEST_20261117.json'
+      - '.github/workflows/backlot-ux09-02a-nested-coverage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-02a-nested-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nested-export-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify parent top-level field safety gate
+        run: python3 tools/qa/backlot_ux09_02a_field_coverage.py --selftest
+      - name: Verify nested Kotlin models and exact JSON encoder keys
+        run: python3 tools/qa/backlot_ux09_02a_nested_coverage.py --selftest
+      - name: Prove no Android app or backend change
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --quiet -- app/src/main
+          ! grep -En 'urllib|requests|https?://|supabase.co|CloudApiClient|WorkManager' tools/qa/backlot_ux09_02a_nested_coverage.py
+          echo 'Offline audit only; no app edit, network, secrets or hosted Lab write.'
