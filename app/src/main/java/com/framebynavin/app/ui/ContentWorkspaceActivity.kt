@@ -182,8 +182,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         )
                         mode == Alpha6WorkspaceMode.LEARN -> CW52OutputLearningDesk(
                             task = task!!,
-                            onBack = {
-                                if (!learningSaveInFlight) confirmEditorClose = true
+                            onBack = { outputId, editorRevision ->
+                                selectedLearningOutputId = outputId
+                                if (!learningSaveInFlight &&
+                                    editorRevision == task!!.workspace.revision) {
+                                    confirmEditorClose = true
+                                }
                             },
                             onOpenPublish = {
                                 confirmEditorClose = false
