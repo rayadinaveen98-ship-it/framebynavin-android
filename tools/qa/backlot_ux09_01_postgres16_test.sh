@@ -42,20 +42,22 @@ echo "PASS: disposable PG16 schema compilation + mock-A/B SQL/RLS/CAS scenarios"
 # entity at expected revision 0. Exactly one may APPLIED; one must CONFLICT.
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 run_race() {
-  local op="$1" title="$2" out="$3"
+  local op="$1" title="$2" out="$3" entity_id="$4"
   psql -XAt -v ON_ERROR_STOP=1 > "$out" <<SQL
 set role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 select public.backlot_ux09_apply_v1(
   '$op'::uuid,'creator_idea',
-  '99999999-9999-4999-8999-999999999999'::uuid,0,
+  '$entity_id'::uuid,0,
   jsonb_build_object('title','$title'),false
 );
 SQL
 }
-run_race "66666666-6666-4666-8666-666666666666" "Race A" "$tmp/a" &
+run_race "66666666-6666-4666-8666-666666666666" "Race A" "$tmp/a" \
+  "99999999-9999-4999-8999-999999999999" &
 pa=$!
-run_race "77777777-7777-4777-8777-777777777777" "Race B" "$tmp/b" &
+run_race "77777777-7777-4777-8777-777777777777" "Race B" "$tmp/b" \
+  "99999999-9999-4999-8999-999999999999" &
 pb=$!
 wait "$pa"; wait "$pb"
 extract() { grep -E '^\{' "$1" | tail -n 1; }
@@ -69,4 +71,28 @@ if ! { [[ "$ja" == applied && "$jb" == conflict ]] ||
   exit 1
 fi
 echo "PASS: two actual concurrent PostgreSQL sessions serialize same-account CAS"
+
+# Two DIFFERENT entity writes are allowed to succeed simultaneously under
+# the same account. Their committed per-account cursor numbers cannot tie.
+run_race "88888888-8888-4888-8888-888888888888" "Independent X" "$tmp/x" \
+  "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" &
+px=$!
+run_race "99999999-9999-4999-8999-999999999998" "Independent Y" "$tmp/y" \
+  "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" &
+py=$!
+wait "$px"; wait "$py"
+rx="$(extract "$tmp/x")"; ry="$(extract "$tmp/y")"
+jx="$(printf '%s' "$rx" | jq -er '.status')"
+jy="$(printf '%s' "$ry" | jq -er '.status')"
+sx="$(printf '%s' "$rx" | jq -er '.sequence')"
+sy="$(printf '%s' "$ry" | jq -er '.sequence')"
+if [[ "$jx" != applied || "$jy" != applied || "$sx" == "$sy" ]]; then
+  echo "FAILED: independent concurrent commits did not receive unique sequences" >&2
+  exit 1
+fi
+if (( sx + 1 != sy && sy + 1 != sx )); then
+  echo "FAILED: independently committed account events were not consecutively ordered" >&2
+  exit 1
+fi
+echo "PASS: two concurrent independent writes commit distinct, gap-free account sequences"
 echo "IMPORTANT: Real Supabase Auth JWT and REST RLS A/B tests remain pending"
