@@ -176,6 +176,29 @@ class UX08ECalendarPolicyTest {
     }
 
     @Test
+    fun `large source stays fully reachable via bounded calendar pages`() {
+        val source = (1..173).map { n ->
+            item(today, CreatorCalendarSource.PROJECT, "project$n")
+        }
+        val first = UX08ECalendarPolicy.page(source, 0)
+        assertEquals(80, first.items.size)
+        assertEquals(0, first.index)
+        assertEquals(2, first.maxIndex)
+        val second = UX08ECalendarPolicy.page(source, 1)
+        assertEquals(80, second.items.size)
+        assertEquals("project81", second.items.first().id)
+        val last = UX08ECalendarPolicy.page(source, 200)
+        assertEquals(2, last.index)
+        assertEquals(160, last.offset)
+        assertEquals(13, last.items.size)
+        assertEquals("project173", last.items.last().id)
+        assertEquals(173, source.size)
+        val empty = UX08ECalendarPolicy.page(emptyList(), 1)
+        assertEquals(0, empty.index)
+        assertTrue(empty.items.isEmpty())
+    }
+
+    @Test
     fun `canonical occurrence key is still deduped by existing calendar engine`() {
         val tomorrow = today.plusDays(1)
         val slot = WeeklyScheduleSlot(
