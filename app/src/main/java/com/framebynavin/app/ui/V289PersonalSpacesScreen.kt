@@ -45,6 +45,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /**
  * V289 Personal Spaces — optional, local-only owner UI.
@@ -72,13 +73,17 @@ internal fun V289PersonalSpacesScreen(
     val personalStore = remember(context) { PersonalReminderStore(context) }
     var personalReminders by remember { mutableStateOf(emptyList<PersonalReminder>()) }
     var doneReceipts by remember { mutableStateOf(emptyList<PersonalCompletionEvent>()) }
+    var ux07cDoneReceiptsReady by remember { mutableStateOf(false) }
     var personalReadError by remember { mutableStateOf(false) }
     LaunchedEffect(personalStore) {
         try { personalStore.remindersFlow.collect { personalReminders = it } }
         catch (_: Exception) { personalReadError = true }
     }
     LaunchedEffect(personalStore) {
-        try { personalStore.completionHistoryFlow.collect { doneReceipts = it } }
+        try { personalStore.completionHistoryFlow.collect {
+            doneReceipts = it
+            ux07cDoneReceiptsReady = true
+        } }
         catch (_: Exception) { personalReadError = true }
     }
     val photoJournal = remember(context, dao) { V290PhotoJournal(context, dao) }
@@ -100,6 +105,20 @@ internal fun V289PersonalSpacesScreen(
     var pendingPickedPhoto by remember { mutableStateOf<Pair<String, Uri>?>(null) }
     var selectedPhotoForDelete by remember { mutableStateOf<V290SpacePhotoEntity?>(null) }
     var selectedSpaceId by remember { mutableStateOf<String?>(null) }
+    // Each source has an independent availability status: on an I/O failure
+    // never substitute an invented "zero logs/photos/links" user claim.
+    var ux07cEntriesState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
+    var ux07cLinksState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
+    var ux07cPhotosState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
+    var ux07cRecoveryState by remember(selectedSpaceId) {
+        mutableStateOf(UX07CReadState.LOADING)
+    }
     // A Home preview may become stale between the tap and the DB query.
     // Consume focus once; never redirect to an unrelated Space or reopen
     // detail after the owner explicitly goes back to the overview.
@@ -145,27 +164,50 @@ internal fun V289PersonalSpacesScreen(
     }
     LaunchedEffect(dao, selectedSpaceId) {
         val id = selectedSpaceId
-        entries = if (id == null) emptyList() else try {
-            dao.entriesForSpace(id)
-        } catch (_: Exception) {
+        if (id == null) {
+            entries = emptyList()
+            linkedReminders = emptyList()
+            photos = emptyList()
+            interruptedPhotos = emptyList()
+            ux07cEntriesState = UX07CReadState.READY
+            ux07cLinksState = UX07CReadState.READY
+            ux07cPhotosState = UX07CReadState.READY
+            ux07cRecoveryState = UX07CReadState.READY
+            return@LaunchedEffect
+        }
+        ux07cEntriesState = UX07CReadState.LOADING
+        ux07cLinksState = UX07CReadState.LOADING
+        ux07cPhotosState = UX07CReadState.LOADING
+        ux07cRecoveryState = UX07CReadState.LOADING
+        entries = try {
+            dao.entriesForSpace(id).also { ux07cEntriesState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cEntriesState = UX07CReadState.UNAVAILABLE
             error = "Entries could not be loaded. No data was changed."
             emptyList()
         }
-        linkedReminders = if (id == null) emptyList() else try {
-            dao.linksForSpace(id)
-        } catch (_: Exception) {
+        linkedReminders = try {
+            dao.linksForSpace(id).also { ux07cLinksState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cLinksState = UX07CReadState.UNAVAILABLE
             error = "Linked reminders could not be loaded. Nothing was changed."
             emptyList()
         }
-        photos = if (id == null) emptyList() else try {
-            dao.photosForSpace(id)
-        } catch (_: Exception) {
+        photos = try {
+            dao.photosForSpace(id).also { ux07cPhotosState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cPhotosState = UX07CReadState.UNAVAILABLE
             error = "Photos could not be loaded. No files were changed."
             emptyList()
         }
-        interruptedPhotos = if (id == null) emptyList() else try {
-            interruptedRecovery.find(id)
-        } catch (_: Exception) {
+        interruptedPhotos = try {
+            interruptedRecovery.find(id).also { ux07cRecoveryState = UX07CReadState.READY }
+        } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
+            ux07cRecoveryState = UX07CReadState.UNAVAILABLE
             error = "Unfinished photo saves could not be checked. No files were changed."
             emptyList()
         }
@@ -337,38 +379,18 @@ internal fun V289PersonalSpacesScreen(
                         }
                     } else {
                         spaces.forEach { space ->
-                            Surface(
-                                onClick = {
-                                    // Prevent showing another Space’s journal while loading this one.
+                            UX07CSpaceCard(
+                                space = space,
+                                onOpen = {
+                                    // Clear all prior detail rows; never briefly expose
+                                    // another Space's note, link or private photo.
                                     entries = emptyList()
                                     linkedReminders = emptyList()
                                     photos = emptyList()
-            interruptedPhotos = emptyList()
+                                    interruptedPhotos = emptyList()
                                     selectedSpaceId = space.id
                                 },
-                                color = BacklotSurface,
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, BacklotBorder),
-                                modifier = Modifier.fillMaxWidth()
-                                    .testTag("v289-space-" + space.id),
-                            ) {
-                                Row(Modifier.padding(15.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Icon(V289SpaceIcon(space.type), null,
-                                        tint = BacklotSecondaryAccent,
-                                        modifier = Modifier.size(24.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(space.title, color = BacklotPrimaryText,
-                                            fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                                        Text(if (space.archivedAtMillis == null) "Active"
-                                            else "Archived", color = BacklotSecondaryText,
-                                            fontSize = 11.sp)
-                                    }
-                                    Icon(Icons.Outlined.ChevronRight, "Open",
-                                        tint = BacklotSecondaryText)
-                                }
-                            }
+                            )
                         }
                         OutlinedButton(onClick = { createVisible = true },
                             modifier = Modifier.fillMaxWidth()) {
@@ -386,13 +408,23 @@ internal fun V289PersonalSpacesScreen(
                         Icon(V289SpaceIcon(selected.type), null,
                             tint = BacklotSecondaryAccent,
                             modifier = Modifier.size(30.dp))
-                        Column(Modifier.weight(1f)) {
-                            if (selected.archivedAtMillis != null) {
-                                Text("Archived", color = BacklotSecondaryAccent, fontSize = 12.sp)
-                            }
+                        Column(Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                UX07CSpaceLabels.type(selected.type) +
+                                    if (selected.archivedAtMillis != null) " · Archived" else " · Active",
+                                color = BacklotSecondaryAccent,
+                                fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.testTag("ux07c-space-type"),
+                            )
                             if (selected.goalText.isNotBlank()) {
                                 Text(selected.goalText,
-                                    color = BacklotSecondaryText, fontSize = 13.sp)
+                                    color = BacklotSecondaryText,
+                                    fontSize = 13.sp, maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis)
+                            } else {
+                                Text("A private place to keep meaningful progress.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp)
                             }
                         }
                         if (selected.archivedAtMillis == null) {
@@ -432,7 +464,8 @@ internal fun V289PersonalSpacesScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         Button(
                             onClick = { activityVisible = true },
-                            enabled = !busy && selected.archivedAtMillis == null,
+                            enabled = !busy && selected.archivedAtMillis == null &&
+                                ux07cEntriesState == UX07CReadState.READY,
                             modifier = Modifier.testTag("v289-log-open"),
                         ) {
                             Icon(Icons.Outlined.EditNote, null,
@@ -469,25 +502,22 @@ internal fun V289PersonalSpacesScreen(
                             progressEntries, System.currentTimeMillis()
                         )
                     }
-                    Surface(color = BacklotSurface,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, BacklotBorder),
-                        modifier = Modifier.fillMaxWidth().testTag("v289-progress-summary")) {
-                        Row(Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text("${summary.totalRecordedEntries} logs",
-                                    color = BacklotPrimaryText,
-                                    fontWeight = FontWeight.SemiBold)
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("${summary.daysWithActivityLastSeven} active days",
-                                    color = BacklotPrimaryText,
-                                    fontWeight = FontWeight.SemiBold)
-                                Text("Past 7 days", color = BacklotSecondaryText,
-                                    fontSize = 10.sp)
-                            }
-                        }
+                    when (ux07cEntriesState) {
+                        UX07CReadState.READY -> UX07CSpaceProgressSummary(
+                            summary = summary,
+                            linkedCount = if (ux07cLinksState == UX07CReadState.READY)
+                                linkedReminders.size else null,
+                        )
+                        UX07CReadState.LOADING -> Text(
+                            "Loading saved activity…",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07c-activity-loading"),
+                        )
+                        UX07CReadState.UNAVAILABLE -> Text(
+                            "Activity couldn't be read. Your saved logs weren't deleted.",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07c-activity-unavailable"),
+                        )
                     }
 
                     val linkedIds = linkedReminders.mapTo(HashSet()) { it.reminderId }
@@ -501,18 +531,36 @@ internal fun V289PersonalSpacesScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text("Linked reminders", color = BacklotPrimaryText,
                                         fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                                    Text("${linkedReminders.size} linked · $confirmedDone confirmed Done",
+                                    Text(
+                                        when {
+                                            ux07cLinksState == UX07CReadState.LOADING ->
+                                                "Loading linked reminders…"
+                                            ux07cLinksState == UX07CReadState.UNAVAILABLE ->
+                                                "Linked reminders unavailable"
+                                            personalReadError -> "${linkedReminders.size} linked · Done history unavailable"
+                                            !ux07cDoneReceiptsReady -> "${linkedReminders.size} linked · Loading Done history"
+                                            else -> "${linkedReminders.size} linked · $confirmedDone confirmed Done"
+                                        },
                                         color = BacklotSecondaryText, fontSize = 12.sp,
                                         modifier = Modifier.testTag("v295-linked-done"))
                                 }
                                 TextButton(onClick = { linkRemindersVisible = true },
                                     enabled = !busy && !personalReadError &&
+                                        ux07cLinksState == UX07CReadState.READY &&
                                         selected.archivedAtMillis == null,
                                     modifier = Modifier.testTag("v295-link-open")) { Text("LINK") }
                             }
                             if (personalReadError) {
                                 Text("Couldn't load Personal reminders. Links weren't changed.",
                                     color = BacklotError, fontSize = 12.sp)
+                            } else if (ux07cLinksState != UX07CReadState.READY) {
+                                Text(
+                                    if (ux07cLinksState == UX07CReadState.LOADING)
+                                        "Loading linked reminders…" else
+                                        "Linked reminders can't be read. Nothing was changed.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp,
+                                    modifier = Modifier.testTag("ux07c-links-read-state"),
+                                )
                             } else if (linkedReminders.isEmpty()) {
                                 Text("Link a reminder to see it alongside your progress.",
                                     color = BacklotSecondaryText, fontSize = 12.sp)
@@ -550,7 +598,8 @@ internal fun V289PersonalSpacesScreen(
                                             Text("EDIT")
                                         }
                                     }
-                                    IconButton(enabled = !busy,
+                                    IconButton(enabled = !busy &&
+                                        ux07cLinksState == UX07CReadState.READY,
                                         onClick = {
                                             val id = selected.id
                                             write {
@@ -572,18 +621,35 @@ internal fun V289PersonalSpacesScreen(
                         Column(Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Notes", color = BacklotPrimaryText, fontSize = 16.sp,
+                                Text("Private notes", color = BacklotPrimaryText, fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.weight(1f))
-                                TextButton(enabled = !busy && selected.archivedAtMillis == null,
+                                TextButton(enabled = !busy &&
+                                    ux07cEntriesState == UX07CReadState.READY &&
+                                    selected.archivedAtMillis == null,
                                     onClick = { newNoteText = ""; newNoteVisible = true },
                                     modifier = Modifier.testTag("v295-note-open")) { Text("ADD NOTE") }
                             }
                             val notes = entries.filter { it.kind == V289SpaceEntryKind.NOTE.name }
-                            if (notes.isEmpty()) {
-                                Text("No notes yet.", color = BacklotSecondaryText, fontSize = 12.sp)
+                            if (ux07cEntriesState != UX07CReadState.READY) {
+                                Text(
+                                    if (ux07cEntriesState == UX07CReadState.LOADING)
+                                        "Loading saved notes…" else
+                                        "Notes are unavailable right now. No notes were erased.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp,
+                                    modifier = Modifier.testTag("ux07c-notes-read-state"),
+                                )
+                            } else if (notes.isEmpty()) {
+                                Text("No notes yet. Notes don't count as completed check-ins.",
+                                    color = BacklotSecondaryText, fontSize = 12.sp)
                             } else {
-                                notes.take(if (allNotesVisible) notes.size else 3).forEach { item ->
+                                notes.take(if (allNotesVisible) notes.size else 3)
+                                    .forEachIndexed { index, item ->
+                                    if (index > 0) {
+                                        HorizontalDivider(
+                                            color = BacklotBorder.copy(alpha = 0.35f),
+                                        )
+                                    }
                                     Text(Instant.ofEpochMilli(item.occurredAtMillis)
                                         .atZone(ZoneId.systemDefault())
                                         .format(DateTimeFormatter.ofPattern("d MMM · h:mm a")),
@@ -602,6 +668,9 @@ internal fun V289PersonalSpacesScreen(
                             }
                         }
                     }
+                    if (ux07cPhotosState == UX07CReadState.READY &&
+                        ux07cRecoveryState == UX07CReadState.READY
+                    ) {
                     V290PersonalPhotoSection(
                         photos = photos,
                         interruptedPhotos = interruptedPhotos,
@@ -617,23 +686,48 @@ internal fun V289PersonalSpacesScreen(
                         onRecoverPhoto = { item -> pendingInterruptedAction = item to true },
                         onDiscardPhoto = { item -> pendingInterruptedAction = item to false },
                     )
-                    Text("Activity", color = BacklotPrimaryText,
+                    } else {
+                        Text(
+                            if (ux07cPhotosState == UX07CReadState.UNAVAILABLE ||
+                                ux07cRecoveryState == UX07CReadState.UNAVAILABLE
+                            ) "Private photo journal is unavailable. Nothing was deleted."
+                            else "Loading your private photo journal…",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07c-photo-read-state"),
+                        )
+                    }
+                    Text("Activity history", color = BacklotPrimaryText,
                         fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text("Spaces and photos aren't included in cloud backup.",
                         color = BacklotSecondaryText, fontSize = 11.sp,
                         modifier = Modifier.testTag("v289-local-only-notice"))
-                    if (progressEntries.isEmpty()) {
-                        Text("No progress yet. Log a check-in when you're ready.",
+                    if (ux07cEntriesState != UX07CReadState.READY) {
+                        Text(
+                            if (ux07cEntriesState == UX07CReadState.LOADING)
+                                "Loading saved activity…" else
+                                "Activity history couldn't be read. No entries were erased.",
+                            color = BacklotSecondaryText, fontSize = 12.sp,
+                            modifier = Modifier.testTag("ux07c-history-read-state"),
+                        )
+                    } else if (progressEntries.isEmpty()) {
+                        Text("No activity logs yet. Log a check-in when you're ready.",
                             color = BacklotSecondaryText, fontSize = 13.sp,
                             modifier = Modifier.testTag("v289-entries-empty"))
                     } else {
                         progressEntries.forEach { item ->
                             Surface(color = BacklotSurface,
-                                border = BorderStroke(1.dp, BacklotBorder),
+                                border = BorderStroke(1.dp, BacklotBorder.copy(alpha = 0.42f)),
                                 shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth().testTag("v289-entry")) {
                                 Column(Modifier.padding(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        UX07CSpaceLabels.entry(item.kind, item.source),
+                                        color = BacklotSecondaryAccent,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.testTag("ux07c-activity-kind"),
+                                    )
                                     Text(
                                         Instant.ofEpochMilli(item.occurredAtMillis)
                                             .atZone(ZoneId.systemDefault())
@@ -1190,14 +1284,24 @@ internal fun V289PersonalSpacesScreen(
             title = { Text("Delete this Space?") },
             text = {
                 Text(
-                    if (photos.isEmpty() && interruptedPhotos.isEmpty())
-                        "This removes local notes, progress and unfinished temporary photo copies. Personal reminders remain untouched."
+                    if (ux07cEntriesState != UX07CReadState.READY ||
+                        ux07cLinksState != UX07CReadState.READY ||
+                        ux07cPhotosState != UX07CReadState.READY ||
+                        ux07cRecoveryState != UX07CReadState.READY)
+                        "Some Space records or photo safety checks aren't available. Review this Space again before deleting anything."
+                    else if (photos.isEmpty() && interruptedPhotos.isEmpty())
+                        "This removes local notes, activity and reminder links. Personal reminders remain untouched."
                     else "Resolve all saved and interrupted private photos before deleting this Space."
                 )
             },
             confirmButton = {
                 TextButton(
-                    enabled = !busy && photos.isEmpty() && interruptedPhotos.isEmpty(),
+                    enabled = !busy &&
+                        ux07cEntriesState == UX07CReadState.READY &&
+                        ux07cLinksState == UX07CReadState.READY &&
+                        ux07cPhotosState == UX07CReadState.READY &&
+                        ux07cRecoveryState == UX07CReadState.READY &&
+                        photos.isEmpty() && interruptedPhotos.isEmpty(),
                     onClick = {
                         val id = selected.id
                         write {
