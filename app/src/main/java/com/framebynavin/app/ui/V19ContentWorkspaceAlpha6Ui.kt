@@ -333,6 +333,13 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         contentDescription = null, tint = MutedGold)
                 }
                 if (showStages) {
+                    Text(
+                        "Open any stage's saved notes without moving the project. " +
+                            "Stage advancement is always a separate approval.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                        modifier = Modifier.padding(start = 5.dp, bottom = 9.dp)
+                            .testTag("ux05-stage-navigation-disclosure"),
+                    )
                     Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
                         Column(Modifier.fillMaxWidth().padding(14.dp)) {
                             template.stages.forEachIndexed { index, stage ->
@@ -346,11 +353,26 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                         color = when { earlier -> MutedGold; index == stageIndex -> RecRed; else -> MutedText },
                                         fontSize = 17.sp, modifier = Modifier.width(30.dp),
                                     )
-                                    Text(
-                                        stage.label, color = if (index == stageIndex || earlier) ProjectorIvory else MutedText,
-                                        modifier = Modifier.weight(1f),
-                                        fontSize = 13.sp, fontWeight = if (index == stageIndex) FontWeight.Bold else FontWeight.Normal,
-                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            stage.label,
+                                            color = if (index == stageIndex || earlier) ProjectorIvory else MutedText,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (index == stageIndex) FontWeight.Bold else FontWeight.Normal,
+                                        )
+                                        val glance = overview.stageGlances.getOrNull(index)
+                                        if (glance != null) {
+                                            val status = when {
+                                                index == stageIndex && !completed -> "Current"
+                                                earlier -> "Earlier workflow step"
+                                                else -> "Upcoming"
+                                            }
+                                            Text(
+                                                "${status} · ${glance.checklistDone} tasks done · ${glance.evidenceCount} evidence",
+                                                color = MutedText, fontSize = 10.sp, lineHeight = 15.sp,
+                                            )
+                                        }
+                                    }
                                     TextButton(onClick = { onOpenStage(stage.id) },
                                         modifier = Modifier.heightIn(min = 48.dp)) {
                                         Text("NOTES", color = RecRed, fontSize = 11.sp)
