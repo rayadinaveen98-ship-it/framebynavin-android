@@ -343,6 +343,15 @@ internal fun DashboardHabitReview(
             Hint("Check = confirmed · Red outline = today · Grey = not confirmed")
             Hint("Tap a day to see its note or receipt. Flexible catch-up never backdates the confirmation.")
         }
+        // UX07E: Show saved day notes in context, but never equate a note
+        // with a confirmed challenge day. The original day detail remains
+        // the ONLY action entry point for note edits and past-day receipts.
+        ReviewPanel {
+            UX07EChallengeReflections(
+                challenge = habit,
+                onDaySelected = onDaySelected,
+            )
+        }
         ReviewPanel {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Today's activity", color = BacklotPrimaryText,

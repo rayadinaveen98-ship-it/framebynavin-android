@@ -600,6 +600,26 @@ internal fun V2232PersonalReminderHub(
                         },
                         modifier = Modifier.testTag("ux07b-myday-spaces-preview"),
                     )
+                    // UX07E keeps completion domains separate and read-only.
+                    // A failed source is UNKNOWN, not a successful zero.
+                    val ux07eProgress = remember(
+                        completionEvents, completionHistoryReady,
+                        challenges, challengesLoaded, challengeLoadError,
+                        agendaNowMillis,
+                    ) {
+                        UX07EPersonalProgressPolicy.lastSevenDays(
+                            personalDone = if (completionHistoryReady) completionEvents else null,
+                            challenges = if (challengesLoaded && challengeLoadError == null)
+                                challenges else null,
+                            now = Instant.ofEpochMilli(agendaNowMillis),
+                            displayZone = ZoneId.systemDefault(),
+                        )
+                    }
+                    UX07EPersonalProgressOverview(
+                        snapshot = ux07eProgress,
+                        enabled = !busy,
+                        onOpenChallenges = { challengesOpen = true },
+                    )
                 }
             if (challengeLoadError != null) {
                 Text(challengeLoadError.orEmpty(), color = RecRed,
