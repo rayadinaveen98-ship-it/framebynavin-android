@@ -441,7 +441,12 @@ internal fun CW3StageDesk(
                             evidence = evidence + CreatorStageEvidence(
                                 id = UUID.randomUUID().toString(),
                                 claim = claim.trim(), timecode = timecode.trim(),
-                                referenceId = evidenceSourceId, assetId = evidenceAssetId,
+                                referenceId = evidenceSourceId.takeIf { selected ->
+                                    task.workspace.references.any { it.id == selected }
+                                }.orEmpty(),
+                                assetId = evidenceAssetId.takeIf { selected ->
+                                    task.workspace.assets.any { it.id == selected }
+                                }.orEmpty(),
                             )
                             claim = ""; timecode = ""
                             evidenceSourceId = ""; evidenceAssetId = ""
