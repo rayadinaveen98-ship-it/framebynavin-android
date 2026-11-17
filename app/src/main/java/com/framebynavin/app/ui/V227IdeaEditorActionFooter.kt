@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.CinemaSurfaceRaised
 import com.framebynavin.app.ui.theme.ProjectorIvory
 import com.framebynavin.app.ui.theme.RecRed
@@ -90,9 +91,9 @@ private fun V227SaveIdeaAction(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 52.dp).testTag("v216-edit-save"),
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v216-edit-save"),
         colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
     ) {
         Text(
             if (isVoiceIdea) "SAVE VOICE IDEA" else "SAVE",
@@ -108,7 +109,7 @@ private fun V227SaveIdeaAction(
 private fun V227CancelIdeaAction(modifier: Modifier, onClick: () -> Unit) {
     TextButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 52.dp).testTag("v216-edit-cancel"),
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v216-edit-cancel"),
     ) {
         Text(
             "CANCEL",
