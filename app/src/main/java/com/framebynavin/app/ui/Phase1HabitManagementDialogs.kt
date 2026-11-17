@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.framebynavin.app.personal.Phase1HabitAlertKind
 import com.framebynavin.app.personal.Phase1HabitChallenge
 import com.framebynavin.app.personal.Phase1HabitCompletionMode
+import com.framebynavin.app.reminders.ReminderMusicMode
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.BacklotError
 import java.time.LocalDate
@@ -46,6 +47,10 @@ internal fun Phase1HabitEditDialog(
         time: LocalTime?,
         kind: Phase1HabitAlertKind?,
         completionMode: Phase1HabitCompletionMode,
+        voiceMusicMode: ReminderMusicMode,
+        voiceMusicUri: String,
+        voiceRepeatCount: Int,
+        voiceRepeatGapMillis: Long,
     ) -> Unit,
 ) {
     val context = LocalContext.current
@@ -57,6 +62,18 @@ internal fun Phase1HabitEditDialog(
     }
     var completion by remember(challenge) {
         mutableStateOf(challenge.completionMode)
+    }
+    var voiceMusicMode by remember(challenge) {
+        mutableStateOf(challenge.voiceMusicMode)
+    }
+    var voiceMusicUri by remember(challenge) {
+        mutableStateOf(challenge.voiceMusicUri)
+    }
+    var voiceRepeatCount by remember(challenge) {
+        mutableStateOf(challenge.voiceRepeatCount)
+    }
+    var voiceRepeatGapMillis by remember(challenge) {
+        mutableStateOf(challenge.voiceRepeatGapMillis)
     }
     val canMoveStart = challenge.confirmations.isEmpty() && challenge.dayNotes.isEmpty()
     val dateLabel = DateTimeFormatter.ofPattern("d MMM yyyy")
@@ -123,6 +140,22 @@ internal fun Phase1HabitEditDialog(
                     }
                     Text("Android permissions and background restrictions still apply.")
                 }
+                if (kind == Phase1HabitAlertKind.VOICE) {
+                    V406ChallengeVoiceSettings(
+                        voiceRepeatCount = voiceRepeatCount,
+                        onVoiceRepeatCount = { if (!busy) voiceRepeatCount = it },
+                        voiceRepeatGapMillis = voiceRepeatGapMillis,
+                        onVoiceRepeatGapMillis = { if (!busy) voiceRepeatGapMillis = it },
+                        voiceMusicMode = voiceMusicMode,
+                        voiceMusicUri = voiceMusicUri,
+                        onVoiceMusicChange = { mode, uri ->
+                            if (!busy) {
+                                voiceMusicMode = mode
+                                voiceMusicUri = uri
+                            }
+                        },
+                    )
+                }
                 Text("Completion rule")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
@@ -150,7 +183,8 @@ internal fun Phase1HabitEditDialog(
                 enabled = !busy && activity.trim().isNotEmpty(),
                 onClick = {
                     onSave(activity.trim(), startDate,
-                        if (kind == null) null else time, kind, completion)
+                        if (kind == null) null else time, kind, completion,
+                        voiceMusicMode, voiceMusicUri, voiceRepeatCount, voiceRepeatGapMillis)
                 },
                 modifier = Modifier.testTag("habit-manage-edit-save"),
             ) { Text(if (busy) "SAVING" else "SAVE CHANGES", color = BacklotAccent) }
