@@ -132,14 +132,13 @@ internal fun CW52OutputLearningDesk(
 
     fun changeOutput(nextId: String) {
         if (saving || nextId == activeId) return
-        if (hasDraft) requestedSwitch = nextId else selectedId = nextId
+        if (hasDraft) requestedSwitch = nextId
+        else if (discardCurrentDraft()) selectedId = nextId
     }
     fun discardCurrentDraft(): Boolean {
-        val result = runCatching {
-            if (activeId.isNotBlank() && journal.load(task.id, activeId, revision) != null)
-                journal.clear(task.id, activeId, revision)
-            onDiscardDraft(activeId, revision)
-        }
+        // One Activity-owned discard path also handles system Back, so every
+        // explicit discard follows the same generation/revision safety check.
+        val result = runCatching { onDiscardDraft(activeId, revision) }
         if (result.isFailure || result.getOrDefault(false) != true) {
             draftWarning = true
             return false
