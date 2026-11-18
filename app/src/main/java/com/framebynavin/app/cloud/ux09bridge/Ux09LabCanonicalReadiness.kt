@@ -4,6 +4,7 @@ import android.content.Context
 import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.cloud.CloudConfig
 import com.framebynavin.app.data.CreatorDataGate
+import com.framebynavin.app.data.CreatorScriptStudio
 import com.framebynavin.app.data.IdeaVaultStore
 import com.framebynavin.app.data.ScriptStudioStore
 import com.framebynavin.app.data.TaskStore
@@ -63,7 +64,9 @@ internal class Ux09LabCanonicalReadiness(context: Context) {
                 val result = if (preliminary is Ux09CanonicalReadinessPolicy.Result.Ready) {
                     val sidecar = legacyScriptStore.loadForUnifiedSnapshot(task)
                     Ux09CanonicalReadinessPolicy.vetoLegacyStudio(
-                        preliminary, hasUnmigratedScript = !sidecar.isEmpty(),
+                        preliminary, hasUnmigratedScript = sidecar != CreatorScriptStudio(
+                            projectId = task.id,
+                        ),
                     )
                 } else preliminary
                 when (result) {
