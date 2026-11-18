@@ -7,7 +7,7 @@ import org.junit.Test
 class V180ReminderTimingPolicyTest {
     @Test fun boundsMatchTheExistingVoiceAndAlarmServices() {
         assertEquals(1, V180ReminderTimingPolicy.attempts(-10))
-        assertEquals(3, V180ReminderTimingPolicy.attempts(22))
+        assertEquals(5, V180ReminderTimingPolicy.attempts(22))
         assertEquals(5, V180ReminderTimingPolicy.gap(-1))
         assertEquals(60, V180ReminderTimingPolicy.gap(200))
         assertEquals(30, V180ReminderTimingPolicy.alarm(5))
@@ -23,7 +23,7 @@ class V180ReminderTimingPolicyTest {
     }
 
     @Test fun explicitOptionsIncludeShortAndLongDurations() {
-        assertEquals(listOf(1, 2, 3), V180ReminderTimingPolicy.voiceAttempts)
+        assertEquals(listOf(1, 2, 3, 4, 5), V180ReminderTimingPolicy.voiceAttempts)
         assertTrue(V180ReminderTimingPolicy.voiceGapsSeconds.contains(20))
         assertTrue(V180ReminderTimingPolicy.alarmSeconds.contains(45))
         assertTrue(V180ReminderTimingPolicy.alarmSeconds.contains(300))
