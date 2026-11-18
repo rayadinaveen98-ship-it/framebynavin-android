@@ -830,7 +830,7 @@ private fun V157ReminderGroup(
                                 snoozeAt != null ->
                                     "Moves the final Smart alert to ${pFormatDateTime(snoozeAt)}. " +
                                         "Your project deadline stays unchanged."
-                                else -> "Choose a valid later Smart target.",
+                                else -> "Choose a valid later Smart target."
                             },
                             color = MutedText,
                             fontSize = 11.sp,
