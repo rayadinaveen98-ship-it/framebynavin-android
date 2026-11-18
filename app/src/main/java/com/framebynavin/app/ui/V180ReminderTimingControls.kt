@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.FilterChip
+import com.framebynavin.app.reminders.V403VoiceRepeatPolicy
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -22,11 +23,11 @@ import com.framebynavin.app.ui.theme.ProjectorIvory
 
 /** Display options only. Actual bounds remain enforced by playback services. */
 internal object V180ReminderTimingPolicy {
-    val voiceAttempts = listOf(1, 2, 3)
-    val voiceGapsSeconds = listOf(5, 10, 20, 30, 60)
+    val voiceAttempts = listOf(1, 2, 3, 4, 5)
+    val voiceGapsSeconds = listOf(5, 10, 15, 30, 60)
     val alarmSeconds = listOf(30, 45, 60, 120, 180, 300)
 
-    fun attempts(value: Int): Int = value.coerceIn(1, 3)
+    fun attempts(value: Int): Int = V403VoiceRepeatPolicy.count(value)
     fun gap(value: Int): Int = value.coerceIn(5, 60)
     fun alarm(value: Int): Int = value.coerceIn(30, 300)
     fun durationLabel(seconds: Int): String =

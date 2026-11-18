@@ -3,6 +3,7 @@ package com.framebynavin.app.personal
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import com.framebynavin.app.reminders.ReminderMusicMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -38,6 +39,27 @@ class Phase1HabitManagementPolicyTest {
         assertEquals(before.linkedSpaceId, edited.linkedSpaceId)
         assertEquals(before.linkedGroupId, edited.linkedGroupId)
         assertEquals(LocalTime.of(9, 45), edited.alertTime)
+    }
+
+    @Test fun ownerReviewedVoiceSettingsPreserveExactHistoryLinksAndDate() {
+        val before = challenge().copy(
+            alertKind = Phase1HabitAlertKind.VOICE,
+        ).confirmToday(receipt).noteForDay(start, "Journal unchanged")
+        val after = Phase1HabitManagementPolicy.reviewedEdit(
+            before, before.activity, before.startDate,
+            before.alertTime, before.alertKind, before.completionMode,
+            ReminderMusicMode.CUSTOM, "content://music.test/challenge/track",
+            5, 60_000L,
+        )
+        assertEquals(ReminderMusicMode.CUSTOM, after.voiceMusicMode)
+        assertEquals(5, after.voiceRepeatCount)
+        assertEquals(60_000L, after.voiceRepeatGapMillis)
+        assertEquals(before.confirmations, after.confirmations)
+        assertEquals(before.dayNotes, after.dayNotes)
+        assertEquals(before.linkedSpaceId, after.linkedSpaceId)
+        assertEquals(before.linkedGroupId, after.linkedGroupId)
+        assertEquals(before.startDate, after.startDate)
+        assertEquals(before.alertTime, after.alertTime)
     }
 
     @Test fun movingStartAfterProgressIsRefusedWithoutRebasingDone() {

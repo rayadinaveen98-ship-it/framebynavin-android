@@ -29,6 +29,17 @@ class Phase1HabitVoicePlaybackPolicyTest {
         assertTrue(Phase1HabitVoicePlaybackPolicy.WATCHDOG_MILLIS > 30_000L)
     }
 
+    @Test fun explicitlySelectedFiveAnnouncementsUseFourFullGaps() {
+        assertEquals(1, Phase1HabitVoicePlaybackPolicy.nextIndex(0, 5))
+        assertEquals(4, Phase1HabitVoicePlaybackPolicy.nextIndex(3, 5))
+        assertNull(Phase1HabitVoicePlaybackPolicy.nextIndex(4, 5))
+        val fiveLongSentences = 10_000L + 5L * 45_000L + 4L * 60_000L
+        assertTrue(Phase1HabitVoicePlaybackPolicy.watchdogMillis(5, 60_000L) >=
+            fiveLongSentences)
+        assertEquals(5_000L, Phase1HabitVoicePlaybackPolicy.gapMillis(2_500L))
+        assertEquals(60_000L, Phase1HabitVoicePlaybackPolicy.gapMillis(60_000L))
+    }
+
     @Test fun ordinaryPersonalSettingsRemainUntouched() {
         assertEquals(3, PersonalPlaybackPolicy.VOICE_REPEAT_COUNT)
         assertEquals(2_500L, PersonalPlaybackPolicy.VOICE_REPEAT_GAP_MILLIS)

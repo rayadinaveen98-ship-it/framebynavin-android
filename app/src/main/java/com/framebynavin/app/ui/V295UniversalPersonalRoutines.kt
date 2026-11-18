@@ -47,8 +47,8 @@ internal fun V295UniversalPersonalRoutines(
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("v295-personal-routines"),
         color = CinemaSurface,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, CinemaLine),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
             Text("My Routines", color = ProjectorIvory,
@@ -60,7 +60,8 @@ internal fun V295UniversalPersonalRoutines(
             )
             Button(
                 onClick = onCreateReminder, enabled = enabled,
-                modifier = Modifier.fillMaxWidth().testTag("v295-routines-new"),
+                modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
+                    .testTag("v295-routines-new"),
             ) {
                 Icon(Icons.Outlined.Add, null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(7.dp))

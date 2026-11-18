@@ -234,6 +234,13 @@ internal fun V394PremiereReminderScreen(
             ) {
                 V394PremiereHero(mode, kind, motionEnabled, lowPower,
                     Modifier.fillMaxSize())
+                if (mode != V394PremiereMode.CHALLENGE && onClosePreview == null) {
+                    V407ReminderCompanionMoment(
+                        occurrenceKey = "premiere-${mode.name}-${kind.name}-$title-$timeLabel",
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                            .padding(end = 4.dp, bottom = 5.dp),
+                    )
+                }
                 if (mode == V394PremiereMode.CHALLENGE) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("08", color = PremiereIvory, fontSize = 44.sp,
@@ -338,6 +345,27 @@ internal fun V394PremiereReminderScreen(
             if (error != null) {
                 Text(error, color = Color(0xFFFF8F91), fontSize = 12.sp,
                     modifier = Modifier.padding(top = 9.dp))
+            }
+            if (onClosePreview == null && mode != V394PremiereMode.CHALLENGE) {
+                Text(
+                    if (mode == V394PremiereMode.PERSONAL)
+                        "Done records completion; Dismiss does not."
+                    else if (primaryLabel == "STEP DONE")
+                        "Step Done completes a checked stage; I'm Working does not."
+                    else "I'm Working does not mark a project stage Done.",
+                    color = PremiereMuted,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(top = 7.dp)
+                        .testTag("ux06e-premiere-action-meaning"),
+                )
+                V407ReminderAccessDisclosure(
+                    owner = if (mode == V394PremiereMode.PERSONAL)
+                        V407ReminderOwner.PERSONAL else V407ReminderOwner.CREATOR,
+                    kind = kind,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             if (onClosePreview != null) {
                 Spacer(Modifier.height(9.dp))

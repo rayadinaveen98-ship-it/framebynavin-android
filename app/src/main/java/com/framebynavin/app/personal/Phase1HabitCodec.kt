@@ -4,6 +4,7 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import com.framebynavin.app.reminders.ReminderMusicMode
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -14,9 +15,10 @@ import org.json.JSONObject
  */
 internal object Phase1HabitCodec {
     private const val FORMAT = "backlot.personal.single-activity-21day"
-    // v2 carries the archived bit. Older v1 apps must fail closed instead of
-    // silently reading an archived item as active and re-arming its alarm.
-    private const val VERSION = 2
+    // v2 carries archived state; v3 carries Voice music/repeat settings.
+    // An older app must reject v3 rather than silently lose audio preferences
+    // during a restore/edit. v1/v2 are decoded losslessly with silent defaults.
+    private const val VERSION = 3
     private const val MAX_CHALLENGES = 40
     private const val MAX_JSON_CHARS = 1_000_000
 
@@ -35,6 +37,10 @@ internal object Phase1HabitCodec {
                 put("zoneId", valid.zoneId)
                 put("alertTime", valid.alertTime?.toString() ?: JSONObject.NULL)
                 put("alertKind", valid.alertKind?.name ?: JSONObject.NULL)
+                put("voiceMusicMode", valid.voiceMusicMode.name)
+                put("voiceMusicUri", valid.voiceMusicUri)
+                put("voiceRepeatCount", valid.voiceRepeatCount)
+                put("voiceRepeatGapMillis", valid.voiceRepeatGapMillis)
                 put("paused", valid.paused)
                 put("archived", valid.archived)
                 put("snoozedDay", valid.snoozedDay?.toString() ?: JSONObject.NULL)
@@ -112,6 +118,14 @@ internal object Phase1HabitCodec {
                         else LocalTime.parse(item.getString("alertTime")),
                     alertKind = if (item.isNull("alertKind")) null
                         else Phase1HabitAlertKind.valueOf(item.getString("alertKind")),
+                    // Existing v1/v2 Voice alerts were strictly spoken only.
+                    // Preserve this old experience instead of enabling Piano.
+                    voiceMusicMode = if (version >= 3) ReminderMusicMode.valueOf(
+                        item.getString("voiceMusicMode")) else ReminderMusicMode.OFF,
+                    voiceMusicUri = if (version >= 3) item.getString("voiceMusicUri") else "",
+                    voiceRepeatCount = if (version >= 3) item.getInt("voiceRepeatCount") else 3,
+                    voiceRepeatGapMillis = if (version >= 3)
+                        item.getLong("voiceRepeatGapMillis") else 5_000L,
                     paused = item.getBoolean("paused"),
                     // Owner archives created before management launched remain active.
                     archived = item.optBoolean("archived", false),

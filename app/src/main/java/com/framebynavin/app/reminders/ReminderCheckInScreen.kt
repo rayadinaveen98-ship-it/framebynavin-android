@@ -87,6 +87,7 @@ internal fun ReminderCheckInScreen(
     notes: String,
     snoozeMinutes: Int,
     stageCheckIn: Boolean,
+    smartStageSnooze: Boolean = false,
     onStageDone: () -> Unit,
     onWorking: () -> Unit,
     onSnooze: () -> Unit,
@@ -104,6 +105,11 @@ internal fun ReminderCheckInScreen(
         .filter { it.isNotBlank() }
         .joinToString(" · ")
     val nextAction = V200ReminderLayoutPolicy.supportingAction(suggestedAction, title)
+    val snoozeLabel = if (smartStageSnooze) "REMIND IN ${snoozeMinutes}m"
+        else "SNOOZE ${snoozeMinutes} MIN"
+    val smartSnoozeHint =
+        if (smartStageSnooze) "Repeats this Smart stage; your final alert time stays unchanged."
+        else null
     val screen = LocalConfiguration.current
     val compact = V200ReminderLayoutPolicy.isCompact(screen.screenHeightDp)
     val wideActions = V200ReminderLayoutPolicy.useHorizontalActions(screen.screenWidthDp)
@@ -135,10 +141,10 @@ internal fun ReminderCheckInScreen(
             timeLabel = clockLabel,
             contextLabel = contextLine,
             supportingText = listOfNotNull(
-                nextAction, notes.takeIf { it.isNotBlank() }
+                nextAction, notes.takeIf { it.isNotBlank() }, smartSnoozeHint
             ).joinToString(" · "),
             primaryLabel = if (stageCheckIn) "STEP DONE" else "I'M WORKING",
-            snoozeLabel = "SNOOZE " + snoozeMinutes + " MIN",
+            snoozeLabel = snoozeLabel,
             onPrimary = if (stageCheckIn) onStageDone else onWorking,
             onSnooze = onSnooze,
             onDismiss = onDismiss,
@@ -232,16 +238,27 @@ internal fun ReminderCheckInScreen(
                 color = V336DirectorPalette.gold, fontWeight = FontWeight.Bold,
                 fontSize = 10.sp, letterSpacing = 3.sp,
             )
-            // This is a Native Compose Canvas, not an HTML image or fake UI.
-            V336DirectorSignalArt(
-                kind = kind,
-                motionEnabled = motionEnabled,
-                lowPower = lowPower,
-                modifier = Modifier.fillMaxWidth()
+            // UX06E: selected companion appears inside only the decorative
+            // hero, for at most three seconds when explicitly enabled.
+            // The full alert action column is never covered or delayed.
+            Box(
+                Modifier.fillMaxWidth()
                     .height(if (compact) 170.dp else 220.dp)
                     .testTag(if (kind == ReminderCheckInKind.VOICE)
                         "v195-voice-guide" else "v195-alarm-guide"),
-            )
+            ) {
+                V336DirectorSignalArt(
+                    kind = kind,
+                    motionEnabled = motionEnabled,
+                    lowPower = lowPower,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                V407ReminderCompanionMoment(
+                    occurrenceKey = "creator-${kind.name}-$title-$dueLabel-$stageLabel",
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                        .padding(end = 7.dp, bottom = 7.dp),
+                )
+            }
             Spacer(Modifier.height(if (compact) 3.dp else 7.dp))
             Text(
                 if (stageCheckIn) "CREATOR STAGE CHECK-IN" else "CREATOR REMINDER",
@@ -363,7 +380,7 @@ internal fun ReminderCheckInScreen(
                         Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(7.dp))
-                        Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                        Text(snoozeLabel, color = BacklotPrimaryText,
                             fontSize = 12.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
                     }
                     TextButton(
@@ -389,7 +406,7 @@ internal fun ReminderCheckInScreen(
                     Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
                         modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                    Text(snoozeLabel, color = BacklotPrimaryText,
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 TextButton(
@@ -402,6 +419,18 @@ internal fun ReminderCheckInScreen(
                         color = BacklotPrimaryText, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold)
                 }
+            }
+
+            if (smartSnoozeHint != null) {
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    smartSnoozeHint,
+                    color = BacklotSecondaryText,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             AnimatedVisibility(
@@ -489,6 +518,12 @@ internal fun ReminderCheckInScreen(
                 }
             }
             }
+            Spacer(Modifier.height(8.dp))
+            V407ReminderAccessDisclosure(
+                owner = V407ReminderOwner.CREATOR,
+                kind = kind,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

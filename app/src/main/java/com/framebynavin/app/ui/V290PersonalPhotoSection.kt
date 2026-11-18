@@ -25,6 +25,7 @@ import com.framebynavin.app.personal.spaces.V290PhotoTimelinePolicy
 import com.framebynavin.app.personal.spaces.V290PrivatePhotoFiles
 import com.framebynavin.app.personal.spaces.V290PhotoJournal
 import com.framebynavin.app.personal.spaces.V290SpacePhotoEntity
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 import com.framebynavin.app.ui.theme.BacklotAccent
 import com.framebynavin.app.ui.theme.BacklotBorder
 import com.framebynavin.app.ui.theme.BacklotPrimaryText
@@ -60,8 +61,8 @@ internal fun V290PersonalPhotoSection(
     }
     Surface(
         color = BacklotSurface,
-        border = BorderStroke(1.dp, BacklotBorder),
-        shape = RoundedCornerShape(18.dp),
+        border = BacklotUX10Tokens.quietBorder(BacklotBorder, alpha = 0.55f),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         modifier = Modifier.fillMaxWidth().testTag("v290-photo-journal"),
     ) {
         Column(
@@ -75,14 +76,17 @@ internal fun V290PersonalPhotoSection(
                 Column(Modifier.weight(1f)) {
                     Text("Photo journal", color = BacklotPrimaryText,
                         fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                    Text("Private to this device", color = BacklotSecondaryText,
-                        fontSize = 11.sp)
+                    Text(
+                        "Private on this device · ${photos.size} saved",
+                        color = BacklotSecondaryText, fontSize = 11.sp,
+                    )
                 }
                 OutlinedButton(
                     onClick = onAddPhoto,
                     enabled = enabled && allowNewPhotos,
                     contentPadding = PaddingValues(horizontal = 10.dp),
-                    modifier = Modifier.testTag("v290-pick-photo"),
+                    modifier = Modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
+                        .testTag("v290-pick-photo"),
                 ) {
                     Icon(Icons.Outlined.AddPhotoAlternate, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(5.dp))
@@ -90,13 +94,13 @@ internal fun V290PersonalPhotoSection(
                 }
             }
             Text(
-                "Choose your own pictures. They are copied to private storage with original photo metadata removed. Current backups do not include pictures.",
+                "Only photos you choose are copied into private app storage with source metadata removed. Space metadata backups and cloud sync do not include these photo files.",
                 color = BacklotSecondaryText, fontSize = 11.sp,
                 modifier = Modifier.testTag("v290-photo-private-notice"),
             )
             when {
                 photos.isEmpty() -> {
-                    Text("No photos yet. Add a baseline whenever you're ready.",
+                    Text("No photos yet. Your private timeline begins whenever you choose.",
                         color = BacklotSecondaryText, fontSize = 12.sp,
                         modifier = Modifier.testTag("v290-photo-empty"))
                 }
@@ -117,7 +121,7 @@ internal fun V290PersonalPhotoSection(
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         V290PreviewTile(
-                            item = pair.baseline, title = "BEFORE",
+                            item = pair.baseline, title = "EARLIER",
                             journal = journal, modifier = Modifier.weight(1f),
                         )
                         V290PreviewTile(
@@ -125,7 +129,7 @@ internal fun V290PersonalPhotoSection(
                             journal = journal, modifier = Modifier.weight(1f),
                         )
                     }
-                    Text("Images are shown side by side; no automatic changes or results are inferred.",
+                    Text("Two recorded moments, shown side by side. No results or changes are inferred.",
                         color = BacklotSecondaryText, fontSize = 10.sp)
                 }
             }

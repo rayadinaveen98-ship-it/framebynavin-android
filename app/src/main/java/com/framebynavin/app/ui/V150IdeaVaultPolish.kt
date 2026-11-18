@@ -42,7 +42,7 @@ internal fun V150IdeaFilterSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
         ) {
-            Text("FILTER IDEAS", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Text("FILTER IDEAS", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Text("Find exactly what you need", color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(20.dp))
 
@@ -101,6 +101,6 @@ internal fun V150IdeaFilterSheet(
 
 @Composable
 private fun FilterSectionTitle(text: String) {
-    Text(text, color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+    Text(text, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
     Spacer(Modifier.height(7.dp))
 }

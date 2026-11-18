@@ -35,7 +35,7 @@ internal fun V20WorkflowIntelligenceCard(tasks: List<CreatorTask>, onClick: () -
     }
     Surface(Modifier.fillMaxWidth().clickable(onClick = onClick),
         RoundedCornerShape(16.dp), CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine)) {
+        border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Workflow", color = ProjectorIvory, fontSize = 14.sp,

@@ -11,6 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
@@ -55,12 +59,20 @@ internal fun V161QuickActionsHub(
     onPublishLate: (String) -> Unit,
     onReschedule: (String) -> Unit,
     onSkip: (String) -> Unit,
+    projectsLoaded: Boolean = true,
 ) {
-    val overdue = tasks.filter {
-        it.archivedAtMillis <= 0L &&
-            (it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING) &&
-            it.dueAtMillis in 1 until System.currentTimeMillis()
-    }.sortedBy { it.dueAtMillis }
+    val nowMillis = System.currentTimeMillis()
+    val snapshot = UX08FQuickActionsPolicy.snapshot(tasks, nowMillis)
+    val overdue = if (projectsLoaded) snapshot.overdueProjects else emptyList()
+    // This is strictly a local pending confirmation, not persisted status.
+    var pendingSkipId by remember { mutableStateOf<String?>(null) }
+    val pendingSkipTask = pendingSkipId?.let { id ->
+        tasks.singleOrNull { it.id == id }
+    }
+    val safeToConfirmSkip = projectsLoaded &&
+        UX08FQuickActionsPolicy.isSafeSkipConfirmation(
+            pendingSkipId, tasks, System.currentTimeMillis(),
+        )
     val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
     val compactActions = LocalConfiguration.current.screenWidthDp < 350 ||
         LocalDensity.current.fontScale >= 1.35f
@@ -69,13 +81,16 @@ internal fun V161QuickActionsHub(
         Modifier.fillMaxWidth()
             .heightIn(max = 730.dp)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = BacklotUX10Tokens.pageGutter)
             .padding(bottom = 36.dp),
     ) {
         Text("BACKLOT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        Text("Quick Actions", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
-        Text("Capture an idea or continue your work.", color = MutedText, fontSize = 13.sp)
-        Spacer(Modifier.height(17.dp))
+        Text("Quick Actions", color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Black)
+        Text(
+            "Make something, plan the next step or revisit genuine progress.",
+            color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
+        )
+        Spacer(Modifier.height(15.dp))
 
         // On narrow phones or high font scale, keep both primary actions full-width.
         if (compactActions) {
@@ -94,10 +109,43 @@ internal fun V161QuickActionsHub(
             }
         }
 
+        Spacer(Modifier.height(15.dp))
+        if (!projectsLoaded) {
+            Text(
+                "Creator projects are still loading. Quick Actions remain available; " +
+                    "deadline counts will appear after the saved project list loads.",
+                color = MutedText,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.testTag("ux08f-projects-loading"),
+            )
+        } else {
+            Row(
+                Modifier.fillMaxWidth().testTag("ux08f-saved-project-summary"),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${snapshot.activeProjects} active projects",
+                    color = MutedText, fontSize = 11.sp,
+                )
+                Text("·", color = MutedText, fontSize = 11.sp)
+                Text(
+                    "${snapshot.pastDeadlineProjects} past deadline",
+                    color = if (snapshot.pastDeadlineProjects > 0) RecRed else MutedText,
+                    fontSize = 11.sp,
+                )
+            }
+        }
+
         if (overdue.isNotEmpty()) {
-            Spacer(Modifier.height(19.dp))
-            V161SectionHeading("NEEDS ATTENTION", "These projects are past their publish time.")
-            overdue.take(4).forEach { task ->
+            Spacer(Modifier.height(7.dp))
+            V161SectionHeading(
+                "NEEDS ATTENTION",
+                "Actual saved projects past their deadlines. " +
+                    "The controls below change original project records.",
+            )
+            overdue.forEach { task ->
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     shape = RoundedCornerShape(16.dp),
@@ -111,57 +159,145 @@ internal fun V161QuickActionsHub(
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            AssistChip(onClick = { onPublishLate(task.id) }, label = { Text("+30 min", fontSize = 11.sp) })
-                            AssistChip(onClick = { onReschedule(task.id) }, label = { Text("New time", fontSize = 11.sp) })
-                            AssistChip(onClick = { onSkip(task.id) }, label = { Text("Skip", fontSize = 11.sp) })
+                            AssistChip(
+                                onClick = { onPublishLate(task.id) },
+                                label = { Text("+30 min", fontSize = 11.sp) },
+                                modifier = Modifier.testTag("ux08f-overdue-plus-30-" + task.id),
+                            )
+                            AssistChip(
+                                onClick = { onReschedule(task.id) },
+                                label = { Text("New time", fontSize = 11.sp) },
+                                modifier = Modifier.testTag("ux08f-overdue-new-time-" + task.id),
+                            )
+                            AssistChip(
+                                onClick = { pendingSkipId = task.id },
+                                label = { Text("Skip", fontSize = 11.sp) },
+                                modifier = Modifier.testTag("ux08f-overdue-skip-" + task.id),
+                            )
                         }
                     }
                 }
             }
+            if (snapshot.pastDeadlineProjects > overdue.size) {
+                TextButton(
+                    onClick = onDailyBrief,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("ux08f-review-all-deadlines"),
+                ) {
+                    Text(
+                        "Review all ${snapshot.pastDeadlineProjects} past-due projects in Daily Brief",
+                        color = MutedGold, fontSize = 11.sp,
+                    )
+                }
+            }
         }
 
-        V161SectionHeading("YOUR WORK", "Find what to make next.")
-        V161ActionRow("Daily Brief", "What deserves your focus today", Icons.Outlined.Today,
-            "quick-action-daily-brief", onDailyBrief)
-        V161ActionRow("Idea Vault",
+        V161SectionHeading("YOUR DAY", "Choose where to start and what is approaching.")
+        V161ActionRow(
+            "Daily Brief", "Real priorities, due-today work and what needs review",
+            Icons.Outlined.Today, "quick-action-daily-brief", onDailyBrief,
+        )
+        V161ActionRow(
+            "Content Calendar", "Week, Month and Agenda · saved plans, not published claims",
+            Icons.Outlined.CalendarMonth, "quick-action-content-calendar", onCalendar,
+        )
+
+        V161SectionHeading("CREATE & ORGANIZE", "Keep ideas and recurring production connected.")
+        V161ActionRow(
+            "Idea Vault",
             if (readyIdeas > 0) "$readyIdeas ready-to-make idea${if (readyIdeas == 1) "" else "s"}"
             else "Find and develop your saved ideas",
-            Icons.Outlined.Lightbulb, "quick-action-idea-vault", onIdeas)
+            Icons.Outlined.Lightbulb, "quick-action-idea-vault", onIdeas,
+        )
+        V161ActionRow(
+            "Weekly Plan",
+            if (weeklyAutoPlanEnabled) "Automatic project planning is on" else "Review recurring creator slots",
+            Icons.Outlined.DateRange, "quick-action-weekly-plan", onWeek,
+        )
+        V161ActionRow(
+            "Automation", "Original planning automations and routines",
+            Icons.Outlined.AutoAwesome, "quick-action-automation", onAutomation,
+        )
 
-        V161SectionHeading("PLAN & ORGANIZE", "See dates and recurring work.")
-        V161ActionRow("Content Calendar", "Upcoming publishing and project dates",
-            Icons.Outlined.CalendarMonth, "quick-action-content-calendar", onCalendar)
-        V161ActionRow("Weekly Plan",
-            if (weeklyAutoPlanEnabled) "Automatic project planning is on" else "Your recurring schedule",
-            Icons.Outlined.DateRange, "quick-action-weekly-plan", onWeek)
-        V161ActionRow("Automation", "Manage background planning and routines",
-            Icons.Outlined.AutoAwesome, "quick-action-automation", onAutomation)
+        V161SectionHeading("YOUR PROGRESS", "Review real records and credited Creator rewards.")
+        V161ActionRow(
+            "Progress Journey", "Browse recorded days and historical Creator actions",
+            Icons.Outlined.CalendarMonth, "quick-action-progress-journey", onProgressJourney,
+        )
+        V161ActionRow(
+            "Creator Progress",
+            "Level ${creatorProgress.level} · ${creatorProgress.totalXp} credited XP · " +
+                "${creatorProgress.unlockedAchievementCount} achievements",
+            Icons.Outlined.EmojiEvents, "quick-action-creator-progress", onCreatorProgress,
+        )
 
-        V161SectionHeading("MORE TOOLS", "Existing shortcuts, unchanged.")
-        V161ActionRow("Trending Moment", "Plan a quick response",
-            Icons.Outlined.Bolt, "quick-action-trending-moment", onRelease)
-        V161ActionRow("Reminders", "View and manage existing reminders",
-            Icons.Outlined.Alarm, "quick-action-reminders", onReminders)
+        V161SectionHeading("REMINDERS & RELEASE", "Original reminders and release planning.")
+        V161ActionRow(
+            "Reminders", "View and manage existing Creator and Personal alerts",
+            Icons.Outlined.Alarm, "quick-action-reminders", onReminders,
+        )
+        V161ActionRow(
+            "Trending Moment", "Plan a timely creative response",
+            Icons.Outlined.Bolt, "quick-action-trending-moment", onRelease,
+        )
 
-        V161SectionHeading("YOUR GROWTH", "A record of your creative work.")
-        V161ActionRow("Progress Journey", "See what you accomplished each day",
-            Icons.Outlined.CalendarMonth, "quick-action-progress-journey", onProgressJourney)
-        V161ActionRow("Creator Progress",
-            "Level ${creatorProgress.level} · ${creatorProgress.totalXp} XP earned",
-            Icons.Outlined.EmojiEvents, "quick-action-creator-progress", onCreatorProgress)
+        Spacer(Modifier.height(13.dp))
+        HorizontalDivider(color = CinemaLine.copy(alpha = 0.55f))
+        Spacer(Modifier.height(8.dp))
+        V161ActionRow(
+            "Settings", "Account, defaults and connections",
+            Icons.Outlined.Settings, "quick-action-settings", onSettings,
+        )
+    }
 
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = CinemaLine)
-        Spacer(Modifier.height(9.dp))
-        V161ActionRow("Settings", "Account, defaults and connections",
-            Icons.Outlined.Settings, "quick-action-settings", onSettings)
+    if (pendingSkipId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingSkipId = null },
+            title = { Text("Skip this project?", color = ProjectorIvory) },
+            text = {
+                Text(
+                    if (safeToConfirmSkip)
+                        "${pendingSkipTask?.title ?: "Selected project"} will be marked Skipped " +
+                            "and its original Creator reminders will be disabled. " +
+                            "The saved project is not deleted."
+                    else "This project has changed or is no longer eligible. " +
+                        "Close this confirmation and review its current status.",
+                    color = MutedText,
+                    fontSize = 13.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = safeToConfirmSkip,
+                    onClick = {
+                        val confirmedId = pendingSkipId
+                        if (confirmedId != null &&
+                            UX08FQuickActionsPolicy.isSafeSkipConfirmation(
+                                confirmedId, tasks, System.currentTimeMillis(),
+                            )
+                        ) {
+                            pendingSkipId = null
+                            onSkip(confirmedId)
+                        }
+                    },
+                    modifier = Modifier.testTag("ux08f-confirm-skip"),
+                ) { Text("SKIP PROJECT", color = RecRed) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { pendingSkipId = null },
+                    modifier = Modifier.testTag("ux08f-cancel-skip"),
+                ) { Text("KEEP PROJECT", color = ProjectorIvory) }
+            },
+            containerColor = CinemaSurfaceRaised,
+        )
     }
 }
 
 @Composable
 private fun V161SectionHeading(label: String, subtitle: String) {
-    Spacer(Modifier.height(20.dp))
-    Text(label, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+    Spacer(Modifier.height(BacklotUX10Tokens.compactSectionGap))
+    Text(label, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
     Text(subtitle, color = MutedText, fontSize = 11.sp)
     Spacer(Modifier.height(9.dp))
 }
@@ -177,10 +313,10 @@ private fun V161MainAction(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 118.dp).testTag(tag),
-        shape = RoundedCornerShape(18.dp),
+        modifier = modifier.heightIn(min = 112.dp).testTag(tag),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         color = CinemaSurfaceRaised,
-        border = BorderStroke(1.dp, RecRed.copy(alpha = .22f)),
+        border = BacklotUX10Tokens.quietBorder(RecRed, alpha = 0.25f),
     ) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Box(
@@ -204,11 +340,11 @@ private fun V161ActionRow(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            .heightIn(min = 64.dp).testTag(tag),
-        shape = RoundedCornerShape(16.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp)
+            .heightIn(min = BacklotUX10Tokens.rowTarget).testTag(tag),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
+        color = CinemaSurface.copy(alpha = 0.75f),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),

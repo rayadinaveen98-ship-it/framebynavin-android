@@ -44,10 +44,10 @@ internal fun V19ContentWorkspaceAlpha4Hub(
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.ArrowBack, "Close", tint = ProjectorIvory) }
                     Column(Modifier.weight(1f)) {
-                        Text("PROJECT", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                        Text("PROJECT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
                         Text(task.title, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     }
-                    Text("R${workspace.revision}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("R${workspace.revision}", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -77,7 +77,7 @@ internal fun V19ContentWorkspaceAlpha4Hub(
                 Text(
                     "Edit your hook and narration here.",
                     color = MutedText,
-                    fontSize = 8.5.sp,
+                    fontSize = BacklotUX10Tokens.eyebrow,
                     modifier = Modifier.padding(bottom = 18.dp),
                 )
             }
@@ -99,17 +99,17 @@ private fun Alpha4HubCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column(Modifier.padding(18.dp)) {
             Icon(icon, null, tint = MutedGold, modifier = Modifier.size(28.dp))
             Spacer(Modifier.height(14.dp))
-            Text(eyebrow, color = RecRed, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+            Text(eyebrow, color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
             Text(title, color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(6.dp))
             Text(body, color = MutedText, fontSize = 10.sp)
             Spacer(Modifier.height(12.dp))
-            Text(meta, color = MutedGold, fontSize = 8.7.sp, fontWeight = FontWeight.Bold)
+            Text(meta, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -234,7 +234,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
 
                 if (recovered != null) {
                     Surface(Modifier.fillMaxWidth(), color = MutedGold.copy(alpha = .08f)) {
-                        Text("Your unsaved script was recovered", color = MutedGold, fontSize = 8.5.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
+                        Text("Your unsaved script was recovered", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, modifier = Modifier.padding(horizontal = 18.dp, vertical = 7.dp))
                     }
                 }
 
@@ -248,7 +248,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                             Modifier.fillMaxWidth(),
                             RoundedCornerShape(17.dp),
                             CinemaSurface,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                         ) {
                             Column(Modifier.padding(horizontal = 14.dp, vertical = 7.dp)) {
                                 TextButton(
@@ -369,7 +369,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
                     }
                     if (showPreview) {
                         Spacer(Modifier.height(8.dp))
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                             Column(Modifier.padding(14.dp)) {
                                 Text(current.selectedHook().ifBlank { "No selected hook" }, color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.height(8.dp))
@@ -392,7 +392,7 @@ internal fun V19ScriptStudioAlpha4Dialog(
 @Composable
 private fun Alpha4ScriptSummary(studio: CreatorScriptStudio) {
     val progress = studio.progressPercent()
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(15.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Alpha4Metric("WORDS", studio.wordCount().toString())
@@ -404,7 +404,7 @@ private fun Alpha4ScriptSummary(studio: CreatorScriptStudio) {
             LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth())
             val selectedTitle = studio.selectedTitle()
             if (selectedTitle.isNotBlank()) {
-                Spacer(Modifier.height(9.dp)); Text("Selected title: $selectedTitle", color = MutedGold, fontSize = 9.sp)
+                Spacer(Modifier.height(9.dp)); Text("Selected title: $selectedTitle", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow)
             }
         }
     }
@@ -511,7 +511,7 @@ private fun Alpha4Title(title: String, @Suppress("UNUSED_PARAMETER") subtitle: S
 
 @Composable
 private fun Alpha4Empty(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(text, color = MutedText, fontSize = 12.sp, modifier = Modifier.padding(13.dp))
     }
 }

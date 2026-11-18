@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,6 +61,9 @@ internal fun V207ProjectVoiceSelector(
     modifier: Modifier = Modifier,
 ) {
     var pickerOpen by rememberSaveable { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        onDispose { V403VoicePreviewPlayer.stop() }
+    }
 
     Surface(
         onClick = { pickerOpen = true },
@@ -145,6 +149,11 @@ internal fun V207ProjectVoiceSelector(
                             }
                         }
                     }
+                    Text(
+                        "Voice character comes from Backlot's local speech styles. The voice itself depends on your Android device.",
+                        color = MutedText,
+                        fontSize = 10.sp,
+                    )
                     TextButton(onClick = { pickerOpen = false }, modifier = Modifier.align(Alignment.End)) {
                         Text("DONE", color = ProjectorIvory)
                     }

@@ -2,6 +2,7 @@ package com.framebynavin.app.personal
 
 import java.time.LocalDate
 import java.time.LocalTime
+import com.framebynavin.app.reminders.ReminderMusicMode
 
 /** Pure, deterministic rule for edits. No store, alarm or UI side effects. */
 internal object Phase1HabitManagementPolicy {
@@ -25,6 +26,10 @@ internal object Phase1HabitManagementPolicy {
         alertTime: LocalTime?,
         alertKind: Phase1HabitAlertKind?,
         completionMode: Phase1HabitCompletionMode,
+        voiceMusicMode: ReminderMusicMode = before.voiceMusicMode,
+        voiceMusicUri: String = before.voiceMusicUri,
+        voiceRepeatCount: Int = before.voiceRepeatCount,
+        voiceRepeatGapMillis: Long = before.voiceRepeatGapMillis,
     ): Phase1HabitChallenge {
         before.checked()
         require(!before.archived) { "Restore an archived challenge before editing" }
@@ -40,6 +45,10 @@ internal object Phase1HabitManagementPolicy {
             alertTime = alertTime,
             alertKind = alertKind,
             completionMode = completionMode,
+            voiceMusicMode = voiceMusicMode,
+            voiceMusicUri = voiceMusicUri,
+            voiceRepeatCount = voiceRepeatCount,
+            voiceRepeatGapMillis = voiceRepeatGapMillis,
             snoozedDay = if (scheduleChanged) null else before.snoozedDay,
             snoozedUntil = if (scheduleChanged) null else before.snoozedUntil,
         ).checked()

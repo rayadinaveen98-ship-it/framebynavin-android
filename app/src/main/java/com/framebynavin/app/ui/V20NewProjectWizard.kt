@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.framebynavin.app.data.*
+import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -253,7 +254,7 @@ internal fun V20NewProjectWizard(
                     Surface(
                         shape = RoundedCornerShape(100.dp),
                         color = MutedGold.copy(alpha = .10f),
-                        border = BorderStroke(1.dp, MutedGold.copy(alpha = .20f)),
+                        border = BacklotUX10Tokens.quietBorder(MutedGold, alpha = 0.35f),
                     ) {
                         Text(
                             if (showAdvancedSetup) "${(activeStage + 1).coerceIn(1, 7)}/7" else "QUICK",
@@ -275,7 +276,7 @@ internal fun V20NewProjectWizard(
 
                 Column(
                     Modifier.weight(1f).verticalScroll(scrollState)
-                        .padding(horizontal = 20.dp, vertical = 18.dp)
+                        .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 18.dp)
                         .padding(bottom = 30.dp),
                 ) {
                     if (!showAdvancedSetup) {
@@ -286,12 +287,12 @@ internal fun V20NewProjectWizard(
                             lineHeight = 19.sp,
                         )
                         Spacer(Modifier.height(16.dp))
-                        V20FieldLabel("PROJECT NAME")
+                        V20FieldLabel("PROJECT TITLE · REQUIRED")
                         OutlinedTextField(
                             value = title,
                             onValueChange = onTitleChange,
                             modifier = Modifier.fillMaxWidth().testTag("quick-create-title"),
-                            placeholder = { Text("What are you making?") },
+                            placeholder = { Text("e.g. My next short film") },
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                         )
@@ -466,7 +467,9 @@ internal fun V20NewProjectWizard(
                             value = title,
                             onValueChange = onTitleChange,
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Project title") },
+                            label = { Text("Project title · Required") },
+                            placeholder = { Text("e.g. My next short film") },
+                            supportingText = { Text("Give this project a name you'll recognize later.") },
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                         )
@@ -526,7 +529,7 @@ internal fun V20NewProjectWizard(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
                             color = CinemaSurface,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                         ) {
                             Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.touchTarget).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
@@ -622,7 +625,7 @@ internal fun V20NewProjectWizard(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             color = CinemaSurface,
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                         ) {
                             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.CalendarMonth, null, tint = MutedGold, modifier = Modifier.size(20.dp))
@@ -764,6 +767,16 @@ internal fun V20NewProjectWizard(
                         V20WizardReviewRow("FORMAT", contentType) { activeStage = 3 }
                         V20WizardReviewRow("PUBLISH BY", v20WizardDateTime(dueAt)) { activeStage = 4 }
                         V20WizardReviewRow("SUPPORT", supportSummary) { activeStage = 5 }
+                        if (attentionPlan != ProjectAttentionPlan.OFF &&
+                            deliveryPreference != ReminderDeliveryPreference.NOTIFICATION &&
+                            deliveryPreference != ReminderDeliveryPreference.ALARM
+                        ) {
+                            val times = if (voiceRepeatCount == 1) "once" else "${voiceRepeatCount} times"
+                            V20WizardReviewRow(
+                                "IF SPOKEN",
+                                "${VoicePersonaEngine.label(voicePersona)} · ${times} · ${voiceRepeatGapSeconds}s gap",
+                            ) { activeStage = 5 }
+                        }
                         if (attentionPlan == ProjectAttentionPlan.CUSTOM) {
                             V20WizardReviewRow("REMINDER", v20WizardDateTime(customReminderAt)) { activeStage = 5 }
                             V20WizardReviewRow("IMPORTANCE", pPriorityLabel(priority)) { activeStage = 5 }
@@ -800,7 +813,7 @@ internal fun V20NewProjectWizard(
                         modifier = Modifier.fillMaxWidth().testTag("quick-create-footer"),
                         color = CinemaSurfaceRaised,
                     ) {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 10.dp)) {
                             Text(
                                 "$platform · $contentType · ${v20WizardDateTime(dueAt)}",
                                 color = MutedText,
@@ -857,7 +870,7 @@ internal fun V174QuickReminderSummary(
         modifier = Modifier.fillMaxWidth().heightIn(min = 62.dp).testTag("quick-create-reminder-summary"),
         shape = RoundedCornerShape(16.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
@@ -900,9 +913,9 @@ private fun V20ProgressiveSection(
             if (active) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, RecRed.copy(alpha = .38f)),
+                    border = BacklotUX10Tokens.activeBorder(RecRed),
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Row(Modifier.bringIntoViewRequester(bringToStep), verticalAlignment = Alignment.CenterVertically) {
@@ -928,9 +941,9 @@ private fun V20ProgressiveSection(
                 Surface(
                     onClick = onEdit,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                     color = CinemaSurface.copy(alpha = .82f),
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.reviewRowMinHeight).padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -977,7 +990,7 @@ private fun V20DateTimeButton(label: String, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.actionMinHeight),
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
         shape = RoundedCornerShape(14.dp),
     ) {
         Icon(Icons.Outlined.Schedule, null, tint = MutedGold, modifier = Modifier.size(17.dp))
@@ -1000,7 +1013,7 @@ private fun V20WizardSummaryChip(label: String, value: String) {
 
 @Composable
 internal fun V20WizardReviewRow(label: String, value: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp), shape = RoundedCornerShape(15.dp), color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Row(Modifier.fillMaxWidth().heightIn(min = V173ProjectUiMetrics.reviewRowMinHeight).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(label, color = MutedText, fontSize = V173ProjectUiMetrics.supportingText, fontWeight = FontWeight.Bold, letterSpacing = .6.sp)

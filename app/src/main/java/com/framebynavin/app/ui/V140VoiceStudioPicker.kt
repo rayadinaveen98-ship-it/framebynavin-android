@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,9 @@ internal fun V140VoiceStudioPicker(
     onPreview: (VoicePersona) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    DisposableEffect(Unit) {
+        onDispose { V403VoicePreviewPlayer.stop() }
+    }
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -112,7 +116,7 @@ internal fun V140VoiceStudioPicker(
             Spacer(Modifier.height(8.dp))
         }
         Text(
-            "Voice options depend on your phone. Tap Preview to listen.",
+            "Eight Backlot delivery styles use voices installed on your device. Preview to hear how they sound here.",
             color = MutedText,
             fontSize = 11.sp,
             lineHeight = 16.sp,

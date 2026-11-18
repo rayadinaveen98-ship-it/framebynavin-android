@@ -22,6 +22,8 @@ data class CreatorStageEvidence(
     val notes: String = "",
     val referenceId: String = "",
     val assetId: String = "",
+    /** Optional stable pointer to the canonical Script Studio beat (never copied narration). */
+    val scriptBeatId: String = "",
 )
 
 data class CreatorStageDecision(
@@ -112,13 +114,44 @@ object CreatorStageWorkPolicy {
             stage.linkedDeliverableIds, task.workspace.deliverables.map { it.id }.toSet(),
             previous?.linkedDeliverableIds.orEmpty(), "output",
         )
+        // Evidence may point to one shared source and one shared asset. Reuse
+        // the same project-ownership fence as explicit stage links; retain old
+        // missing links so existing evidence is not silently destroyed.
+        ensureOwnLinks(
+            stage.evidence.map { it.referenceId }.filter { it.isNotBlank() },
+            task.workspace.references.map { it.id }.toSet(),
+            previous?.evidence.orEmpty().map { it.referenceId }.filter { it.isNotBlank() },
+            "evidence source",
+        )
+        ensureOwnLinks(
+            stage.evidence.map { it.assetId }.filter { it.isNotBlank() },
+            task.workspace.assets.map { it.id }.toSet(),
+            previous?.evidence.orEmpty().map { it.assetId }.filter { it.isNotBlank() },
+            "evidence asset",
+        )
+        // Never accept a new cross-project or fabricated script beat identity.
+        // Removed historical beats remain referenced until the owner reviews them.
+        ensureOwnLinks(
+            stage.evidence.map { it.scriptBeatId }.filter { it.isNotBlank() },
+            task.workspace.scriptStudio?.beats.orEmpty().map { it.id }.toSet(),
+            previous?.evidence.orEmpty().map { it.scriptBeatId }.filter { it.isNotBlank() },
+            "script beat",
+        )
         require(stage.reviewedAtMillis >= 0L && stage.decisions.all { it.recordedAtMillis >= 0L }) {
             "Review timestamps cannot be negative"
         }
 
+        // A prior review receipt cannot certify changed stage content. Only
+        // an explicitly refreshed review timestamp can accompany new content.
+        val previousContent = previous?.copy(reviewedAtMillis = 0L)
+        val nextContent = stage.copy(reviewedAtMillis = 0L)
+        val staleReview = previous != null && previousContent != nextContent &&
+            previous.reviewedAtMillis > 0L && stage.reviewedAtMillis == previous.reviewedAtMillis
+        val savedStage = if (staleReview) stage.copy(reviewedAtMillis = 0L) else stage
+
         val key = stage.workflowTemplateId to stage.stageId
         val index = current.indexOfFirst { (it.workflowTemplateId to it.stageId) == key }
-        val updated = if (index < 0) current + stage else current.toMutableList().also { it[index] = stage }
+        val updated = if (index < 0) current + savedStage else current.toMutableList().also { it[index] = savedStage }
         return task.workspace.copy(stageWork = updated)
     }
 }

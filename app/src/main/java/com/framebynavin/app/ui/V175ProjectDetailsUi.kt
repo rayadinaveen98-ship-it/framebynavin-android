@@ -53,9 +53,9 @@ internal fun V175ProjectNotesField(
     var expanded by rememberSaveable { mutableStateOf(notes.isNotBlank()) }
     Surface(
         modifier = modifier.fillMaxWidth().testTag("project-notes-section"),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column {
             Surface(

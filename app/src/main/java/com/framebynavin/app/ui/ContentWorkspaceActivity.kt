@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE, OUTPUT }
+private enum class Alpha6WorkspaceMode { HUB, BLUEPRINT, PROJECT, SCRIPT, PUBLISH, STAGE, OUTPUT, BOARD, LEARN }
 
 private data class V211HistoricalPlanFieldRequest(
     val sourceId: String,
@@ -59,6 +59,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         private const val STATE_EDITOR_MODE = "content_project_editor_mode"
         private const val STATE_STAGE_ID = "cw3_selected_stage_id"
         private const val STATE_OUTPUT_ID = "cw4_selected_output_id"
+        private const val STATE_LEARNING_OUTPUT_ID = "ux051e_selected_learning_output_id"
     }
 
     private val store by lazy { TaskStore(applicationContext) }
@@ -73,8 +74,17 @@ class ContentWorkspaceActivity : ComponentActivity() {
     private var mode by mutableStateOf(Alpha6WorkspaceMode.HUB)
     private var selectedStageId by mutableStateOf("")
     private var selectedOutputCraftId by mutableStateOf("")
+    private var selectedLearningOutputId by mutableStateOf("")
+    private var learningSaveInFlight by mutableStateOf(false)
     private var error by mutableStateOf<String?>(null)
     private var confirmEditorClose by mutableStateOf(false)
+    /** A stage-tool switch is only performed after the existing discard confirmation. */
+    private var planOpenBrief by mutableStateOf(false)
+    private var planOpenSection by mutableStateOf("")
+    private var pendingStageToolMode by mutableStateOf<Alpha6WorkspaceMode?>(null)
+    /** Captured at the tool-switch tap; saved only after a successful revision-gated write. */
+    private var pendingStageToolDraft by mutableStateOf<Pair<Long, CreatorStageWork>?>(null)
+    private var stageSwitchSaveInFlight by mutableStateOf(false)
     private var heldDraftReviews by mutableStateOf<List<CreatorEditorDraftStore.HeldDraftPreview>?>(null)
     private var pendingHeldField by mutableStateOf<V211HistoricalPlanFieldRequest?>(null)
     private var planRecoveredField by mutableStateOf<V211PlanFieldRecovery?>(null)
@@ -96,6 +106,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
         window.setBackgroundDrawable(ColorDrawable(BacklotBackground.toArgb()))
         selectedStageId = savedInstanceState?.getString(STATE_STAGE_ID).orEmpty()
         selectedOutputCraftId = savedInstanceState?.getString(STATE_OUTPUT_ID).orEmpty()
+        selectedLearningOutputId =
+            savedInstanceState?.getString(STATE_LEARNING_OUTPUT_ID).orEmpty()
         restoreModeAfterLoad = savedInstanceState?.getString(STATE_EDITOR_MODE)?.let { saved ->
             runCatching { Alpha6WorkspaceMode.valueOf(saved) }.getOrNull()
         }?.takeUnless { it == Alpha6WorkspaceMode.HUB }
@@ -105,8 +117,18 @@ class ContentWorkspaceActivity : ComponentActivity() {
                 // The editors are Activity-owned screens now. Keep the same unsaved-draft
                 // confirmation on system Back that the previous Dialog window provided.
                 BackHandler(enabled = !confirmEditorClose && error == null && mode != Alpha6WorkspaceMode.HUB) {
-                    if (mode == Alpha6WorkspaceMode.BLUEPRINT) mode = Alpha6WorkspaceMode.HUB
-                    else confirmEditorClose = true
+                    if (mode == Alpha6WorkspaceMode.BLUEPRINT || mode == Alpha6WorkspaceMode.BOARD) {
+                        mode = Alpha6WorkspaceMode.HUB
+                    } else if (mode == Alpha6WorkspaceMode.LEARN && learningSaveInFlight) {
+                        android.widget.Toast.makeText(
+                            applicationContext, "Finish saving the reflection before leaving.",
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    } else {
+                        pendingStageToolMode = null
+                        pendingStageToolDraft = null
+                        confirmEditorClose = true
+                    }
                 }
                 Box(Modifier.fillMaxSize().background(BacklotBackground)) {
                     when {
@@ -134,10 +156,72 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             ),
                             onDismiss = { finish() },
                             onOpenBlueprint = { mode = Alpha6WorkspaceMode.BLUEPRINT },
-                            onOpenProject = { mode = Alpha6WorkspaceMode.PROJECT },
+                            onOpenProject = {
+                                planOpenBrief = false
+                                planOpenSection = ""
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onOpenBrief = {
+                                planOpenBrief = true
+                                planOpenSection = ""
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onOpenPlanSection = { target ->
+                                planOpenBrief = false
+                                planOpenSection = target.takeIf {
+                                    it in setOf("RESEARCH", "ASSETS", "PRODUCTION", "DELIVERABLES")
+                                }.orEmpty()
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
                             onOpenScript = { openScriptStudio(task!!) },
                             onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
                             onOpenStage = { stageId -> openStage(stageId) },
+                            onOpenOutputCraft = { mode = Alpha6WorkspaceMode.OUTPUT },
+                            onOpenBoard = { mode = Alpha6WorkspaceMode.BOARD },
+                            onOpenLearning = { mode = Alpha6WorkspaceMode.LEARN },
+                        )
+                        mode == Alpha6WorkspaceMode.LEARN -> CW52OutputLearningDesk(
+                            task = task!!,
+                            onBack = { outputId, editorRevision ->
+                                selectedLearningOutputId = outputId
+                                if (!learningSaveInFlight &&
+                                    editorRevision == task!!.workspace.revision) {
+                                    confirmEditorClose = true
+                                }
+                            },
+                            onOpenPublish = {
+                                confirmEditorClose = false
+                                mode = Alpha6WorkspaceMode.PUBLISH
+                            },
+                            onSelectedOutput = { selectedLearningOutputId = it },
+                            onDiscardDraft = { outputId, expectedRevision ->
+                                discardLearningDraft(task!!.id, outputId, expectedRevision)
+                            },
+                            saving = learningSaveInFlight,
+                            initialSelectedOutputId = selectedLearningOutputId,
+                            onOpenPlanOutputs = {
+                                planOpenBrief = false
+                                planOpenSection = "DELIVERABLES"
+                                confirmEditorClose = false
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onSave = { expectedRevision, draft ->
+                                appendOutputLearning(task!!.id, expectedRevision, draft)
+                            },
+                        )
+                        mode == Alpha6WorkspaceMode.BOARD -> CW51CreativeBoard(
+                            task = task!!,
+                            onBack = { mode = Alpha6WorkspaceMode.HUB },
+                            onOpenPlanSection = { target ->
+                                planOpenBrief = false
+                                planOpenSection = target.takeIf {
+                                    it in setOf("RESEARCH", "ASSETS", "PRODUCTION", "DELIVERABLES")
+                                }.orEmpty()
+                                mode = Alpha6WorkspaceMode.PROJECT
+                            },
+                            onOpenStage = { id -> openStage(id) },
+                            onOpenScript = { openScriptStudio(task!!) },
+                            onOpenPublish = { mode = Alpha6WorkspaceMode.PUBLISH },
                             onOpenOutputCraft = { mode = Alpha6WorkspaceMode.OUTPUT },
                         )
                         mode == Alpha6WorkspaceMode.OUTPUT -> CW4OutputCraftDesk(
@@ -160,9 +244,28 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             stage = CreatorWorkflowEngine.templateFor(task!!).stages.firstOrNull {
                                 it.id == selectedStageId
                             } ?: CreatorWorkflowEngine.currentStage(task!!),
-                            onBack = { confirmEditorClose = true },
+                            onBack = {
+                                pendingStageToolMode = null
+                                pendingStageToolDraft = null
+                                confirmEditorClose = true
+                            },
                             onSave = { revision, edited ->
                                 saveStageWork(task!!.id, revision, edited)
+                            },
+                            onOpenMainTool = { destination, revision, edited ->
+                                pendingStageToolDraft = revision to edited
+                                pendingStageToolMode = when (destination) {
+                                    StageWorkspaceDestination.SCRIPT -> Alpha6WorkspaceMode.SCRIPT
+                                    StageWorkspaceDestination.PUBLISH -> Alpha6WorkspaceMode.PUBLISH
+                                    StageWorkspaceDestination.PLAN,
+                                    StageWorkspaceDestination.HUB -> Alpha6WorkspaceMode.PROJECT
+                                }
+                                confirmEditorClose = true
+                            },
+                            onOpenOutputCraft = { revision, edited ->
+                                pendingStageToolDraft = revision to edited
+                                pendingStageToolMode = Alpha6WorkspaceMode.OUTPUT
+                                confirmEditorClose = true
                             },
                         )
                         mode == Alpha6WorkspaceMode.BLUEPRINT -> V20ContentBlueprintDialog(
@@ -182,6 +285,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             hasHeldDraft = editorDrafts.hasHeldDraftForEditor(task!!.id, "project"),
                             onReviewHeld = { openHeldDraftReviews(task!!.id, "project") },
                             pendingFieldRecovery = planRecoveredField,
+                            startOnBrief = planOpenBrief,
+                            startSectionName = planOpenSection,
                             onFieldRecoveryHandled = { nonce ->
                                 if (planRecoveredField?.nonce == nonce) planRecoveredField = null
                             },
@@ -356,12 +461,58 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     }
 
                     if (confirmEditorClose && mode != Alpha6WorkspaceMode.HUB) {
+                        val stageSwitch = mode == Alpha6WorkspaceMode.STAGE &&
+                            pendingStageToolMode != null
+                        val pendingStage = if (stageSwitch) pendingStageToolDraft else null
+                        val unsavedStageSwitch = pendingStage?.second?.let { edited ->
+                            val current = task?.workspace?.let {
+                                CreatorStageWorkPolicy.find(
+                                    it, edited.workflowTemplateId, edited.stageId,
+                                )
+                            } ?: CreatorStageWork(
+                                workflowTemplateId = edited.workflowTemplateId,
+                                stageId = edited.stageId,
+                            )
+                            edited != current
+                        } == true
                         AlertDialog(
-                            onDismissRequest = { confirmEditorClose = false },
-                            title = { Text("Close this editor?") },
-                            text = { Text("Changes since your last save will be discarded. Your previously saved project data stays safe.") },
+                            onDismissRequest = {
+                                if (!stageSwitchSaveInFlight) {
+                                    confirmEditorClose = false
+                                    pendingStageToolMode = null
+                                    pendingStageToolDraft = null
+                                }
+                            },
+                            title = {
+                                Text(if (pendingStageToolMode != null)
+                                    "Switch workspace tools?" else "Close this editor?")
+                            },
+                            text = {
+                                Text(
+                                    if (stageSwitch) {
+                                        if (unsavedStageSwitch)
+                                            "This stage contains unsaved changes. Save & Open keeps them; " +
+                                                "Discard & Open loses only those unsaved changes. " +
+                                                "Keep Editing returns without saving or switching."
+                                        else
+                                            "Your stage is saved. Open the selected tool or keep editing. " +
+                                                "No workflow stage will advance."
+                                    } else {
+                                        "Unsaved editor changes will be discarded. " +
+                                            "Your previously saved project data stays safe."
+                                    }
+                                )
+                            },
                             confirmButton = {
                                 TextButton(onClick = {
+                                    if (CreatorDataGate.generation(applicationContext) != loadedGeneration) {
+                                        confirmEditorClose = false
+                                        pendingStageToolMode = null
+                                        pendingStageToolDraft = null
+                                        error = "Project data changed while this editor was open. Reload the latest workspace."
+                                        return@TextButton
+                                    }
+                                    var stageDraftClearFailure: Throwable? = null
                                     task?.id?.let { projectId ->
                                         when (mode) {
                                             Alpha6WorkspaceMode.PROJECT -> editorDrafts.clearProject(projectId)
@@ -376,23 +527,84 @@ class ContentWorkspaceActivity : ComponentActivity() {
                                             }
                                             Alpha6WorkspaceMode.STAGE -> {
                                                 val templateId = CreatorWorkflowEngine.templateFor(task!!).id
-                                                runCatching {
+                                                stageDraftClearFailure = runCatching {
                                                     CreatorStageDraftStore(applicationContext).clear(
                                                         projectId, templateId, selectedStageId,
                                                         explicitDiscard = true,
                                                     )
-                                                }
+                                                }.exceptionOrNull()
                                             }
-                                            Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB -> Unit
+                                            Alpha6WorkspaceMode.LEARN -> {
+                                                stageDraftClearFailure = runCatching {
+                                                    val id = selectedLearningOutputId.ifBlank {
+                                                        task!!.workspace.deliverables.firstOrNull()?.id.orEmpty()
+                                                    }
+                                                    check(discardLearningDraft(
+                                                        projectId, id, task!!.workspace.revision,
+                                                    )) { "Cannot discard learning draft" }
+                                                }.exceptionOrNull()
+                                            }
+                                            Alpha6WorkspaceMode.BLUEPRINT, Alpha6WorkspaceMode.HUB,
+                                            Alpha6WorkspaceMode.BOARD -> Unit
                                         }
                                     }
+                                    if (stageDraftClearFailure != null) {
+                                        confirmEditorClose = false
+                                        pendingStageToolMode = null
+                                        pendingStageToolDraft = null
+                                        android.widget.Toast.makeText(
+                                            applicationContext,
+                                            "Could not discard the editor draft. Your changes are kept; try again.",
+                                            android.widget.Toast.LENGTH_LONG,
+                                        ).show()
+                                        return@TextButton
+                                    }
+                                    val nextMode = pendingStageToolMode
+                                    pendingStageToolMode = null
+                                    pendingStageToolDraft = null
                                     confirmEditorClose = false
                                     scriptStudio = null
-                                    mode = Alpha6WorkspaceMode.HUB
-                                }) { Text("DISCARD & CLOSE") }
+                                    if (nextMode == Alpha6WorkspaceMode.SCRIPT) {
+                                        task?.let { openScriptStudio(it) }
+                                            ?: run { mode = Alpha6WorkspaceMode.HUB }
+                                    } else {
+                                        mode = nextMode ?: Alpha6WorkspaceMode.HUB
+                                    }
+                                }, enabled = !stageSwitchSaveInFlight && !learningSaveInFlight) {
+                                    Text(
+                                        if (stageSwitch && !unsavedStageSwitch) "OPEN"
+                                        else if (pendingStageToolMode != null) "DISCARD & OPEN"
+                                        else "DISCARD & CLOSE"
+                                    )
+                                }
                             },
                             dismissButton = {
-                                TextButton(onClick = { confirmEditorClose = false }) { Text("KEEP EDITING") }
+                                Column {
+                                    if (stageSwitch && unsavedStageSwitch && pendingStage != null) {
+                                        Button(
+                                            onClick = {
+                                                val next = pendingStageToolMode
+                                                val current = task
+                                                if (next != null && current != null) {
+                                                    saveStageWork(
+                                                        current.id, pendingStage.first,
+                                                        pendingStage.second, nextMode = next,
+                                                    )
+                                                }
+                                            },
+                                            enabled = !stageSwitchSaveInFlight,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) { Text(if (stageSwitchSaveInFlight) "SAVING…" else "SAVE & OPEN") }
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            pendingStageToolMode = null
+                                            pendingStageToolDraft = null
+                                            confirmEditorClose = false
+                                        },
+                                        enabled = !stageSwitchSaveInFlight,
+                                    ) { Text("KEEP EDITING") }
+                                }
                             },
                         )
                     }
@@ -406,6 +618,7 @@ class ContentWorkspaceActivity : ComponentActivity() {
         outState.putString(STATE_EDITOR_MODE, mode.name)
         outState.putString(STATE_STAGE_ID, selectedStageId)
         outState.putString(STATE_OUTPUT_ID, selectedOutputCraftId)
+        outState.putString(STATE_LEARNING_OUTPUT_ID, selectedLearningOutputId)
         super.onSaveInstanceState(outState)
     }
 
@@ -414,6 +627,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
         scriptStudio = null
         mode = Alpha6WorkspaceMode.HUB
         confirmEditorClose = false
+        pendingStageToolMode = null
+        pendingStageToolDraft = null
+        planOpenBrief = false
+        planOpenSection = ""
+        stageSwitchSaveInFlight = false
+        learningSaveInFlight = false
         heldDraftReviews = null
         pendingHeldField = null
         planRecoveredField = null
@@ -478,6 +697,8 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             openStage(savedId ?: CreatorWorkflowEngine.currentStage(loaded).id)
                         }
                         Alpha6WorkspaceMode.BLUEPRINT -> mode = Alpha6WorkspaceMode.BLUEPRINT
+                        Alpha6WorkspaceMode.BOARD -> mode = Alpha6WorkspaceMode.BOARD
+                        Alpha6WorkspaceMode.LEARN -> mode = Alpha6WorkspaceMode.LEARN
                         Alpha6WorkspaceMode.PROJECT -> mode = Alpha6WorkspaceMode.PROJECT
                         Alpha6WorkspaceMode.PUBLISH -> mode = Alpha6WorkspaceMode.PUBLISH
                         Alpha6WorkspaceMode.SCRIPT -> openScriptStudio(loaded)
@@ -564,7 +785,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
     }
 
     private fun stageHistoricalPlanField(request: V211HistoricalPlanFieldRequest) {
-        val supported = setOf("Audience", "Viewer problem", "Promise", "Angle", "Learnings")
+        val supported = setOf(
+            "Audience", "Viewer problem", "Promise", "Angle",
+            "Objective", "Success criteria", "Constraints", "Learnings",
+        )
         if (request.label !in supported || mode != Alpha6WorkspaceMode.PROJECT) return
         lifecycleScope.launch(Dispatchers.IO) {
             val result = runCatching {
@@ -761,6 +985,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             outputScripts = current.workspace.outputScripts,
                             editVersions = current.workspace.editVersions,
                             stageTransitions = current.workspace.stageTransitions,
+                            // Outcome snapshots have a distinct writer; Plan and Publish
+                            // drafts must never erase them while saving unrelated fields.
+                            outputLearnings = current.workspace.outputLearnings,
                         )
                     normalized = when (editorMode) {
                         Alpha6WorkspaceMode.PROJECT -> CreatorContentStabilization.prepareProjectEditorSave(
@@ -768,7 +995,10 @@ class ContentWorkspaceActivity : ComponentActivity() {
                             draft = normalized,
                         )
                         Alpha6WorkspaceMode.PUBLISH -> normalized.copy(
-                            // Publish Studio owns publication state, but never script content.
+                            // Publish Studio owns publication state, but never the brief or script.
+                            objective = current.workspace.objective,
+                            successCriteria = current.workspace.successCriteria,
+                            constraints = current.workspace.constraints,
                             hook = current.workspace.hook,
                             script = current.workspace.script,
                             scriptStudio = current.workspace.scriptStudio,
@@ -887,8 +1117,16 @@ class ContentWorkspaceActivity : ComponentActivity() {
         projectId: String,
         expectedWorkspaceRevision: Long,
         edited: CreatorStageWork,
+        nextMode: Alpha6WorkspaceMode = Alpha6WorkspaceMode.HUB,
     ) {
-        if (!saveGate.tryBegin()) return
+        if (!saveGate.tryBegin()) {
+            android.widget.Toast.makeText(
+                applicationContext, "A workspace save is already in progress.",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        if (nextMode != Alpha6WorkspaceMode.HUB) stageSwitchSaveInFlight = true
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val result = runCatching {
@@ -905,10 +1143,12 @@ class ContentWorkspaceActivity : ComponentActivity() {
                     ) ?: error("The project no longer exists")
                 }
                 withContext(Dispatchers.Main) {
+                    stageSwitchSaveInFlight = false
                     result.onSuccess { saved ->
                         task = saved
                         confirmEditorClose = false
-                        mode = Alpha6WorkspaceMode.HUB
+                        pendingStageToolMode = null
+                        pendingStageToolDraft = null
                         runCatching {
                             CreatorStageDraftStore(applicationContext).clear(
                                 projectId, edited.workflowTemplateId, edited.stageId,
@@ -916,6 +1156,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
                         }.onFailure {
                             android.util.Log.w("BacklotWorkspace", "Stage draft cleanup deferred", it)
                         }
+                        // Transition only after the canonical project save completed.
+                        if (nextMode == Alpha6WorkspaceMode.SCRIPT) openScriptStudio(saved)
+                        else mode = nextMode
                     }.onFailure {
                         error = it.message ?: "Could not save this stage. The prior project data is safe."
                     }
@@ -963,6 +1206,85 @@ class ContentWorkspaceActivity : ComponentActivity() {
         }
     }
 
+    /** Explicitly discard only the draft bound to the current project/revision/epoch. */
+    private fun discardLearningDraft(projectId: String, outputId: String, revision: Long): Boolean {
+        return runCatching {
+            CreatorDataGate.checkGeneration(applicationContext, loadedGeneration)
+            if (outputId.isNotBlank()) {
+                val journal = CreatorOutputLearningDraftStore(applicationContext)
+                if (journal.load(projectId, outputId, revision) != null) {
+                    journal.clear(projectId, outputId, revision)
+                }
+            }
+            true
+        }.getOrElse { failure ->
+            android.util.Log.w(
+                "BacklotWorkspace", "Unable to discard output learning draft", failure,
+            )
+            false
+        }
+    }
+
+    /** Learning may continue after a completed project, but never alters publication. */
+    private fun appendOutputLearning(
+        projectId: String,
+        expectedRevision: Long,
+        draft: CreatorOutputLearning,
+    ) {
+        if (!saveGate.tryBegin()) {
+            android.widget.Toast.makeText(
+                applicationContext, "Another workspace save is in progress.",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        learningSaveInFlight = true
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = runCatching {
+                    val epoch = loadedGeneration
+                    CreatorDataGate.checkGeneration(applicationContext, epoch)
+                    store.appendOutputLearning(
+                        projectId, epoch, expectedRevision, draft,
+                    ) ?: error("This project was removed. No learning was saved.")
+                }
+                withContext(Dispatchers.Main) {
+                    result.onSuccess { saved ->
+                        // The real write has committed. A journal cleanup failure
+                        // is non-destructive: its older revision is quarantined.
+                        runCatching {
+                            CreatorOutputLearningDraftStore(applicationContext).clearSaved(
+                                projectId, draft.deliverableId, expectedRevision,
+                            )
+                        }.onFailure { failure ->
+                            android.util.Log.w(
+                                "BacklotWorkspace", "Learning draft cleanup deferred", failure,
+                            )
+                        }
+                        task = saved
+                        confirmEditorClose = false
+                        mode = Alpha6WorkspaceMode.LEARN
+                        android.widget.Toast.makeText(
+                            applicationContext, "Learning recorded for this output.",
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    }.onFailure { failure ->
+                        // Keep the editor composed so the user's unsaved reflection
+                        // remains available to revise/retry. No misleading success.
+                        android.widget.Toast.makeText(
+                            applicationContext,
+                            failure.message ?: "Learning was not saved. Review and retry.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+            } finally {
+                saveGate.end()
+                withContext(Dispatchers.Main) { learningSaveInFlight = false }
+            }
+        }
+    }
+
     private fun saveOutputScript(
         projectId: String, expectedRev: Long, draft: CreatorOutputScript,
     ) = writeOutputCraft(projectId, expectedRev, draft.deliverableId) { epoch ->
@@ -1000,6 +1322,9 @@ class ContentWorkspaceActivity : ComponentActivity() {
         viewerProblem = draft.viewerProblem.trim(),
         promise = draft.promise.trim(),
         angle = draft.angle.trim(),
+        objective = draft.objective.trim(),
+        successCriteria = draft.successCriteria.trim(),
+        constraints = draft.constraints.trim(),
         hook = draft.hook.trim(),
         script = draft.script.trimEnd(),
         references = draft.references

@@ -34,41 +34,48 @@ internal fun V19ContentWorkspaceAlpha6Hub(
     onDismiss: () -> Unit,
     onOpenBlueprint: () -> Unit,
     onOpenProject: () -> Unit,
+    onOpenBrief: () -> Unit = onOpenProject,
+    onOpenPlanSection: (String) -> Unit = { onOpenProject() },
     onOpenScript: () -> Unit,
     onOpenPublish: () -> Unit,
     onOpenStage: (String) -> Unit = { onOpenProject() },
     onOpenOutputCraft: () -> Unit = onOpenProject,
+    onOpenBoard: () -> Unit = onOpenProject,
+    onOpenLearning: () -> Unit = onOpenProject,
 ) {
     val workspace = task.workspace
+    val overview = V405WorkspaceOverviewPolicy.snapshot(task)
     val template = CreatorWorkflowEngine.templateFor(task)
     val stageIndex = CreatorWorkflowEngine.stageIndex(task)
     val currentStage = CreatorWorkflowEngine.currentStage(task)
     val nextAction = CreatorWorkflowEngine.nextAction(task)
     // This remains workflow progress; a completed optional checklist is not project completion.
-    val overallProgress = CreatorWorkflowEngine.progress(task).coerceIn(0, 100)
+    val overallProgress = overview.workflowPositionPercent
     val completed = task.status == TaskStatus.DONE
+    val readOnly = completed || task.status == TaskStatus.SKIPPED || task.archivedAtMillis != 0L
     val checklistDone = workspace.checklist.count { it.status == CreatorChecklistStatus.DONE }
     val checklistTotal = workspace.checklist.size
     val stageApprovals = workspace.stageTransitions.count {
         it.workflowTemplateId == template.id
     }
-    val published = workspace.deliverables.count { it.status == CreatorDeliverableStatus.PUBLISHED }
-    val scriptBeats = workspace.scriptStudio?.beats?.size ?: 0
+    val published = overview.outputPublished
+    val scriptBeats = overview.scriptBeats
     val hasScript = scriptBeats > 0 || workspace.script.isNotBlank() || workspace.hook.isNotBlank()
     var showStages by rememberSaveable(task.id) { mutableStateOf(false) }
+    var showBrief by rememberSaveable(task.id) { mutableStateOf(false) }
     // Read-only prompts derived from canonical saved project content.
     val focusHints = V2285WorkspaceFocusPolicy.hints(task)
 
     // Keep Home Work On and this primary action on the same validated stage route.
     val stageDestination = StageWorkspaceRoutingPolicy.destination(currentStage)
     val primaryAction = when {
-        completed -> onOpenProject
+        readOnly -> { { onOpenStage(currentStage.id) } }
         stageDestination == StageWorkspaceDestination.SCRIPT -> onOpenScript
         stageDestination == StageWorkspaceDestination.PUBLISH -> onOpenPublish
         else -> { { onOpenStage(currentStage.id) } } // A deferred click callback, never navigate during composition.
     }
     val primaryLabel = when {
-        completed -> "OPEN PLAN"
+        readOnly -> "VIEW SAVED STAGE"
         stageDestination == StageWorkspaceDestination.SCRIPT -> "CONTINUE SCRIPT"
         stageDestination == StageWorkspaceDestination.PUBLISH -> "PREPARE TO PUBLISH"
         else -> "CONTINUE " + currentStage.label.uppercase()
@@ -76,7 +83,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
 
     WorkspaceAdaptiveFrame {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = BacklotUX10Tokens.pageGutter),
         ) {
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -85,7 +92,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     }
                     Spacer(Modifier.width(7.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("PROJECT", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("PROJECT WORKSPACE", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text(
                             task.title,
                             color = ProjectorIvory,
@@ -107,9 +114,9 @@ internal fun V19ContentWorkspaceAlpha6Hub(
 
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Column(Modifier.padding(18.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -137,7 +144,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         }
                         Spacer(Modifier.height(16.dp))
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("PROGRESS", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("WORKFLOW POSITION", color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Text(overallProgress.toString() + "%", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
@@ -147,10 +154,20 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                             modifier = Modifier.fillMaxWidth().height(5.dp),
                             color = RecRed, trackColor = CinemaLine,
                         )
-                        Spacer(Modifier.height(19.dp))
+                        Spacer(Modifier.height(9.dp))
+                        Text(
+                            "Stage ${if (completed) template.stages.size else stageIndex + 1} of ${template.stages.size} · " +
+                                "Stage tasks and publication are tracked separately.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = CinemaLine.copy(alpha = .5f))
+                        Spacer(Modifier.height(12.dp))
+                        V405CurrentStageGlance(overview.current)
+                        Spacer(Modifier.height(18.dp))
                         Button(
                             onClick = primaryAction,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget),
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                         ) {
@@ -174,36 +191,167 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                 OutlinedButton(
                     onClick = { onOpenStage(currentStage.id) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("cw3-stage-entry"),
-                ) { Text("OPEN ${currentStage.label.uppercase()} STAGE NOTES") }
+                ) { Text("OPEN STAGE NOTES & EVIDENCE") }
+                Spacer(Modifier.height(14.dp))
+                Surface(
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
+                    color = CinemaSurface,
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)) {
+                        TextButton(
+                            onClick = { showBrief = !showBrief },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("ux051-brief-toggle"),
+                        ) {
+                            Icon(Icons.Outlined.Lightbulb, contentDescription = null,
+                                tint = MutedGold, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "CREATIVE BRIEF", color = ProjectorIvory,
+                                fontWeight = FontWeight.Bold, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                            )
+                            Icon(
+                                if (showBrief) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                contentDescription = null, tint = MutedGold,
+                            )
+                        }
+                        Text(
+                            if (wsBriefReady(workspace)) "ESSENTIALS SAVED" else "NEEDS FOCUS",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.padding(start = 20.dp, bottom = 4.dp),
+                        )
+                        if (showBrief) {
+                            Text(
+                                "One project brief; shared by every stage and output.",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
+                            )
+                            Spacer(Modifier.height(9.dp))
+                            listOf(
+                                "Audience" to workspace.audience,
+                                "Viewer problem" to workspace.viewerProblem,
+                                "Promise" to workspace.promise,
+                                "Angle" to workspace.angle,
+                                "Objective" to workspace.objective,
+                                "Success criteria" to workspace.successCriteria,
+                                "Constraints" to workspace.constraints,
+                            ).filter { it.second.isNotBlank() }.forEach { (label, value) ->
+                                Text(label.uppercase(), color = MutedGold, fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold)
+                                Text(value, color = ProjectorIvory, fontSize = 13.sp,
+                                    lineHeight = 18.sp, maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(9.dp))
+                            }
+                            Text(
+                                if (workspace.audience.isBlank() || workspace.promise.isBlank())
+                                    "Add an audience and promise to clarify your project's direction."
+                                else "Optional goals and constraints are available in Plan → Brief.",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp,
+                            )
+                            TextButton(
+                                onClick = onOpenBrief,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051-edit-brief"),
+                            ) { Text("EDIT BRIEF", color = RecRed) }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(18.dp))
                 Text("WORKSPACE", color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MinimalWorkspaceToolCard(
-                        title = "Plan", detail = if (checklistTotal == 0) "Start planning" else checklistDone.toString() + "/" + checklistTotal + " tasks",
-                        icon = Icons.Outlined.Dashboard, modifier = Modifier.weight(1f), onClick = onOpenProject,
-                    )
-                    MinimalWorkspaceToolCard(
-                        title = "Script", detail = when {
-                            scriptBeats > 0 -> scriptBeats.toString() + " beats"
+                val tools = listOf(
+                    UX10CWorkspaceTool(
+                        title = "Plan",
+                        detail = if (checklistTotal == 0) "Start planning"
+                            else "${checklistDone}/${checklistTotal} tasks",
+                        icon = Icons.Outlined.Dashboard,
+                        onClick = onOpenProject,
+                    ),
+                    UX10CWorkspaceTool(
+                        title = "Script",
+                        detail = when {
+                            scriptBeats > 0 -> "${scriptBeats} beats"
                             hasScript -> "Draft started"
                             else -> "Not started"
                         },
-                        icon = Icons.Outlined.EditNote, modifier = Modifier.weight(1f), onClick = onOpenScript,
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MinimalWorkspaceToolCard(
-                        title = "Publish", detail = if (published > 0) published.toString() + " published"
-                            else if (workspace.deliverables.isNotEmpty()) workspace.deliverables.size.toString() + " planned"
+                        icon = Icons.Outlined.EditNote,
+                        onClick = onOpenScript,
+                    ),
+                    UX10CWorkspaceTool(
+                        title = "Publish",
+                        detail = if (published > 0) "${published} recorded published"
+                            else if (workspace.deliverables.isNotEmpty())
+                                "${workspace.deliverables.size} planned"
                             else "Not started",
-                        icon = Icons.Outlined.Publish, modifier = Modifier.weight(1f), onClick = onOpenPublish,
-                    )
-                    MinimalWorkspaceToolCard(
-                        title = "Guide", detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
-                        icon = Icons.Outlined.AutoAwesome, modifier = Modifier.weight(1f), onClick = onOpenBlueprint,
-                    )
+                        icon = Icons.Outlined.Publish,
+                        onClick = onOpenPublish,
+                    ),
+                    UX10CWorkspaceTool(
+                        title = "Guide",
+                        detail = blueprint.archetypeLabel.ifBlank { "Creative guide" },
+                        icon = Icons.Outlined.AutoAwesome,
+                        onClick = onOpenBlueprint,
+                    ),
+                )
+                val columns = UX10CWorkspacePresentationPolicy.columnsPerRow(
+                    screenWidthDp = androidx.compose.ui.platform.LocalConfiguration
+                        .current.screenWidthDp,
+                    fontScale = androidx.compose.ui.platform.LocalDensity
+                        .current.fontScale,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    tools.chunked(columns).forEach { toolRow ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            toolRow.forEach { tool ->
+                                MinimalWorkspaceToolCard(
+                                    title = tool.title,
+                                    detail = tool.detail,
+                                    icon = tool.icon,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = tool.onClick,
+                                )
+                            }
+                            if (toolRow.size < columns) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    onClick = onOpenBoard,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp)
+                        .testTag("ux051c-open-creative-board"),
+                    shape = RoundedCornerShape(17.dp),
+                    color = CinemaSurfaceRaised,
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.ViewModule, contentDescription = null,
+                            tint = MutedGold, modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Creative Board", color = ProjectorIvory,
+                                fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                            Text(
+                                "${workspace.references.size + workspace.assets.size} sources & assets · " +
+                                    "${workspace.stageWork.sumOf { it.evidence.size }} evidence records · " +
+                                    "${workspace.scriptStudio?.beats?.size ?: 0} script beats",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 16.sp,
+                            )
+                        }
+                        Icon(Icons.Outlined.ArrowForward, contentDescription = null,
+                            tint = RecRed, modifier = Modifier.size(21.dp))
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -213,7 +361,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         .testTag("cw4-output-craft-entry"),
                     shape = RoundedCornerShape(17.dp),
                     color = CinemaSurfaceRaised,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(17.dp),
@@ -238,7 +386,46 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     }
                 }
 
-                if (!completed && task.status != TaskStatus.SKIPPED) {
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    onClick = onOpenLearning,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 86.dp)
+                        .testTag("ux051d-open-output-learning"),
+                    shape = RoundedCornerShape(17.dp),
+                    color = CinemaSurfaceRaised,
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Insights, contentDescription = null,
+                            tint = MutedGold, modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Output Learning", color = ProjectorIvory,
+                                fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                            val reflections = workspace.outputLearnings.size
+                            val reviewed = workspace.outputLearnings
+                                .map { it.deliverableId }.distinct().size
+                            Text(
+                                if (reflections > 0)
+                                    "$reflections reflections across $reviewed output(s)"
+                                else "Review actual results · keep lessons for next time",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 16.sp,
+                            )
+                        }
+                        Icon(Icons.Outlined.ArrowForward, contentDescription = null,
+                            tint = RecRed, modifier = Modifier.size(21.dp))
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+                V405OutputFacts(overview)
+
+                if (!readOnly) {
                     Spacer(Modifier.height(24.dp))
                     Text(
                         "NEXT USEFUL MOVES", color = ProjectorIvory, fontSize = 17.sp,
@@ -259,18 +446,33 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         )
                     } else {
                         focusHints.forEach { hint ->
-                            val openEditor = when (hint.destination) {
-                                V2285WorkspaceDestination.PLAN -> onOpenProject
-                                V2285WorkspaceDestination.SCRIPT -> onOpenScript
-                                V2285WorkspaceDestination.PUBLISH -> onOpenPublish
+                            val openEditor: () -> Unit = when {
+                                hint.stageId.isNotBlank() -> { { onOpenStage(hint.stageId) } }
+                                hint.openOutputCraft -> onOpenOutputCraft
+                                hint.openBrief -> onOpenBrief
+                                hint.planSection.isNotBlank() -> { { onOpenPlanSection(hint.planSection) } }
+                                else -> when (hint.destination) {
+                                    V2285WorkspaceDestination.PLAN -> onOpenProject
+                                    V2285WorkspaceDestination.SCRIPT -> onOpenScript
+                                    V2285WorkspaceDestination.PUBLISH -> onOpenPublish
+                                }
+                            }
+                            val actionLabel = when {
+                                hint.stageId.isNotBlank() -> "OPEN STAGE"
+                                hint.openOutputCraft -> "OPEN OUTPUT CRAFT"
+                                hint.openBrief -> "OPEN BRIEF"
+                                hint.planSection == "RESEARCH" -> "OPEN SOURCES"
+                                hint.planSection == "DELIVERABLES" -> "OPEN OUTPUTS"
+                                hint.planSection == "PRODUCTION" -> "OPEN TASKS"
+                                else -> "OPEN ${hint.destination.name}"
                             }
                             Surface(
                                 modifier = Modifier.fillMaxWidth()
                                     .padding(bottom = 9.dp)
                                     .testTag("v2285-focus-${hint.key}"),
-                                shape = RoundedCornerShape(16.dp),
+                                shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                                 color = CinemaSurface,
-                                border = BorderStroke(1.dp, CinemaLine),
+                                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                             ) {
                                 Column(Modifier.padding(13.dp)) {
                                     Text(
@@ -287,7 +489,7 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                                         onClick = openEditor,
                                         modifier = Modifier.testTag("v2285-open-${hint.destination.name.lowercase()}"),
                                     ) {
-                                        Text("OPEN ${hint.destination.name}", color = MutedGold,
+                                        Text(actionLabel, color = MutedGold,
                                             fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         Spacer(Modifier.width(5.dp))
                                         Icon(Icons.Outlined.ArrowForward, null,
@@ -299,7 +501,11 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                     }
                 }
 
-                Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(23.dp))
+                HorizontalDivider(color = CinemaLine.copy(alpha = .65f))
+                Spacer(Modifier.height(13.dp))
+                V405StageApprovalHistory(task, overview)
+                Spacer(Modifier.height(22.dp))
                 HorizontalDivider(color = CinemaLine)
                 Spacer(Modifier.height(8.dp))
                 TextButton(
@@ -314,27 +520,49 @@ internal fun V19ContentWorkspaceAlpha6Hub(
                         contentDescription = null, tint = MutedGold)
                 }
                 if (showStages) {
-                    Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                    Text(
+                        "Open any stage's saved notes without moving the project. " +
+                            "Stage advancement is always a separate approval.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                        modifier = Modifier.padding(start = 5.dp, bottom = 9.dp)
+                            .testTag("ux05-stage-navigation-disclosure"),
+                    )
+                    Surface(shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius), color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                         Column(Modifier.fillMaxWidth().padding(14.dp)) {
                             template.stages.forEachIndexed { index, stage ->
                                 Row(
                                     Modifier.fillMaxWidth().heightIn(min = 40.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    val done = completed || index < stageIndex
+                                    val earlier = completed || index < stageIndex
                                     Text(
-                                        when { done -> "✓"; index == stageIndex -> "●"; else -> "○" },
-                                        color = when { done -> MutedGold; index == stageIndex -> RecRed; else -> MutedText },
+                                        when { earlier -> "•"; index == stageIndex -> "●"; else -> "○" },
+                                        color = when { earlier -> MutedGold; index == stageIndex -> RecRed; else -> MutedText },
                                         fontSize = 17.sp, modifier = Modifier.width(30.dp),
                                     )
-                                    Text(
-                                        stage.label, color = if (index == stageIndex || done) ProjectorIvory else MutedText,
-                                        modifier = Modifier.weight(1f),
-                                        fontSize = 13.sp, fontWeight = if (index == stageIndex) FontWeight.Bold else FontWeight.Normal,
-                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            stage.label,
+                                            color = if (index == stageIndex || earlier) ProjectorIvory else MutedText,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (index == stageIndex) FontWeight.Bold else FontWeight.Normal,
+                                        )
+                                        val glance = overview.stageGlances.getOrNull(index)
+                                        if (glance != null) {
+                                            val status = when {
+                                                index == stageIndex && !completed -> "Current"
+                                                earlier -> "Earlier workflow step"
+                                                else -> "Upcoming"
+                                            }
+                                            Text(
+                                                "${status} · ${glance.checklistDone} tasks done · ${glance.evidenceCount} evidence",
+                                                color = MutedText, fontSize = 10.sp, lineHeight = 15.sp,
+                                            )
+                                        }
+                                    }
                                     TextButton(onClick = { onOpenStage(stage.id) },
                                         modifier = Modifier.heightIn(min = 48.dp)) {
-                                        Text("OPEN", color = RecRed, fontSize = 11.sp)
+                                        Text("NOTES", color = RecRed, fontSize = 11.sp)
                                     }
                                 }
                             }
@@ -345,6 +573,14 @@ internal fun V19ContentWorkspaceAlpha6Hub(
         }
     }
 }
+
+/** Original Plan, Script, Publish and Guide destinations in stable order. */
+private data class UX10CWorkspaceTool(
+    val title: String,
+    val detail: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+)
 
 @Composable
 private fun MinimalWorkspaceToolCard(
@@ -357,18 +593,22 @@ private fun MinimalWorkspaceToolCard(
     Surface(
         onClick = onClick,
         modifier = modifier.heightIn(min = 124.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column(Modifier.fillMaxWidth().padding(15.dp)) {
             Icon(icon, contentDescription = null, tint = MutedGold, modifier = Modifier.size(23.dp))
             Spacer(Modifier.height(11.dp))
             Text(title, color = ProjectorIvory, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(2.dp))
-            Text(detail, color = MutedText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, color = MutedText, fontSize = BacklotUX10Tokens.supporting, maxLines = 2, lineHeight = 16.sp, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 
+
+/** Brief readiness is advice, not a stage approval or completion gate. */
+private fun wsBriefReady(workspace: CreatorContentWorkspace): Boolean =
+    workspace.audience.isNotBlank() && workspace.promise.isNotBlank()

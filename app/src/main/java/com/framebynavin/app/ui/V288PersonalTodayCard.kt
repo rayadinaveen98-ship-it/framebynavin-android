@@ -68,7 +68,7 @@ internal fun V288PersonalTodayCard(
                 Text(if (historyReady) "${snapshot.confirmedDoneToday} done" else "Progress unavailable",
                     color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.testTag("v288-today-confirmed-done"))
-                Text("${snapshot.activeReminderCount} active routines",
+                Text("${snapshot.activeReminderCount} active reminders",
                     color = MutedText, fontSize = 10.sp)
             }
         }
@@ -89,7 +89,7 @@ internal fun V288PersonalTodayCard(
                 if (next == null) {
                     Text("You're clear for now.", color = ProjectorIvory,
                         fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Text("No upcoming activity today. Your other routines are in the list below.",
+                    Text("No Personal reminder is up next. Check your saved reminders below.",
                         color = MutedText, fontSize = 11.sp)
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically,

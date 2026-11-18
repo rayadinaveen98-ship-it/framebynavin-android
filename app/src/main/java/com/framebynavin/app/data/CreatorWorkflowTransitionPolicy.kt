@@ -69,28 +69,61 @@ object CreatorWorkflowTransitionPolicy {
             }
         }
         if (stage.id in setOf("edit", "process_edit", "sound_grade", "mix", "visuals")) {
-            val versions = task.workspace.editVersions
-            if (versions.isNotEmpty() && versions.none { it.status == CreatorEditReviewStatus.APPROVED }) {
+            val selection = CreatorOutputTargetPolicy.select(task.workspace, stageWork)
+            if (selection.invalidIds.isNotEmpty()) {
                 warnings += CreatorTransitionNotice(
-                    "no_approved_cut", "Cut versions exist, but none has been approved yet."
+                    "edit_target_unavailable",
+                    "A linked output is no longer in this project. Review this stage's Output links.",
+                )
+            } else if (!selection.resolved && task.workspace.deliverables.size > 1) {
+                warnings += CreatorTransitionNotice(
+                    "edit_target_ambiguous",
+                    "Select the output(s) being edited in Stage Desk → Linked Shared Materials.",
+                )
+            } else if (selection.resolved) {
+                val missingApproval = selection.outputIds.filter { id ->
+                    val versions = task.workspace.editVersions.filter { it.deliverableId == id }
+                    versions.isNotEmpty() &&
+                        versions.none { it.status == CreatorEditReviewStatus.APPROVED }
+                }
+                if (missingApproval.isNotEmpty()) warnings += CreatorTransitionNotice(
+                    "no_approved_cut",
+                    "No approved cut is saved for: " +
+                        CreatorOutputTargetPolicy.names(task.workspace, missingApproval) + ".",
                 )
             }
         }
         if (CreatorWorkflowEngine.isPublicationStage(stage)) {
-            val confirmedLive = if (CreatorPublicationEngine.usesDeliverablePublication(task)) {
-                task.workspace.deliverables.any {
-                    it.status == CreatorDeliverableStatus.PUBLISHED && it.publishedAtMillis > 0L
+            if (CreatorPublicationEngine.usesDeliverablePublication(task)) {
+                val selection = CreatorOutputTargetPolicy.select(task.workspace, stageWork)
+                when {
+                    selection.invalidIds.isNotEmpty() -> blockers += CreatorTransitionNotice(
+                        "publication_target_unavailable",
+                        "A target output linked to this stage is missing. Review the Output links in Stage Desk.",
+                    )
+                    !selection.resolved -> blockers += CreatorTransitionNotice(
+                        "publication_target_ambiguous",
+                        if (task.workspace.deliverables.isEmpty())
+                            "Plan an output before approving the Publish stage."
+                        else "Choose this stage's intended output(s) in Stage Desk → Linked Shared Materials. " +
+                            "One unrelated published output cannot approve every target.",
+                    )
+                    else -> {
+                        val pending = CreatorOutputTargetPolicy.pendingPublication(
+                            task.workspace, selection,
+                        )
+                        if (pending.isNotEmpty()) blockers += CreatorTransitionNotice(
+                            "live_publication_missing",
+                            "Record real publication in Publish Studio for: " +
+                                CreatorOutputTargetPolicy.names(task.workspace, pending.map { it.id }) + ".",
+                        )
+                    }
                 }
-            } else {
-                task.publishedAtMillis > 0L && !task.publicationIsLegacy
-            }
-            if (!confirmedLive) {
+            } else if (task.publishedAtMillis <= 0L || task.publicationIsLegacy) {
                 blockers += CreatorTransitionNotice(
                     "live_publication_missing",
-                    if (CreatorPublicationEngine.usesDeliverablePublication(task))
-                        "Record a real live output in Publish Studio before approving the Publish stage."
-                    else
-                        "Record the actual publication date in Publication Details first. Workflow progress cannot publish for you."
+                    "Record the actual publication date in Publication Details first. " +
+                        "Workflow progress cannot publish for you.",
                 )
             }
         }

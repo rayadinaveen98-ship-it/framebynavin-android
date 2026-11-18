@@ -59,37 +59,37 @@ internal fun WorkspaceAdaptiveSaveActions(
         val stacked = maxWidth < 380.dp || largeText
         if (stacked) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
                     onClick = onPrimary,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-                    shape = RoundedCornerShape(15.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                 ) { Text(primaryLabel, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
                 OutlinedButton(
                     onClick = onSecondary,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-                    shape = RoundedCornerShape(15.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                 ) { Text(secondaryLabel, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
             }
         } else {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp),
+                Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 11.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 OutlinedButton(
                     onClick = onSecondary,
-                    modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                    shape = RoundedCornerShape(15.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.rowTarget),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                 ) { Text(secondaryLabel, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
                 Button(
                     onClick = onPrimary,
-                    modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                    shape = RoundedCornerShape(15.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.rowTarget),
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                ) { Text(primaryLabel, fontSize = 12.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
+                ) { Text(primaryLabel, fontSize = BacklotUX10Tokens.body, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
             }
         }
     }
