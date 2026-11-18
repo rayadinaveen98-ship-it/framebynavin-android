@@ -58,7 +58,9 @@ internal class Ux09LabCanonicalReadiness(context: Context) {
                 when (result) {
                     is Ux09CanonicalReadinessPolicy.Result.Ready -> projectReady++
                     is Ux09CanonicalReadinessPolicy.Result.Blocked ->
-                        reasons.merge(result.reason, 1, Int::plus)
+                        run {
+                            reasons[result.reason] = (reasons[result.reason] ?: 0) + 1
+                        }
                 }
             }
             ideas.forEach { idea ->
@@ -69,7 +71,9 @@ internal class Ux09LabCanonicalReadiness(context: Context) {
                 when (result) {
                     is Ux09CanonicalReadinessPolicy.Result.Ready -> ideaReady++
                     is Ux09CanonicalReadinessPolicy.Result.Blocked ->
-                        reasons.merge(result.reason, 1, Int::plus)
+                        run {
+                            reasons[result.reason] = (reasons[result.reason] ?: 0) + 1
+                        }
                 }
             }
             val after = CreatorDataGate.generation(app)
