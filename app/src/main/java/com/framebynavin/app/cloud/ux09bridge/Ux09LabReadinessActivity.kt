@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.framebynavin.app.BuildConfig
+import com.framebynavin.app.cloud.ux09rpc.Ux09LabSignedRpcClient
+import com.framebynavin.app.cloud.ux09rpc.Ux09LabRemotePreview
 import com.framebynavin.app.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,7 +27,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * Non-exported and Lab-only manual QA entry point (Settings > Advanced).
- * This screen cannot write an outbox, hit Supabase, backup, restore or delete.
+ * Local inspection is offline. A separate explicit LAB signed remote preview
+ * can READ one first page, never upload/import/delete/acknowledge a cursor.
  */
 internal class Ux09LabReadinessActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,6 +49,10 @@ internal class Ux09LabReadinessActivity : ComponentActivity() {
     private fun ReadinessScreen(onClose: () -> Unit) {
         val scope = rememberCoroutineScope()
         val inspection = remember { Ux09LabCanonicalReadiness(applicationContext) }
+        val remotePreviewClient = remember { Ux09LabSignedRpcClient(applicationContext) }
+        var remoteBusy by remember { mutableStateOf(false) }
+        var remoteFailure by remember { mutableStateOf(false) }
+        var remoteSummary by remember { mutableStateOf<Ux09LabRemotePreview?>(null) }
         var busy by remember { mutableStateOf(false) }
         var failure by remember { mutableStateOf(false) }
         var summary by remember { mutableStateOf<Ux09LabCanonicalReadiness.Summary?>(null) }
@@ -145,6 +152,70 @@ internal class Ux09LabReadinessActivity : ComponentActivity() {
                         Text(reasonLabel(reason) + ": " + count,
                             color = MutedGold, fontSize = 12.sp)
                     }
+                }
+                Spacer(Modifier.height(18.dp))
+                HorizontalDivider(color = CinemaLine)
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Signed cloud check · first page only",
+                    color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Optional Backlot Lab account-only read. Fetches at most 20 remote " +
+                        "Project/Idea change receipts. It does not upload or import your work, " +
+                        "save a sync cursor, restore anything, or delete data. An expired " +
+                        "Google session may be refreshed securely.",
+                    color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedButton(
+                    onClick = {
+                        if (remoteBusy) return@OutlinedButton
+                        remoteBusy = true
+                        remoteFailure = false
+                        remoteSummary = null
+                        scope.launch {
+                            try {
+                                remoteSummary = withContext(Dispatchers.IO) {
+                                    remotePreviewClient.previewFirstPage()
+                                }
+                            } catch (_: Exception) {
+                                // Do not expose error bodies, token values, entity IDs or URLs.
+                                remoteFailure = true
+                            } finally {
+                                remoteBusy = false
+                            }
+                        }
+                    },
+                    enabled = !remoteBusy && !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Outlined.Security, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (remoteBusy) "CHECKING LAB…" else "CHECK SIGNED CLOUD (READ-ONLY)")
+                }
+                if (remoteFailure) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Cloud preview stopped safely. Confirm Google sign-in and connectivity " +
+                            "in Backlot Lab. No Project or Idea was changed.",
+                        color = MutedGold, fontSize = 12.sp, lineHeight = 18.sp,
+                    )
+                }
+                remoteSummary?.let { page ->
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "First page: " + page.scannedChanges + " changes (" +
+                            page.projectChanges + " Project, " + page.ideaChanges +
+                            " Idea, " + page.tombstones + " deleted markers).",
+                        color = ProjectorIvory, fontSize = 13.sp,
+                    )
+                    Text(
+                        if (page.hasMore) "More remote changes exist; this is NOT an account total."
+                        else "No additional change pages reported; no cursor was stored.",
+                        color = MutedText, fontSize = 12.sp,
+                    )
                 }
                 Spacer(Modifier.height(20.dp))
                 Text(
