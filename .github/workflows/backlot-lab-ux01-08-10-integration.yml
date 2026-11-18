@@ -68,7 +68,7 @@ jobs:
           assert not Path('supabase/lab_migrations').exists()
           print('PASS: V337 Lab backend identity and UX09 isolation')
           PY
-      - name: Compile full Lab debug APK and all Android test sources
+      - name: Compile app, Android tests, full JVM regressions and lint with all independent failures collected
         shell: bash
         run: |
           set -euo pipefail
@@ -81,22 +81,16 @@ jobs:
           org.gradle.parallel=false
           EOF
           rm -rf app/build
-          timeout --signal=TERM --kill-after=20s 85m gradle \
-            :app:assembleDebug :app:assembleDebugAndroidTest -PbacklotLab=true \
+          # --continue runs independent tasks despite a failing task. This yields
+          # one complete failure inventory instead of repeated single-defect loops.
+          timeout --signal=TERM --kill-after=20s 100m gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            :app:testDebugUnitTest :app:lintDebug \
+            --continue -PbacklotLab=true \
             --no-daemon --no-parallel --max-workers=1 \
             -Pkotlin.compiler.execution.strategy=in-process \
             '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
-            --console=plain 2>&1 | tee ci-reports/ux-integration/build.log
-      - name: Run full Lab JVM regressions and Android lint
-        shell: bash
-        run: |
-          set -euo pipefail
-          timeout --signal=TERM --kill-after=20s 70m gradle \
-            :app:testDebugUnitTest :app:lintDebug -PbacklotLab=true \
-            --no-daemon --no-parallel --max-workers=1 \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
-            --console=plain 2>&1 | tee ci-reports/ux-integration/tests-lint.log
+            --console=plain 2>&1 | tee ci-reports/ux-integration/all-gates-build.log
       - name: Verify standalone Lab APK, package name and expected signer
         shell: bash
         run: |
