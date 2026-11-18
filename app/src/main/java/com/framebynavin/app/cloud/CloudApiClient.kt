@@ -1,5 +1,6 @@
 package com.framebynavin.app.cloud
 
+import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.cloud.ux09.Ux09Contract
 import com.framebynavin.app.cloud.ux09.Ux09LabFeatureGate
 import com.framebynavin.app.cloud.ux09.Ux09Intent
@@ -53,6 +54,34 @@ class CloudApiClient {
         Ux09LabRpcContract.requireLabEndpoint(CloudConfig.SUPABASE_URL)
         require(session.userId.isNotBlank() && session.accessToken.isNotBlank()) {
             "Signed-in user required for UX09 delta pull"
+        }
+        return request(
+            "POST", "/rest/v1/rpc/backlot_ux09_pull_v1",
+            token = session.accessToken,
+            body = Ux09LabRpcContract.pullBody(afterSequence, limit),
+        )
+    }
+
+    /**
+     * UX09-02D manual LAB-ONLY signed read. This is the READ-ONLY server
+     * backlot_ux09_pull_v1 RPC, never apply_v1 and never legacy snapshot sync.
+     *
+     * Keep the existing normal apply/pull feature gate OFF. No cursor is
+     * persisted and no canonical Project or Idea is imported.
+     */
+    internal suspend fun backlotUx09LabReadOnlyPreviewRaw(
+        session: CloudSession,
+        afterSequence: Long,
+        limit: Int,
+    ): String {
+        check(BuildConfig.BACKLOT_LAB) { "Remote preview is restricted to Backlot Lab" }
+        Ux09LabRpcContract.requireLabEndpoint(CloudConfig.SUPABASE_URL)
+        require(afterSequence == 0L && limit in 1..20) {
+            "Read-only UX09 pilot may fetch only the first bounded delta page"
+        }
+        require(Ux09Contract.requireUuid(session.userId) == session.userId &&
+            session.accessToken.isNotBlank()) {
+            "A signed-in Lab account is required for remote preview"
         }
         return request(
             "POST", "/rest/v1/rpc/backlot_ux09_pull_v1",

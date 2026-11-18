@@ -26,6 +26,24 @@ internal class Ux09LabSignedRpcClient(context: Context) {
             )
         }
 
+    /**
+     * Manual signed LAB page preview only; no writable operation is called.
+     * The account epoch is checked before and after the signed request.
+     * Authentication refresh may update only the stored sign-in session.
+     */
+    suspend fun previewFirstPage(): Ux09LabRemotePreview = account.withFreshSession { session ->
+        val raw = api.backlotUx09LabReadOnlyPreviewRaw(
+            session,
+            afterSequence = 0L,
+            limit = Ux09LabRemotePreviewPolicy.PAGE_LIMIT,
+        )
+        val page = Ux09LabRpcContract.parsePull(
+            raw, afterSequence = 0L,
+            limit = Ux09LabRemotePreviewPolicy.PAGE_LIMIT,
+        )
+        Ux09LabRemotePreviewPolicy.summarize(page)
+    }
+
     suspend fun pull(afterSequence: Long, limit: Int): Ux09LabRpcContract.Page =
         account.withFreshSession { session ->
             Ux09LabRpcContract.parsePull(

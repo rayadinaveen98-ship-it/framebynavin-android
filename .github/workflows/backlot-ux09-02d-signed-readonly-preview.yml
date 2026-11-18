@@ -1,0 +1,136 @@
+name: Backlot UX09-02D Lab signed read-only preview and regression gates
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - feature/backlot-ux09-02c-canonical-readiness-20261118
+    paths:
+      - 'app/**'
+      - '.github/workflows/backlot-ux09-02d-signed-readonly-preview.yml'
+      - 'docs/engineering/UX09_02D_SIGNED_LAB_REMOTE_PREVIEW_GATE_20261118.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-02d-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-jvm-apk:
+    name: Verify Lab-only signed preview, full JVM, lint and public QA APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Enforce read-only boundary and disabled upload feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const val ENABLED = false' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09SyncContract.kt
+          grep -Fq 'BuildConfig.BACKLOT_LAB' app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          grep -Fq 'Ux09LabRpcContract.requireLabEndpoint' app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          grep -Fq '/rest/v1/rpc/backlot_ux09_pull_v1' app/src/main/java/com/framebynavin/app/cloud/CloudApiClient.kt
+          grep -Fq 'account.withFreshSession' app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabSignedRpcClient.kt
+          grep -Fq 'backlotUx09LabReadOnlyPreviewRaw' app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabSignedRpcClient.kt
+          ! grep -E 'backlotUx09LabApplyRaw|backlotUx09LabPullRaw' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabReadinessActivity.kt
+          ! grep -E 'TaskStore|IdeaVaultStore|\.save\(|\.importJson\(' app/src/main/java/com/framebynavin/app/cloud/ux09rpc/Ux09LabRemotePreviewPolicy.kt
+          python3 tools/qa/backlot_ux09_02a_field_coverage.py --selftest
+          python3 tools/qa/backlot_ux09_02a_nested_coverage.py --selftest
+      - name: Run full Lab JVM regressions, compile AndroidTest sources, lint and APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-reports/ux09-02d
+          timeout --signal=TERM --kill-after=20s 6000s gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            :app:testDebugUnitTest :app:lintDebug \
+            --continue -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee ci-reports/ux09-02d/gradle-results.log
+      - name: Verify Lab QA artifact and exact signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$apk" > ci-reports/ux09-02d/apk-badging.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" > ci-reports/ux09-02d/apk-signer.txt
+          grep -Fq "package: name='com.framebynavin.app.lab'" ci-reports/ux09-02d/apk-badging.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' ci-reports/ux09-02d/apk-signer.txt
+          git diff --check -- app/src app/build.gradle.kts
+          test -z "$(git status --porcelain -- app/src)"
+          sha256sum "$apk" > ci-reports/ux09-02d/apk-sha256.txt
+          git rev-parse HEAD > ci-reports/ux09-02d/qa-source-sha.txt
+      - name: Upload QA candidate, never promote to stable
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02D-Lab-Signed-Preview-QA-NOT-STABLE
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            ci-reports/ux09-02d/
+          retention-days: 14
+      - name: Retain failed gate diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02D-GATE-BLOCKERS
+          path: |
+            ci-reports/ux09-02d/
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  android15-startup:
+    name: Android 15 Lab-only foreground launch smoke
+    needs: source-jvm-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-UX09-02D-Lab-Signed-Preview-QA-NOT-STABLE
+          path: integrated-apk
+      - name: Prepare non-destructive QA install
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p lab-candidate
+          cp integrated-apk/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
+          sudo chmod 666 /dev/kvm
+      - name: Install, launch and check process on API35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+      - name: Preserve emulator proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02D-Android15-Startup-Evidence
+          path: startup-smoke-evidence/
+          if-no-files-found: warn
+          retention-days: 14
