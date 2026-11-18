@@ -222,7 +222,7 @@ internal object Ux09CanonicalReadinessPolicy {
         // Device-local fields are intentionally retained on this phone only.
         // No silent removal of user content or advanced structured fields.
         val candidate = JSONObject(objectBefore.toString())
-        excludedFields.forEach(candidate::remove)
+        excludedFields.forEach { candidate.remove(it) }
         val sourceBytes = candidate.toString().toByteArray(Charsets.UTF_8).size
         if (sourceBytes > Ux09Contract.MAX_PAYLOAD_BYTES) {
             return Result.Blocked(Blocker.OVER_SERVER_LIMIT)
