@@ -24,7 +24,8 @@ class V180ReminderTimingPolicyTest {
 
     @Test fun explicitOptionsIncludeShortAndLongDurations() {
         assertEquals(listOf(1, 2, 3, 4, 5), V180ReminderTimingPolicy.voiceAttempts)
-        assertTrue(V180ReminderTimingPolicy.voiceGapsSeconds.contains(20))
+        assertTrue(V180ReminderTimingPolicy.voiceGapsSeconds.contains(15))
+        assertEquals(listOf(5, 10, 15, 30, 60), V180ReminderTimingPolicy.voiceGapsSeconds)
         assertTrue(V180ReminderTimingPolicy.alarmSeconds.contains(45))
         assertTrue(V180ReminderTimingPolicy.alarmSeconds.contains(300))
     }
