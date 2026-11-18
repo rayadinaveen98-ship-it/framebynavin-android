@@ -44,7 +44,7 @@ class UX07DPersonalConnectionPolicyTest {
             reminder("id-a", "Reading a novel"),
         )
         assertEquals(
-            listOf("id-a", "id-c"),
+            listOf("id-c", "id-a"),
             UX07DPersonalConnectionPolicy.availableSpaceReminders(
                 records, setOf("id-b"), "rea",
             ).map { it.id },
