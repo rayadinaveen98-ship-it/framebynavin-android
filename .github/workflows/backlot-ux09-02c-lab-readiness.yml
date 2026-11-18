@@ -13,6 +13,7 @@ on:
       - 'app/src/test/java/com/framebynavin/app/cloud/ux09bridge/**'
       - 'app/src/androidTest/java/com/framebynavin/app/cloud/ux09bridge/**'
       - '.github/workflows/backlot-ux09-02c-lab-readiness.yml'
+      - '.github/scripts/backlot-ux09-02c-android15.sh'
       - 'docs/engineering/UX09_02C_REAL_STORE_LAB_READINESS_20261118.md'
   workflow_dispatch:
 
@@ -140,21 +141,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: |
-            # android-emulator-runner executes this script via /usr/bin/sh -c.
-            # Delegate explicitly to bash so pipefail protects instrument | tee.
-            bash -euo pipefail -c '
-              adb wait-for-device
-              adb install -r qa/app-debug.apk
-              adb install -r qa/app-debug-androidTest.apk
-              adb shell pm path com.framebynavin.app.lab
-              adb shell pm path com.framebynavin.app.lab.test
-              adb shell am instrument -w -r \
-                -e class com.framebynavin.app.cloud.ux09bridge.Ux09CanonicalSourceRoundtripAndroidTest \
-                com.framebynavin.app.lab.test/androidx.test.runner.AndroidJUnitRunner \
-                | tee ux09-02c-android15-synthetic.log
-              grep -Fq "OK (2 tests)" ux09-02c-android15-synthetic.log
-            '
+          script: bash .github/scripts/backlot-ux09-02c-android15.sh
       - name: Upload physical-emulator-only evidence (NOT owner acceptance)
         if: always()
         uses: actions/upload-artifact@v4
