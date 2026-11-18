@@ -1045,7 +1045,7 @@ private fun V09IdeaEditor(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     color = CinemaSurface,
-                    border = androidx.compose.foundation.BacklotUX10Tokens.quietBorder(CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
