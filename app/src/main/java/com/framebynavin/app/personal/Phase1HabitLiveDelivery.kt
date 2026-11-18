@@ -23,6 +23,10 @@ import com.framebynavin.app.ui.V390CompanionNotificationArt
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.MainActivity
+import com.framebynavin.app.reminders.ReminderBackingMusic
+import com.framebynavin.app.reminders.ReminderMusicChoice
+import com.framebynavin.app.reminders.ReminderMusicMode
+import com.framebynavin.app.reminders.ReminderMusicMixPolicy
 import java.lang.ref.WeakReference
 import java.time.Instant
 import java.time.LocalDate
@@ -40,10 +44,10 @@ internal object Phase1HabitOccurrencePolicy {
             now - scheduledAt > 86_400_000L || challenge.paused ||
             challenge.alertKind == null) return false
         val due = Instant.ofEpochMilli(scheduledAt)
-        // AlarmManager/PendingIntent targets are epoch milliseconds. Persisted
-        // Snooze instants may carry finer nanoseconds, so Instant equality
-        // incorrectly marks a naturally fired Snooze alarm as stale.
-        // Compare the exact occurrence at Android's scheduling precision.
+        // P0 V337 compatibility: Android AlarmManager targets epoch milliseconds.
+        // Snooze instants may retain finer precision; Instant equality can
+        // discard a genuinely fired occurrence as stale after scheduling.
+        // Compare at the same precision as the scheduled PendingIntent.
         return challenge.nextAlertAfter(due.minusMillis(1))
             ?.toInstant()?.toEpochMilli() == scheduledAt
     }
@@ -269,7 +273,17 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
                                                 Intent(app, Phase1HabitVoiceService::class.java)
                                                     .putExtra(Phase1HabitNotification.TEXT, record.activity)
                                                     .putExtra(Phase1HabitNotification.ID, record.id)
-                                                    .putExtra(Phase1HabitNotification.AT, at))
+                                                    .putExtra(Phase1HabitNotification.AT, at)
+                                                    // The receiver has validated the exact
+                                                    // current challenge before packaging audio.
+                                                    .putExtra(Phase1HabitVoiceService.EXTRA_REPEAT_COUNT,
+                                                        record.voiceRepeatCount)
+                                                    .putExtra(Phase1HabitVoiceService.EXTRA_GAP_MILLIS,
+                                                        record.voiceRepeatGapMillis)
+                                                    .putExtra(Phase1HabitVoiceService.EXTRA_MUSIC_MODE,
+                                                        record.voiceMusicMode.name)
+                                                    .putExtra(Phase1HabitVoiceService.EXTRA_MUSIC_URI,
+                                                        record.voiceMusicUri))
                                         }.onFailure {
                                             Phase1HabitDeliveryLedger.recordSafely(app, id, at,
                                                 Phase1HabitDeliveryStage.VOICE_SERVICE_RESTRICTED)
@@ -304,10 +318,11 @@ internal class Phase1HabitAlarmReceiver : BroadcastReceiver() {
     }
 }
 
-/** User-selected voice mode: foreground TextToSpeech, up to three announcements. */
+/** UX06D: existing 3x5s default or explicitly saved 1–5 announcements plus optional backing music. */
 internal class Phase1HabitVoiceService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
+    private val music by lazy { ReminderBackingMusic(this) }
     private var generation = 0
     private var currentChallengeId = ""
     private var currentScheduledAt = 0L
@@ -325,6 +340,23 @@ internal class Phase1HabitVoiceService : Service() {
             ?.takeIf { it.isNotBlank() } ?: return START_NOT_STICKY
         val at = request.getLongExtra(Phase1HabitNotification.AT, 0L)
         if (at <= 0L) return START_NOT_STICKY
+        handler.removeCallbacksAndMessages(null)
+        engine?.stop()
+        engine?.shutdown()
+        engine = null
+        music.stop()
+        val repeatCount = Phase1HabitVoicePlaybackPolicy.count(
+            request.getIntExtra(EXTRA_REPEAT_COUNT, Phase1HabitVoicePlaybackPolicy.REPEAT_COUNT))
+        val repeatGapMillis = Phase1HabitVoicePlaybackPolicy.gapMillis(
+            request.getLongExtra(EXTRA_GAP_MILLIS,
+                Phase1HabitVoicePlaybackPolicy.REPEAT_GAP_MILLIS))
+        val musicChoice = runCatching {
+            ReminderMusicChoice(
+                ReminderMusicMode.valueOf(
+                    request.getStringExtra(EXTRA_MUSIC_MODE) ?: ReminderMusicMode.OFF.name),
+                request.getStringExtra(EXTRA_MUSIC_URI).orEmpty(),
+            ).checked()
+        }.getOrDefault(ReminderMusicChoice(ReminderMusicMode.OFF))
         currentChallengeId = id
         currentScheduledAt = at
         val current = ++generation
@@ -344,10 +376,15 @@ internal class Phase1HabitVoiceService : Service() {
         }
         Phase1HabitDeliveryLedger.recordAsync(this, id, at,
             Phase1HabitDeliveryStage.VOICE_FOREGROUND_STARTED)
-        engine?.shutdown()
+        // Best-effort local Piano/SAF document only. A missing/revoked custom
+        // file falls back to piano; notification and TTS remain authoritative.
+        music.start(musicChoice)
         engine = TextToSpeech(this) { status ->
             val tts = engine ?: return@TextToSpeech
-            if (current != generation || status != TextToSpeech.SUCCESS ||
+            // A stale TTS initializer must not log an error or stop the next
+            // challenge's newer foreground playback.
+            if (current != generation) return@TextToSpeech
+            if (status != TextToSpeech.SUCCESS ||
                 tts.setLanguage(Locale.getDefault()) < TextToSpeech.LANG_AVAILABLE) {
                 Phase1HabitDeliveryLedger.recordAsync(this, id, at,
                     Phase1HabitDeliveryStage.VOICE_TTS_UNAVAILABLE)
@@ -359,7 +396,8 @@ internal class Phase1HabitVoiceService : Service() {
             var lastCompletedIndex = -1
             fun speak(index: Int) {
                 if (current != generation) return
-                if (index !in 0 until Phase1HabitVoicePlaybackPolicy.REPEAT_COUNT) return
+                if (index !in 0 until repeatCount) return
+                music.setSpeaking(true)
                 if (tts.speak("It's time for " + activity, TextToSpeech.QUEUE_FLUSH,
                     null, current.toString() + "-" + index) != TextToSpeech.SUCCESS) {
                     Phase1HabitDeliveryLedger.recordAsync(this, id, at,
@@ -381,20 +419,25 @@ internal class Phase1HabitVoiceService : Service() {
                     handler.post {
                         if (current != generation || completed != lastCompletedIndex + 1) return@post
                         lastCompletedIndex = completed
-                        val next = Phase1HabitVoicePlaybackPolicy.nextIndex(completed)
+                        music.setSpeaking(false)
+                        val next = Phase1HabitVoicePlaybackPolicy.nextIndex(completed, repeatCount)
                         if (next == null) {
-                            // The separately posted challenge notification remains
-                            // actionable after the foreground audio stops.
-                            stopSelf(startId)
+                            // The separately posted notification stays actionable.
+                            // Allow a brief music tail, but NEVER complete a day.
+                            handler.postDelayed({
+                                if (current == generation) stopSelf(startId)
+                            }, ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
                         } else {
                             handler.postDelayed({
                                 if (current == generation && lastCompletedIndex == completed) speak(next)
-                            }, Phase1HabitVoicePlaybackPolicy.REPEAT_GAP_MILLIS)
+                            }, repeatGapMillis)
                         }
                     }
                 }
                 @Deprecated("Android TextToSpeech")
                 override fun onError(utteranceId: String?) {
+                    if (current != generation ||
+                        utteranceId?.startsWith("$current-") != true) return
                     Phase1HabitDeliveryLedger.recordAsync(
                         this@Phase1HabitVoiceService, id, at,
                         Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED)
@@ -406,7 +449,8 @@ internal class Phase1HabitVoiceService : Service() {
         // Watchdog is a safety bound, NOT the desired audible lifetime.
         // Allow full sentences, TTS initialization, and inter-repeat gaps.
         handler.postDelayed({ if (current == generation) stopSelf(startId) },
-            Phase1HabitVoicePlaybackPolicy.WATCHDOG_MILLIS)
+            Phase1HabitVoicePlaybackPolicy.watchdogMillis(repeatCount, repeatGapMillis) +
+                ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
         return START_NOT_STICKY
     }
     override fun onDestroy() {
@@ -415,6 +459,7 @@ internal class Phase1HabitVoiceService : Service() {
         engine?.stop()
         engine?.shutdown()
         engine = null
+        music.stop()
         currentChallengeId = ""
         currentScheduledAt = 0L
         if (currentService?.get() === this) currentService = null
@@ -422,6 +467,10 @@ internal class Phase1HabitVoiceService : Service() {
     }
 
     companion object {
+        internal const val EXTRA_REPEAT_COUNT = "habit-voice-repeat-count"
+        internal const val EXTRA_GAP_MILLIS = "habit-voice-gap-millis"
+        internal const val EXTRA_MUSIC_MODE = "habit-voice-music-mode"
+        internal const val EXTRA_MUSIC_URI = "habit-voice-music-uri"
         private var currentService: WeakReference<Phase1HabitVoiceService>? = null
 
         /** Editing or removing a challenge must stop only that challenge's voice. */
@@ -431,6 +480,7 @@ internal class Phase1HabitVoiceService : Service() {
                     if (service.currentChallengeId == challengeId) {
                         service.generation++
                         service.engine?.stop()
+                        service.music.stop()
                         service.stopSelf()
                     }
                 }
@@ -446,6 +496,7 @@ internal class Phase1HabitVoiceService : Service() {
                     ) {
                         service.generation++
                         service.engine?.stop()
+                        service.music.stop()
                         service.stopSelf()
                     }
                 }
