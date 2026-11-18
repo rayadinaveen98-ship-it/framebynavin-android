@@ -5,6 +5,7 @@ import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.cloud.CloudConfig
 import com.framebynavin.app.data.CreatorDataGate
 import com.framebynavin.app.data.IdeaVaultStore
+import com.framebynavin.app.data.ScriptStudioStore
 import com.framebynavin.app.data.TaskStore
 import kotlinx.coroutines.flow.first
 
@@ -19,6 +20,7 @@ internal class Ux09LabCanonicalReadiness(context: Context) {
     private val app = context.applicationContext
     private val taskStore = TaskStore(app)
     private val ideaStore = IdeaVaultStore(app)
+    private val legacyScriptStore = ScriptStudioStore(app)
 
     internal data class Summary(
         val creatorGeneration: Long,
@@ -51,10 +53,19 @@ internal class Ux09LabCanonicalReadiness(context: Context) {
             var projectReady = 0
             var ideaReady = 0
             projects.forEach { task ->
-                val result = Ux09CanonicalReadinessPolicy.inspectProject(
+                val preliminary = Ux09CanonicalReadinessPolicy.inspectProject(
                     task, taskStore.encodeRecoveryTask(task),
                     taskStore::decodeRecoveryTask,
                 )
+                // TaskStore's current JSON may omit old Script Studio sidecar
+                // content. A read-only compatibility lookup must veto false
+                // eligibility; errors stop the whole inspection without edits.
+                val result = if (preliminary is Ux09CanonicalReadinessPolicy.Result.Ready) {
+                    val sidecar = legacyScriptStore.loadForUnifiedSnapshot(task)
+                    Ux09CanonicalReadinessPolicy.vetoLegacyStudio(
+                        preliminary, hasUnmigratedScript = !sidecar.isEmpty(),
+                    )
+                } else preliminary
                 when (result) {
                     is Ux09CanonicalReadinessPolicy.Result.Ready -> projectReady++
                     is Ux09CanonicalReadinessPolicy.Result.Blocked ->
