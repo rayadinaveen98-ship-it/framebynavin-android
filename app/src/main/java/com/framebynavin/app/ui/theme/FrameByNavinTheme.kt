@@ -217,7 +217,7 @@ object VisualExperiencePrefs {
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putBoolean(KEY_LAUNCH_SOUND, enabled)?.apply()
     }
 
-    fun setWelcomeStyle(style: V401WelcomeStyle) {
+    fun updateWelcomeStyle(style: V401WelcomeStyle) {
         welcomeStyle = style
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             ?.edit()?.putString(KEY_WELCOME_STYLE, style.name)?.apply()
