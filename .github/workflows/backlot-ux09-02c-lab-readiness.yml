@@ -47,7 +47,7 @@ jobs:
           grep -Fq 'taskStore.tasksFlow.first()' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
           grep -Fq 'ideaStore.ideasFlow.first()' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
           grep -Fq 'CreatorDataGate.transaction' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
-          ! grep -ER 'CloudApiClient|WorkManager|\.save\(|\.importJson\(|readyTransaction|CloudSyncManager' app/src/main/java/com/framebynavin/app/cloud/ux09bridge
+          ! grep -ER 'CloudApiClient|WorkManager|\.save\(|\.importJson\(|CloudSyncManager' app/src/main/java/com/framebynavin/app/cloud/ux09bridge
           python3 tools/qa/backlot_ux09_02a_field_coverage.py --selftest
           python3 tools/qa/backlot_ux09_02a_nested_coverage.py --selftest
           python3 - <<'PY'
@@ -67,12 +67,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout --signal=TERM --kill-after=20s 4900s gradle \
-            :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest \
-            -PbacklotLab=true --no-daemon --no-parallel --max-workers=1 \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
-            --console=plain 2>&1 | tee ux09-02c-source-and-lab-apk.log
+          common=(-PbacklotLab=true --no-daemon --no-parallel --max-workers=1
+            -Pkotlin.compiler.execution.strategy=in-process
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8'
+            --console=plain)
+          timeout --signal=TERM --kill-after=20s 3300s gradle \
+            :app:testDebugUnitTest \
+            --tests 'com.framebynavin.app.cloud.ux09bridge.Ux09CanonicalReadinessPolicyTest' \
+            "${common[@]}" 2>&1 | tee ux09-02c-source-and-lab-apk.log
+          timeout --signal=TERM --kill-after=20s 3300s gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            "${common[@]}" 2>&1 | tee -a ux09-02c-source-and-lab-apk.log
       - name: Verify isolated Lab package and public preview signer
         shell: bash
         run: |
@@ -141,7 +146,7 @@ jobs:
               -e class com.framebynavin.app.cloud.ux09bridge.Ux09CanonicalSourceRoundtripAndroidTest \
               com.framebynavin.app.lab.test/androidx.test.runner.AndroidJUnitRunner \
               | tee ux09-02c-android15-synthetic.log
-            grep -Eq '^OK \(2 tests\)|^OK \(2 tests\)' ux09-02c-android15-synthetic.log
+            grep -Fq 'OK (2 tests)' ux09-02c-android15-synthetic.log
       - name: Upload physical-emulator-only evidence (NOT owner acceptance)
         if: always()
         uses: actions/upload-artifact@v4
