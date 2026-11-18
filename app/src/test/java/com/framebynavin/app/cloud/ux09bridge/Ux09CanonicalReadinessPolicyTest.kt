@@ -4,6 +4,8 @@ import com.framebynavin.app.cloud.ux09.Ux09LabFeatureGate
 import com.framebynavin.app.cloud.ux09bridge.Ux09CanonicalReadinessPolicy.Blocker
 import com.framebynavin.app.cloud.ux09bridge.Ux09CanonicalReadinessPolicy.Result
 import com.framebynavin.app.data.CreatorContentWorkspace
+import com.framebynavin.app.data.CreatorScriptStudio
+import com.framebynavin.app.data.CreatorScriptStatus
 import com.framebynavin.app.data.CreatorIdea
 import com.framebynavin.app.data.CreatorTask
 import com.framebynavin.app.data.IdeaCaptureType
@@ -147,6 +149,24 @@ class Ux09CanonicalReadinessPolicyTest {
             source,
             Ux09CanonicalReadinessPolicy.vetoLegacyStudio(
                 source, hasUnmigratedScript = false,
+            ),
+        )
+    }
+
+    @Test fun legacyScriptMetadataAloneRequiresPreservation() {
+        val defaultStudio = CreatorScriptStudio(projectId = projectId)
+        val onlyRevision = defaultStudio.copy(revision = 7L)
+        val onlyStatus = defaultStudio.copy(status = CreatorScriptStatus.READY_TO_RECORD)
+        // isEmpty() describes visible text, not the complete persisted state.
+        assertTrue(onlyRevision.isEmpty())
+        assertTrue(onlyStatus.isEmpty())
+        assertTrue(onlyRevision != defaultStudio)
+        assertTrue(onlyStatus != defaultStudio)
+        val candidate = inspectProject()
+        assertEquals(
+            Result.Blocked(Blocker.LEGACY_SCRIPT_STUDIO),
+            Ux09CanonicalReadinessPolicy.vetoLegacyStudio(
+                candidate, hasUnmigratedScript = onlyRevision != defaultStudio,
             ),
         )
     }
