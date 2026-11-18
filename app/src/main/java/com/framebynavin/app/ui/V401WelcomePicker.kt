@@ -115,7 +115,7 @@ internal fun V401WelcomePicker() {
                         Text("Preview", color = ProjectorIvory)
                     }
                     Button(
-                        onClick = { VisualExperiencePrefs.setWelcomeStyle(style) },
+                        onClick = { VisualExperiencePrefs.updateWelcomeStyle(style) },
                         enabled = !active,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = RecRed,
