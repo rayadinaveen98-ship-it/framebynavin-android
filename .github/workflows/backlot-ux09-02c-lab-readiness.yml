@@ -1,0 +1,152 @@
+name: Backlot UX09-02C Canonical Store Lab Readiness APK & Source Tests
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-ux09-02b-lab-rpc-adapter-20261117
+    paths:
+      - 'app/src/main/java/com/framebynavin/app/cloud/ux09bridge/**'
+      - 'app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt'
+      - 'app/src/main/java/com/framebynavin/app/data/ScriptStudioStore.kt'
+      - 'app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/src/test/java/com/framebynavin/app/cloud/ux09bridge/**'
+      - 'app/src/androidTest/java/com/framebynavin/app/cloud/ux09bridge/**'
+      - '.github/workflows/backlot-ux09-02c-lab-readiness.yml'
+      - '.github/scripts/backlot-ux09-02c-android15.sh'
+      - 'docs/engineering/UX09_02C_REAL_STORE_LAB_READINESS_20261118.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux09-02c-lab-readiness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-apk:
+    name: Lab app/readiness JVM and Android test APK compilation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify Lab restriction, read-only boundaries and exact model field parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'const val ENABLED = false' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09SyncContract.kt
+          grep -Fq 'BuildConfig.BACKLOT_LAB' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
+          grep -Fq 'taskStore.tasksFlow.first()' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
+          grep -Fq 'legacyScriptStore.loadForUnifiedSnapshot(task)' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
+          grep -Fq 'ideaStore.ideasFlow.first()' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
+          grep -Fq 'CreatorDataGate.transaction' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
+          ! grep -ER 'CloudApiClient|WorkManager|\.save\(|\.importJson\(|CloudSyncManager' app/src/main/java/com/framebynavin/app/cloud/ux09bridge
+          python3 tools/qa/backlot_ux09_02a_field_coverage.py --selftest
+          python3 tools/qa/backlot_ux09_02a_nested_coverage.py --selftest
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          m=json.loads(Path('docs/engineering/UX09_02A_FIELD_COVERAGE_MANIFEST_20261117.json').read_text())
+          s=Path('app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09CanonicalReadinessPolicy.kt').read_text()
+          for tag, domain in [('projectFieldKeys','creator_project'),('ideaFieldKeys','creator_idea')]:
+              fragment=s.split('val '+tag+' = setOf(',1)[1].split('\n    )',1)[0]
+              actual=set(re.findall(r'"([A-Za-z_][A-Za-z0-9_]*)"',fragment))
+              spec=m['wire_domains'][domain]
+              expected=set(spec['portable_candidate']+spec['device_local']+spec['block_until_design'])
+              assert actual == expected, (domain, sorted(expected-actual), sorted(actual-expected))
+          print('PASS: all current Project/Idea canonical field names accounted for')
+          PY
+      - name: Build Lab-only app, source tests and synthetic androidTest APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          common=(-PbacklotLab=true --no-daemon --no-parallel --max-workers=1
+            -Pkotlin.compiler.execution.strategy=in-process
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8'
+            --console=plain)
+          timeout --signal=TERM --kill-after=20s 3300s gradle \
+            :app:testDebugUnitTest \
+            --tests 'com.framebynavin.app.cloud.ux09bridge.Ux09CanonicalReadinessPolicyTest' \
+            "${common[@]}" 2>&1 | tee ux09-02c-source-and-lab-apk.log
+          timeout --signal=TERM --kill-after=20s 3300s gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            "${common[@]}" 2>&1 | tee -a ux09-02c-source-and-lab-apk.log
+      - name: Verify isolated Lab package and public preview signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=app/build/outputs/apk/debug/app-debug.apk
+          android_test=app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s "$app"
+          test -s "$android_test"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$app" > ux09-02c-lab-badging.txt
+          "$signer_bin" verify --print-certs "$app" > ux09-02c-signer.txt
+          grep -Fq "package: name='com.framebynavin.app.lab'" ux09-02c-lab-badging.txt
+          grep -Fq 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' ux09-02c-signer.txt
+          sha256sum "$app" "$android_test" > ux09-02c-sha256.txt
+          echo 'PASS: QA-only APK and test package, neither production nor Play release'
+      - name: Upload compilations and tests (QA-only APK, not stable)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02C-Lab-ReadOnly-QA-CANDIDATE-NOT-CERTIFIED
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            app/build/test-results/testDebugUnitTest/
+            ux09-02c-source-and-lab-apk.log
+            ux09-02c-lab-badging.txt
+            ux09-02c-signer.txt
+            ux09-02c-sha256.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+  emulator-actual-codec:
+    name: Android 15 actual TaskStore and IdeaVaultStore synthetic roundtrip
+    needs: source-and-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-UX09-02C-Lab-ReadOnly-QA-CANDIDATE-NOT-CERTIFIED
+          path: qa
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 synthetic real canonical codec tests, no data changes
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-ux09-02c-android15.sh
+      - name: Upload physical-emulator-only evidence (NOT owner acceptance)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX09-02C-Android15-Synthetic-Codec-Result
+          path: ux09-02c-android15-synthetic.log
+          if-no-files-found: warn
+          retention-days: 14

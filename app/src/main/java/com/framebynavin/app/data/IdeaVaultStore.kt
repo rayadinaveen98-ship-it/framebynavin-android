@@ -130,6 +130,10 @@ class IdeaVaultStore(private val context: Context) {
         }
     }
 
+    /** Read-only, one-entity codec fixture for isolated UX09 Lab QA; no DataStore writes. */
+    internal fun encodeRecoveryIdea(idea: CreatorIdea): String = encode(listOf(idea))
+    internal fun decodeRecoveryIdea(raw: String): CreatorIdea = decode(raw).single()
+
     private fun encode(ideas: List<CreatorIdea>): String {
         val array = JSONArray()
         ideas.forEach { idea ->

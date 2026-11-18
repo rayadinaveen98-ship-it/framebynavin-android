@@ -43,6 +43,7 @@
         <activity android:name=".ui.V269DataPrivacyActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".ui.RecoveryCopiesActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".ui.ContentWorkspaceActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
+        <activity android:name=".cloud.ux09bridge.Ux09LabReadinessActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".cloud.CloudSyncActivity" android:exported="false" android:theme="@style/Theme.FrameByNavin" />
         <activity android:name=".widget.QuickIdeaActivity" android:exported="false" android:excludeFromRecents="true" android:theme="@style/Theme.FrameByNavin" />
 

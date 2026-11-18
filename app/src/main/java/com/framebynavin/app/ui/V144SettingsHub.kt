@@ -424,6 +424,21 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.ADVANCED -> V144SettingsPage("ADVANCED", "Device data controls", ::navigateBack) {
+                if (BuildConfig.BACKLOT_LAB) {
+                    V144ActionCard(
+                        title = "Lab sync readiness (read-only)",
+                        subtitle = "Inspect Projects and Ideas without upload or restore",
+                        icon = Icons.Outlined.Security,
+                        accent = MutedGold,
+                        onClick = {
+                            context.startActivity(Intent(
+                                context,
+                                com.framebynavin.app.cloud.ux09bridge.Ux09LabReadinessActivity::class.java,
+                            ))
+                        },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
                 V144ActionCard(
                     title = "Start fresh on this phone",
                     subtitle = "Erases local app data after confirmation. Cloud data stays.",
