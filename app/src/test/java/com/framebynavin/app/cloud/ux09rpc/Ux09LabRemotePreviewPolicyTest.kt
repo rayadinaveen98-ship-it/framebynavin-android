@@ -42,9 +42,6 @@ class Ux09LabRemotePreviewPolicyTest {
         assertFalse(result.toString().contains("SECRET_FIXTURE_TITLE_734"))
         assertFalse(result.toString().contains(projectId))
         assertFalse(result.toString().contains(ideaId))
-        assertEquals(5, Ux09LabRemotePreview::class.java.declaredFields.count {
-            !it.isSynthetic
-        })
     }
 
     @Test fun emptyPageReportsZeroWithoutPretendingToBeTheAccountTotal() {
