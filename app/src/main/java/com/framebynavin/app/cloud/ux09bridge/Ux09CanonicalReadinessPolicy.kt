@@ -27,6 +27,7 @@ internal object Ux09CanonicalReadinessPolicy {
         NOT_SIMPLE_PROJECT,
         ACTIVE_REMINDER_OR_SCHEDULE,
         RICH_WORKSPACE_OR_DNA,
+        LEGACY_SCRIPT_STUDIO,
         LINKED_OR_LEGACY_PROJECT,
         VOICE_OR_UNPORTABLE_IDEA,
         IDEA_REMINDER_OR_TRASH,
@@ -160,6 +161,16 @@ internal object Ux09CanonicalReadinessPolicy {
             decoded == task.copy(alarmSoundUri = "", snoozeCount = 0, workingUntilMillis = 0L)
         }
     }
+
+    /**
+     * V337 can keep old Script Studio data in a separate sidecar even while
+     * CreatorTask.workspace looks empty. Treat any nonempty sidecar as unsafe
+     * for the simple-record pilot. Never discard it or imply cloud coverage.
+     */
+    fun vetoLegacyStudio(result: Result, hasUnmigratedScript: Boolean): Result =
+        if (hasUnmigratedScript && result is Result.Ready) {
+            Result.Blocked(Blocker.LEGACY_SCRIPT_STUDIO)
+        } else result
 
     fun inspectIdea(
         idea: CreatorIdea,
