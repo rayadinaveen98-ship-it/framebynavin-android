@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/backlot-lab-ux01-08-10-integration.yml
       - tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
+      - app/**
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
@@ -14,6 +15,7 @@ on:
     paths:
       - .github/workflows/backlot-lab-ux01-08-10-integration.yml
       - tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
+      - app/**
   workflow_dispatch:
 
 permissions:
