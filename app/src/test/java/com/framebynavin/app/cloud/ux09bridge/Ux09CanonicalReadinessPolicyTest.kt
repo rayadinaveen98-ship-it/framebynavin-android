@@ -134,6 +134,35 @@ class Ux09CanonicalReadinessPolicyTest {
             inspectProject(task = rich))
     }
 
+    @Test fun unmergedLegacyScriptStudioSidecarCannotBeMistakenForEmptyWorkspace() {
+        val source = inspectProject()
+        assertTrue(source is Result.Ready)
+        assertEquals(
+            Result.Blocked(Blocker.LEGACY_SCRIPT_STUDIO),
+            Ux09CanonicalReadinessPolicy.vetoLegacyStudio(
+                source, hasUnmigratedScript = true,
+            ),
+        )
+        assertEquals(
+            source,
+            Ux09CanonicalReadinessPolicy.vetoLegacyStudio(
+                source, hasUnmigratedScript = false,
+            ),
+        )
+    }
+
+    @Test fun priorBlockedRecordsStayBlockedRegardlessOfLegacySidecar() {
+        val blocked = inspectProject(task = project().copy(
+            workspace = CreatorContentWorkspace(script = "Private unsynced script"),
+        ))
+        assertEquals(
+            Result.Blocked(Blocker.RICH_WORKSPACE_OR_DNA),
+            Ux09CanonicalReadinessPolicy.vetoLegacyStudio(
+                blocked, hasUnmigratedScript = true,
+            ),
+        )
+    }
+
     @Test fun activeRemindersCannotAccidentallyScheduleOnOtherDevices() {
         val reminder = project().copy(reminderEnabled = true, reminderAtMillis = 1234L)
         assertEquals(Result.Blocked(Blocker.ACTIVE_REMINDER_OR_SCHEDULE),
