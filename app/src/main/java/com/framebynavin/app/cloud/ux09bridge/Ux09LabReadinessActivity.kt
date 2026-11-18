@@ -161,6 +161,7 @@ internal class Ux09LabReadinessActivity : ComponentActivity() {
         Ux09CanonicalReadinessPolicy.Blocker.NOT_SIMPLE_PROJECT -> "Advanced project state"
         Ux09CanonicalReadinessPolicy.Blocker.ACTIVE_REMINDER_OR_SCHEDULE -> "Reminder or schedule"
         Ux09CanonicalReadinessPolicy.Blocker.RICH_WORKSPACE_OR_DNA -> "Content workspace or DNA"
+        Ux09CanonicalReadinessPolicy.Blocker.LEGACY_SCRIPT_STUDIO -> "Unmigrated Script Studio content"
         Ux09CanonicalReadinessPolicy.Blocker.LINKED_OR_LEGACY_PROJECT -> "Linked project"
         Ux09CanonicalReadinessPolicy.Blocker.VOICE_OR_UNPORTABLE_IDEA -> "Linked or voice idea"
         Ux09CanonicalReadinessPolicy.Blocker.IDEA_REMINDER_OR_TRASH -> "Idea reminder or trash"
