@@ -7,6 +7,7 @@ on:
     paths:
       - 'app/src/main/java/com/framebynavin/app/cloud/ux09bridge/**'
       - 'app/src/main/java/com/framebynavin/app/data/IdeaVaultStore.kt'
+      - 'app/src/main/java/com/framebynavin/app/data/ScriptStudioStore.kt'
       - 'app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt'
       - 'app/src/main/AndroidManifest.xml'
       - 'app/src/test/java/com/framebynavin/app/cloud/ux09bridge/**'
@@ -45,6 +46,7 @@ jobs:
           grep -Fq 'const val ENABLED = false' app/src/main/java/com/framebynavin/app/cloud/ux09/Ux09SyncContract.kt
           grep -Fq 'BuildConfig.BACKLOT_LAB' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
           grep -Fq 'taskStore.tasksFlow.first()' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
+          grep -Fq 'legacyScriptStore.loadForUnifiedSnapshot(task)' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
           grep -Fq 'ideaStore.ideasFlow.first()' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
           grep -Fq 'CreatorDataGate.transaction' app/src/main/java/com/framebynavin/app/cloud/ux09bridge/Ux09LabCanonicalReadiness.kt
           ! grep -ER 'CloudApiClient|WorkManager|\.save\(|\.importJson\(|CloudSyncManager' app/src/main/java/com/framebynavin/app/cloud/ux09bridge
