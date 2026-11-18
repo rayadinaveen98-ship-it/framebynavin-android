@@ -105,8 +105,16 @@ jobs:
           "$signer_bin" verify --verbose --print-certs "$apk" | tee ci-reports/ux-integration/apk-signer.txt
           grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' ci-reports/ux-integration/apk-signer.txt
           sha256sum "$apk" > ci-reports/ux-integration/apk-sha256.txt
-          git diff --check
-          git diff --cached --check
+          # Android Gradle generates app/build/ HTML/XML with trailing spaces.
+          # Check tracked source only; generated artifacts are not source regressions.
+          git diff --check -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts .github/workflows tools/qa
+          git diff --cached --check -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts .github/workflows tools/qa
+          # No compilation or lint step may silently rewrite application sources.
+          if [ -n "$(git status --porcelain -- app/src)" ]; then
+            echo 'FAIL: Android source tree modified by build; review before QA'
+            git status --short -- app/src
+            exit 1
+          fi
           echo 'PASS Lab identity, signer, source and full build. Founder physical certification still pending.'
       - name: Record immutable candidate build source (never push or merge)
         shell: bash
