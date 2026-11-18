@@ -48,10 +48,18 @@ internal object CW3StageExperiencePolicy {
             "Specific example supporting your verdict",
             listOf("Decide the central argument", "Document strengths and limitations"),
         )
-        "evidence", "scene_evidence", "proof", "test" -> CW3StageExperience(
+        "evidence", "scene_evidence", "proof", "test", "benchmarks",
+        "test_plan", "verify", "sources", "source", "research", "context",
+        "known_unknown", "references" -> CW3StageExperience(
             "Evidence desk", "Which claims are verified, and what actual scenes or tests support them?",
             "Evidence, scene claim or observed test result",
             listOf("Verify each key claim", "Cross-check original sources"),
+        )
+        "idea", "concept", "promise", "audience", "question", "framework",
+        "intent", "learning_goal", "criteria", "brief", "structure" -> CW3StageExperience(
+            "Creative brief", "Define the decision, creative promise and evidence you want to build on.",
+            "Why this choice supports the audience and the project goal",
+            listOf("Write the core promise", "Confirm intended audience"),
         )
         "spoiler_plan" -> CW3StageExperience(
             "Spoiler map", "Separate spoiler-safe observations from material requiring a warning.",
@@ -63,7 +71,8 @@ internal object CW3StageExperiencePolicy {
             "Edit review note with version or timecode",
             listOf("Review rough cut", "Check sound and picture", "Verify final export"),
         )
-        "voice", "record", "capture" -> CW3StageExperience(
+        "voice", "record", "capture", "shot_plan", "session_plan",
+        "visuals_capture", "process_capture" -> CW3StageExperience(
             "Recording log", "Plan or document takes, recording conditions and material still needed.",
             "Take, shot, or recording observation",
             listOf("Check recording setup", "Confirm usable takes"),
@@ -78,12 +87,18 @@ internal object CW3StageExperiencePolicy {
             "Release verification observation",
             listOf("Verify live page", "Check description and link"),
         )
-        "promote", "clips", "follow_up" -> CW3StageExperience(
+        "promote", "clips", "follow_up", "distribution", "review", "outcome" -> CW3StageExperience(
             "Distribution log", "Record platform plans and follow-ups, linked to the project outputs.",
             "Promotion or follow-up observation",
             listOf("Draft platform-specific copy", "Check live links"),
         )
-        "script", "narration", "outline", "draft", "commentary" -> CW3StageExperience(
+        "route", "locations", "trip_plan", "method", "ingredients", "setup",
+        "prerequisites", "safety", "sequence" -> CW3StageExperience(
+            "Production plan", "Document dependencies, constraints and the next safe, practical steps.",
+            "Decision, location, safety note or procedure observation",
+            listOf("Confirm prerequisites", "Record the next actionable step"),
+        )
+        "script", "narration", "outline", "draft", "commentary", "guide_script" -> CW3StageExperience(
             "Narrative notes", "Keep stage decisions here; the canonical narration remains in Script Studio.",
             "Script evidence or narration note",
             listOf("Review structure", "Verify supporting evidence"),
@@ -108,6 +123,8 @@ internal fun CW3StageDesk(
     stage: WorkflowStage,
     onSave: (Long, CreatorStageWork) -> Unit,
     onBack: () -> Unit,
+    onOpenMainTool: (StageWorkspaceDestination, Long, CreatorStageWork) -> Unit,
+    onOpenOutputCraft: (Long, CreatorStageWork) -> Unit,
 ) {
     val context = LocalContext.current
     val template = CreatorWorkflowEngine.templateFor(task)
@@ -126,6 +143,12 @@ internal fun CW3StageDesk(
         else persisted
     }
     val experience = CW3StageExperiencePolicy.forStage(stage)
+    val contextualModule = CW51StageModulePolicy.forStage(task, stage)
+    val canonicalDestination = StageWorkspaceRoutingPolicy.destination(stage)
+    val hasOutputs = task.workspace.deliverables.isNotEmpty()
+    val isProductionStage = stage.id in setOf(
+        "edit", "process_edit", "sound_grade", "mix", "visuals", "record", "capture",
+    )
     var notes by rememberSaveable(task.id, stage.id, revision) { mutableStateOf(initial.notes) }
     var checklist by remember(task.id, stage.id, revision) { mutableStateOf(initial.checklist) }
     var evidence by remember(task.id, stage.id, revision) { mutableStateOf(initial.evidence) }
@@ -138,14 +161,33 @@ internal fun CW3StageDesk(
     var claim by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var timecode by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
     var decisionText by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var evidenceSourceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var evidenceAssetId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var evidenceBeatId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var editingEvidenceId by rememberSaveable(task.id, stage.id, revision) { mutableStateOf("") }
+    var beatMenuOpen by remember { mutableStateOf(false) }
+    var sourceMenuOpen by remember { mutableStateOf(false) }
+    var assetMenuOpen by remember { mutableStateOf(false) }
     var journalWarning by remember(task.id, stage.id, revision) { mutableStateOf(false) }
 
-    fun snapshot(): CreatorStageWork = initial.copy(
+    fun contentSnapshot(): CreatorStageWork = initial.copy(
         notes = notes, checklist = checklist, evidence = evidence,
         decisions = decisions, linkedReferenceIds = refs,
         linkedAssetIds = assets, linkedDeliverableIds = outputs,
-        reviewedAtMillis = reviewedAt,
+        reviewedAtMillis = 0L,
     )
+    // A review is valid only for the exact content explicitly reviewed.
+    // Editing any field visibly unchecks Review and the saved snapshot carries no
+    // stale reviewed timestamp. Re-checking captures the updated content.
+    var reviewedContent by remember(task.id, template.id, stage.id, revision) {
+        mutableStateOf(initial.copy(reviewedAtMillis = 0L))
+    }
+    fun snapshot(): CreatorStageWork {
+        val content = contentSnapshot()
+        return content.copy(
+            reviewedAtMillis = if (reviewedAt > 0L && content == reviewedContent) reviewedAt else 0L,
+        )
+    }
     val draft = snapshot()
     val unsaved = draft != persisted
 
@@ -166,7 +208,7 @@ internal fun CW3StageDesk(
     WorkspaceAdaptiveFrame {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp).testTag("cw3-stage-desk"),
+                .padding(horizontal = BacklotUX10Tokens.pageGutter).testTag("cw3-stage-desk"),
         ) {
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -188,8 +230,8 @@ internal fun CW3StageDesk(
                 )
             }
             Spacer(Modifier.height(14.dp))
-            Surface(shape = RoundedCornerShape(18.dp), color = CinemaSurfaceRaised,
-                border = BorderStroke(1.dp, CinemaLine)) {
+            Surface(shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius), color = CinemaSurfaceRaised,
+                border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
                     Text(experience.heading, color = ProjectorIvory, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.height(5.dp))
@@ -197,11 +239,83 @@ internal fun CW3StageDesk(
                     Spacer(Modifier.height(6.dp))
                     Text("One shared project library · This stage has its own notes and evidence",
                         color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    Spacer(Modifier.height(12.dp))
+                    val routeLabel = when (canonicalDestination) {
+                        StageWorkspaceDestination.SCRIPT -> "OPEN SCRIPT STUDIO"
+                        StageWorkspaceDestination.PUBLISH -> "OPEN PUBLISH STUDIO"
+                        StageWorkspaceDestination.PLAN -> "OPEN SHARED PLAN"
+                        StageWorkspaceDestination.HUB -> "OPEN SHARED PLAN"
+                    }
+                    OutlinedButton(
+                        onClick = { onOpenMainTool(canonicalDestination, revision, snapshot()) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .testTag("ux05-open-canonical-tool"),
+                    ) { Text(routeLabel) }
+                    if (isProductionStage && hasOutputs) {
+                        TextButton(
+                            onClick = { onOpenOutputCraft(revision, snapshot()) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("ux05-open-output-craft"),
+                        ) { Text("VIEW OUTPUT CUTS & SCRIPTS", color = MutedGold) }
+                    }
+                    Text(
+                        "Opening another tool requires closing this draft first. " +
+                            "Save stage work to preserve changes, or explicitly discard them.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                    )
                 }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
+            contextualModule?.let { module ->
+                Surface(
+                    shape = RoundedCornerShape(BacklotUX10Tokens.surfaceRadius),
+                    color = CinemaSurface,
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                    modifier = Modifier.fillMaxWidth().testTag("ux051c-stage-module"),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Text("STAGE FOCUS · ${module.name.uppercase()}",
+                            color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(module.guidance, color = ProjectorIvory, fontSize = 13.sp,
+                            lineHeight = 18.sp)
+                        Spacer(Modifier.height(8.dp))
+                        module.questions.forEach { question ->
+                            Text("• $question", color = MutedText, fontSize = 12.sp,
+                                lineHeight = 18.sp, modifier = Modifier.padding(vertical = 2.dp))
+                        }
+                        val missingSuggestions = module.suggestedTasks.filter { proposed ->
+                            checklist.none { it.title.equals(proposed, ignoreCase = true) }
+                        }
+                        if (editable && missingSuggestions.isNotEmpty()) {
+                            Spacer(Modifier.height(9.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    checklist = checklist + missingSuggestions.map { suggestion ->
+                                        CreatorStageChecklistItem(
+                                            id = UUID.randomUUID().toString(),
+                                            title = suggestion,
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051c-add-context-tasks"),
+                            ) {
+                                Text("ADD ${missingSuggestions.size} FOCUS TASK(S)", color = MutedGold)
+                            }
+                        }
+                        Text("Suggestions are optional. Save Stage Work to keep added tasks; no stage advances.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+            }
 
             Text("STAGE NOTES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            if (!editable) Text(
+                "Read-only · this project has been completed, skipped or archived.",
+                color = MutedGold, fontSize = 12.sp,
+            )
             Spacer(Modifier.height(7.dp))
             OutlinedTextField(
                 value = notes, onValueChange = { notes = it },
@@ -264,21 +378,112 @@ internal fun CW3StageDesk(
             Text("EVIDENCE & TIMECODES", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(5.dp))
             Text(experience.evidencePrompt, color = MutedText, fontSize = 12.sp)
-            evidence.forEach { item ->
+            evidence.forEachIndexed { index, item ->
                 Surface(modifier = Modifier.fillMaxWidth().padding(top = 9.dp),
                     shape = RoundedCornerShape(12.dp), color = CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine)) {
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Column(Modifier.padding(12.dp)) {
                         Text(item.claim, color = ProjectorIvory, fontSize = 13.sp)
                         if (item.timecode.isNotBlank()) Text("Timecode: ${item.timecode}", color = MutedText, fontSize = 11.sp)
                         if (item.notes.isNotBlank()) Text(item.notes, color = MutedText, fontSize = 11.sp)
-                        if (editable) TextButton(onClick = { evidence = evidence.filterNot { it.id == item.id } }) {
-                            Text("REMOVE EVIDENCE", color = MutedText, fontSize = 10.sp)
+                        if (item.referenceId.isNotBlank()) {
+                            val source = task.workspace.references.firstOrNull { it.id == item.referenceId }
+                            Text(
+                                "Source: " + (source?.let { it.label.ifBlank { it.url } }
+                                    ?: "Unavailable source (saved link retained)"),
+                                color = MutedGold, fontSize = 11.sp,
+                            )
+                        }
+                        if (item.assetId.isNotBlank()) {
+                            val asset = task.workspace.assets.firstOrNull { it.id == item.assetId }
+                            Text(
+                                "Asset: " + (asset?.let { it.label.ifBlank { it.location } }
+                                    ?: "Unavailable asset (saved link retained)"),
+                                color = MutedGold, fontSize = 11.sp,
+                            )
+                        }
+                        if (item.scriptBeatId.isNotBlank()) {
+                            val beat = task.workspace.scriptStudio?.beats?.firstOrNull {
+                                it.id == item.scriptBeatId
+                            }
+                            Text(
+                                "Narration beat: " + (beat?.label?.ifBlank { beat.purpose.ifBlank { "Untitled beat" } }
+                                    ?: "Unavailable beat (saved link retained)"),
+                                color = MutedGold, fontSize = 11.sp,
+                            )
+                        }
+                        if (editable) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.End,
+                            ) {
+                                IconButton(
+                                    enabled = index > 0,
+                                    onClick = {
+                                        evidence = evidence.toMutableList().also { list ->
+                                            val moved = list.removeAt(index)
+                                            list.add(index - 1, moved)
+                                        }
+                                    },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move evidence earlier",
+                                        tint = if (index > 0) MutedGold else MutedText)
+                                }
+                                IconButton(
+                                    enabled = index < evidence.lastIndex,
+                                    onClick = {
+                                        evidence = evidence.toMutableList().also { list ->
+                                            val moved = list.removeAt(index)
+                                            list.add(index + 1, moved)
+                                        }
+                                    },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move evidence later",
+                                        tint = if (index < evidence.lastIndex) MutedGold else MutedText)
+                                }
+                                TextButton(onClick = {
+                                    editingEvidenceId = item.id
+                                    claim = item.claim
+                                    timecode = item.timecode
+                                    evidenceSourceId = item.referenceId
+                                    evidenceAssetId = item.assetId
+                                    evidenceBeatId = item.scriptBeatId
+                                }) {
+                                    Text("EDIT", color = MutedGold, fontSize = 11.sp)
+                                }
+                                TextButton(onClick = {
+                                    evidence = evidence.filterNot { it.id == item.id }
+                                    if (editingEvidenceId == item.id) {
+                                        editingEvidenceId = ""
+                                        claim = ""; timecode = ""
+                                        evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
+                                    }
+                                }) {
+                                    Text("REMOVE", color = MutedText, fontSize = 11.sp)
+                                }
+                            }
                         }
                     }
                 }
             }
             if (editable) {
+                if (editingEvidenceId.isNotBlank()) {
+                    Row(
+                        Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("EDITING SAVED EVIDENCE · CHANGES ARE STILL A DRAFT",
+                            color = MutedGold, fontSize = 11.sp,
+                            modifier = Modifier.weight(1f))
+                        TextButton(onClick = {
+                            editingEvidenceId = ""
+                            claim = ""; timecode = ""
+                            evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
+                        }) { Text("CANCEL", color = MutedText) }
+                    }
+                }
                 OutlinedTextField(
                     value = claim, onValueChange = { claim = it },
                     modifier = Modifier.fillMaxWidth().testTag("cw3-evidence-claim"),
@@ -290,22 +495,166 @@ internal fun CW3StageDesk(
                     modifier = Modifier.fillMaxWidth().testTag("cw3-evidence-timecode"),
                     label = { Text("Timecode / version (optional)") }, singleLine = true,
                 )
+                if (task.workspace.references.isNotEmpty() || task.workspace.assets.isNotEmpty()) {
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        "Attach supporting project material to this claim (optional).",
+                        color = MutedText, fontSize = 11.sp,
+                    )
+                    if (task.workspace.references.isNotEmpty()) {
+                        Box {
+                            OutlinedButton(
+                                onClick = { sourceMenuOpen = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051-evidence-source-select"),
+                            ) {
+                                val selected = task.workspace.references.firstOrNull { it.id == evidenceSourceId }
+                                Text("Source: " + (selected?.let { it.label.ifBlank { it.url } }
+                                    ?: "None"), maxLines = 1)
+                            }
+                            DropdownMenu(
+                                expanded = sourceMenuOpen,
+                                onDismissRequest = { sourceMenuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("No source") },
+                                    onClick = { evidenceSourceId = ""; sourceMenuOpen = false },
+                                )
+                                task.workspace.references.forEach { source ->
+                                    DropdownMenuItem(
+                                        text = { Text(source.label.ifBlank { source.url }, maxLines = 2) },
+                                        onClick = { evidenceSourceId = source.id; sourceMenuOpen = false },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (task.workspace.assets.isNotEmpty()) {
+                        Box {
+                            OutlinedButton(
+                                onClick = { assetMenuOpen = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .testTag("ux051-evidence-asset-select"),
+                            ) {
+                                val selected = task.workspace.assets.firstOrNull { it.id == evidenceAssetId }
+                                Text("Asset: " + (selected?.let { it.label.ifBlank { it.location } }
+                                    ?: "None"), maxLines = 1)
+                            }
+                            DropdownMenu(
+                                expanded = assetMenuOpen,
+                                onDismissRequest = { assetMenuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("No asset") },
+                                    onClick = { evidenceAssetId = ""; assetMenuOpen = false },
+                                )
+                                task.workspace.assets.forEach { asset ->
+                                    DropdownMenuItem(
+                                        text = { Text(asset.label.ifBlank { asset.location }, maxLines = 2) },
+                                        onClick = { evidenceAssetId = asset.id; assetMenuOpen = false },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!task.workspace.scriptStudio?.beats.isNullOrEmpty()) {
+                    Spacer(Modifier.height(7.dp))
+                    Box {
+                        OutlinedButton(
+                            onClick = { beatMenuOpen = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("ux051c-evidence-script-beat"),
+                        ) {
+                            val selectedBeat = task.workspace.scriptStudio?.beats?.firstOrNull {
+                                it.id == evidenceBeatId
+                            }
+                            Text(
+                                "Narration beat: " + (selectedBeat?.let { beat ->
+                                    beat.label.ifBlank { beat.purpose.ifBlank { "Untitled beat" } }
+                                } ?: "None"),
+                                maxLines = 1,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = beatMenuOpen,
+                            onDismissRequest = { beatMenuOpen = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("No linked beat") },
+                                onClick = { evidenceBeatId = ""; beatMenuOpen = false },
+                            )
+                            task.workspace.scriptStudio?.beats.orEmpty().forEach { beat ->
+                                DropdownMenuItem(
+                                    text = { Text(beat.label.ifBlank {
+                                        beat.purpose.ifBlank { "Untitled beat" }
+                                    }, maxLines = 2) },
+                                    onClick = { evidenceBeatId = beat.id; beatMenuOpen = false },
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        "This links to the saved Script Studio beat; narration is never duplicated.",
+                        color = MutedText, fontSize = 11.sp,
+                    )
+                }
                 TextButton(
                     onClick = {
                         if (claim.isNotBlank()) {
-                            evidence = evidence + CreatorStageEvidence(
-                                id = UUID.randomUUID().toString(),
-                                claim = claim.trim(), timecode = timecode.trim(),
-                            )
+                            val old = evidence.firstOrNull { it.id == editingEvidenceId }
+                            val referenceId = evidenceSourceId.takeIf { selected ->
+                                task.workspace.references.any { it.id == selected } ||
+                                    (old != null && old.referenceId == selected)
+                            }.orEmpty()
+                            val assetId = evidenceAssetId.takeIf { selected ->
+                                task.workspace.assets.any { it.id == selected } ||
+                                    (old != null && old.assetId == selected)
+                            }.orEmpty()
+                            val scriptBeatId = evidenceBeatId.takeIf { selected ->
+                                task.workspace.scriptStudio?.beats.orEmpty().any { it.id == selected } ||
+                                    (old != null && old.scriptBeatId == selected)
+                            }.orEmpty()
+                            if (old != null) {
+                                evidence = evidence.map { record ->
+                                    if (record.id == old.id) record.copy(
+                                        claim = claim.trim(), timecode = timecode.trim(),
+                                        referenceId = referenceId, assetId = assetId,
+                                        scriptBeatId = scriptBeatId,
+                                    ) else record
+                                }
+                            } else if (editingEvidenceId.isBlank()) {
+                                evidence = evidence + CreatorStageEvidence(
+                                    id = UUID.randomUUID().toString(),
+                                    claim = claim.trim(), timecode = timecode.trim(),
+                                    referenceId = referenceId, assetId = assetId,
+                                    scriptBeatId = scriptBeatId,
+                                )
+                            }
+                            editingEvidenceId = ""
                             claim = ""; timecode = ""
+                            evidenceSourceId = ""; evidenceAssetId = ""; evidenceBeatId = ""
                         }
                     },
-                    enabled = claim.isNotBlank(),
-                ) { Text("ADD EVIDENCE", color = RecRed) }
+                    enabled = claim.isNotBlank() &&
+                        (editingEvidenceId.isBlank() || evidence.any { it.id == editingEvidenceId }),
+                ) {
+                    Text(if (editingEvidenceId.isNotBlank()) "UPDATE EVIDENCE DRAFT"
+                        else "ADD EVIDENCE", color = RecRed)
+                }
+                if (editingEvidenceId.isNotBlank()) {
+                    Text("Save Stage Work below to persist the edited evidence.",
+                        color = MutedText, fontSize = 11.sp)
+                }
             }
             Spacer(Modifier.height(20.dp))
 
             Text("LINKED SHARED MATERIALS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Shared sources and outputs are edited in Plan or Publish. Linking them here " +
+                    "does not duplicate media or move the workflow.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+            )
             Text("Links point to this project's materials, not copied media or guaranteed restored files.",
                 color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
             CW3MaterialLinks("Sources", task.workspace.references.map { it.id to it.label.ifBlank { it.url } },
@@ -318,6 +667,10 @@ internal fun CW3StageDesk(
             Spacer(Modifier.height(20.dp))
 
             Text("CREATIVE DECISIONS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            if (decisions.isEmpty()) Text(
+                "No decisions recorded for this stage yet.",
+                color = MutedText, fontSize = 11.sp,
+            )
             decisions.forEach { item ->
                 Text("• ${item.text}", color = ProjectorIvory, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
                     fontSize = 13.sp)
@@ -345,8 +698,15 @@ internal fun CW3StageDesk(
             if (editable) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
-                        checked = reviewedAt > 0L,
-                        onCheckedChange = { reviewedAt = if (it) System.currentTimeMillis() else 0L },
+                        checked = draft.reviewedAtMillis > 0L,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                reviewedContent = contentSnapshot()
+                                reviewedAt = System.currentTimeMillis()
+                            } else {
+                                reviewedAt = 0L
+                            }
+                        },
                     )
                     Text("Mark stage notes reviewed (does not complete the workflow)",
                         color = MutedText, modifier = Modifier.weight(1f), fontSize = 12.sp)
@@ -378,8 +738,15 @@ private fun CW3MaterialLinks(
 ) {
     Spacer(Modifier.height(8.dp))
     Text(label, color = ProjectorIvory, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+    val unavailable = selected.filterNot { id -> available.any { it.first == id } }
+    if (unavailable.isNotEmpty()) Text(
+        "${unavailable.size} previously linked item(s) are unavailable here. " +
+            "Their saved IDs are preserved for review; no automatic deletion.",
+        color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
+        modifier = Modifier.testTag("ux05-unavailable-linked-materials"),
+    )
     if (available.isEmpty()) {
-        Text("None yet. Add items through Plan or Publish from the project hub.",
+        Text("None currently available. Add project materials through Plan or Publish.",
             color = MutedText, fontSize = 11.sp)
         return
     }

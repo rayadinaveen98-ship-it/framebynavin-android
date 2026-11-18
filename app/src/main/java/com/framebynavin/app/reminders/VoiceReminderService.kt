@@ -119,7 +119,7 @@ class VoiceReminderService : Service() {
 
         val token = currentToken
         val generation = ++speechGeneration
-        repeatCount = task.voiceRepeatCount.coerceIn(1, 3)
+        repeatCount = V403VoiceRepeatPolicy.count(task.voiceRepeatCount)
         repeatIntervalMillis = task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L
         frozenSpeechText = buildSpeechText(task)
 
@@ -351,7 +351,7 @@ class VoiceReminderService : Service() {
     private fun acquireWakeLock(task: CreatorTask) {
         if (wakeLock?.isHeld == true) return
         val power = getSystemService(PowerManager::class.java)
-        val maxWindow = (totalWindowMillis(task) + 10_000L).coerceAtMost(310_000L)
+        val maxWindow = totalWindowMillis(task) + 10_000L
         wakeLock = power.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "Backlot:VoiceReminder",
@@ -401,8 +401,6 @@ class VoiceReminderService : Service() {
 
     companion object {
         private const val EXTRA_FORCE_RESTART = "voice_force_restart"
-        private const val MAX_UTTERANCE_WINDOW_MILLIS = 45_000L
-        private const val STOP_GRACE_MILLIS = 15_000L
         @Volatile private var activeInstance: WeakReference<VoiceReminderService>? = null
 
         fun start(
@@ -435,13 +433,10 @@ class VoiceReminderService : Service() {
         fun notificationId(taskId: String): Int = taskId.hashCode() xor 0x5600
 
         fun totalWindowMillis(task: CreatorTask): Long {
-            val count = task.voiceRepeatCount.coerceIn(1, 3)
-            val interval = task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L
-            return (
-                count * MAX_UTTERANCE_WINDOW_MILLIS +
-                    (count - 1) * interval +
-                    STOP_GRACE_MILLIS
-                ).coerceAtMost(300_000L)
+            return V403VoiceRepeatPolicy.creatorWatchdogMillis(
+                task.voiceRepeatCount,
+                task.voiceRepeatIntervalSeconds,
+            )
         }
     }
 }

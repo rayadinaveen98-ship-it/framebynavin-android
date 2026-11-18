@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import java.time.LocalDate
 import java.time.LocalTime
+import com.framebynavin.app.reminders.ReminderMusicMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -31,16 +32,26 @@ internal class Phase1HabitManagementCoordinator(
         alertTime: LocalTime?,
         alertKind: Phase1HabitAlertKind?,
         completionMode: Phase1HabitCompletionMode,
+        voiceMusicMode: ReminderMusicMode = before.voiceMusicMode,
+        voiceMusicUri: String = before.voiceMusicUri,
+        voiceRepeatCount: Int = before.voiceRepeatCount,
+        voiceRepeatGapMillis: Long = before.voiceRepeatGapMillis,
     ): Phase1HabitManagementOutcome = withContext(Dispatchers.IO) {
         val records = store.editReviewed(
-            before.id, before, activity, startDate, alertTime, alertKind, completionMode)
+            before.id, before, activity, startDate, alertTime, alertKind, completionMode,
+            voiceMusicMode, voiceMusicUri, voiceRepeatCount, voiceRepeatGapMillis)
         val after = records.first { it.id == before.id }
         Phase1HabitManagementOutcome(records,
             cleanupAfterSave(before, shouldDismissPosted =
                 before.activity != after.activity ||
                 before.alertTime != after.alertTime ||
                 before.alertKind != after.alertKind ||
-                before.startDate != after.startDate))
+                before.startDate != after.startDate ||
+                (before.alertKind == Phase1HabitAlertKind.VOICE &&
+                    (before.voiceMusicMode != after.voiceMusicMode ||
+                     before.voiceMusicUri != after.voiceMusicUri ||
+                     before.voiceRepeatCount != after.voiceRepeatCount ||
+                     before.voiceRepeatGapMillis != after.voiceRepeatGapMillis))))
     }
 
     suspend fun archive(

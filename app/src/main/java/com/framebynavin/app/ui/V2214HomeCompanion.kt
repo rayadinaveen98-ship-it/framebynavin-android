@@ -105,6 +105,12 @@ internal fun V2214HomeCompanion(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onOpenGallery: () -> Unit = {},
+    onOpenProfile: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenSpaces: () -> Unit = {},
+    onOpenWeeklyFocus: () -> Unit = {},
+    onOpenCreatorReminders: () -> Unit = onOpenReminders,
+    onOpenPersonalReminders: () -> Unit = onOpenPersonal,
 ) {
     val context = LocalContext.current
     val store = remember(context) { V221CompanionDismissalStore(context.applicationContext) }
@@ -244,6 +250,14 @@ internal fun V2214HomeCompanion(
             sheetOpen = true
         },
         onOpenGallery = onOpenGallery,
+        onOpenProfile = onOpenProfile,
+        onOpenSettings = onOpenSettings,
+        onOpenSpaces = onOpenSpaces,
+        onOpenWeeklyFocus = onOpenWeeklyFocus,
+        onOpenCreatorReminders = onOpenCreatorReminders,
+        onOpenPersonalReminders = onOpenPersonalReminders,
+        activityPreview = activityFeed.firstOrNull { it.bucket == V306ActivityBucket.NEEDS_ACTION },
+        showWorkspaceActions = true,
         modifier = modifier,
     )
 

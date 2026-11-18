@@ -61,7 +61,7 @@ internal fun V20InsightsDrilldownDialog(
             modifier = Modifier.fillMaxWidth().fillMaxHeight(.86f),
             shape = RoundedCornerShape(26.dp),
             color = CinemaBlack,
-            border = BorderStroke(1.dp, CinemaLine),
+            border = BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Column(
                 Modifier.fillMaxSize()
@@ -100,7 +100,7 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
             Modifier.weight(1f))
     }
     Spacer(Modifier.height(8.dp))
-    Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(
             change?.let { "${if (it > 0) "+" else ""}$it%" } ?: "Comparison unavailable",
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -131,7 +131,7 @@ private fun V20MetricDetail(snapshot: YouTubeAnalyticsSnapshot, kind: V20Insight
             modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp),
             shape = RoundedCornerShape(15.dp),
             color = CinemaSurface,
-            border = BorderStroke(1.dp, CinemaLine),
+            border = BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("#${index + 1}", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
@@ -230,7 +230,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
     }
 
     Spacer(Modifier.height(9.dp))
-    Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(shape = RoundedCornerShape(14.dp), color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(
             if (report.momentum == YouTubePulseMomentum.CORRECTION)
                 "Counter correction ${v20Signed(report.counterAdjustment)}"
@@ -268,7 +268,7 @@ private fun V20Pulse24HourEvidence(report: YouTube24HourReport?) {
                 modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
                 shape = RoundedCornerShape(14.dp),
                 color = CinemaSurface,
-                border = BorderStroke(1.dp, CinemaLine),
+                border = BacklotUX10Tokens.quietBorder(CinemaLine),
             ) {
                 Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("#${index + 1}", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black)
@@ -351,7 +351,7 @@ private fun V20ChannelContextEvidence(snapshot: YouTubeAnalyticsSnapshot) {
 
 @Composable
 private fun V20EvidenceNote(title: String, body: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             Text(title, color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
             Spacer(Modifier.height(4.dp))
@@ -362,7 +362,7 @@ private fun V20EvidenceNote(title: String, body: String) {
 
 @Composable
 private fun V20DetailMetric(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(15.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(modifier, RoundedCornerShape(15.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(12.dp)) {
             Text(label, color = MutedText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
             Spacer(Modifier.height(3.dp))
@@ -388,7 +388,7 @@ private fun V20InteractiveTrendChart(snapshot: YouTubeAnalyticsSnapshot, kind: V
         else -> RecRed
     }
 
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

@@ -1,6 +1,8 @@
 package com.framebynavin.app.personal
 
 import java.time.Instant
+import com.framebynavin.app.reminders.ReminderMusicChoice
+import com.framebynavin.app.reminders.ReminderMusicMode
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -33,6 +35,13 @@ internal data class Phase1HabitChallenge(
     val snoozedUntil: Instant? = null,
     /** Appended for compatibility with existing positional constructors and copies. */
     val archived: Boolean = false,
+    /** UX06D: appended, local-only Voice styling. Old v1/v2 challenge records
+     * decode to OFF / 3 repeats / 5s rather than silently gaining music.
+     * Non-VOICE alerts never play these options. */
+    val voiceMusicMode: ReminderMusicMode = ReminderMusicMode.OFF,
+    val voiceMusicUri: String = "",
+    val voiceRepeatCount: Int = 3,
+    val voiceRepeatGapMillis: Long = 5_000L,
 ) {
     fun checked(): Phase1HabitChallenge {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,100}"))) { "Invalid challenge identity" }
@@ -43,6 +52,13 @@ internal data class Phase1HabitChallenge(
         ZoneId.of(zoneId)
         require((alertTime == null) == (alertKind == null)) {
             "An alert requires both an alert time and a mode"
+        }
+        ReminderMusicChoice(voiceMusicMode, voiceMusicUri).checked()
+        require(voiceRepeatCount in 1..5) {
+            "Challenge Voice announcement count must be 1–5"
+        }
+        require(voiceRepeatGapMillis in setOf(5_000L, 10_000L, 15_000L, 30_000L, 60_000L)) {
+            "Challenge Voice spacing must be 5, 10, 15, 30 or 60 seconds"
         }
         val zone = ZoneId.of(zoneId)
         require(confirmations.size <= 21) { "Too many daily confirmations" }

@@ -134,7 +134,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
         modifier = Modifier.fillMaxSize().testTag("v297-challenges-screen"),
         color = CinemaSurfaceRaised,
     ) {
-        Column(Modifier.fillMaxSize().padding(18.dp),
+        Column(Modifier.fillMaxSize().padding(BacklotUX10Tokens.pageGutter),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = goBack, modifier = Modifier.testTag("v297-back")) {
@@ -160,7 +160,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                     if (!createOpen) {
                         Button(onClick = { newTitle = ""; newStart = LocalDate.now().toString(); createOpen = true },
                             enabled = !busy,
-                            modifier = Modifier.fillMaxWidth().testTag("v297-create-open")) {
+                            modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v297-create-open")) {
                             Text("CREATE 21-DAY CHALLENGE")
                         }
                     } else {
@@ -191,7 +191,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                                     color = MutedText, fontSize = 12.sp)
                                 Button(
                                     enabled = !busy && newTitle.isNotBlank(),
-                                    modifier = Modifier.fillMaxWidth().testTag("v297-create-save"),
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v297-create-save"),
                                     onClick = {
                                         val plan = V297Challenge(
                                             title = newTitle.trim(),
@@ -222,7 +222,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                             },
                             color = CinemaSurface,
                             shape = RoundedCornerShape(14.dp),
-                            border = BorderStroke(1.dp, CinemaLine),
+                            border = BacklotUX10Tokens.quietBorder(CinemaLine),
                             modifier = Modifier.fillMaxWidth().testTag("v297-plan-item"),
                         ) {
                             Row(Modifier.padding(14.dp),
@@ -270,19 +270,11 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                         progress = { selected.days.count { it.completedAtMillis != null } / 21f },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(onClick = { dayIndex-- }, enabled = dayIndex > 0,
-                            modifier = Modifier.testTag("v297-prev-day")) {
-                            Icon(Icons.Outlined.ChevronLeft, null)
-                            Text("PREVIOUS")
-                        }
-                        OutlinedButton(onClick = { dayIndex++ }, enabled = dayIndex < 20,
-                            modifier = Modifier.testTag("v297-next-day")) {
-                            Text("NEXT")
-                            Icon(Icons.Outlined.ChevronRight, null)
-                        }
-                    }
+                    UX10DChallengeDayNavigation(
+                        dayIndex = dayIndex,
+                        onPrevious = { dayIndex-- },
+                        onNext = { dayIndex++ },
+                    )
                     OutlinedTextField(
                         value = dayActivity,
                         onValueChange = { dayActivity = it.take(500) },
@@ -299,7 +291,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                             val activity = dayActivity.trim()
                             write { store.update(selected.id) { it.editDay(dayIndex, activity) } }
                         },
-                        modifier = Modifier.fillMaxWidth().testTag("v297-save-activity"),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v297-save-activity"),
                     ) { Text("SAVE THIS DAY") }
                     if (day.completedAtMillis == null) {
                         OutlinedButton(
@@ -310,7 +302,7 @@ internal fun V297ChallengeScreen(onClose: () -> Unit) {
                                     it.markDone(dayIndex, System.currentTimeMillis())
                                 } }
                             },
-                            modifier = Modifier.fillMaxWidth().testTag("v297-mark-done"),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).testTag("v297-mark-done"),
                         ) { Text("MARK DAY COMPLETE") }
                     } else {
                         Text("Completed by you", color = MutedGold,

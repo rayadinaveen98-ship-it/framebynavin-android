@@ -91,7 +91,14 @@ class V2295PublishReadinessPolicyTest {
             id = "v2295", title = "Why silence works", platform = "YouTube",
             contentType = "Long-form", dueLabel = "This week", workspace = workspace,
         )
-        val hints = V2285WorkspaceFocusPolicy.hints(task)
+        // Stage-first focus opens Publish work during the actual Publish stage.
+        // Saved project and output statuses must remain unmodified.
+        val publishIndex = com.framebynavin.app.data.CreatorWorkflowEngine
+            .templateFor(task).stages.indexOfFirst { it.id == "published" }
+        assertTrue(publishIndex >= 0)
+        val hints = V2285WorkspaceFocusPolicy.hints(task.copy(
+            workflowStageIndex = publishIndex,
+        ))
         assertEquals(listOf("output"), hints.map { it.key })
         assertEquals(V2285WorkspaceDestination.PUBLISH, hints.single().destination)
         assertEquals(0L, task.workspace.revision)

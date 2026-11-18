@@ -2,9 +2,6 @@ package com.framebynavin.app.ui
 
 import android.content.Context
 import android.content.Intent
-import android.os.Handler
-import android.os.Looper
-import android.speech.tts.TextToSpeech
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -33,11 +30,9 @@ import com.framebynavin.app.BuildConfig
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.QuietHoursPolicy
 import com.framebynavin.app.reminders.V205NudgePausePolicy
-import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
 import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -75,8 +70,43 @@ internal fun V144SettingsHub(
 ) {
     val context = LocalContext.current
     var sectionName by rememberSaveable { mutableStateOf(V167SettingsSection.HOME.name) }
+    var searchedDirectlyToDetail by rememberSaveable { mutableStateOf(false) }
     val section = V167SettingsNavigationPolicy.fromSavedName(sectionName)
-    fun navigateBack() { sectionName = V167SettingsNavigationPolicy.parent(section).name }
+    fun navigateBack() {
+        sectionName = if (searchedDirectlyToDetail &&
+            section in listOf(
+                V167SettingsSection.APPEARANCE,
+                V167SettingsSection.REMINDER_SCENES,
+                V167SettingsSection.GUIDE,
+                V167SettingsSection.VOICE,
+            )
+        ) {
+            searchedDirectlyToDetail = false
+            V167SettingsSection.HOME.name
+        } else V167SettingsNavigationPolicy.parent(section).name
+    }
+    fun openSearchDestination(destination: V404SettingsDestination) {
+        searchedDirectlyToDetail = destination in setOf(
+            V404SettingsDestination.APPEARANCE,
+            V404SettingsDestination.REMINDER_SCENES,
+            V404SettingsDestination.COMPANION,
+            V404SettingsDestination.VOICE,
+        )
+        when (destination) {
+            V404SettingsDestination.ACCOUNT -> onProfile()
+            V404SettingsDestination.APPEARANCE -> sectionName = V167SettingsSection.APPEARANCE.name
+            V404SettingsDestination.REMINDER_SCENES -> sectionName = V167SettingsSection.REMINDER_SCENES.name
+            V404SettingsDestination.COMPANION -> sectionName = V167SettingsSection.GUIDE.name
+            V404SettingsDestination.VOICE -> sectionName = V167SettingsSection.VOICE.name
+            V404SettingsDestination.HOME_PHOTOS -> onOpenHomeSlideshow()
+            V404SettingsDestination.REMINDERS -> sectionName = V167SettingsSection.REMINDERS.name
+            V404SettingsDestination.PLANNING -> sectionName = V167SettingsSection.PLANNING.name
+            V404SettingsDestination.YOUTUBE -> onYouTube()
+            V404SettingsDestination.PRIVACY -> sectionName = V167SettingsSection.PRIVACY.name
+            V404SettingsDestination.ADVANCED -> sectionName = V167SettingsSection.ADVANCED.name
+            V404SettingsDestination.ABOUT -> sectionName = V167SettingsSection.ABOUT.name
+        }
+    }
     var confirmAutoPlan by remember { mutableStateOf(false) }
     var showExtraPermissions by rememberSaveable { mutableStateOf(false) }
     val permissionSummary = V169SettingsClarityPolicy.permissions(
@@ -105,18 +135,22 @@ internal fun V144SettingsHub(
                 batteryReady = batteryReady,
                 onClose = onClose,
                 onProfile = onProfile,
-                onOpen = { sectionName = it.name },
+                onOpen = {
+                    searchedDirectlyToDetail = false
+                    sectionName = it.name
+                },
+                onSearchDestination = ::openSearchDestination,
             )
 
             V167SettingsSection.PERSONALIZATION -> V144SettingsPage("APPEARANCE & SOUND", "Appearance & sound", ::navigateBack) {
-                V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
+                V144CategoryCard("Appearance", "Themes, icon, welcome animation and sound", Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
                 }
                 V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
                     onOpenHomeSlideshow()
                 }
-                V144CategoryCard("Reminder scenes", "Choose animated voice and alarm backgrounds", Icons.Outlined.Palette, MutedGold) {
-                    sectionName = V167SettingsSection.APPEARANCE.name
+                V144CategoryCard("Reminder scenes", "Choose animated voice and alarm backgrounds", Icons.Outlined.MovieFilter, MutedGold) {
+                    sectionName = V167SettingsSection.REMINDER_SCENES.name
                 }
                 V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
@@ -129,7 +163,16 @@ internal fun V144SettingsHub(
 
             V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
                 V127AppearanceSettings(showGuidePicker = false)
-                Spacer(Modifier.height(22.dp))
+            }
+
+            V167SettingsSection.REMINDER_SCENES -> V144SettingsPage(
+                "REMINDER SCENES", "Cinematic alert backgrounds", ::navigateBack,
+            ) {
+                V144SettingsNote(
+                    "Choose how Creator voice and alarm reminders look. " +
+                        "This changes visuals, not their timing, voice or delivery."
+                )
+                Spacer(Modifier.height(12.dp))
                 com.framebynavin.app.reminders.V391ReminderSceneSettings()
             }
 
@@ -156,7 +199,7 @@ internal fun V144SettingsHub(
                 V140VoiceStudioPicker(
                     selected = settings.defaultVoicePersona,
                     onSelected = onVoice,
-                    onPreview = { v144PreviewVoice(context, it) },
+                    onPreview = { V403VoicePreviewPlayer.play(context, it) },
                 )
                 Spacer(Modifier.height(16.dp))
                 V273ReminderMusicPicker(
@@ -178,7 +221,11 @@ internal fun V144SettingsHub(
                     title = permissionSummary.title,
                     subtitle = permissionSummary.explanation,
                     icon = if (notificationsReady) Icons.Outlined.CheckCircle else Icons.Outlined.NotificationsActive,
-                    accent = if (notificationsReady) SuccessGreen else MutedGold,
+                    accent = when {
+                        !notificationsReady -> RecRed
+                        permissionSummary.advancedMissing > 0 -> MutedGold
+                        else -> SuccessGreen
+                    },
                 )
                 Spacer(Modifier.height(10.dp))
                 V144PermissionRow("Allow notifications", notificationsReady, onNotifications)
@@ -187,8 +234,12 @@ internal fun V144SettingsHub(
                     modifier = Modifier.fillMaxWidth().testTag("v169-advanced-permissions"),
                 ) {
                     Text(
-                        if (showExtraPermissions) "HIDE ANDROID ALARM OPTIONS"
-                        else "MORE ANDROID OPTIONS · ${permissionSummary.advancedMissing} NEED ATTENTION",
+                        when {
+                            showExtraPermissions -> "HIDE ANDROID ALARM OPTIONS"
+                            permissionSummary.advancedMissing > 0 ->
+                                "MORE ANDROID OPTIONS · ${permissionSummary.advancedMissing} NEED ATTENTION"
+                            else -> "SHOW ANDROID ALARM OPTIONS"
+                        },
                         color = MutedGold, fontSize = 11.sp,
                     )
                 }
@@ -203,7 +254,10 @@ internal fun V144SettingsHub(
                 }
 
                 Spacer(Modifier.height(18.dp))
-                V144SectionTitle("REMINDER DEFAULTS", "Used for new reminders. Existing project choices stay saved.")
+                V144SectionTitle(
+                    "CREATOR REMINDER DEFAULTS",
+                    "Used for newly created projects. Personal reminder choices stay separate.",
+                )
                 Spacer(Modifier.height(10.dp))
                 Text("Snooze", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
@@ -225,7 +279,7 @@ internal fun V144SettingsHub(
                 Spacer(Modifier.height(9.dp))
                 Surface(
                     Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine),
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -260,7 +314,7 @@ internal fun V144SettingsHub(
                 V144SectionTitle("QUIET HOURS", "Quiet standard notifications during your rest time.")
                 Spacer(Modifier.height(9.dp))
                 Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface,
-                    border = BorderStroke(1.dp, CinemaLine)) {
+                    border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Column(Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -317,7 +371,7 @@ internal fun V144SettingsHub(
                 }
 
                 Spacer(Modifier.height(18.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Helpful project reminders", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
@@ -353,7 +407,7 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.PLANNING -> V144SettingsPage("PLANNING & CALENDAR", "Recurring planning and calendar sync", { sectionName = V167SettingsSection.HOME.name }) {
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(36.dp).background(MutedGold.copy(alpha = .11f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                             Icon(Icons.Outlined.AutoAwesome, null, tint = MutedGold, modifier = Modifier.size(19.dp))
@@ -421,12 +475,18 @@ internal fun V144SettingsHub(
                     accent = MutedGold,
                     onClick = { sectionName = V167SettingsSection.REMINDERS.name },
                 )
+                Spacer(Modifier.height(12.dp))
+                V144SettingsNote(
+                    "This page explains permissions and stored-data controls. " +
+                        "Cloud synchronization, backup recovery and account deletion are separate " +
+                        "systems; a full deletion or backup workflow is not offered here yet."
+                )
             }
 
             V167SettingsSection.ADVANCED -> V144SettingsPage("ADVANCED", "Device data controls", ::navigateBack) {
                 V144ActionCard(
                     title = "Start fresh on this phone",
-                    subtitle = "Erases local app data after confirmation. Cloud data stays.",
+                    subtitle = "Review a confirmed device-only reset. This does not delete cloud data.",
                     icon = Icons.Outlined.DeleteForever,
                     accent = RecRed,
                     onClick = { context.startActivity(Intent(context, FreshStartActivity::class.java)) },
@@ -436,13 +496,13 @@ internal fun V144SettingsHub(
             V167SettingsSection.ABOUT -> V144SettingsPage("ABOUT BACKLOT", "Version, help and guided setup", { sectionName = V167SettingsSection.HOME.name }) {
                 V144ActionCard(
                     title = "Show app tour",
-                    subtitle = "Home → Ideas → Projects → Insights → Quick Actions",
+                    subtitle = "Home → Ideas → Projects → Reminder Hub → Insights → Quick Actions",
                     icon = Icons.Outlined.School,
                     accent = MutedGold,
                     onClick = onReplayTour,
                 )
                 Spacer(Modifier.height(12.dp))
-                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(17.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Version", color = MutedText, fontSize = 10.sp)
                         Spacer(Modifier.weight(1f))
@@ -491,55 +551,140 @@ private fun V144SettingsHome(
     onClose: () -> Unit,
     onProfile: () -> Unit,
     onOpen: (V167SettingsSection) -> Unit,
+    onSearchDestination: (V404SettingsDestination) -> Unit,
 ) {
-    val reminderReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
+    var searchText by rememberSaveable { mutableStateOf("") }
+    val matches = remember(searchText) { V404SettingsIndex.search(searchText) }
+    val reminderSupport = when {
+        !notificationsReady -> "Notifications are off"
+        !preciseTimingReady || !fullScreenReady || !batteryReady ->
+            "Some advanced Android alert options need attention"
+        else -> null
+    }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp).padding(bottom = 28.dp),
+            .padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("BACKLOT", "Settings", onClose)
-        Spacer(Modifier.height(18.dp))
-        // One calm, accessible list instead of eight competing feature cards.
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = CinemaSurface,
-            border = BorderStroke(1.dp, CinemaLine),
-        ) {
-            Column {
-                V294QuietSettingRow("Account", Icons.Outlined.Person, onClick = onProfile)
-                V294QuietSettingsDivider()
-                V294QuietSettingRow("Appearance & sound", Icons.Outlined.Palette) {
-                    onOpen(V167SettingsSection.PERSONALIZATION)
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it.take(80) },
+            modifier = Modifier.fillMaxWidth().testTag("v404-settings-search"),
+            label = { Text("Find a setting") },
+            placeholder = { Text("Voice, theme, reminders…") },
+            leadingIcon = {
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = MutedGold)
+            },
+            trailingIcon = {
+                if (searchText.isNotEmpty()) {
+                    IconButton(onClick = { searchText = "" }) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Clear Settings search",
+                            tint = MutedText)
+                    }
                 }
-                V294QuietSettingsDivider()
-                V294QuietSettingRow(
-                    title = "Notifications & alarms",
-                    icon = Icons.Outlined.NotificationsActive,
-                    support = if (reminderReady) null else "Permissions need attention",
-                    isWarning = !reminderReady,
-                ) { onOpen(V167SettingsSection.REMINDERS) }
-                V294QuietSettingsDivider()
-                V294QuietSettingRow(
-                    title = "Planning & integrations",
-                    icon = Icons.Outlined.CalendarMonth,
-                    support = if (weeklyAutoPlanEnabled) "Weekly plan enabled" else null,
-                ) { onOpen(V167SettingsSection.PLANNING) }
-                V294QuietSettingsDivider()
-                V294QuietSettingRow("Privacy & permissions", Icons.Outlined.Shield) {
-                    onOpen(V167SettingsSection.PRIVACY)
-                }
-                V294QuietSettingsDivider()
-                V294QuietSettingRow("Help & about", Icons.Outlined.Info) {
-                    onOpen(V167SettingsSection.ABOUT)
-                }
-                V294QuietSettingsDivider()
-                V294QuietSettingRow("Advanced", Icons.Outlined.Tune) {
-                    onOpen(V167SettingsSection.ADVANCED)
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+        )
+        Spacer(Modifier.height(14.dp))
+
+        if (searchText.isNotBlank()) {
+            Text(
+                if (matches.isEmpty()) "NO MATCHES" else "SETTINGS MATCHES",
+                color = MutedGold, fontSize = 10.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+                modifier = Modifier.padding(start = 9.dp, bottom = 8.dp),
+            )
+            if (matches.isEmpty()) {
+                Text(
+                    "No settings match this search. Try 'voice', 'permissions', 'theme' or 'account'.",
+                    color = MutedText, fontSize = 13.sp, lineHeight = 19.sp,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp)
+                        .testTag("v404-settings-no-results"),
+                )
+            } else {
+                Column(Modifier.fillMaxWidth().testTag("v404-settings-results")) {
+                    matches.forEachIndexed { index, entry ->
+                        V294QuietSettingRow(
+                            title = entry.title,
+                            icon = Icons.Outlined.ChevronRight,
+                            support = entry.description,
+                            onClick = { onSearchDestination(entry.destination) },
+                        )
+                        if (index != matches.lastIndex) V294QuietSettingsDivider()
+                    }
                 }
             }
+        } else {
+            V404SettingsGroupLabel("ACCOUNT & PERSONALIZATION")
+            V294QuietSettingRow(
+                title = "Account & profile",
+                icon = Icons.Outlined.Person,
+                support = "Creator ID, Google sign-in and personal details",
+                onClick = onProfile,
+            )
+            V294QuietSettingsDivider()
+            V294QuietSettingRow(
+                title = "Appearance & sound",
+                icon = Icons.Outlined.Palette,
+                support = "Theme, welcome animation, companion and voice",
+            ) { onOpen(V167SettingsSection.PERSONALIZATION) }
+
+            Spacer(Modifier.height(13.dp))
+            V404SettingsGroupLabel("REMINDERS & PLANNING")
+            V294QuietSettingRow(
+                title = "Notifications & reminders",
+                icon = Icons.Outlined.NotificationsActive,
+                support = reminderSupport,
+                isWarning = !notificationsReady,
+            ) { onOpen(V167SettingsSection.REMINDERS) }
+            V294QuietSettingsDivider()
+            V294QuietSettingRow(
+                title = "Planning & integrations",
+                icon = Icons.Outlined.CalendarMonth,
+                support = if (weeklyAutoPlanEnabled) "Weekly Auto Plan is enabled" else "Weekly plan, automation and calendar",
+            ) { onOpen(V167SettingsSection.PLANNING) }
+
+            Spacer(Modifier.height(13.dp))
+            V404SettingsGroupLabel("PRIVACY & HELP")
+            V294QuietSettingRow(
+                title = "Privacy & data",
+                icon = Icons.Outlined.Shield,
+                support = "Permissions and stored-data information",
+            ) { onOpen(V167SettingsSection.PRIVACY) }
+            V294QuietSettingsDivider()
+            V294QuietSettingRow(
+                title = "Help & about",
+                icon = Icons.Outlined.Info,
+                support = "Guided tour and app version",
+            ) { onOpen(V167SettingsSection.ABOUT) }
+            V294QuietSettingsDivider()
+            V294QuietSettingRow(
+                title = "Advanced",
+                icon = Icons.Outlined.Tune,
+                support = "Review device-only data erasure",
+            ) { onOpen(V167SettingsSection.ADVANCED) }
+
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Your projects and reminders are not changed by opening Settings. " +
+                    "Device-level alarm permissions may affect delivery.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
+                modifier = Modifier.padding(horizontal = 9.dp),
+            )
         }
     }
+}
+
+@Composable
+private fun V404SettingsGroupLabel(title: String) {
+    Text(
+        title, color = MutedGold,
+        fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp,
+        modifier = Modifier.fillMaxWidth().padding(start = 9.dp, top = 5.dp, bottom = 5.dp),
+    )
 }
 
 @Composable
@@ -551,7 +696,7 @@ private fun V294QuietSettingRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -586,14 +731,14 @@ private fun V294QuietSettingRow(
 private fun V294QuietSettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = 52.dp, end = 14.dp),
-        thickness = 1.dp, color = CinemaLine,
+        thickness = 0.75.dp, color = CinemaLine.copy(alpha = 0.55f),
     )
 }
 
 @Composable
 private fun V144SettingsPage(kicker: String, title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader(kicker, title, onBack)
         Spacer(Modifier.height(18.dp))
@@ -608,7 +753,7 @@ private fun V144SettingsHeader(kicker: String, title: String, onBack: () -> Unit
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
             Text(kicker, color = MutedText, fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.6.sp)
-            Text(title, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -620,7 +765,7 @@ private fun V144CategoryCard(title: String, subtitle: String, icon: ImageVector,
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         shape = RoundedCornerShape(18.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = null,
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).background(accent.copy(alpha = .11f), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
@@ -660,11 +805,12 @@ private fun V144StatusCard(title: String, subtitle: String, icon: ImageVector, a
 @Composable
 private fun V144PermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
     Surface(
-        onClick = if (ready) ({}) else onClick,
+        onClick = onClick,
+        enabled = !ready,
         modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp),
         shape = RoundedCornerShape(15.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.WarningAmber, null, tint = if (ready) SuccessGreen else MutedGold, modifier = Modifier.size(18.dp))
@@ -683,21 +829,7 @@ private fun V144SectionTitle(title: String, subtitle: String) {
 
 @Composable
 private fun V144SettingsNote(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
-    }
-}
-
-private fun v144PreviewVoice(context: android.content.Context, persona: VoicePersona) {
-    var tts: TextToSpeech? = null
-    tts = TextToSpeech(context.applicationContext) { status ->
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.getDefault()
-            tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "v144-${persona.name}")
-            Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
-        } else {
-            tts?.shutdown()
-        }
     }
 }

@@ -90,11 +90,11 @@ internal fun V18CreatorOnboarding(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .imePadding()
-                .padding(horizontal = 22.dp, vertical = 18.dp),
+                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 18.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Backlot · Built for Creators", color = Color(0xFFB596F8), fontSize = 9.sp, letterSpacing = .5.sp, fontWeight = FontWeight.Bold)
+                    Text("Backlot · Built for Creators", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, letterSpacing = .5.sp, fontWeight = FontWeight.Bold)
                     Text("Tell us what you make", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 }
                 Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -279,17 +279,17 @@ internal fun V18CreatorOnboarding(
                             border = BorderStroke(1.dp, CinemaLine),
                         ) {
                             Column(Modifier.padding(14.dp)) {
-                                Text("YOUR CHOICES", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                                Text("YOUR CHOICES", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                                 Spacer(Modifier.height(5.dp))
                                 Text(primaryMode, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                if (secondaryModes.isNotEmpty()) Text("Also: ${secondaryModes.sorted().joinToString()}", color = MutedText, fontSize = 9.5.sp)
-                                Text(platforms.sorted().joinToString(), color = MutedText, fontSize = 9.5.sp)
-                                Text(if (styles.isEmpty()) "Production styles · Add later" else styles.sorted().joinToString(), color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
+                                if (secondaryModes.isNotEmpty()) Text("Also: ${secondaryModes.sorted().joinToString()}", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                                Text(platforms.sorted().joinToString(), color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                                Text(if (styles.isEmpty()) "Production styles · Add later" else styles.sorted().joinToString(), color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, lineHeight = 14.sp)
                                 Spacer(Modifier.height(5.dp))
-                                Text("Primary goal · $primaryGoal", color = MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                                Text("Primary goal · $primaryGoal", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                                 val secondary = selectedGoals - primaryGoal
-                                if (secondary.isNotEmpty()) Text("Also: ${secondary.sorted().joinToString()}", color = MutedText, fontSize = 9.5.sp)
-                                Text("$weeklyTarget / week", color = MutedText, fontSize = 9.5.sp)
+                                if (secondary.isNotEmpty()) Text("Also: ${secondary.sorted().joinToString()}", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                                Text("$weeklyTarget / week", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                             }
                         }
                     }
@@ -344,17 +344,18 @@ internal fun V18CreatorOnboarding(
 
 @Composable
 private fun V18OnboardingLabel(text: String) {
-    Text(text, color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+    Text(text, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
 }
 
 @Composable
 private fun V18OnboardingPermissionRow(label: String, ready: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = BacklotUX10Tokens.rowTarget).padding(bottom = 8.dp),
         shape = RoundedCornerShape(16.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, if (ready) SuccessGreen.copy(alpha = .45f) else CinemaLine),
+        border = if (ready) BacklotUX10Tokens.activeBorder(SuccessGreen)
+            else BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -365,7 +366,7 @@ private fun V18OnboardingPermissionRow(label: String, ready: Boolean, onClick: (
             )
             Spacer(Modifier.width(10.dp))
             Text(label, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text(if (ready) "READY" else "SET UP", color = if (ready) SuccessGreen else RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
         }
     }
 }

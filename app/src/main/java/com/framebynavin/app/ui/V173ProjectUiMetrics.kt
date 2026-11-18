@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.ui.theme.BacklotUX10Tokens
 
 /**
  * Backlot V173: shared minimum text and target sizes for the New Project wizard,
@@ -17,7 +18,7 @@ internal object V173ProjectUiMetrics {
     val reviewValueText: TextUnit = 13.sp
     val actionText: TextUnit = 13.sp
     val sectionHeadingText: TextUnit = 18.sp
-    val touchTarget: Dp = 48.dp
-    val actionMinHeight: Dp = 52.dp
+    val touchTarget: Dp = BacklotUX10Tokens.minimumTouchTarget
+    val actionMinHeight: Dp = BacklotUX10Tokens.rowTarget
     val reviewRowMinHeight: Dp = 62.dp
 }

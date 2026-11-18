@@ -315,7 +315,9 @@ class CreatorEditorDraftStore(context: Context) {
         }
         listOf(
             "Audience" to "audience", "Viewer problem" to "viewerProblem",
-            "Promise" to "promise", "Angle" to "angle", "Hook" to "hook",
+            "Promise" to "promise", "Angle" to "angle",
+            "Objective" to "objective", "Success criteria" to "successCriteria",
+            "Constraints" to "constraints", "Hook" to "hook",
             "Script" to "script", "Learnings" to "learnings",
         ).forEach { (title, key) -> field(title, root.optString(key)) }
         root.optJSONArray("references").objects().forEachIndexed { index, record ->
@@ -447,6 +449,9 @@ class CreatorEditorDraftStore(context: Context) {
         .put("viewerProblem", workspace.viewerProblem)
         .put("promise", workspace.promise)
         .put("angle", workspace.angle)
+        .put("objective", workspace.objective)
+        .put("successCriteria", workspace.successCriteria)
+        .put("constraints", workspace.constraints)
         .put("hook", workspace.hook)
         .put("script", workspace.script)
         .put("references", JSONArray().apply {
@@ -478,6 +483,9 @@ class CreatorEditorDraftStore(context: Context) {
         viewerProblem = root.optString("viewerProblem"),
         promise = root.optString("promise"),
         angle = root.optString("angle"),
+        objective = root.optString("objective"),
+        successCriteria = root.optString("successCriteria"),
+        constraints = root.optString("constraints"),
         hook = root.optString("hook"),
         script = root.optString("script"),
         references = root.optJSONArray("references").objects().mapNotNull { item ->

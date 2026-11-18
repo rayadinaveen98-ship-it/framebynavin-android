@@ -1,0 +1,183 @@
+name: Backlot Lab UX01-08 UX10 - isolated integration candidate
+
+on:
+  push:
+    branches:
+      - integration/backlot-lab-v337-ux01-08-10-20261118
+    paths:
+      - .github/workflows/backlot-lab-ux01-08-10-integration.yml
+      - tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
+      - app/**
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - stable/backlot-lab-v337-owner-tested-20261117
+    paths:
+      - .github/workflows/backlot-lab-ux01-08-10-integration.yml
+      - tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
+      - app/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-ux01-08-10-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  integrate-compile-qa:
+    name: Audit protected P0, compile, JVM, lint, package Lab candidate
+    if: (github.event_name == 'push' && github.ref_name == 'integration/backlot-lab-v337-ux01-08-10-20261118') || (github.event_name == 'pull_request' && github.head_ref == 'integration/backlot-lab-v337-ux01-08-10-20261118')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - name: Checkout private isolated candidate only
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: integration/backlot-lab-v337-ux01-08-10-20261118
+          persist-credentials: true
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Audit merged UX ancestry and Lab P0 without source writes
+        shell: bash
+        run: bash tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
+      - name: Enforce exclusive Lab packaging and no UX09 activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path('app/build.gradle.kts').read_text()
+          cloud = Path('app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt').read_text()
+          appcheck = Path('app/src/debug/java/com/framebynavin/app/CreatorAppCheck.kt').read_text()
+          assert 'if (backlotLabMode) "com.framebynavin.app.lab"' in gradle
+          assert 'providers.gradleProperty("backlotLab")' in gradle
+          assert 'vasleafrmsovdbdlrcsw.supabase.co' in cloud
+          assert 'BuildConfig.BACKLOT_LAB' in cloud
+          assert 'if (BuildConfig.BACKLOT_LAB) return' in appcheck
+          assert not Path('app/src/main/java/com/framebynavin/app/cloud/ux09rpc').exists()
+          assert not Path('supabase/lab_migrations').exists()
+          print('PASS: V337 Lab backend identity and UX09 isolation')
+          PY
+      - name: Compile app, Android tests, full JVM regressions and lint with all independent failures collected
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-reports/ux-integration
+          cat >> gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8
+          kotlin.compiler.execution.strategy=in-process
+          kotlin.daemon.jvmargs=-Xmx8g
+          org.gradle.workers.max=1
+          org.gradle.parallel=false
+          EOF
+          rm -rf app/build
+          # --continue runs independent tasks despite a failing task. This yields
+          # one complete failure inventory instead of repeated single-defect loops.
+          timeout --signal=TERM --kill-after=20s 100m gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            :app:testDebugUnitTest :app:lintDebug \
+            --continue -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee ci-reports/ux-integration/all-gates-build.log
+      - name: Verify standalone Lab APK, package name and expected signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$apk" | tee ci-reports/ux-integration/apk-badging.txt
+          grep -q "package: name='com.framebynavin.app.lab'" ci-reports/ux-integration/apk-badging.txt
+          grep -q "application-label:'Backlot Lab'" ci-reports/ux-integration/apk-badging.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" | tee ci-reports/ux-integration/apk-signer.txt
+          grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' ci-reports/ux-integration/apk-signer.txt
+          sha256sum "$apk" > ci-reports/ux-integration/apk-sha256.txt
+          # Android Gradle generates app/build/ HTML/XML with trailing spaces.
+          # Check tracked source only; generated artifacts are not source regressions.
+          git diff --check -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts .github/workflows tools/qa
+          git diff --cached --check -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts .github/workflows tools/qa
+          # No compilation or lint step may silently rewrite application sources.
+          if [ -n "$(git status --porcelain -- app/src)" ]; then
+            echo 'FAIL: Android source tree modified by build; review before QA'
+            git status --short -- app/src
+            exit 1
+          fi
+          echo 'PASS Lab identity, signer, source and full build. Founder physical certification still pending.'
+      - name: Record immutable candidate build source (never push or merge)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD | tee ci-reports/ux-integration/INTEGRATED-SOURCE-SHA.txt
+          echo 'QA source built and audited without changing any Git branch.'
+      - name: Upload exact APK and test logs, QA ONLY (NOT STABLE)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-UX01-08-UX10-INTEGRATED-QA-NOT-CERTIFIED
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            ci-reports/ux-integration/
+          retention-days: 14
+      - name: Preserve build failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-UX01-08-UX10-BLOCKERS
+          path: |
+            ci-reports/ux-integration/
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  android-15-smoke:
+    name: API35 isolated install and launch (not physical acceptance)
+    needs: integrate-compile-qa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-UX01-08-UX10-INTEGRATED-QA-NOT-CERTIFIED
+          path: integrated-apk
+      - name: Prepare APK for existing non-destructive Lab startup smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -lh integrated-apk/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p lab-candidate
+          cp integrated-apk/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
+          sudo chmod 666 /dev/kvm
+      - name: Execute Android 15 startup verification
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+      - name: Preserve Android 15 startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-UX01-08-UX10-Android15-Smoke
+          path: startup-smoke-evidence/
+          if-no-files-found: warn
+          retention-days: 14

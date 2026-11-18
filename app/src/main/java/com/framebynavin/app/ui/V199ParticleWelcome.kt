@@ -59,7 +59,7 @@ internal object V199WelcomeTimeline {
 }
 
 @Composable
-internal fun V199ParticleWelcome(onFinished: () -> Unit) {
+internal fun V199ParticleWelcome(onFinished: () -> Unit, playSound: Boolean = true) {
     val context = LocalContext.current.applicationContext
     val renderer = remember { V199ParticleWordRenderer() }
     val reducedMotion = remember {
@@ -71,9 +71,9 @@ internal fun V199ParticleWelcome(onFinished: () -> Unit) {
 
     LaunchedEffect(Unit) {
         // Audio is prepared before the visual clock, never used as a second timer.
-        val track = withContext(Dispatchers.Default) {
+        val track = if (playSound) withContext(Dispatchers.Default) {
             runCatching { V199WelcomeSound.prepare(context) }.getOrNull()
-        }
+        } else null
         val startedNs = SystemClock.elapsedRealtimeNanos()
         try {
             runCatching { track?.play() }

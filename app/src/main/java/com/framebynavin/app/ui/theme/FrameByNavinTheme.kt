@@ -156,17 +156,36 @@ private fun FrameTheme.supportedAppearance(): FrameTheme = when (this) {
     else -> FrameTheme.DIRECTORS_CUT
 }
 
+/**
+ * UX01: User-selectable branded opening styles.
+ * Keep stable stored ids; unrecognized values safely return to the existing Particle Signature.
+ */
+enum class V401WelcomeStyle(val displayName: String, val description: String) {
+    PARTICLE_SIGNATURE("Particle Signature", "The original colorful Backlot reveal"),
+    LIVING_FRAME("Living Frame", "An illuminated frame draws itself into view"),
+    PRISMATIC_BLOOM("Prismatic Bloom", "Soft spectral light converges on the identity"),
+    SPARK_FIRST_LIGHT("Spark's First Light", "Our approved Spark brings Backlot into the light");
+
+    companion object {
+        fun fromStored(value: String?): V401WelcomeStyle =
+            entries.firstOrNull { it.name == value } ?: PARTICLE_SIGNATURE
+    }
+}
+
 /** Visual preferences stay separate from creator/business settings. */
 object VisualExperiencePrefs {
     // Retain this private preference file id so existing installs keep their visual preference.
     private const val PREFS = "framebynavin_visual_experience"
     private const val KEY_THEME = "theme"
     private const val KEY_LAUNCH_SOUND = "launch_sound"
+    private const val KEY_WELCOME_STYLE = "welcome_style_v401"
     private var appContext: Context? = null
 
     var currentTheme by mutableStateOf(FrameTheme.DIRECTORS_CUT)
         private set
     var launchSoundEnabled by mutableStateOf(true)
+        private set
+    var welcomeStyle by mutableStateOf(V401WelcomeStyle.PARTICLE_SIGNATURE)
         private set
 
     fun initialize(context: Context) {
@@ -180,6 +199,11 @@ object VisualExperiencePrefs {
             prefs.edit().putString(KEY_THEME, currentTheme.name).apply()
         }
         launchSoundEnabled = prefs.getBoolean(KEY_LAUNCH_SOUND, true)
+        val storedWelcome = prefs.getString(KEY_WELCOME_STYLE, null)
+        welcomeStyle = V401WelcomeStyle.fromStored(storedWelcome)
+        if (storedWelcome != null && storedWelcome != welcomeStyle.name) {
+            prefs.edit().putString(KEY_WELCOME_STYLE, welcomeStyle.name).apply()
+        }
     }
 
     fun setTheme(theme: FrameTheme) {
@@ -191,6 +215,12 @@ object VisualExperiencePrefs {
     fun updateLaunchSound(enabled: Boolean) {
         launchSoundEnabled = enabled
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.putBoolean(KEY_LAUNCH_SOUND, enabled)?.apply()
+    }
+
+    fun updateWelcomeStyle(style: V401WelcomeStyle) {
+        welcomeStyle = style
+        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            ?.edit()?.putString(KEY_WELCOME_STYLE, style.name)?.apply()
     }
 
     val palette: FramePalette get() = currentTheme.palette
@@ -278,7 +308,22 @@ private fun themeTypography(profile: FrameThemeProfile): Typography {
         titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
         bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal),
         bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 19.sp, fontWeight = FontWeight.Normal),
+        bodySmall = TextStyle(
+            fontSize = BacklotUX10Tokens.supporting,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Normal,
+        ),
         labelLarge = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold),
+        labelMedium = TextStyle(
+            fontSize = BacklotUX10Tokens.supporting,
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.Medium,
+        ),
+        labelSmall = TextStyle(
+            fontSize = BacklotUX10Tokens.eyebrow,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.Medium,
+        ),
     )
 }
 

@@ -8,11 +8,11 @@ class V167SettingsNavigationPolicyTest {
     @Test fun homeHasSevenUniqueDestinations() {
         assertEquals(7, V167SettingsNavigationPolicy.homeSections.size)
         assertEquals(7, V167SettingsNavigationPolicy.homeSections.toSet().size)
-        assertEquals("Account", V167SettingsNavigationPolicy.homeSections.first())
+        assertEquals("Account & profile", V167SettingsNavigationPolicy.homeSections.first())
         assertEquals("Advanced", V167SettingsNavigationPolicy.homeSections.last())
         assertEquals(
-            listOf("Account", "Appearance & sound", "Notifications & alarms",
-                "Planning & integrations", "Privacy & permissions",
+            listOf("Account & profile", "Appearance & sound", "Notifications & reminders",
+                "Planning & integrations", "Privacy & data",
                 "Help & about", "Advanced"),
             V167SettingsNavigationPolicy.homeSections,
         )

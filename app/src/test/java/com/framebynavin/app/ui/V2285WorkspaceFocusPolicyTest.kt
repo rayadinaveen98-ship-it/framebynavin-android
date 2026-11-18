@@ -23,7 +23,7 @@ class V2285WorkspaceFocusPolicyTest {
     @Test fun emptyProjectSuggestsActualSavedGapsWithoutChangingProgress() {
         val source = task()
         val result = V2285WorkspaceFocusPolicy.hints(source)
-        assertEquals(listOf("promise", "script"), result.map { it.key })
+        assertEquals(listOf("stage-start", "brief-essential"), result.map { it.key })
         assertEquals(0, source.progress)
         assertEquals(0L, source.workspace.revision)
         assertEquals(2, result.size)
@@ -36,7 +36,8 @@ class V2285WorkspaceFocusPolicyTest {
             checklist = listOf(CreatorChecklistItem(title = "Record", status = CreatorChecklistStatus.TODO)),
         )
         val result = V2285WorkspaceFocusPolicy.hints(task(ws))
-        assertEquals(listOf("checklist", "output"), result.map { it.key })
+        assertEquals(listOf("stage-start", "plan-tasks"), result.map { it.key })
+        assertEquals("PRODUCTION", result.last().planSection)
     }
 
     @Test fun hookAloneDoesNotPretendThatFullNarrativeIsWritten() {
@@ -45,8 +46,10 @@ class V2285WorkspaceFocusPolicyTest {
             hook = "What if sound disappeared?",
         )
         val hints = V2285WorkspaceFocusPolicy.hints(task(ws))
-        assertEquals("script", hints.first().key)
-        assertTrue(hints.first().title.contains("hook"))
+        assertEquals("stage-start", hints.first().key)
+        assertTrue(hints.any {
+            it.key == "script-next" && it.destination == V2285WorkspaceDestination.SCRIPT
+        })
     }
 
     @Test fun readyOrPublishedDeliverableIsNotFlaggedAsUnplanned() {
@@ -55,10 +58,14 @@ class V2285WorkspaceFocusPolicyTest {
             deliverables = listOf(CreatorDeliverable(platform = "YouTube",
                 format = "Long-form", status = CreatorDeliverableStatus.READY)),
         )
-        assertTrue(V2285WorkspaceFocusPolicy.hints(task(ws)).isEmpty())
+        // Stage-first guidance can still suggest working on the current stage;
+        // READY/PUBLISHED outputs must not be misrepresented as unplanned.
+        assertTrue(V2285WorkspaceFocusPolicy.hints(task(ws)).none {
+            it.key == "plan-output" || it.key == "stage-no-output"
+        })
         assertTrue(V2285WorkspaceFocusPolicy.hints(task(ws.copy(
             deliverables = ws.deliverables.map { it.copy(status = CreatorDeliverableStatus.PUBLISHED) },
-        ))).isEmpty())
+        ))).none { it.key == "plan-output" || it.key == "stage-no-output" })
     }
 
     @Test fun completedAndSkippedProjectsReceiveNoRequestsToWork() {

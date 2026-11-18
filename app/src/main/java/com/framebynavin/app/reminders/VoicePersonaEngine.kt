@@ -20,8 +20,8 @@ object VoicePersonaEngine {
             VoicePersona.WOMAN -> 1.04f to 0.95f
             VoicePersona.MAN -> 0.92f to 0.88f
             VoicePersona.YOUNG -> 1.07f to 0.98f
-            VoicePersona.FUNNY -> 1.13f to 1.03f
-            VoicePersona.CARTOON -> 1.22f to 1.06f
+            VoicePersona.FUNNY -> 1.17f to 1.08f
+            VoicePersona.CARTOON -> 1.25f to 1.10f
             VoicePersona.ALIEN -> 0.76f to 0.84f
             VoicePersona.ROBOT -> 0.86f to 0.80f
         }
@@ -51,9 +51,9 @@ object VoicePersonaEngine {
         VoicePersona.WARM -> "Calm, soft and steady"
         VoicePersona.WOMAN -> "Clean and conversational"
         VoicePersona.MAN -> "Lower, slower and grounded"
-        VoicePersona.YOUNG -> "Light, quick and energetic"
-        VoicePersona.FUNNY -> "Playful pace with extra lift"
-        VoicePersona.CARTOON -> "Bright, punchy character delivery"
+        VoicePersona.YOUNG -> "Upbeat, bright and encouraging"
+        VoicePersona.FUNNY -> "Witty, bouncy, friendly delivery"
+        VoicePersona.CARTOON -> "Big, theatrical character energy"
         VoicePersona.ALIEN -> "Low, strange transmission tone"
         VoicePersona.ROBOT -> "Measured synthetic-style delivery"
     }
@@ -62,9 +62,9 @@ object VoicePersonaEngine {
         VoicePersona.WARM -> "Backlot voice check. Calm, clear, and ready when you are."
         VoicePersona.WOMAN -> "Backlot voice check. Your next creative step is ready."
         VoicePersona.MAN -> "Backlot voice check. Focus on the next stage."
-        VoicePersona.YOUNG -> "Backlot voice check. Ready to make something great?"
-        VoicePersona.FUNNY -> "Hey creator. Backlot checking in. Your idea is not escaping today."
-        VoicePersona.CARTOON -> "Backlot calling! Your next creative mission is ready."
+        VoicePersona.YOUNG -> "Hey, Backlot here! Your next big idea is ready. Let's go!"
+        VoicePersona.FUNNY -> "Plot twist! Your reminder is ready. I brought the energy. You bring the ideas!"
+        VoicePersona.CARTOON -> "Attention, creative hero! Backlot has a mission. Ready, set, create!"
         VoicePersona.ALIEN -> "Backlot transmission received. Creative signal detected."
         VoicePersona.ROBOT -> "Backlot system check. Creator task detected. Ready."
     }
@@ -81,9 +81,9 @@ object VoicePersonaEngine {
             VoicePersona.WARM -> "Backlot. $title. This is your $urgency. Current stage: $stage."
             VoicePersona.WOMAN -> "Backlot check-in. $title. Your $urgency is ready. You are at $stage."
             VoicePersona.MAN -> "Backlot. Focus check. $title. $urgency. Current stage: $stage."
-            VoicePersona.YOUNG -> "Backlot reminder. $title. Time for your $urgency. You are on $stage."
-            VoicePersona.FUNNY -> "Hey creator, Backlot here. $title. Your $urgency is waiting. Stage: $stage."
-            VoicePersona.CARTOON -> "Backlot calling! $title. Time for your $urgency. Creative stage: $stage."
+            VoicePersona.YOUNG -> "Hey, it's Backlot! $title is ready. Time for your $urgency. You're at $stage!"
+            VoicePersona.FUNNY -> "Plot twist! $title needs its creator. It's $urgency time. You're on $stage. Let's roll!"
+            VoicePersona.CARTOON -> "Attention, creative hero! $title is calling. Your $urgency awaits. Next stop: $stage!"
             VoicePersona.ALIEN -> "Backlot transmission. Subject: $title. Signal priority: $urgency. Current stage: $stage."
             VoicePersona.ROBOT -> "Backlot reminder. Task: $title. Priority: $urgency. Stage: $stage."
         }
@@ -107,10 +107,10 @@ object VoicePersonaEngine {
             VoicePersona.WOMAN -> 1
             VoicePersona.MAN -> 2
             VoicePersona.YOUNG -> 3
-            VoicePersona.FUNNY -> 3
-            VoicePersona.CARTOON -> 3
-            VoicePersona.ALIEN -> 2
-            VoicePersona.ROBOT -> 2
+            VoicePersona.FUNNY -> 4
+            VoicePersona.CARTOON -> 5
+            VoicePersona.ALIEN -> 6
+            VoicePersona.ROBOT -> 7
         }
         val voice = voices[requestedIndex.coerceAtMost(voices.lastIndex)]
         runCatching { tts.voice = voice }

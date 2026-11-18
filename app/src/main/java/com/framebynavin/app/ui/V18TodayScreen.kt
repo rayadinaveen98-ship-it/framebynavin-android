@@ -105,6 +105,8 @@ internal fun PTodayScreen(
     // actual route into the original Personal Spaces owner workspace.
     onOpenPersonalSpace: ((String?) -> Unit)? = null,
     homeSpacesRevision: Int = 0,
+    homeGreetingName: String? = null,
+    weeklyFocusRequestNonce: Long = 0L,
 ) {
     // V222 pre-Play cold-start fix: CreatorViewModel.tasks is a mutableStateListOf.
     // The list object keeps its identity while DataStore loads projects into it,
@@ -143,11 +145,15 @@ internal fun PTodayScreen(
     }
     val haptics = LocalHapticFeedback.current
     var showWeeklyFocus by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(weeklyFocusRequestNonce) {
+        if (weeklyFocusRequestNonce > 0L) showWeeklyFocus = true
+    }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(RecRed.copy(alpha = .055f), CinemaBlack), radius = 980f))) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp).padding(bottom = bottomNavigationClearance)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = bottomNavigationClearance)) {
             V18CinematicHomeHero(
-                creatorName = creatorProfile.safeDisplayName,
+                creatorName = homeGreetingName?.trim()?.takeIf { it.isNotBlank() }
+                    ?: creatorProfile.safeDisplayName,
                 openEditorNonce = homeSlideshowRequestNonce,
                 onEditorRequestHandled = onHomeSlideshowRequestHandled,
                 companionAvatar = companionAvatar,
@@ -190,11 +196,11 @@ internal fun PTodayScreen(
                 )
             } else {
                 Row(Modifier.fillMaxWidth().testTag("v215-up-next-header"), verticalAlignment = Alignment.CenterVertically) {
-                    Text("UP NEXT", color = RecRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                    Text("UP NEXT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                     Spacer(Modifier.width(8.dp))
-                    Text("${index + 1} / ${queue.size}", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${index + 1} / ${queue.size}", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.weight(1f))
-                    if (queue.size > 1) Text("SWIPE", color = MutedText, fontSize = 8.sp, letterSpacing = 1.sp)
+                    if (queue.size > 1) Text("SWIPE", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, letterSpacing = 1.sp)
                 }
                 Spacer(Modifier.height(8.dp))
 
@@ -232,42 +238,14 @@ internal fun PTodayScreen(
                 // Phase 3F: at 2x system text scaling the old fixed 50dp CTA
                 // silently clipped "WORK". Preserve a complete visible label
                 // and a descriptive screen-reader action without changing routing.
-                val largeActionText = LocalDensity.current.fontScale >= 1.6f
-                val actionHeight = if (largeActionText) 76.dp else 50.dp
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { onContinueWork(selected.id) },
-                        modifier = Modifier.weight(1.35f).height(actionHeight)
-                            .testTag("phase3-home-continue")
-                            .semantics { contentDescription = "Continue work on ${selected.title}" },
-                        colors = ButtonDefaults.buttonColors(containerColor = RecRed),
-                        shape = RoundedCornerShape(15.dp),
-                    ) {
-                        Icon(Icons.Outlined.ArrowForward, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            if (largeActionText) "CONTINUE\nWORK" else "CONTINUE WORK",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 10.sp,
-                            lineHeight = 12.sp,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onFocus(selected.id)
-                        },
-                        modifier = Modifier.weight(1f).height(actionHeight).testTag("phase3-home-focus"),
-                        border = BorderStroke(1.dp, CinemaLine),
-                        shape = RoundedCornerShape(15.dp),
-                    ) {
-                        Icon(Icons.Outlined.Timer, null, modifier = Modifier.size(17.dp), tint = ProjectorIvory)
-                        Spacer(Modifier.width(4.dp))
-                        Text("FOCUS", color = ProjectorIvory, fontWeight = FontWeight.Black, fontSize = 10.sp)
-                    }
-                }
+                UX10BHomeProjectActions(
+                    projectTitle = selected.title,
+                    onContinue = { onContinueWork(selected.id) },
+                    onFocus = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onFocus(selected.id)
+                    },
+                )
             }
 
             // V219: Real reminder state is now reachable immediately after
@@ -329,12 +307,12 @@ private fun V18CreatorFocusCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MutedGold.copy(alpha = .06f),
-        border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
+        border = BacklotUX10Tokens.quietBorder(MutedGold, alpha = 0.36f),
     ) {
         Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("WEEKLY FOCUS", color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text("WEEKLY FOCUS", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(2.dp))
                     Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -387,7 +365,7 @@ private fun V20WeeklyFocusDialog(
             Column(Modifier.verticalScroll(rememberScrollState()).padding(19.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("WEEKLY FOCUS", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("WEEKLY FOCUS", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 20.sp, fontWeight = FontWeight.Black)
                     }
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory) }
@@ -395,7 +373,7 @@ private fun V20WeeklyFocusDialog(
                 Spacer(Modifier.height(12.dp))
                 Surface(shape = RoundedCornerShape(18.dp), color = MutedGold.copy(alpha = .07f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .25f))) {
                     Column(Modifier.padding(14.dp)) {
-                        Text("POSTS THIS WEEK", color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        Text("POSTS THIS WEEK", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
                         Text("${personalization.publishedThisWeek} / ${personalization.weeklyTarget}", color = if (personalization.publishedThisWeek >= personalization.weeklyTarget) SuccessGreen else MutedGold, fontSize = 28.sp, fontWeight = FontWeight.Black)
                         Text(
@@ -405,7 +383,7 @@ private fun V20WeeklyFocusDialog(
                                 else -> "${personalization.weeklyTarget - personalization.publishedThisWeek} publish${if (personalization.weeklyTarget - personalization.publishedThisWeek == 1) "" else "es"} remaining"
                             },
                             color = MutedText,
-                            fontSize = 9.5.sp,
+                            fontSize = BacklotUX10Tokens.eyebrow,
                         )
                     }
                 }
@@ -414,7 +392,7 @@ private fun V20WeeklyFocusDialog(
                 Text("FINISHED THIS WEEK", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 if (published.isEmpty()) {
-                    Text("No posts yet this week.", color = MutedText, fontSize = 9.5.sp)
+                    Text("No posts yet this week.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                 } else published.forEach { task ->
                     Surface(
                         onClick = { if (task.archivedAtMillis <= 0L) onOpenProject(task.id) },
@@ -429,7 +407,7 @@ private fun V20WeeklyFocusDialog(
                             Spacer(Modifier.width(9.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(task.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${task.platform} · ${task.contentType}${if (task.archivedAtMillis > 0L) " · Archived" else ""}", color = MutedText, fontSize = 8.5.sp)
+                                Text("${task.platform} · ${task.contentType}${if (task.archivedAtMillis > 0L) " · Archived" else ""}", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                             }
                             if (task.archivedAtMillis <= 0L) Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(17.dp))
                         }
@@ -452,9 +430,9 @@ private fun V20WeeklyFocusDialog(
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(task.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("${pulse.currentStage.label} · ${CreatorWorkflowEngine.progress(task)}%", color = MutedText, fontSize = 8.5.sp)
+                                    Text("${pulse.currentStage.label} · ${CreatorWorkflowEngine.progress(task)}%", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                                 }
-                                Text(pulse.stateLabel, color = if (pulse.state in setOf(ProjectPulseState.OVERDUE, ProjectPulseState.NEEDS_ATTENTION)) RecRed else MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                Text(pulse.stateLabel, color = if (pulse.state in setOf(ProjectPulseState.OVERDUE, ProjectPulseState.NEEDS_ATTENTION)) RecRed else MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -481,10 +459,10 @@ private fun PTodayProjectCard(task: CreatorTask, nowMillis: Long, onClick: () ->
         Column(Modifier.padding(19.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = RoundedCornerShape(100.dp), color = if (overdue) RecRed.copy(alpha = .14f) else CinemaSurfaceRaised) {
-                    Text(due.dueLabel, color = if (overdue) RecRed else MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
+                    Text(due.dueLabel, color = if (overdue) RecRed else MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), maxLines = 1)
                 }
                 Spacer(Modifier.weight(1f))
-                Text(stage.label.uppercase(), color = ProjectorIvory, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                Text(stage.label.uppercase(), color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(13.dp))
             Text(task.title, color = ProjectorIvory, fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Black, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -496,9 +474,9 @@ private fun PTodayProjectCard(task: CreatorTask, nowMillis: Long, onClick: () ->
             Row {
                 Text("$progress%", color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(6.dp))
-                Text("complete", color = MutedText, fontSize = 9.sp)
+                Text("complete", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                 Spacer(Modifier.weight(1f))
-                Text(if (task.status == TaskStatus.WORKING) "IN PROGRESS" else "READY", color = if (task.status == TaskStatus.WORKING) MutedGold else MutedText, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text(if (task.status == TaskStatus.WORKING) "IN PROGRESS" else "READY", color = if (task.status == TaskStatus.WORKING) MutedGold else MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -526,9 +504,9 @@ private fun PNextMoveCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // V220.2: Up Next identifies the project; this is the next
                 // recommended move, not another "UP NEXT" section.
-                Text("NEXT MOVE", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                Text("NEXT MOVE", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                 Spacer(Modifier.weight(1f))
-                Text(recommendation.urgencyLabel, color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Text(recommendation.urgencyLabel, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Spacer(Modifier.width(5.dp))
                 Icon(
                     if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
@@ -545,7 +523,7 @@ private fun PNextMoveCard(
             if (!expanded) {
                 Spacer(Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("VIEW DETAILS", color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                    Text("VIEW DETAILS", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.width(2.dp))
                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(14.dp))
                 }
@@ -561,12 +539,12 @@ private fun PNextMoveCard(
                     Spacer(Modifier.height(13.dp))
                     HorizontalDivider(color = CinemaLine)
                     Spacer(Modifier.height(12.dp))
-                    Text("WHY THIS MOVE", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text("WHY THIS MOVE", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(5.dp))
-                    Text(recommendation.reason, color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp)
+                    Text(recommendation.reason, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, lineHeight = 14.sp)
 
                     Spacer(Modifier.height(12.dp))
-                    Text("SIGNALS", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text("SIGNALS", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(5.dp))
                     Text(
                         listOf(
@@ -576,7 +554,7 @@ private fun PNextMoveCard(
                             next?.let { "After this: ${it.label}" },
                         ).filterNotNull().joinToString(" · "),
                         color = MutedText,
-                        fontSize = 9.sp,
+                        fontSize = BacklotUX10Tokens.eyebrow,
                         lineHeight = 13.sp,
                     )
 
@@ -585,18 +563,18 @@ private fun PNextMoveCard(
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                            Text(task.priority.name, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                            Text(task.priority.name, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
                         }
                         next?.let {
                             Surface(shape = RoundedCornerShape(100.dp), color = CinemaSurface) {
-                                Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
+                                Text("NEXT · ${it.label.uppercase(Locale.getDefault())}", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp), maxLines = 1)
                             }
                         }
                     }
         
                     if (alternatives.isNotEmpty()) {
                         Spacer(Modifier.height(14.dp))
-                        Text("ALSO NOW", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                        Text("ALSO NOW", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                         Spacer(Modifier.height(6.dp))
                         alternatives.forEach { alternative ->
                             val alternativeRecommendation = HomeNextMovePolicy.summary(alternative, nowMillis)
@@ -611,10 +589,10 @@ private fun PNextMoveCard(
                                     Column(Modifier.weight(1f)) {
                                         Text(alternative.title, color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Spacer(Modifier.height(2.dp))
-                                        Text(alternativeRecommendation.action, color = MutedText, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(alternativeRecommendation.action, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     Spacer(Modifier.width(8.dp))
-                                    Text(alternativeRecommendation.urgencyLabel, color = MutedGold, fontSize = 7.5.sp, fontWeight = FontWeight.Black)
+                                    Text(alternativeRecommendation.urgencyLabel, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
                                     Spacer(Modifier.width(3.dp))
                                     Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(14.dp))
                                 }
@@ -626,7 +604,7 @@ private fun PNextMoveCard(
                         onClick = { expanded = false },
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     ) {
-                        Text("HIDE REASONING", color = MutedText, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        Text("HIDE REASONING", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(3.dp))
                         Icon(Icons.Outlined.ExpandLess, null, tint = MutedText, modifier = Modifier.size(14.dp))
                     }

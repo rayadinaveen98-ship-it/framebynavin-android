@@ -398,15 +398,15 @@ internal fun V11InsightsScreen(
             Modifier.fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = BacklotUX10Tokens.pageGutter)
                 .padding(bottom = bottomNavigationClearance),
         ) {
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                    Text("BACKLOT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
                     Text("Insights", color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
                 }
-                Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(42.dp)) {
+                Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine), modifier = Modifier.size(42.dp)) {
                     Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, "Create project", tint = ProjectorIvory, modifier = Modifier.size(20.dp)) }
                 }
             }
@@ -452,7 +452,7 @@ internal fun V11InsightsScreen(
                     // Keep its account controls visible, never display its numbers as
                     // though they belong to the newly requested reporting period.
                     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-                        color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+                        color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
                         Column(Modifier.padding(16.dp)) {
                             Text(if (syncing) "Updating ${windowDays}D" else "No ${windowDays}D data",
                                 color = ProjectorIvory, fontSize = 14.sp,
@@ -526,7 +526,7 @@ private fun YTProfileFocusCard(
         Column(Modifier.padding(15.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("YOUR CHANNEL", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+                    Text("YOUR CHANNEL", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
                     Spacer(Modifier.height(3.dp))
                     Text(profile.primaryGoal, color = ProjectorIvory, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                 }
@@ -548,7 +548,7 @@ private fun YTProfileFocusCard(
             Text(
                 "${profile.category} · ${personalization.platformSummary} · ${personalization.publishedThisWeek} / ${personalization.weeklyTarget} published this week",
                 color = MutedText,
-                fontSize = 8.7.sp,
+                fontSize = BacklotUX10Tokens.eyebrow,
                 lineHeight = 12.sp,
             )
         }
@@ -563,7 +563,7 @@ private fun YTConnectCard(
     sha1: String,
     onConnect: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(44.dp).background(RecRed.copy(alpha = .12f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
@@ -593,9 +593,9 @@ private fun YTConnectCard(
 private fun YTErrorCard(message: String, packageName: String, sha1: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), RecRed.copy(alpha = .07f), border = BorderStroke(1.dp, RecRed.copy(alpha = .35f))) {
         Column(Modifier.padding(13.dp)) {
-            Text("YOUTUBE CONNECTION", color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Text("YOUTUBE CONNECTION", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(4.dp))
-            Text(message, color = ProjectorIvory, fontSize = 9.5.sp, lineHeight = 14.sp)
+            Text(message, color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, lineHeight = 14.sp)
             Spacer(Modifier.height(8.dp))
         }
     }
@@ -611,7 +611,7 @@ private fun YTChannelHeader(
     onSwitchAccount: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(42.dp).background(RecRed.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
@@ -621,7 +621,7 @@ private fun YTChannelHeader(
                 Column(Modifier.weight(1f)) {
                     Text(data.channel.title, color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${ytCompact(data.channel.subscribers)} subscribers", color = MutedText, fontSize = 11.sp)
-                    if (syncing) Text("Updating…", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    if (syncing) Text("Updating…", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onSync, enabled = !syncing) {
                     if (syncing) CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = RecRed)
@@ -649,24 +649,40 @@ private fun YTChannelHeader(
 
 @Composable
 private fun YTMetrics(data: YouTubeAnalyticsSnapshot) {
-    Column {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            YTMetric("VIEWS", ytCompact(data.views), RecRed, Modifier.weight(1f))
-            YTMetric("WATCH TIME", ytWatch(data.watchMinutes), MutedGold, Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            YTMetric("NET SUBS", ytSigned(data.netSubscribers), if (data.netSubscribers >= 0) SuccessGreen else RecRed, Modifier.weight(1f))
-            YTMetric("AVG VIEW", ytDuration(data.averageViewDurationSeconds), ProjectorIvory, Modifier.weight(1f))
+    val columns = UX10FContinuityPolicy.metricColumns(
+        androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp,
+        androidx.compose.ui.platform.LocalDensity.current.fontScale,
+    )
+    // One source-backed list: reflow four real metrics without substituting
+    // zeros, changing the reporting period, or duplicating analytics reads.
+    val metrics = listOf(
+        Triple("VIEWS", ytCompact(data.views), RecRed),
+        Triple("WATCH TIME", ytWatch(data.watchMinutes), MutedGold),
+        Triple(
+            "NET SUBS", ytSigned(data.netSubscribers),
+            if (data.netSubscribers >= 0) SuccessGreen else RecRed,
+        ),
+        Triple("AVG VIEW", ytDuration(data.averageViewDurationSeconds), ProjectorIvory),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        metrics.chunked(columns).forEach { group ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                group.forEach { (label, value, accent) ->
+                    YTMetric(label, value, accent, Modifier.weight(1f))
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun YTMetric(label: String, value: String, accent: Color, modifier: Modifier) {
-    Surface(modifier, RoundedCornerShape(18.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(modifier, RoundedCornerShape(18.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(14.dp)) {
-            Text(label, color = MutedText, fontSize = 7.8.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+            Text(label, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
             Spacer(Modifier.height(5.dp))
             Text(value, color = accent, fontSize = 22.sp, fontWeight = FontWeight.Black)
         }
@@ -689,11 +705,11 @@ private fun YTSignalCard(data: YouTubeAnalyticsSnapshot) {
     }
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), MutedGold.copy(alpha = .06f), border = BorderStroke(1.dp, MutedGold.copy(alpha = .35f))) {
         Column(Modifier.padding(16.dp)) {
-            Text("WHAT TO WATCH", color = MutedGold, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("WHAT TO WATCH", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(7.dp))
             Text(bestSignal, color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, lineHeight = 16.sp)
             Spacer(Modifier.height(6.dp))
-            Text(subscriberSignal, color = MutedText, fontSize = 9.2.sp, lineHeight = 14.sp)
+            Text(subscriberSignal, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, lineHeight = 14.sp)
         }
     }
 }
@@ -702,13 +718,13 @@ private fun YTSignalCard(data: YouTubeAnalyticsSnapshot) {
 private fun YTTrendCard(data: YouTubeAnalyticsSnapshot) {
     val points = data.trend.takeLast(14)
     val max = points.maxOfOrNull { it.views }?.coerceAtLeast(1L) ?: 1L
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
             Text("VIEW TREND", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text("Last ${points.size} reported days", color = MutedText, fontSize = 8.5.sp)
+            Text("Last ${points.size} reported days", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
             Spacer(Modifier.height(14.dp))
             if (points.isEmpty()) {
-                Text("No daily trend returned yet.", color = MutedText, fontSize = 9.5.sp)
+                Text("No daily trend returned yet.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
             } else {
                 Row(Modifier.fillMaxWidth().height(58.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
                     points.forEach { point ->
@@ -724,7 +740,7 @@ private fun YTTrendCard(data: YouTubeAnalyticsSnapshot) {
 @Composable
 private fun YTTopVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>, links: Map<String, String>, onVideo: (YouTubeVideoSnapshot) -> Unit) {
     Text("TOP VIDEOS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Performance inside the finalized ${data.windowDays}-day Analytics window.", color = MutedText, fontSize = 9.sp)
+    Text("Performance inside the finalized ${data.windowDays}-day Analytics window.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
     Spacer(Modifier.height(9.dp))
     if (data.topVideos.isEmpty()) {
         YTEmpty("No video performance data yet.")
@@ -739,7 +755,7 @@ private fun YTTopVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>
 @Composable
 private fun YTRecentVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTask>, links: Map<String, String>, onVideo: (YouTubeVideoSnapshot) -> Unit) {
     Text("RECENT UPLOADS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Tap a video to connect it to the project that made it.", color = MutedText, fontSize = 9.sp)
+    Text("Tap a video to connect it to the project that made it.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
     Spacer(Modifier.height(9.dp))
     data.recentVideos.take(10).forEach { video ->
         val linked = tasks.firstOrNull { it.id == links[video.videoId] }
@@ -751,17 +767,17 @@ private fun YTRecentVideos(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTa
 private fun YTVideoRow(video: YouTubeVideoSnapshot, lead: String, linked: CreatorTask?, onVideo: (YouTubeVideoSnapshot) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(bottom = 7.dp).clickable { onVideo(video) },
-        shape = RoundedCornerShape(17.dp), color = CinemaSurface, border = BorderStroke(1.dp, CinemaLine),
+        shape = RoundedCornerShape(17.dp), color = CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(38.dp).background(RecRed.copy(alpha = .10f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
-                Text(lead, color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black)
+                Text(lead, color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(video.title, color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(3.dp))
-                Text("${ytCompact(video.periodViews)} views · ${ytWatch(video.watchMinutes)} · ${ytDuration(video.averageViewDurationSeconds)} avg", color = MutedText, fontSize = 8.3.sp)
+                Text("${ytCompact(video.periodViews)} views · ${ytWatch(video.watchMinutes)} · ${ytDuration(video.averageViewDurationSeconds)} avg", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                 Text(linked?.let { "Connected · ${it.title}" } ?: "Connect project", color = if (linked != null) MutedGold else RecRed, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MutedText, modifier = Modifier.size(18.dp))
@@ -778,20 +794,20 @@ private fun YTFormatSignal(data: YouTubeAnalyticsSnapshot, tasks: List<CreatorTa
         .map { (label, videos) -> Triple(label, videos.sumOf { it.periodViews }, videos.size) }
         .sortedByDescending { it.second }
 
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Column(Modifier.padding(16.dp)) {
             Text("WHAT'S WORKING", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text("Based on published videos you connect to projects.", color = MutedText, fontSize = 8.6.sp)
+            Text("Based on published videos you connect to projects.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
             Spacer(Modifier.height(11.dp))
             if (rows.isEmpty()) {
-                Text("Connect a few published videos to see which content types work best.", color = MutedText, fontSize = 9.4.sp, lineHeight = 14.sp)
+                Text("Connect a few published videos to see which content types work best.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, lineHeight = 14.sp)
             } else {
                 rows.take(5).forEach { (label, views, count) ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, color = ProjectorIvory, fontSize = 9.7.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("$count video${if (count == 1) "" else "s"}", color = MutedText, fontSize = 8.sp)
+                        Text(label, color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("$count video${if (count == 1) "" else "s"}", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                         Spacer(Modifier.width(10.dp))
-                        Text(ytCompact(views), color = MutedGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                        Text(ytCompact(views), color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -808,7 +824,7 @@ private fun YTLocalCreatorSection(
     val active = tasks.count { it.status == TaskStatus.PLANNED || it.status == TaskStatus.WORKING }
     val readyIdeas = ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE }
     Text("YOUR CREATOR PROGRESS", color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Black)
-    Text("Your publishing rhythm matters alongside channel numbers.", color = MutedText, fontSize = 9.sp)
+    Text("Your publishing rhythm matters alongside channel numbers.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
     Spacer(Modifier.height(9.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         YTMetric("THIS WEEK", personalization.publishedThisWeek.toString(), SuccessGreen, Modifier.weight(1f))
@@ -816,7 +832,7 @@ private fun YTLocalCreatorSection(
         YTMetric("ACTIVE", active.toString(), RecRed, Modifier.weight(1f))
     }
     Spacer(Modifier.height(7.dp))
-    Text("$readyIdeas idea${if (readyIdeas == 1) "" else "s"} ready to produce · ${personalization.primaryPlatform} is your primary publishing lane.", color = MutedText, fontSize = 8.7.sp)
+    Text("$readyIdeas idea${if (readyIdeas == 1) "" else "s"} ready to produce · ${personalization.primaryPlatform} is your primary publishing lane.", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
 }
 
 @Composable
@@ -828,7 +844,7 @@ private fun YTLinkProjectDialog(video: YouTubeVideoSnapshot, tasks: List<Creator
         title = { Text("Connect project", fontWeight = FontWeight.Black) },
         text = {
             Column(Modifier.heightIn(max = 430.dp).verticalScroll(rememberScrollState())) {
-                Text(video.title, color = MutedText, fontSize = 9.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(video.title, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(12.dp))
                 if (youtubeTasks.isEmpty()) {
                     Text("No YouTube projects exist yet. Create or finish a YouTube project first.")
@@ -845,7 +861,7 @@ private fun YTLinkProjectDialog(video: YouTubeVideoSnapshot, tasks: List<Creator
                                 RadioButton(selected = selected, onClick = { onLink(task.id) })
                                 Column(Modifier.weight(1f)) {
                                     Text(task.title, color = ProjectorIvory, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("${task.contentType} · ${task.status.name.lowercase().replaceFirstChar { it.uppercase() }}", color = MutedText, fontSize = 8.sp)
+                                    Text("${task.contentType} · ${task.status.name.lowercase().replaceFirstChar { it.uppercase() }}", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
                                 }
                             }
                         }
@@ -863,8 +879,8 @@ private fun YTLinkProjectDialog(video: YouTubeVideoSnapshot, tasks: List<Creator
 
 @Composable
 private fun YTEmpty(text: String) {
-    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BorderStroke(1.dp, CinemaLine)) {
-        Text(text, color = MutedText, fontSize = 9.4.sp, modifier = Modifier.padding(15.dp))
+    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), CinemaSurface, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
+        Text(text, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, modifier = Modifier.padding(15.dp))
     }
 }
 

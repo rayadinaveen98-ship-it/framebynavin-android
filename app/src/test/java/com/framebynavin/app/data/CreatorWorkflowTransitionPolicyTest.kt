@@ -173,6 +173,11 @@ class CreatorWorkflowTransitionPolicyTest {
 
         val edit = legacy("edit").copy(workspace = CreatorContentWorkspace(
             revision = 21L,
+            // Target-aware cut review requires an actual intended output.
+            deliverables = listOf(CreatorDeliverable(
+                id = "main", platform = "YouTube", format = "Long video",
+                title = "Draft output",
+            )),
             editVersions = listOf(CreatorEditVersion(
                 deliverableId = "main", label = "Draft cut",
                 status = CreatorEditReviewStatus.DRAFT,

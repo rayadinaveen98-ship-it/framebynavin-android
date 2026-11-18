@@ -49,7 +49,10 @@ class V281PersonalPlaybackSettingsTest {
 
     @Test fun invalidSettingsFailWithoutPersisting() {
         assertThrows(IllegalArgumentException::class.java) { reminder(count = 0).checked() }
-        assertThrows(IllegalArgumentException::class.java) { reminder(count = 4).checked() }
+        assertThrows(IllegalArgumentException::class.java) { reminder(count = 6).checked() }
+        // UX03 deliberately supports five spoken repeats without relaxing invalid-count rejection.
+        reminder(count = 4).checked()
+        reminder(count = 5).checked()
         assertThrows(IllegalArgumentException::class.java) { reminder(gap = 6_000L).checked() }
         assertThrows(IllegalArgumentException::class.java) { reminder(alarm = 500).checked() }
         reminder(count = 2, gap = 20_000L, alarm = 180).checked()

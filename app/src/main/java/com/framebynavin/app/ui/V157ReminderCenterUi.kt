@@ -54,6 +54,7 @@ internal fun V157ReminderCenterUi(
     tasks: List<CreatorTask>,
     onDismiss: () -> Unit,
     onNew: () -> Unit,
+    onQuickNew: () -> Unit = onNew,
     onEdit: (String) -> Unit,
     onDeleteReminders: (Set<String>) -> Unit,
     onOpenReminderSettings: () -> Unit,
@@ -88,6 +89,7 @@ internal fun V157ReminderCenterUi(
     val grouped = ReminderCenterPolicy.grouped(tasks, now)
     val activeIds = grouped.values.flatten().map { it.id }.toSet()
     var selected by remember { mutableStateOf(setOf<String>()) }
+    var createMenuOpen by remember { mutableStateOf(false) }
     var turnOffTarget by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     // V219: presentation-only filter, never changes reminder storage or action tokens.
@@ -258,8 +260,34 @@ internal fun V157ReminderCenterUi(
                         ) {
                             Icon(Icons.Outlined.NotificationsActive, "Open Activity Center", tint = MutedText)
                         }
-                        IconButton(onClick = onNew) {
-                            Icon(Icons.Outlined.Add, "Add", tint = ProjectorIvory)
+                        Box {
+                            IconButton(
+                                onClick = { createMenuOpen = true },
+                                modifier = Modifier.testTag("ux06b-creator-create-menu"),
+                            ) {
+                                Icon(Icons.Outlined.Add, "Create Creator project", tint = ProjectorIvory)
+                            }
+                            DropdownMenu(
+                                expanded = createMenuOpen,
+                                onDismissRequest = { createMenuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Quick Creator project") },
+                                    onClick = {
+                                        createMenuOpen = false
+                                        onQuickNew()
+                                    },
+                                    modifier = Modifier.testTag("ux06b-creator-create-quick"),
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Full project setup") },
+                                    onClick = {
+                                        createMenuOpen = false
+                                        onNew()
+                                    },
+                                    modifier = Modifier.testTag("ux06b-creator-create-full"),
+                                )
+                            }
                         }
                     }
                 }
@@ -315,14 +343,61 @@ internal fun V157ReminderCenterUi(
                         lineHeight = 18.sp,
                     )
                     Spacer(Modifier.height(14.dp))
-                    val attentionCount = grouped[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size
-                    val todayCount = grouped[ReminderCenterGroup.TODAY].orEmpty().size
-                    val postponedCount = grouped[ReminderCenterGroup.SNOOZED_PAUSED].orEmpty().size
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        V157InboxCount("NEEDS", attentionCount, RecRed, Modifier.weight(1f))
-                        V157InboxCount("TODAY", todayCount, MutedText, Modifier.weight(1f))
-                        V157InboxCount("DELAYED", postponedCount, ProjectorIvory, Modifier.weight(1f))
-                    }
+                    // UX06B: one actionable overview, projected from the real
+                    // Creator groups. The existing filter chips, search, history,
+                    // bulk selection and response actions remain intact.
+                    V406ReminderScopeNavigator(
+                        actions = listOf(
+                            V406ReminderScopeAction(
+                                id = "creator-attention", label = "Needs action",
+                                count = searchMatching[ReminderCenterGroup.NEEDS_ATTENTION].orEmpty().size,
+                                selected = !historyOpen &&
+                                    hubFilter == V219ReminderHubFilter.ATTENTION,
+                                onSelect = {
+                                    hubFilter = V219ReminderHubFilter.ATTENTION
+                                    historyOpen = false
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "creator-today", label = "Next 24h",
+                                count = searchMatching[ReminderCenterGroup.TODAY].orEmpty().size,
+                                selected = !historyOpen &&
+                                    hubFilter == V219ReminderHubFilter.TODAY,
+                                onSelect = {
+                                    hubFilter = V219ReminderHubFilter.TODAY
+                                    historyOpen = false
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "creator-upcoming", label = "Later",
+                                count = searchMatching[ReminderCenterGroup.UPCOMING].orEmpty().size,
+                                selected = !historyOpen &&
+                                    hubFilter == V219ReminderHubFilter.UPCOMING,
+                                onSelect = {
+                                    hubFilter = V219ReminderHubFilter.UPCOMING
+                                    historyOpen = false
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                            V406ReminderScopeAction(
+                                id = "creator-history", label = "History",
+                                count = null,
+                                selected = historyOpen,
+                                onSelect = {
+                                    historyOpen = true
+                                    hubFilter = V219ReminderHubFilter.ALL
+                                    focusedTaskId = null
+                                    selected = emptySet()
+                                },
+                            ),
+                        ),
+                        modifier = Modifier.testTag("ux06b-creator-focus-rail"),
+                    )
                     }
 
                     // Empty state keeps History reachable but does not show
@@ -401,7 +476,8 @@ internal fun V157ReminderCenterUi(
                                 modifier = Modifier.testTag("v219-filter-${filter.name.lowercase()}"),
                                 shape = RoundedCornerShape(18.dp),
                                 colors = backlotFilterColors,
-                                border = BorderStroke(1.dp, if (activeFilter) BacklotAccent else BacklotBorder),
+                                border = if (activeFilter) BacklotUX10Tokens.activeBorder(BacklotAccent)
+                                else BacklotUX10Tokens.quietBorder(BacklotBorder),
                             )
                         }
                         FilterChip(
@@ -415,7 +491,8 @@ internal fun V157ReminderCenterUi(
                             modifier = Modifier.testTag("v2193-history-tab"),
                             shape = RoundedCornerShape(18.dp),
                             colors = backlotFilterColors,
-                            border = BorderStroke(1.dp, if (historyOpen) BacklotAccent else BacklotBorder),
+                            border = if (historyOpen) BacklotUX10Tokens.activeBorder(BacklotAccent)
+                            else BacklotUX10Tokens.quietBorder(BacklotBorder),
                         )
                     }
                     } else {
@@ -571,11 +648,11 @@ private fun V157InboxCount(label: String, count: Int, accent: Color, modifier: M
         modifier = modifier,
         shape = RoundedCornerShape(13.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, CinemaLine),
+        border = BacklotUX10Tokens.quietBorder(CinemaLine),
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 11.dp)) {
             Text(count.toString(), color = accent, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text(label, color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(label, color = MutedText, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }
@@ -624,6 +701,8 @@ private fun V157ReminderGroup(
         val canSnooze = actionable && onSnooze != null && smartWindowReady
         val canReschedule = actionable && onReschedule != null
         val canPause = onPause != null && ReminderCenterPolicy.canPause(task, now)
+        val isSmartTarget = task.reminderMode == ReminderMode.SMART ||
+            task.smartEscalationEnabled
         var optionsOpen by remember(task.id) { mutableStateOf(false) }
 
         Surface(
@@ -633,7 +712,8 @@ private fun V157ReminderGroup(
             ),
             shape = RoundedCornerShape(17.dp),
             color = if (chosen) RecRed.copy(alpha = .11f) else CinemaSurface,
-            border = BorderStroke(1.dp, if (chosen) RecRed else CinemaLine),
+            border = if (chosen) BacklotUX10Tokens.activeBorder(RecRed)
+                else BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Column(Modifier.padding(14.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
@@ -712,22 +792,26 @@ private fun V157ReminderGroup(
                     ) {
                         if (canSnooze) {
                             OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.rowTarget),
                                 onClick = { onSnooze?.invoke(task, effectiveSnoozeMinutes) },
-                                border = BorderStroke(1.dp, CinemaLine),
+                                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
                                 Icon(Icons.Outlined.Snooze, null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("SNOOZE ${effectiveSnoozeMinutes}m", fontSize = 11.sp, maxLines = 1)
+                                Text(
+                                    if (isSmartTarget) "MOVE +${effectiveSnoozeMinutes}m"
+                                    else "SNOOZE ${effectiveSnoozeMinutes}m",
+                                    fontSize = 11.sp, maxLines = 1,
+                                )
                             }
                         }
                         if (canReschedule) {
                             OutlinedButton(
-                                modifier = Modifier.weight(1f).heightIn(min = 45.dp),
+                                modifier = Modifier.weight(1f).heightIn(min = BacklotUX10Tokens.rowTarget),
                                 onClick = { onReschedule?.invoke(task) },
-                                border = BorderStroke(1.dp, CinemaLine),
+                                border = BacklotUX10Tokens.quietBorder(CinemaLine),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                             ) {
@@ -737,11 +821,17 @@ private fun V157ReminderGroup(
                             }
                         }
                     }
-                    if (task.reminderMode == ReminderMode.SMART) {
+                    if (isSmartTarget) {
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            if (!smartWindowReady) "Smart escalation needs more time. Choose a later time."
-                            else "Snoozing moves the final Smart reminder time.",
+                            when {
+                                !smartWindowReady ->
+                                    "The Smart target cannot move by this amount within the allowed window."
+                                snoozeAt != null ->
+                                    "Moves the final Smart alert to ${pFormatDateTime(snoozeAt)}. " +
+                                        "Your project deadline stays unchanged."
+                                else -> "Choose a valid later Smart target."
+                            },
                             color = MutedText,
                             fontSize = 11.sp,
                             lineHeight = 15.sp,

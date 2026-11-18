@@ -214,6 +214,20 @@ class TaskStore(private val context: Context) {
         projectId, expectedGeneration, expectedWorkspaceRevision,
     ) { current -> CreatorOutputCraftPolicy.reviewVersion(current, versionId, target, atMillis) }
 
+    /** UX05.1D: one atomic, revision/restore-gated manual observation write. */
+    suspend fun appendOutputLearning(
+        projectId: String,
+        expectedGeneration: Long,
+        expectedWorkspaceRevision: Long,
+        draft: CreatorOutputLearning,
+    ): CreatorTask? = updateTask(projectId, expectedGeneration = expectedGeneration) { current ->
+        check(current.workspace.revision == expectedWorkspaceRevision) {
+            "Project changed before the learning saved. Reopen the newest output review."
+        }
+        val updated = CreatorOutputLearningPolicy.append(current, draft)
+        current.copy(workspace = updated.copy(revision = current.workspace.revision + 1L))
+    }
+
     internal fun encodeRecoveryTask(task: CreatorTask): String = encode(listOf(task))
     internal fun decodeRecoveryTask(raw: String): CreatorTask = decode(raw).single()
 
@@ -374,7 +388,7 @@ class TaskStore(private val context: Context) {
                         voicePersona = runCatching {
                             VoicePersona.valueOf(item.optString("voicePersona", VoicePersona.WARM.name))
                         }.getOrDefault(VoicePersona.WARM),
-                        voiceRepeatCount = item.optInt("voiceRepeatCount", 3).coerceIn(1, 3),
+                        voiceRepeatCount = item.optInt("voiceRepeatCount", 3).coerceIn(1, 5),
                         voiceRepeatIntervalSeconds = item.optInt("voiceRepeatIntervalSeconds", 10).coerceIn(5, 60),
                         alarmTimeoutSeconds = item.optInt("alarmTimeoutSeconds", 120).coerceIn(30, 300),
                         snoozeMinutes = item.optInt("snoozeMinutes", 0).takeIf { it in setOf(5, 10, 15, 30) } ?: 0,
@@ -451,7 +465,7 @@ class TaskStore(private val context: Context) {
                 evidence.put(JSONObject().put("id", item.id)
                     .put("claim", item.claim).put("timecode", item.timecode)
                     .put("notes", item.notes).put("referenceId", item.referenceId)
-                    .put("assetId", item.assetId))
+                    .put("assetId", item.assetId).put("scriptBeatId", item.scriptBeatId))
             }
             val decisions = JSONArray()
             stage.decisions.forEach { item ->
@@ -528,6 +542,7 @@ class TaskStore(private val context: Context) {
                             id = id, claim = item.optString("claim"),
                             timecode = item.optString("timecode"), notes = item.optString("notes"),
                             referenceId = item.optString("referenceId"), assetId = item.optString("assetId"),
+                            scriptBeatId = item.optString("scriptBeatId"),
                         ))
                     }
                 }
@@ -816,12 +831,30 @@ class TaskStore(private val context: Context) {
                 .put("publishGate", publishGate)
                 .put("publicationHistory", publicationHistory))
         }
+        val outputLearnings = JSONArray()
+        workspace.outputLearnings.forEach { learning ->
+            outputLearnings.put(JSONObject()
+                .put("id", learning.id)
+                .put("deliverableId", learning.deliverableId)
+                .put("recordedAtMillis", learning.recordedAtMillis)
+                .put("expectation", learning.expectation)
+                .put("observedOutcome", learning.observedOutcome)
+                .put("whatWorked", learning.whatWorked)
+                .put("improveNext", learning.improveNext)
+                .put("nextAction", learning.nextAction)
+                .put("metricLabel", learning.metricLabel)
+                .put("metricValue", learning.metricValue)
+                .put("metricSource", learning.metricSource))
+        }
         return JSONObject()
             .put("revision", workspace.revision)
             .put("audience", workspace.audience)
             .put("viewerProblem", workspace.viewerProblem)
             .put("promise", workspace.promise)
             .put("angle", workspace.angle)
+            .put("objective", workspace.objective)
+            .put("successCriteria", workspace.successCriteria)
+            .put("constraints", workspace.constraints)
             .put("hook", workspace.hook)
             .put("script", workspace.script)
             .put("references", references)
@@ -829,6 +862,7 @@ class TaskStore(private val context: Context) {
             .put("assets", assets)
             .put("deliverables", deliverables)
             .put("learnings", workspace.learnings)
+            .put("outputLearnings", outputLearnings)
             .put("scriptStudio", workspace.scriptStudio?.let(::encodeScriptStudio) ?: JSONObject.NULL)
             .put("stageWork", encodeStageWork(workspace.stageWork))
             .put("outputScripts", encodeOutputScripts(workspace.outputScripts))
@@ -929,7 +963,7 @@ class TaskStore(private val context: Context) {
 
     private fun decodeWorkspace(projectId: String, item: JSONObject?): CreatorContentWorkspace {
         if (item == null) return CreatorContentWorkspace()
-        for (key in listOf("outputScripts", "editVersions", "stageTransitions")) {
+        for (key in listOf("outputScripts", "editVersions", "stageTransitions", "outputLearnings")) {
             require(!item.has(key) || item.isNull(key) || item.optJSONArray(key) != null) {
                 "Output craft data $key is malformed. Original project bytes retained."
             }
@@ -1065,12 +1099,41 @@ class TaskStore(private val context: Context) {
                 ))
             }
         }
+        val learningArray = item.optJSONArray("outputLearnings") ?: JSONArray()
+        val learningIds = mutableSetOf<String>()
+        val decodedOutputLearnings = buildList {
+            for (i in 0 until learningArray.length()) {
+                val entry = learningArray.optJSONObject(i)
+                    ?: error("Output learning $i is unreadable; original project bytes retained.")
+                val id = entry.optString("id")
+                val outputId = entry.optString("deliverableId")
+                val recorded = entry.optLong("recordedAtMillis")
+                require(id.isNotBlank() && outputId.isNotBlank() && recorded > 0L &&
+                    learningIds.add(id)) {
+                    "Invalid or duplicated output learning. Original project bytes retained."
+                }
+                add(CreatorOutputLearning(
+                    id = id, deliverableId = outputId, recordedAtMillis = recorded,
+                    expectation = entry.optString("expectation"),
+                    observedOutcome = entry.optString("observedOutcome"),
+                    whatWorked = entry.optString("whatWorked"),
+                    improveNext = entry.optString("improveNext"),
+                    nextAction = entry.optString("nextAction"),
+                    metricLabel = entry.optString("metricLabel"),
+                    metricValue = entry.optString("metricValue"),
+                    metricSource = entry.optString("metricSource"),
+                ))
+            }
+        }
         return CreatorContentWorkspace(
             revision = item.optLong("revision", 0L).coerceAtLeast(0L),
             audience = item.optString("audience").trim(),
             viewerProblem = item.optString("viewerProblem").trim(),
             promise = item.optString("promise").trim(),
             angle = item.optString("angle").trim(),
+            objective = item.optString("objective").trim(),
+            successCriteria = item.optString("successCriteria").trim(),
+            constraints = item.optString("constraints").trim(),
             hook = item.optString("hook").trim(),
             script = item.optString("script"),
             references = decodedReferences,
@@ -1083,6 +1146,7 @@ class TaskStore(private val context: Context) {
             outputScripts = decodeOutputScripts(item.optJSONArray("outputScripts")),
             editVersions = decodeEditVersions(item.optJSONArray("editVersions")),
             stageTransitions = decodeStageTransitions(item.optJSONArray("stageTransitions")),
+            outputLearnings = decodedOutputLearnings,
         )
     }
 }

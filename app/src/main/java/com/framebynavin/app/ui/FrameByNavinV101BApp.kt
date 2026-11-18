@@ -60,6 +60,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,6 +78,7 @@ import com.framebynavin.app.cloud.DriveVaultLocalStore
 import com.framebynavin.app.data.*
 import com.framebynavin.app.reminders.ReminderActionSafety
 import com.framebynavin.app.reminders.ReminderScheduler
+import com.framebynavin.app.reminders.V280ReminderSnoozePolicy
 import com.framebynavin.app.reminders.SmartEscalationConfigStore
 import com.framebynavin.app.reminders.VoicePersonaEngine
 import com.framebynavin.app.ui.theme.*
@@ -126,6 +130,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     val v393FirstRunPrefs = remember(context) { V393FirstRunPrefs(context.applicationContext) }
     var v393FirstRunFocus by remember { mutableStateOf(v393FirstRunPrefs.selectedFocus()) }
+    var v402PermissionGuideComplete by remember { mutableStateOf(v393FirstRunPrefs.permissionGuideComplete()) }
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
     // The Activity owns the preference so the REAL Settings screen can silence
     // a still-composed Home card in the very same frame after a successful save.
@@ -136,7 +141,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var permissions by remember { mutableStateOf(pPermissions(context)) }
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
     var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
+    var v402WeeklyFocusRequestNonce by remember { mutableLongStateOf(0L) }
+    var v402AccountIdentityRevision by remember { mutableIntStateOf(0) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
+    var v402ProfileFromHome by rememberSaveable { mutableStateOf(false) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
@@ -154,9 +162,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
     // A Personal-first user reaches the existing Personal hub, not a fake
     // Creator profile or new scheduler. The one-time route is persisted.
-    LaunchedEffect(v393FirstRunFocus, V144GuidePrefs.selectedGuide, settings.onboardingComplete) {
+    LaunchedEffect(v393FirstRunFocus, V144GuidePrefs.selectedGuide,
+        settings.onboardingComplete, v402PermissionGuideComplete) {
         if (v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
             !settings.onboardingComplete && V144GuidePrefs.hasSelection &&
+            v402PermissionGuideComplete && !v393FirstRunPrefs.startedUx02Journey() &&
             !v393FirstRunPrefs.personalFirstEntryShown() && externalLaunch == null
         ) {
             runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
@@ -225,7 +235,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
     fun leaveOverlay() {
         when (overlay) {
-            POverlay.PROFILE -> overlay = POverlay.SETTINGS
+            POverlay.PROFILE -> overlay = if (v402ProfileFromHome) POverlay.NONE else POverlay.SETTINGS
             POverlay.SETTINGS -> {
                 overlay = POverlay.NONE
                 if (returnToComposerFromSettings) {
@@ -279,7 +289,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         CreatorGuidedTourStep.TODAY -> PTab.TODAY
                         CreatorGuidedTourStep.IDEAS -> PTab.IDEAS
                         CreatorGuidedTourStep.PROJECT -> PTab.CREATE
-                        else -> PTab.INSIGHTS
+                        CreatorGuidedTourStep.WORKSPACE, CreatorGuidedTourStep.CONTROL -> PTab.TODAY
+                        CreatorGuidedTourStep.INSIGHTS -> PTab.INSIGHTS
                     }
                     guidedTourStepName = previous.name
                 }
@@ -324,6 +335,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             if (event == Lifecycle.Event.ON_RESUME) {
                 permissions = pPermissions(context)
                 settings = settingsStore.snapshot()
+                v402AccountIdentityRevision++
                 vm.reconcileReminders()
             }
         }
@@ -431,6 +443,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     pendingWorkflowApproval?.let { request ->
+        var warningAcknowledged by remember(
+            request.projectId, request.stageId, request.workspaceRevision,
+        ) { mutableStateOf(false) }
         val current = vm.tasks.firstOrNull { it.id == request.projectId }
         val isCurrent = current != null &&
             CreatorWorkflowEngine.currentStage(current).id == request.stageId &&
@@ -463,10 +478,21 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         Text("Your project changed while this approval was open. Close this dialog and review the latest stage.",
                             color = MutedText, fontSize = 13.sp)
                     } else {
+                        val stageNumber = current?.let {
+                            CreatorWorkflowEngine.stageIndex(it) + 1
+                        } ?: 0
+                        val stageCount = current?.let {
+                            CreatorWorkflowEngine.templateFor(it).stages.size
+                        } ?: 0
+                        Text(
+                            "STAGE $stageNumber / $stageCount · ${assessment?.stageLabel.orEmpty()}",
+                            color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.testTag("ux05-approval-stage-identity"),
+                        )
                         Text(
                             if (assessment?.willFinishProject == true)
-                                "Finishing this project is separate from publishing an output."
-                            else "Approving this step records an explicit stage transition. It does not publish, approve a cut or complete another stage.",
+                                "This confirms the final workflow stage. It does not publish an output."
+                            else "Approval records only this workflow step; saved notes, scripts, cut decisions and publication remain separate.",
                             color = MutedText, fontSize = 13.sp, lineHeight = 19.sp,
                         )
                         assessment?.blockers?.forEach { notice ->
@@ -482,8 +508,23 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                                 color = ProjectorIvory, fontSize = 13.sp)
                         }
                         if (assessment?.warnings?.isNotEmpty() == true) {
-                            Text("You may confirm despite these warnings. They will be recorded in the stage approval receipt.",
-                                color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("ux05-acknowledge-stage-warnings"),
+                            ) {
+                                Checkbox(
+                                    checked = warningAcknowledged,
+                                    onCheckedChange = { warningAcknowledged = it },
+                                )
+                                Text(
+                                    "I reviewed these warnings and choose to advance this stage. " +
+                                        "The warnings will be recorded in its approval receipt.",
+                                    color = ProjectorIvory, fontSize = 12.sp,
+                                    lineHeight = 17.sp,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }
@@ -511,7 +552,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         Text("RECORD PUBLICATION")
                     }
                     current != null -> Button(
-                        enabled = assessment?.allowed == true && vm.writeError == null,
+                        enabled = assessment?.allowed == true && vm.writeError == null &&
+                            (assessment.warnings.isEmpty() || warningAcknowledged),
                         onClick = {
                             val destination = V18CreatorJourney.afterWorkflowAdvance(current)
                             pendingCommittedStageJourney = CW6PendingCommittedStageJourney(
@@ -601,13 +643,18 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         settings.onboardingComplete,
         settings.creatorProfile.isComplete,
         settings.guidedTourVersion,
+        v393FirstRunFocus,
+        v402PermissionGuideComplete,
         externalLaunch?.nonce,
     ) {
         if (
             guidedTourStepName == null &&
-            // New quick-start users begin with a real action. Guided lessons
-            // remain replayable in Settings; legacy onboarding policy is intact.
-            v393FirstRunFocus == null &&
+            // New Creator/Both accounts see the six-step guided tour once after
+            // optional permission guidance. Existing completed accounts remain exempt.
+            (v393FirstRunFocus == null ||
+                (v393FirstRunPrefs.startedUx02Journey() &&
+                    v393FirstRunFocus != V393FirstRunFocus.PERSONAL &&
+                    v402PermissionGuideComplete)) &&
             CreatorGuidedTourPolicy.shouldStart(
                 accountOnboardingComplete = settings.accountOnboardingComplete,
                 creatorSetupComplete = settings.onboardingComplete,
@@ -664,6 +711,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         showReminders = true
                     },
                     homeSpacesRevision = homeSpacesRevision,
+                    homeGreetingName = remember(settings.creatorProfile, overlay, v402AccountIdentityRevision) {
+                        val cloud = CloudSyncManager(context.applicationContext)
+                        val accountName = cloud.cachedCreatorProfile()?.username.orEmpty().trim()
+                        when {
+                            accountName.isNotBlank() -> accountName
+                            cloud.localState().session != null -> "Creator"
+                            else -> settings.creatorProfile.safeDisplayName
+                        }
+                    },
+                    weeklyFocusRequestNonce = v402WeeklyFocusRequestNonce,
                     onFocus = { focusTaskId = it },
                     onOpenIdeaVault = { tab = PTab.IDEAS },
                     onOpenInsights = { tab = PTab.INSIGHTS },
@@ -696,6 +753,29 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                             },
                             onOpenProject = ::openProject,
                             onOpenIdeas = { overlay = POverlay.NONE; tab = PTab.IDEAS },
+                            onOpenProfile = {
+                                v402ProfileFromHome = true
+                                overlay = POverlay.PROFILE
+                            },
+                            onOpenSettings = { overlay = POverlay.SETTINGS },
+                            onOpenSpaces = {
+                                personalReminderSpace = true
+                                activityCenterOpen = false
+                                homeSpacesRequested = true
+                                homeSpaceFocusId = null
+                                showReminders = true
+                            },
+                            onOpenWeeklyFocus = { v402WeeklyFocusRequestNonce += 1L },
+                            onOpenCreatorReminders = {
+                                personalReminderSpace = false
+                                activityCenterOpen = false
+                                showReminders = true
+                            },
+                            onOpenPersonalReminders = {
+                                personalReminderSpace = true
+                                activityCenterOpen = false
+                                showReminders = true
+                            },
                             enabled = companionEnabled,
                         )
                     },
@@ -712,6 +792,22 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onRestore = vm::restoreIdea,
                     onArchive = vm::archiveIdea,
                     onConvert = { _, _, _, _ -> null },
+                    onOpenLinkedProject = { projectId ->
+                        if (vm.tasks.none { it.id == projectId }) {
+                            Toast.makeText(
+                                context,
+                                "The linked project is unavailable. Your idea was kept.",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        } else {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(context, ContentWorkspaceActivity::class.java)
+                                        .putExtra(ContentWorkspaceActivity.EXTRA_PROJECT_ID, projectId)
+                                )
+                            }.onFailure { openProject(projectId) }
+                        }
+                    },
                     onConvertDurably = { request ->
                         val projectId = vm.convertIdeaToProject(request)
                         if (V18CreatorJourney.afterProjectCreated(projectId) == V18JourneyDestination.CREATE) {
@@ -750,6 +846,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 PTab.CALENDAR -> V15ContentCalendarScreen(
                     tasks = vm.tasks,
                     weeklySlots = vm.weeklySlots,
+                    projectsLoaded = vm.tasksLoaded,
                     onClose = null,
                     onOpenProject = ::openProject,
                     onOpenWeeklyPlan = { overlay = POverlay.WEEK },
@@ -836,6 +933,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.DAILY_BRIEF -> V15DailyBriefScreen(
                 tasks = vm.tasks,
                 weeklySlots = vm.weeklySlots,
+                // Prevent an uninitialized project store from looking like
+                // a successful empty Daily Brief on the first app launch.
+                projectsLoaded = vm.tasksLoaded,
                 onClose = { overlay = POverlay.NONE },
                 onOpenProject = ::openProject,
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
@@ -844,6 +944,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             POverlay.CALENDAR -> V15ContentCalendarScreen(
                 tasks = vm.tasks,
                 weeklySlots = vm.weeklySlots,
+                projectsLoaded = vm.tasksLoaded,
                 onClose = { overlay = POverlay.NONE },
                 onOpenProject = ::openProject,
                 onOpenWeeklyPlan = { overlay = POverlay.WEEK },
@@ -860,7 +961,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
             POverlay.PROFILE -> V23ProfileAccountScreen(
                 creatorProfile = settings.creatorProfile,
-                onClose = { overlay = POverlay.SETTINGS },
+                onClose = {
+                    overlay = if (v402ProfileFromHome) POverlay.NONE else POverlay.SETTINGS
+                },
                 onEditCreatorSetup = {}, // profile changes no longer re-enter onboarding
                 onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
                 onSaveCreatorProfile = { revised ->
@@ -892,7 +995,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
       fullScreenReady = permissions.fullScreen,
       batteryReady = permissions.batteryAccess,
                 onClose = ::leaveOverlay,
-                onProfile = { overlay = POverlay.PROFILE },
+                onProfile = {
+                    v402ProfileFromHome = false
+                    overlay = POverlay.PROFILE
+                },
                 onVoice = { settingsStore.setDefaultVoicePersona(it); settings = settingsStore.snapshot() },
                 onAlarmTimeout = { settingsStore.setDefaultAlarmTimeoutSeconds(it); settings = settingsStore.snapshot() },
                 onSnooze = { settingsStore.setSnoozeMinutes(it); settings = settingsStore.snapshot() },
@@ -957,26 +1063,43 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     .padding(bottom = 28.dp, start = 18.dp, end = 18.dp),
             )
         }
-        // Celebrate a confirmed, durable stage reward, never an optimistic tap.
+        // Only the live newly-credited feedback queue may cause celebratory
+        // effects. Imported and historical reward-ledger entries are never
+        // passed to the celebration renderer or used to mint extra XP.
+        val ux08cFeedback = vm.rewardFeedback
+        val ux08cFreshReward = ux08cFeedback?.takeIf {
+            UX08CCelebrationPolicy.verifiedFeedback(it, System.currentTimeMillis())
+        }
         V127StageCompletionPulse(
-            eventKey = V2284StageCelebrationPolicy.confirmedStageKey(vm.rewardFeedback),
+            eventKey = V2284StageCelebrationPolicy.confirmedStageKey(ux08cFreshReward),
             modifier = Modifier.align(Alignment.Center),
         )
+        UX08CCompanionCelebration(
+            creditedFeedback = ux08cFeedback,
+            // Never compete with owner-confirmed reminder responses, the
+            // Quick Actions sheet, or the guided first-run navigation.
+            suppress = showReminders || showControl || guidedTourStepName != null,
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 123.dp, start = 18.dp, end = 18.dp),
+        )
 
-        vm.rewardFeedback?.let { reward ->
+        ux08cFeedback?.let { reward ->
             LaunchedEffect(reward.eventKey) {
-                delay(2200L)
+                // The original single queue serializes short feedback.
+                // Keep its slot open until the ~3-second companion has
+                // completed its fade, without adding another event owner.
+                delay(UX08CCelebrationPolicy.FEEDBACK_QUEUE_SLOT_MS)
                 vm.consumeRewardFeedback(reward.eventKey)
             }
             V127RewardAura(
                 eventKey = reward.eventKey,
-                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 0.dp).size(190.dp),
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()
+                    .padding(top = 0.dp).size(190.dp),
             )
             V22RewardToast(
                 entry = reward,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding()
                     .padding(top = 10.dp, start = 20.dp, end = 20.dp),
             )
         }
@@ -997,6 +1120,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 ideas = vm.ideas,
                 weeklyAutoPlanEnabled = vm.weeklyAutoPlanEnabled,
                 creatorProgress = CreatorRewardsV22Engine.snapshot(vm.rewardLedger),
+                projectsLoaded = vm.tasksLoaded,
                 onNewProject = { showControl = false; openComposer() },
                 onQuickCapture = { showControl = false; showQuickCapture = true },
                 onDailyBrief = { showControl = false; overlay = POverlay.DAILY_BRIEF },
@@ -1070,6 +1194,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             tasks = vm.tasks,
             onDismiss = { creatorActivityFocusId = null; showReminders = false },
             onNew = { creatorActivityFocusId = null; showReminders = false; openComposer() },
+            onQuickNew = {
+                creatorActivityFocusId = null
+                showReminders = false
+                openComposer(quick = true)
+            },
             onEdit = { id -> showReminders = false; openComposer(id) },
             onDeleteReminders = vm::cancelReminders,
             initialFocusTaskId = creatorActivityFocusId,
@@ -1261,11 +1390,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         V393FirstRunFocusScreen { focus ->
             runCatching {
                 v393FirstRunPrefs.saveFocus(focus)
-                // Explicit local-first continuation. Google connection remains
-                // available in Profile and never blocks a first useful action.
-                settingsStore.setAccountOnboardingComplete(true)
+                // Do not skip the next Google-or-local choice. Focus is not
+                // evidence of account creation or authentication.
             }.onSuccess {
                 v393FirstRunFocus = focus
+                v402PermissionGuideComplete = false
                 settings = settingsStore.snapshot()
             }.onFailure {
                 Toast.makeText(context, "Could not save setup choice. Try again.",
@@ -1284,6 +1413,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onContinueLocally = {
                 settingsStore.setAccountOnboardingComplete(true)
                 settings = settingsStore.snapshot()
+            },
+            onReturningAccount = {
+                runCatching { v393FirstRunPrefs.markReturningAccount() }
+                    .onSuccess { v402PermissionGuideComplete = true }
+                    .onFailure {
+                        Toast.makeText(context,
+                            "Could not save returning-account status. Please retry.",
+                            Toast.LENGTH_LONG).show()
+                    }
             },
         )
     } else if ((!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
@@ -1327,8 +1465,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         settings.creatorProfile.isComplete
                     ) {
                         overlay = POverlay.NONE
-                        tab = PTab.CREATE
-                        openComposer(quick = true)
+                        tab = PTab.TODAY
+                        // Optional permissions, then the six-step first-run guide.
+                        // Project creation stays available from Home and +.
                         true
                     } else false
                 },
@@ -1353,6 +1492,52 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 },
             )
         }
+    } else if (v393FirstRunFocus != null &&
+        settings.accountOnboardingComplete && V144GuidePrefs.hasSelection &&
+        !v402PermissionGuideComplete &&
+        (v393FirstRunFocus == V393FirstRunFocus.PERSONAL ||
+            (settings.onboardingComplete && settings.creatorProfile.isComplete))
+    ) {
+        V402FirstRunPermissionGuide(
+            notificationsReady = permissions.notifications,
+            preciseTimingReady = permissions.preciseTiming,
+            fullScreenReady = permissions.fullScreen,
+            batteryReady = permissions.batteryAccess,
+            onNotifications = ::requestNotifications,
+            onPreciseTiming = ::requestPreciseTiming,
+            onFullScreen = ::requestFullScreen,
+            onBattery = ::openBatterySettings,
+            onContinue = {
+                runCatching { v393FirstRunPrefs.markPermissionGuideComplete() }
+                    .onSuccess { v402PermissionGuideComplete = true }
+                    .onFailure {
+                        Toast.makeText(context, "Could not save setup. Please retry.",
+                            Toast.LENGTH_LONG).show()
+                    }
+            },
+        )
+    } else if (
+        v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
+        v393FirstRunPrefs.startedUx02Journey() &&
+        settings.accountOnboardingComplete && !settings.onboardingComplete &&
+        V144GuidePrefs.hasSelection && v402PermissionGuideComplete &&
+        !v393FirstRunPrefs.personalFirstEntryShown() &&
+        externalLaunch == null
+    ) {
+        V402PersonalFirstRunGuide(
+            onFinish = {
+                runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
+                    .onSuccess {
+                        personalReminderSpace = true
+                        activityCenterOpen = false
+                        showReminders = true
+                    }
+                    .onFailure {
+                        Toast.makeText(context, "Could not save Personal setup. Try again.",
+                            Toast.LENGTH_LONG).show()
+                    }
+            },
+        )
     }
 
     if (
@@ -1362,6 +1547,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         settings.creatorProfile.isComplete &&
         !showComposer &&
         !showQuickCapture &&
+        !showReminders &&
         !showControl &&
         focusTaskId == null &&
         overlay == POverlay.NONE
@@ -1371,7 +1557,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             step = guidedTourStep,
             modifier = Modifier.fillMaxSize(),
             targetBounds = guideTargets[guidedTourStep] ?: when (guidedTourStep) {
-                CreatorGuidedTourStep.WORKSPACE -> guideTargets[CreatorGuidedTourStep.PROJECT]
+                CreatorGuidedTourStep.WORKSPACE -> null // No measured Reminder Hub target yet.
                 CreatorGuidedTourStep.CONTROL -> guideTargets[CreatorGuidedTourStep.INSIGHTS]
                 else -> null
             },
@@ -1391,9 +1577,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         tab = PTab.CREATE
                         guidedTourStepName = CreatorGuidedTourStep.PROJECT.name
                     }
+                    CreatorGuidedTourStep.WORKSPACE -> {
+                        tab = PTab.TODAY
+                        guidedTourStepName = CreatorGuidedTourStep.WORKSPACE.name
+                    }
                     CreatorGuidedTourStep.INSIGHTS -> {
                         tab = PTab.INSIGHTS
                         guidedTourStepName = CreatorGuidedTourStep.INSIGHTS.name
+                    }
+                    CreatorGuidedTourStep.CONTROL -> {
+                        tab = PTab.TODAY
+                        guidedTourStepName = CreatorGuidedTourStep.CONTROL.name
                     }
                     else -> {
                         settingsStore.markGuidedTourComplete()
@@ -1408,6 +1602,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     CreatorGuidedTourStep.PROJECT -> {
                         val project = vm.tasks.firstOrNull { it.archivedAtMillis == 0L }
                         if (project != null) openProject(project.id) else openComposer()
+                    }
+                    CreatorGuidedTourStep.WORKSPACE -> {
+                        personalReminderSpace = false
+                        showReminders = true
                     }
                     CreatorGuidedTourStep.INSIGHTS -> showControl = true
                     else -> Unit
@@ -1428,6 +1626,7 @@ private fun PControlCenter(
     ideas: List<CreatorIdea>,
     weeklyAutoPlanEnabled: Boolean,
     creatorProgress: CreatorRewardProgressSnapshot,
+    projectsLoaded: Boolean,
     onNewProject: () -> Unit,
     onQuickCapture: () -> Unit,
     onDailyBrief: () -> Unit,
@@ -1449,6 +1648,7 @@ private fun PControlCenter(
         ideas = ideas,
         weeklyAutoPlanEnabled = weeklyAutoPlanEnabled,
         creatorProgress = creatorProgress,
+        projectsLoaded = projectsLoaded,
         onNewProject = onNewProject,
         onQuickCapture = onQuickCapture,
         onDailyBrief = onDailyBrief,
@@ -1656,7 +1856,13 @@ private fun PSettingsScreen(
             Spacer(Modifier.height(9.dp))
             Text("Snooze", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.padding(top = 7.dp)) {
-                listOf(5, 10, 15, 20, 30).forEach { value -> FilterChip(settings.snoozeMinutes == value, { onSnooze(value) }, { Text("${value}m", fontSize = 10.sp) }) }
+                V280ReminderSnoozePolicy.CHOICES.sorted().forEach { value ->
+                    FilterChip(
+                        selected = settings.snoozeMinutes == value,
+                        onClick = { onSnooze(value) },
+                        label = { Text("${value}m", fontSize = 10.sp) },
+                    )
+                }
             }
             Spacer(Modifier.height(14.dp))
             Text("Alarm auto-stop", color = ProjectorIvory, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -1846,41 +2052,45 @@ private fun PBottomNavItem(
         onClick = { onSelect(tab) },
         shape = RoundedCornerShape(16.dp),
         color = if (active) { if (VisualExperiencePrefs.isLumen) FrameTertiary.copy(alpha=.16f) else CinemaSurfaceRaised } else Color.Transparent,
-        modifier = modifier.heightIn(min = 52.dp).onGloballyPositioned { onPositioned(it.boundsInRoot()) },
+        modifier = modifier.heightIn(min = BacklotUX10Tokens.rowTarget)
+            .semantics {
+                contentDescription = label
+                selected = active
+            }
+            .onGloballyPositioned { onPositioned(it.boundsInRoot()) },
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // At 900px / 1.5x system font with 1.8x accessibility Compose
-            // text, Projects and Insights can otherwise touch even when the
-            // Text layout reports one line. Scale to each weighted tab width.
-            // Spoken icon labels remain complete at all sizes.
-            val navLabelSize = when {
-                LocalDensity.current.fontScale >= 1.4f && maxWidth < 60.dp -> 6.5.sp
-                LocalDensity.current.fontScale >= 1.4f -> 8.sp
-                maxWidth < 60.dp -> 9.sp
-                else -> 11.sp
-            }
+            // Keep visible text readable. Extremely narrow/high-font layouts
+            // switch to icon-only tabs with a COMPLETE TalkBack label instead
+            // of shrinking words to 6.5sp or clipping Projects/Insights.
+            val showVisibleLabel = UX10BPresentationPolicy.showBottomNavigationText(
+                itemWidthDp = maxWidth.value,
+                fontScale = LocalDensity.current.fontScale,
+                label = label,
+            )
             Column(
                 Modifier.fillMaxWidth().padding(vertical = 7.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
                     icon,
-                    label,
+                    contentDescription = null,
                     tint = if (active) RecRed else MutedText,
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(22.dp),
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    label,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp),
-                    color = if (active) ProjectorIvory else MutedText,
-                    fontSize = navLabelSize,
-                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1,
-                    softWrap = false,
-                    textAlign = TextAlign.Center,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (showVisibleLabel) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        label,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+                        color = if (active) ProjectorIvory else MutedText,
+                        fontSize = BacklotUX10Tokens.eyebrow,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -1898,7 +2108,7 @@ internal fun PHomeGreetingHeader(creatorName: String, onAdd: () -> Unit) {
     }
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("BACKLOT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
         Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
@@ -1911,7 +2121,7 @@ internal fun PHomeGreetingHeader(creatorName: String, onAdd: () -> Unit) {
 internal fun PTopBar(label: String, onAdd: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("BACKLOT", color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(label, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
         }
         Surface(onClick = onAdd, shape = CircleShape, color = CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine), modifier = Modifier.size(48.dp)) {
@@ -1926,7 +2136,7 @@ private fun PBackHeader(kicker: String, title: String, onBack: () -> Unit) {
         IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
         Spacer(Modifier.width(4.dp))
         Column {
-            Text(kicker, color = RecRed, fontSize = 8.5.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text(kicker, color = RecRed, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(title, color = ProjectorIvory, fontSize = 23.sp, fontWeight = FontWeight.Black)
         }
     }
@@ -1938,7 +2148,7 @@ internal fun PEmptyState(icon: ImageVector, title: String, body: String, button:
         Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(48.dp).background(RecRed.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) { Icon(icon, null, tint = RecRed, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.height(11.dp)); Text(title, color = ProjectorIvory, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(4.dp)); Text(body, color = MutedText, fontSize = 9.5.sp, lineHeight = 14.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(4.dp)); Text(body, color = MutedText, fontSize = BacklotUX10Tokens.supporting, lineHeight = 16.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(13.dp)); Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = RecRed), shape = RoundedCornerShape(14.dp)) { Text(button, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
     }
@@ -2055,13 +2265,5 @@ private fun pSlotTime(slot: WeeklyScheduleSlot): String {
 }
 
 private fun pPreviewVoice(context: Context, persona: VoicePersona) {
-    var tts: TextToSpeech? = null
-    tts = TextToSpeech(context.applicationContext) { status ->
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.getDefault()
-            tts?.let { VoicePersonaEngine.apply(it, persona) }
-            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "polish-${persona.name}")
-            Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
-        } else tts?.shutdown()
-    }
+    V403VoicePreviewPlayer.play(context, persona)
 }
