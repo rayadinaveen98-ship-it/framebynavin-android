@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: backlot-ux01-08-10-${{ github.ref }}
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   integrate-compile-qa:
-    name: Reconcile protected P0, compile, JVM, lint, package Lab candidate
+    name: Audit protected P0, compile, JVM, lint, package Lab candidate
     if: (github.event_name == 'push' && github.ref_name == 'integration/backlot-lab-v337-ux01-08-10-20261118') || (github.event_name == 'pull_request' && github.head_ref == 'integration/backlot-lab-v337-ux01-08-10-20261118')
     runs-on: ubuntu-24.04
     timeout-minutes: 115
@@ -45,7 +45,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Reconcile exact cumulative UX head with protected Lab source
+      - name: Audit merged UX ancestry and Lab P0 without source writes
         shell: bash
         run: bash tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
       - name: Enforce exclusive Lab packaging and no UX09 activation
@@ -112,20 +112,12 @@ jobs:
           git diff --check
           git diff --cached --check
           echo 'PASS Lab identity, signer, source and full build. Founder physical certification still pending.'
-      - name: Write merge commit exclusively on integration candidate after compile/tests
+      - name: Record immutable candidate build source (never push or merge)
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "backlot-integration-ci[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          test -f .git/MERGE_HEAD
-          git commit --no-gpg-sign -m "integrate(backlot-lab): UX01-08 UX10 with protected V337 P0 (QA candidate only)"
-          candidate_sha="$(git rev-parse HEAD)"
-          git merge-base --is-ancestor 4ba1263124d118d3917f988228aec2248068466f HEAD
-          git merge-base --is-ancestor 6654c730971309b5047473e2f69292fe799b3f46 HEAD
-          echo "$candidate_sha" | tee ci-reports/ux-integration/INTEGRATED-SOURCE-SHA.txt
-          git push origin "HEAD:refs/heads/integration/backlot-lab-v337-ux01-08-10-20261118"
-          echo 'Candidate SOURCE staged only; stable/main untouched.'
+          git rev-parse HEAD | tee ci-reports/ux-integration/INTEGRATED-SOURCE-SHA.txt
+          echo 'QA source built and audited without changing any Git branch.'
       - name: Upload exact APK and test logs, QA ONLY (NOT STABLE)
         if: success()
         uses: actions/upload-artifact@v4
@@ -163,8 +155,8 @@ jobs:
         run: |
           set -euo pipefail
           ls -lh integrated-apk/app/build/outputs/apk/debug/app-debug.apk
-          mkdir -p app/build/outputs/apk/debug
-          cp integrated-apk/app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p lab-candidate
+          cp integrated-apk/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
           sudo chmod 666 /dev/kvm
       - name: Execute Android 15 startup verification
         uses: reactivecircus/android-emulator-runner@v2
