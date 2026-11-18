@@ -7,6 +7,13 @@ on:
     paths:
       - .github/workflows/backlot-lab-ux01-08-10-integration.yml
       - tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - stable/backlot-lab-v337-owner-tested-20261117
+    paths:
+      - .github/workflows/backlot-lab-ux01-08-10-integration.yml
+      - tools/qa/backlot_lab_ux01_08_10_reconcile_ci.sh
   workflow_dispatch:
 
 permissions:
@@ -19,7 +26,7 @@ concurrency:
 jobs:
   integrate-compile-qa:
     name: Reconcile protected P0, compile, JVM, lint, package Lab candidate
-    if: github.ref_name == 'integration/backlot-lab-v337-ux01-08-10-20261118'
+    if: (github.event_name == 'push' && github.ref_name == 'integration/backlot-lab-v337-ux01-08-10-20261118') || (github.event_name == 'pull_request' && github.head_ref == 'integration/backlot-lab-v337-ux01-08-10-20261118')
     runs-on: ubuntu-24.04
     timeout-minutes: 115
     steps:
@@ -27,6 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: integration/backlot-lab-v337-ux01-08-10-20261118
           persist-credentials: true
       - name: Java 17
         uses: actions/setup-java@v5
