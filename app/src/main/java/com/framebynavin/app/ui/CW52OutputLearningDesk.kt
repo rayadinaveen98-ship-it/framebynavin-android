@@ -342,7 +342,7 @@ internal fun CW52OutputLearningDesk(
                                     task.archivedAtMillis != 0L || task.status == TaskStatus.SKIPPED ->
                                         "This project is archived or skipped. Existing learning remains readable."
                                     else ->
-                                        "Record actual publication in Publish Studio before adding learning.",
+                                        "Record actual publication in Publish Studio before adding learning."
                                 },
                                 color = MutedText, fontSize = 12.sp,
                             )
