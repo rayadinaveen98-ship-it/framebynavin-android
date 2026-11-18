@@ -61,6 +61,8 @@ class CW3StageDeskUiTest {
                         task = task, stage = evidence,
                         onSave = { rev, draft -> observedRevision = rev; proposed = draft },
                         onBack = {},
+                        onOpenMainTool = { _, _, _ -> },
+                        onOpenOutputCraft = { _, _ -> },
                     )
                 }
             }
@@ -112,7 +114,13 @@ class CW3StageDeskUiTest {
         try {
             rule.setContent {
                 FrameByNavinTheme {
-                    CW3StageDesk(task, edit, onSave = { _, _ -> }, onBack = {})
+                    CW3StageDesk(
+                        task, edit,
+                        onSave = { _, _ -> },
+                        onBack = {},
+                        onOpenMainTool = { _, _, _ -> },
+                        onOpenOutputCraft = { _, _ -> },
+                    )
                 }
             }
             rule.onNodeWithText("Production and cut log").assertExists()
