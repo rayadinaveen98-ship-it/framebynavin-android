@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.stateDescription
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * RX01-C visual/gesture state machine; it is not an Android delivery engine.
@@ -40,6 +42,7 @@ import kotlinx.coroutines.delay
  */
 internal enum class RX01GatePhase {
     ENTRANCE,
+    VERIFYING,
     EXITING,
     MAIN,
 }
@@ -92,6 +95,8 @@ internal object RX01EntryGatePolicy {
  * - After a valid double tap the entrance scales and fades into a dark stage.
  *   Only AFTER the transition and a second current-occurrence check do the
  *   independently coloured MAIN backdrop and original mainContent appear.
+ * - A temporary VERIFYING state blocks additional taps while IO confirms
+ *   the current canonical token. No synchronous store reads block Compose.
  * - The current owner remains responsible for authentic occurrence validity,
  *   cancellation, foreground-service watchdog, notification fallback, audio,
  *   lock-screen privacy and all response semantics.
@@ -105,7 +110,7 @@ internal fun RX01ReminderExperienceGate(
     mode: RX01ReminderIconKind,
     occurrenceKey: String,
     occurrenceIsActive: Boolean,
-    validateOnOpen: () -> Boolean,
+    validateOnOpen: suspend () -> Boolean,
     motionEnabled: Boolean,
     lowPower: Boolean,
     onInvalidOccurrence: () -> Unit,
@@ -115,30 +120,38 @@ internal fun RX01ReminderExperienceGate(
     var phase by remember(occurrenceKey) { mutableStateOf(RX01GatePhase.ENTRANCE) }
     val currentValidator by rememberUpdatedState(validateOnOpen)
     val currentInvalidHandler by rememberUpdatedState(onInvalidOccurrence)
+    val scope = rememberCoroutineScope()
 
-    // Do not run arbitrary I/O or blocking storage reads inside the animation
-    // or every recomposition. The owner-supplied validator must be a fast
-    // synchronous check of the authoritative current occurrence identity.
-    val verify: () -> Boolean = {
+    // Do not run storage reads inside a draw or every recomposition.
+    // A suspend owner-supplied validator re-reads canonical state on IO, and
+    // guards against stale tokens before and after the transition.
+    val verify: suspend () -> Boolean = {
         occurrenceIsActive &&
             occurrenceKey.isNotBlank() &&
             runCatching { currentValidator() }.getOrDefault(false)
     }
 
     val requestOpen: () -> Unit = {
-        if (phase == RX01GatePhase.ENTRANCE) {
-            if (RX01EntryGatePolicy.canStart(
-                    occurrenceKey = occurrenceKey,
-                    active = occurrenceIsActive,
-                    phase = phase,
-                    freshlyVerified = verify(),
-                )
-            ) {
-                phase = RX01GatePhase.EXITING
-            } else {
-                // A stale, replaced, or invalid occurrence must never display
-                // the response controls, even if the user double tapped.
-                currentInvalidHandler()
+        // No storage I/O on the UI thread. The source owner re-reads canonical
+        // data asynchronously before allowing an animated transition.
+        if (phase == RX01GatePhase.ENTRANCE && occurrenceKey.isNotBlank() && occurrenceIsActive) {
+            phase = RX01GatePhase.VERIFYING
+            scope.launch {
+                val current = verify()
+                if (phase == RX01GatePhase.VERIFYING && occurrenceIsActive) {
+                    if (RX01EntryGatePolicy.canStart(
+                            occurrenceKey = occurrenceKey,
+                            active = occurrenceIsActive,
+                            phase = RX01GatePhase.ENTRANCE,
+                            freshlyVerified = current,
+                        )
+                    ) {
+                        phase = RX01GatePhase.EXITING
+                    } else {
+                        phase = RX01GatePhase.ENTRANCE
+                        currentInvalidHandler()
+                    }
+                }
             }
         }
     }

@@ -88,7 +88,13 @@ class VoiceReminderActivity : ComponentActivity() {
 
         setContent {
             FrameByNavinTheme {
-                ReminderCheckInScreen(
+                RX01CreatorLiveAlert(
+                    activity = this@VoiceReminderActivity,
+                    taskId = task.id,
+                    occurrenceId = occurrenceId,
+                    kind = ReminderCheckInKind.VOICE,
+                ) {
+                    ReminderCheckInScreen(
                     kind = ReminderCheckInKind.VOICE,
                     title = task.title,
                     dueLabel = task.dueLabel,
@@ -115,7 +121,9 @@ class VoiceReminderActivity : ComponentActivity() {
                             forceRestart = true,
                         )
                     },
-                )
+                    rx01MainBackdrop = true,
+                    )
+                }
             }
         }
     }

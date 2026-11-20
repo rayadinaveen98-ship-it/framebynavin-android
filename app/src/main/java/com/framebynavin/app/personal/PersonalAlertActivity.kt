@@ -171,17 +171,41 @@ internal class PersonalAlertActivity : ComponentActivity() {
                         }
                     }
                 }
-                V2233PersonalAlertScreen(
-                    reminder = reminder,
-                    invalid = invalid,
-                    busy = saving,
-                    error = error,
-                    locked = keyguardShowing,
-                    onDone = { respond(PersonalDeliveryContract.ACTION_DONE) },
-                    onSnooze = { respond(PersonalDeliveryContract.ACTION_SNOOZE) },
-                    onDismiss = { respond(PersonalDeliveryContract.ACTION_DISMISS) },
-                    onClose = { finish() },
-                )
+                // Preserve the original locked, loading, invalid and
+                // notification-only surfaces. They never enter the new gate.
+                val candidate = reminder
+                val renderOriginal: @Composable (Boolean) -> Unit = { rx01Main ->
+                    V2233PersonalAlertScreen(
+                        reminder = reminder,
+                        invalid = invalid,
+                        busy = saving,
+                        error = error,
+                        locked = keyguardShowing,
+                        onDone = { respond(PersonalDeliveryContract.ACTION_DONE) },
+                        onSnooze = { respond(PersonalDeliveryContract.ACTION_SNOOZE) },
+                        onDismiss = { respond(PersonalDeliveryContract.ACTION_DISMISS) },
+                        onClose = { finish() },
+                        rx01MainBackdrop = rx01Main,
+                    )
+                }
+                if (!keyguardShowing && !invalid && candidate != null &&
+                    candidate.alert != PersonalAlert.NOTIFICATION
+                ) {
+                    RX01PersonalLiveAlert(
+                        activity = this@PersonalAlertActivity,
+                        reminder = candidate,
+                        onInvalidOccurrence = {
+                            // A rejected token must never fall through to a
+                            // legacy UI that still contains its old private title.
+                            reminder = null
+                            invalid = true
+                        },
+                    ) {
+                        renderOriginal(true)
+                    }
+                } else {
+                    renderOriginal(false)
+                }
             }
         }
     }
@@ -210,6 +234,7 @@ internal fun V2233PersonalAlertScreen(
     onSnooze: () -> Unit,
     onDismiss: () -> Unit,
     onClose: () -> Unit,
+    rx01MainBackdrop: Boolean = false,
 ) {
     val context = LocalContext.current
     val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
@@ -228,7 +253,7 @@ internal fun V2233PersonalAlertScreen(
     com.framebynavin.app.reminders.V394PremierePrefs.initialize(context)
     val premiereEligible = reminder?.alert == PersonalAlert.VOICE ||
         reminder?.alert == PersonalAlert.ALARM
-    if (com.framebynavin.app.reminders.V394PremierePresentationPolicy.personal(
+    if (!rx01MainBackdrop && com.framebynavin.app.reminders.V394PremierePresentationPolicy.personal(
             enabled = com.framebynavin.app.reminders.V394PremierePrefs.enabled(premiereKind),
             locked = locked,
             validReminder = reminder != null && !invalid && premiereEligible,
@@ -259,10 +284,10 @@ internal fun V2233PersonalAlertScreen(
     }
     Box(
         modifier = Modifier.fillMaxSize()
-            .background(V336DirectorPalette.black)
+            .background(if (rx01MainBackdrop) Color.Transparent else V336DirectorPalette.black)
             .testTag("v2233-personal-alert-screen"),
     ) {
-        com.framebynavin.app.reminders.V391ReminderBackdrop(
+        if (!rx01MainBackdrop) com.framebynavin.app.reminders.V391ReminderBackdrop(
             kind = if (reminder?.alert == PersonalAlert.VOICE)
                 ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
             motionEnabled = motionEnabled, lowPower = lowPower,

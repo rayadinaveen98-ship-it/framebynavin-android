@@ -89,7 +89,13 @@ class AlarmActivity : ComponentActivity() {
 
         setContent {
             FrameByNavinTheme {
-                ReminderCheckInScreen(
+                RX01CreatorLiveAlert(
+                    activity = this@AlarmActivity,
+                    taskId = task.id,
+                    occurrenceId = occurrenceId,
+                    kind = ReminderCheckInKind.ALARM,
+                ) {
+                    ReminderCheckInScreen(
                     kind = ReminderCheckInKind.ALARM,
                     title = task.title,
                     dueLabel = task.dueLabel,
@@ -108,7 +114,9 @@ class AlarmActivity : ComponentActivity() {
                     onPause = { dispatchReminderAction(ReminderConstants.ACTION_PAUSE, task.id) },
                     onReschedule = { openReschedulePicker(task.id) },
                     onDismiss = { dispatchReminderAction(ReminderConstants.ACTION_DISMISS, task.id) },
-                )
+                    rx01MainBackdrop = true,
+                    )
+                }
             }
         }
     }

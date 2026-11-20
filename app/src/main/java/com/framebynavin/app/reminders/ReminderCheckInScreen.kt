@@ -96,6 +96,7 @@ internal fun ReminderCheckInScreen(
     onDismiss: () -> Unit,
     onReplay: (() -> Unit)? = null,
     attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
+    rx01MainBackdrop: Boolean = false,
 ) {
     BackHandler(enabled = true) { }
     val accent = V336DirectorPalette.hot
@@ -133,7 +134,7 @@ internal fun ReminderCheckInScreen(
     // V394 is an opt-in complete presentation. Existing reminder delivery,
     // callbacks, saved V391 backgrounds and classic particle intro stay intact.
     V394PremierePrefs.initialize(context)
-    if (V394PremierePresentationPolicy.creator(V394PremierePrefs.enabled(kind))) {
+    if (!rx01MainBackdrop && V394PremierePresentationPolicy.creator(V394PremierePrefs.enabled(kind))) {
         V394PremiereReminderScreen(
             mode = V394PremiereMode.CREATOR,
             kind = kind,
@@ -157,11 +158,11 @@ internal fun ReminderCheckInScreen(
     }
     // The user, not an intro timer, chooses when to reveal controls.
     // When OS animations are disabled, accessible controls appear immediately.
-    var revealed by rememberSaveable(kind, title) {
-        mutableStateOf(V197ReminderRevealPolicy.startRevealed(motionEnabled))
+    var revealed by rememberSaveable(kind, title, rx01MainBackdrop) {
+        mutableStateOf(rx01MainBackdrop || V197ReminderRevealPolicy.startRevealed(motionEnabled))
     }
-    LaunchedEffect(motionEnabled) {
-        if (!motionEnabled) revealed = true
+    LaunchedEffect(motionEnabled, rx01MainBackdrop) {
+        if (!motionEnabled || rx01MainBackdrop) revealed = true
     }
     val revealAlpha by animateFloatAsState(
         targetValue = if (revealed) 1f else 0f,
@@ -172,12 +173,12 @@ internal fun ReminderCheckInScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(BacklotBackground),
+            .background(if (rx01MainBackdrop) Color.Transparent else BacklotBackground),
     ) {
         // Intro is UNCHANGED: clock/mic silhouette still forms from real particles.
         // After the user's tap, crossfade to diffuse moving color waves only;
         // no particles remain behind action buttons.
-        Crossfade(
+        if (!rx01MainBackdrop) Crossfade(
             targetState = revealed,
             animationSpec = tween(durationMillis = if (motionEnabled) 480 else 0),
             label = "v231-reminder-backdrop-transition",
