@@ -1,5 +1,5 @@
 # RX01-C — Double-tap entrance gate and independent main reminder scene
-**Date:** 2026-11-20  
+**Date:** 2026-11-20
 **Status:** SOURCE-STAGED ONLY, draft/unmerged. No Kotlin/Gradle/lint/JVM/emulator/physical tests; no APK or main/stable changes. Deferred integration follows the founder's explicit **ALL DONE** instruction.
 
 ## Authority and ancestry
