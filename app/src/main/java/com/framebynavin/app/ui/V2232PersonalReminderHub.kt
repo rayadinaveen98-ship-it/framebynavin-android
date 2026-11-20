@@ -1393,20 +1393,34 @@ internal fun V2232PersonalEditor(
         Surface(
             modifier = Modifier.fillMaxSize()
                 .testTag("v2232-personal-editor"),
-            color = CinemaSurfaceRaised,
+            // UX11-F: more intimate Personal-first editor without replacing
+            // the existing draft, save, scheduling or all-fields edit mode.
+            color = androidx.compose.ui.graphics.Color(0xFF19171D),
             shape = RoundedCornerShape(20.dp),
         ) {
-            Column(Modifier.fillMaxSize().padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 17.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
-                        Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
-                            color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text(if (existing == null) "Make it yours" else "Your personal rhythm",
-                            color = ProjectorIvory, fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold)
+                        Text(
+                            if (existing == null) "PERSONAL / NEW REMINDER"
+                            else "PERSONAL / EDIT REMINDER",
+                            color = androidx.compose.ui.graphics.Color(0xFFE7AFA8),
+                            fontSize = 10.sp,
+                            letterSpacing = 1.1.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Spacer(Modifier.height(7.dp))
+                        Text(
+                            if (existing == null) "Make it yours" else "Your personal rhythm",
+                            color = ProjectorIvory, fontSize = 24.sp,
+                            lineHeight = 30.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
                         if (composerStep >= 0) {
-                            V406PersonalComposerProgress(
+                            Spacer(Modifier.height(16.dp))
+                            UX11FPersonalComposerProgress(
                                 currentStep = composerStep,
+                                saving = saving,
                                 onReturnTo = { earlier ->
                                     if (!saving && earlier < composerStep) {
                                         composerStep = earlier
@@ -1415,14 +1429,26 @@ internal fun V2232PersonalEditor(
                                 },
                                 modifier = Modifier.testTag("v296-composer-progress"),
                             )
+                        } else {
+                            Spacer(Modifier.height(5.dp))
+                            Text(
+                                "Adjust what matters, without changing your other reminders.",
+                                color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                            )
                         }
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("ux11f-editor-close"),
+                    ) {
                         Icon(Icons.Outlined.Close, contentDescription = "Close editor", tint = ProjectorIvory)
                     }
                 }
-                Column(Modifier.weight(1f).verticalScroll(composerScroll),
-                    verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(composerScroll)
+                        .padding(top = 17.dp),
+                    verticalArrangement = Arrangement.spacedBy(11.dp),
+                ) {
                     AnimatedVisibility(
                         visible = composerStep == 0 || composerStep < 0,
                         enter = fadeIn() + expandVertically(),
@@ -1431,8 +1457,7 @@ internal fun V2232PersonalEditor(
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     TextButton(
                         onClick = { suggestionsOpen = !suggestionsOpen },
-                        modifier = Modifier.fillMaxWidth()
-                            .testTag("phase1-personal-toggle-suggestions"),
+                        modifier = Modifier.testTag("phase1-personal-toggle-suggestions"),
                     ) {
                         Icon(Icons.Outlined.AutoAwesome, null,
                             tint = RecRed, modifier = Modifier.size(16.dp))
@@ -1506,12 +1531,12 @@ internal fun V2232PersonalEditor(
                     OutlinedTextField(
                         value = title, onValueChange = { title = it.take(180); error = null },
                         label = { Text("What to remember?") }, singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
                         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-title"),
                     )
                     TextButton(
                         onClick = { notesOpen = !notesOpen },
-                        modifier = Modifier.fillMaxWidth()
-                            .testTag("fc13-personal-toggle-notes"),
+                        modifier = Modifier.testTag("fc13-personal-toggle-notes"),
                     ) {
                         Icon(Icons.Outlined.Notes, null, tint = RecRed, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(7.dp))
@@ -1529,6 +1554,7 @@ internal fun V2232PersonalEditor(
                         OutlinedTextField(
                             value = notes, onValueChange = { notes = it.take(2000) },
                             label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
+                            shape = RoundedCornerShape(18.dp),
                             modifier = Modifier.fillMaxWidth()
                                 .testTag("fc13-personal-notes-field"),
                         )
@@ -1886,7 +1912,7 @@ internal fun V2232PersonalEditor(
                     }
                 }
                 if (composerStep in 0..2) {
-                    V296PersonalStepActions(
+                    UX11FPersonalComposerFooter(
                         step = composerStep,
                         saving = saving,
                         onBack = {
