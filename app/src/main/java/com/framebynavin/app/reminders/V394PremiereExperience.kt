@@ -716,8 +716,9 @@ internal fun V394PremiereSettingsSection() {
         Text("PREMIERE  /  FULL-SCREEN EXPERIENCE",
             color = PremiereGold, fontSize = 12.sp,
             fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        Text("Experimental cinematic layout, hero animation, typography and actions. " +
-            "Off by default. Existing scene backgrounds stay saved for the classic layout.",
+        Text("An optional alternative presentation for Creator and Personal. " +
+            "Fluid Entrance takes priority when enabled; turn fluid off to use " +
+            "Premiere. Your original scene choices remain saved.",
             color = PremiereMuted, fontSize = 12.sp, lineHeight = 18.sp)
         for (kind in listOf(ReminderCheckInKind.VOICE, ReminderCheckInKind.ALARM)) {
             Row(Modifier.fillMaxWidth(),

@@ -189,7 +189,11 @@ internal class PersonalAlertActivity : ComponentActivity() {
                     )
                 }
                 if (!keyguardShowing && !invalid && candidate != null &&
-                    candidate.alert != PersonalAlert.NOTIFICATION
+                    candidate.alert != PersonalAlert.NOTIFICATION &&
+                    com.framebynavin.app.reminders.RX01ReminderScenePrefs.enabled(
+                        applicationContext,
+                        com.framebynavin.app.reminders.RX01ReminderDomain.PERSONAL,
+                    )
                 ) {
                     RX01PersonalLiveAlert(
                         activity = this@PersonalAlertActivity,

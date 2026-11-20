@@ -1,10 +1,7 @@
 package com.framebynavin.app.reminders
 
-import android.animation.ValueAnimator
-import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import com.framebynavin.app.data.TaskStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,10 +23,7 @@ internal fun RX01CreatorLiveAlert(
     kind: ReminderCheckInKind,
     mainContent: @Composable () -> Unit,
 ) {
-    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
-    val lowPower = remember(activity) {
-        activity.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
-    }
+    val visual = RX01CurrentReminderMotion()
     RX01ReminderExperienceGate(
         domain = RX01ReminderDomain.CREATOR,
         mode = RX01ReminderIconPolicy.creator(kind),
@@ -49,8 +43,8 @@ internal fun RX01CreatorLiveAlert(
                         .matches(live, occurrenceId)
             }
         },
-        motionEnabled = motionEnabled,
-        lowPower = lowPower,
+        motionEnabled = visual.motionEnabled,
+        lowPower = visual.lowPower,
         onInvalidOccurrence = {
             if (!activity.isFinishing && !activity.isDestroyed) {
                 activity.finishAndRemoveTask()

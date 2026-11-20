@@ -149,7 +149,7 @@ internal fun V144SettingsHub(
                 V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
                     onOpenHomeSlideshow()
                 }
-                V144CategoryCard("Reminder scenes", "Choose animated voice and alarm backgrounds", Icons.Outlined.MovieFilter, MutedGold) {
+                V144CategoryCard("Reminder scenes", "Fluid entrances, Classic/Premiere and 21-day full-screen options", Icons.Outlined.MovieFilter, MutedGold) {
                     sectionName = V167SettingsSection.REMINDER_SCENES.name
                 }
                 V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
@@ -169,10 +169,18 @@ internal fun V144SettingsHub(
                 "REMINDER SCENES", "Cinematic alert backgrounds", ::navigateBack,
             ) {
                 V144SettingsNote(
-                    "Choose how Creator voice and alarm reminders look. " +
-                        "This changes visuals, not their timing, voice or delivery."
+                    "Choose a premium entrance and a separate main-screen background " +
+                        "for Creator, Personal and the 21-Day Challenge. " +
+                        "These options change visuals, not reminder timing, completion or voice."
                 )
                 Spacer(Modifier.height(12.dp))
+                com.framebynavin.app.reminders.RX01ReminderSceneSettings()
+                Spacer(Modifier.height(22.dp))
+                V144SectionTitle(
+                    "CLASSIC & PREMIERE COLLECTIONS",
+                    "Your existing scenes are preserved and remain available when fluid is off.",
+                )
+                Spacer(Modifier.height(10.dp))
                 com.framebynavin.app.reminders.V391ReminderSceneSettings()
             }
 

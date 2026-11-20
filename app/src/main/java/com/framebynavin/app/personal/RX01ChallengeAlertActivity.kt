@@ -1,13 +1,11 @@
 package com.framebynavin.app.personal
 
-import android.animation.ValueAnimator
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -44,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.MainActivity
+import com.framebynavin.app.reminders.RX01CurrentReminderMotion
 import com.framebynavin.app.reminders.RX01FluidReminderBackdrop
 import com.framebynavin.app.reminders.RX01FluidTheme
 import com.framebynavin.app.reminders.RX01ReminderDomain
@@ -96,6 +95,7 @@ internal class RX01ChallengeAlertActivity : ComponentActivity() {
 
         setContent {
             FrameByNavinTheme {
+                val motion = RX01CurrentReminderMotion()
                 var loaded by remember(requestedId, requestedAt) {
                     mutableStateOf<Phase1HabitChallenge?>(null)
                 }
@@ -162,10 +162,8 @@ internal class RX01ChallengeAlertActivity : ComponentActivity() {
                                     )
                             }
                         },
-                        motionEnabled = ValueAnimator.areAnimatorsEnabled(),
-                        lowPower = remember {
-                            getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
-                        },
+                        motionEnabled = motion.motionEnabled,
+                        lowPower = motion.lowPower,
                         onInvalidOccurrence = {
                             invalid = true
                             loaded = null
