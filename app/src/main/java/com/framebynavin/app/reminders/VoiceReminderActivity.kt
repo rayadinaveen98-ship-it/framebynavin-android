@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.Composable
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorWorkflowEngine
@@ -88,12 +89,9 @@ class VoiceReminderActivity : ComponentActivity() {
 
         setContent {
             FrameByNavinTheme {
-                RX01CreatorLiveAlert(
-                    activity = this@VoiceReminderActivity,
-                    taskId = task.id,
-                    occurrenceId = occurrenceId,
-                    kind = ReminderCheckInKind.VOICE,
-                ) {
+                // RX01-F: fluid entrance may be disabled independently of
+                // saved Premiere/Classic backgrounds; those values stay intact.
+                val originalScreen: @Composable (Boolean) -> Unit = { rx01Main ->
                     ReminderCheckInScreen(
                     kind = ReminderCheckInKind.VOICE,
                     title = task.title,
@@ -121,8 +119,18 @@ class VoiceReminderActivity : ComponentActivity() {
                             forceRestart = true,
                         )
                     },
-                    rx01MainBackdrop = true,
+                    rx01MainBackdrop = rx01Main,
                     )
+                }
+                if (RX01ReminderScenePrefs.enabled(applicationContext, RX01ReminderDomain.CREATOR)) {
+                    RX01CreatorLiveAlert(
+                        activity = this@VoiceReminderActivity,
+                        taskId = task.id,
+                        occurrenceId = occurrenceId,
+                        kind = ReminderCheckInKind.VOICE,
+                    ) { originalScreen(true) }
+                } else {
+                    originalScreen(false)
                 }
             }
         }
