@@ -53,6 +53,16 @@ internal fun V401WelcomeExperience(
     preview: Boolean = false,
     onFinished: () -> Unit,
 ) {
+    // UX11-A: keep the original four V401 routes bit-for-bit in behavior.
+    // The three new premium styles have their own shorter, native ident.
+    if (UX11PremiumWelcomePolicy.supported(style)) {
+        UX11PremiumWelcomeExperience(
+            style = style,
+            preview = preview,
+            onFinished = onFinished,
+        )
+        return
+    }
     if (style == V401WelcomeStyle.PARTICLE_SIGNATURE) {
         V199ParticleWelcome(onFinished = onFinished, playSound = !preview)
         return
@@ -203,6 +213,9 @@ internal fun V401WelcomeExperience(
                         drawCircle(V401Warm.copy(alpha = flare), radius = 18.dp.toPx(), center = source)
                     }
                     V401WelcomeStyle.PARTICLE_SIGNATURE -> Unit // Existing renderer owns this style.
+                    V401WelcomeStyle.CINEMATIC_EMBER,
+                    V401WelcomeStyle.APERTURE_LIGHT_BLOOM,
+                    V401WelcomeStyle.VELVET_GLASS -> Unit // UX11 original renderer handles these above.
                 }
             }
         }

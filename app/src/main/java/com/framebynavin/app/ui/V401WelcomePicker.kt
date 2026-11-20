@@ -67,14 +67,40 @@ internal fun V401WelcomePicker() {
             modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            text = "Four original Backlot openings. Each normal launch lasts 3 seconds; previews are silent.",
+            text = "Three new cinematic openings and four preserved originals. " +
+                "Premium openings last 2.4 seconds; classics stay at 3 seconds. " +
+                "Previews are silent and never change your saved choice.",
             color = MutedText,
             fontSize = 11.sp,
             lineHeight = 16.sp,
             modifier = Modifier.padding(top = 3.dp, bottom = 8.dp),
         )
 
-        V401WelcomeStyle.entries.forEach { style ->
+        Text(
+            text = "NEW PREMIUM COLLECTION",
+            color = MutedGold,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+        )
+        val premiumStyles = listOf(
+            V401WelcomeStyle.CINEMATIC_EMBER,
+            V401WelcomeStyle.APERTURE_LIGHT_BLOOM,
+            V401WelcomeStyle.VELVET_GLASS,
+        )
+        val classicStyles = V401WelcomeStyle.entries.filterNot { it in premiumStyles }
+        (premiumStyles + classicStyles).forEachIndexed { index, style ->
+            if (index == premiumStyles.size) {
+                Text(
+                    text = "CLASSIC COLLECTION",
+                    color = MutedGold,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier.padding(top = 18.dp, bottom = 2.dp),
+                )
+            }
             val active = style == selected
             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Row(
@@ -127,7 +153,7 @@ internal fun V401WelcomePicker() {
                     }
                 }
             }
-            if (style != V401WelcomeStyle.entries.last()) {
+            if (index != (premiumStyles.size + classicStyles.size - 1)) {
                 HorizontalDivider(color = CinemaLine.copy(alpha = .52f))
             }
         }
