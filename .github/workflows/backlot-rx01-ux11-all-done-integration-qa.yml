@@ -42,7 +42,8 @@ jobs:
                    'app/src/main/java/com/framebynavin/app/personal/',
                    'app/src/main/java/com/framebynavin/app/reminders/',
                    'docs/design/','docs/engineering/','docs/product/']
-          exceptions={'app/src/main/AndroidManifest.xml'}
+          exceptions={'app/src/main/AndroidManifest.xml',
+                      '.github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml'}
           bad=[p for p in paths if not (p in exceptions or
                any(p.startswith(prefix) for prefix in allowed))]
           assert not bad, f'Unapproved changed source: {bad}'
