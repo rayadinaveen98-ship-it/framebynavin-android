@@ -24,8 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.CheckCircleOutline
-import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.MovieCreation
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Button
@@ -242,7 +241,7 @@ internal fun UX11PremiumAccountIdentity(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.CheckCircleOutline, contentDescription = null,
+                    Icon(Icons.Outlined.CheckCircle, contentDescription = null,
                         tint = MutedGold, modifier = Modifier.size(20.dp))
                     Text("  GOOGLE CONNECTED",
                         color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Bold,
