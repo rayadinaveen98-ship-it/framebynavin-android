@@ -246,10 +246,10 @@ jobs:
             adb shell pm list packages com.framebynavin.app.lab 2>&1 | tee startup-smoke-evidence/lab-installed-packages.txt
             # Run the declared AndroidJUnitRunner directly; preserve full
             # failure output if package discovery is unreliable on API35.
-            adb shell am instrument -w -e hardeningTestEnvironment ci-emulator \
-              -e class com.framebynavin.app.reminders.RX01EntranceGateUiTest \
-              com.framebynavin.app.lab.test/androidx.test.runner.AndroidJUnitRunner \
-              2>&1 | tee startup-smoke-evidence/rx01-double-tap-android-test.txt
+            # This action invokes EVERY script line via a separate /bin/sh -c.
+            # Do not split a command with backslashes across YAML script lines:
+            # it loses the arguments and creates a false instrumentation failure.
+            adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.RX01EntranceGateUiTest com.framebynavin.app.lab.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee startup-smoke-evidence/rx01-double-tap-android-test.txt
             # Fail closed on any crash, runner error or absent positive tests.
             ! grep -Eqi 'INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS: Error|Process crashed|FAILURES!!!' startup-smoke-evidence/rx01-double-tap-android-test.txt
             grep -Eq 'OK \([1-9][0-9]* tests?\)' startup-smoke-evidence/rx01-double-tap-android-test.txt
