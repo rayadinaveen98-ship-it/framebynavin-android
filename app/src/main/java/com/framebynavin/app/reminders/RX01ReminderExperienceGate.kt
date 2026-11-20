@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.testTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -247,7 +248,6 @@ internal fun RX01ReminderExperienceGate(
                     // response controls are even composed in this phase.
                     Box(
                         modifier = Modifier.fillMaxSize()
-                            .testTag("rx01-entry-double-tap-surface")
                             .pointerInput(occurrenceKey) {
                                 detectTapGestures(onDoubleTap = {
                                     currentRequestOpen()
@@ -267,6 +267,10 @@ internal fun RX01ReminderExperienceGate(
                             }
                             .focusable()
                             .clearAndSetSemantics {
+                                // Put the test tag in the CLEARED semantics
+                                // node itself: a prior testTag modifier would
+                                // be erased, weakening UI regression evidence.
+                                testTag = "rx01-entry-double-tap-surface"
                                 role = Role.Button
                                 contentDescription =
                                     RX01EntryGatePolicy.accessibilityAction(domain, mode)
