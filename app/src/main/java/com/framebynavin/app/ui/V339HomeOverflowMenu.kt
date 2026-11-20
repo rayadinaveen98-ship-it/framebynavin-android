@@ -2,7 +2,6 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
@@ -36,8 +35,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
@@ -118,11 +115,12 @@ internal fun V339HomeOverflowMenu(
             border = BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Image(
-                    painter = painterResource(v144GuideDrawable(selectedGuide, CinePulseState.WAVE)),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(40.dp),
+                // UX11-B: the old full-body figure looked like a tiny
+                // floating sticker. Render only the approved character's
+                // face, without changing the existing 48dp menu control.
+                UX11CompanionFaceAvatar(
+                    identity = selectedGuide,
+                    modifier = Modifier.fillMaxSize(),
                 )
                 if (!expanded && collapsedIndicator != null) {
                     Box(
