@@ -12,12 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,12 +83,8 @@ internal fun UX11FPersonalComposerProgress(
         ) {
             titles.forEachIndexed { index, _ ->
                 Box(
-                    Modifier.weight(1f).height(3.dp)
-                        .padding(horizontal = 0.dp)
-                        .then(
-                            Modifier
-                                .testTag("ux11f-progress-segment-" + titles[index].lowercase())
-                        ),
+                    modifier = Modifier.weight(1f).height(3.dp)
+                        .testTag("ux11f-progress-segment-" + titles[index].lowercase()),
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth().height(3.dp),
@@ -191,7 +187,7 @@ internal fun UX11FPersonalComposerFooter(
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
             )
-            Spacer(Modifier.padding(horizontal = 4.dp))
+            Spacer(Modifier.width(8.dp))
             Icon(Icons.Outlined.ArrowForward, contentDescription = null)
         }
         TextButton(
