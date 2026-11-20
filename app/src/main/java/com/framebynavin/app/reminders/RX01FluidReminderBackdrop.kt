@@ -132,6 +132,7 @@ internal object RX01FluidTheme {
                 iconHalo = Color(0xFFD49B63),
                 ink = Color(0xFFFFF7E9),
             )
+            else -> error("Unrecognized RX01 palette combination")
         }
 
     fun motionCycleMillis(domain: RX01ReminderDomain, phase: RX01SurfacePhase): Int =
