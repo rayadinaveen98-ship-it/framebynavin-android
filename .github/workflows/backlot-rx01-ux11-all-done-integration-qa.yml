@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: rx01-ux11-integration-${{ github.ref }}
@@ -22,6 +23,8 @@ jobs:
     name: Founder-approved stable ancestry and UX09 exclusion
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      reuse_apk: ${{ steps.artifact-provenance.outputs.reuse_apk }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,9 +73,34 @@ jobs:
           print('PASS: 12-stage cumulative diff, no UX09/Cloud/Gradle mutations:',len(paths),'files')
           PY
           git rev-parse HEAD
+      - name: Reuse signed prior artifact ONLY when every subsequent change is this CI YAML
+        id: artifact-provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          approved_apk_source=4909686e360348b404c10f377f103610c38b6a7b
+          workflow_path=.github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml
+          reuse=false
+          if git merge-base --is-ancestor "$approved_apk_source" HEAD; then
+            mapfile -t changes < <(git diff --name-only "$approved_apk_source" HEAD)
+            if [ "${#changes[@]}" -eq 1 ] && [ "${changes[0]}" = "$workflow_path" ]; then
+              git diff --exit-code "$approved_apk_source" HEAD -- app/ >/dev/null
+              git diff --exit-code "$approved_apk_source" HEAD -- gradle.properties settings.gradle.kts build.gradle.kts dev-signing/ >/dev/null
+              reuse=true
+            fi
+          fi
+          echo "reuse_apk=$reuse" >> "$GITHUB_OUTPUT"
+          echo "REUSE VERIFIED APK: $reuse"
+          if [ "$reuse" = true ]; then
+            echo 'Lab APK is from previously green compile+unit+lint source 4909686e; ONLY CI YAML changed afterward.'
+            echo 'Source identity and APK hashes will be rechecked after artifact download.'
+          else
+            echo 'Application/build/source changed or provenance cannot be proven: full independent build is required.'
+          fi
   compile-unit-lint:
     name: Compile, all JVM regressions, lint and Lab APK
     needs: source-contract
+    if: needs.source-contract.outputs.reuse_apk != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 115
     steps:
@@ -148,7 +176,8 @@ jobs:
 
   android-15-startup:
     name: Android API35 install, launch, no-crash smoke
-    needs: compile-unit-lint
+    needs: [source-contract, compile-unit-lint]
+    if: ${{ always() && needs.source-contract.result == 'success' && (needs.compile-unit-lint.result == 'success' || (needs.source-contract.outputs.reuse_apk == 'true' && needs.compile-unit-lint.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     steps:
@@ -157,14 +186,35 @@ jobs:
         with:
           name: Backlot-RX01-UX11-Integrated-Lab-QA-NOT-CERTIFIED
           path: integrated-apk
-      - name: Stage verified Lab QA APK and enable KVM
+          # For workflow-only repairs reuse the *successful prior build*, never a rebuild.
+          # App, Gradle and other source changes force the normal full compile job.
+          run-id: ${{ needs.source-contract.outputs.reuse_apk == 'true' && '44723927524' || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+      - name: Verify source, signed APK bytes, package and test APK before replay
+        env:
+          EXPECTED_BUILD_SHA: ${{ needs.source-contract.outputs.reuse_apk == 'true' && '4909686e360348b404c10f377f103610c38b6a7b' || github.sha }}
         run: |
           set -euo pipefail
-          mkdir -p lab-candidate
+          mkdir -p lab-candidate startup-smoke-evidence
+          echo "Current QA script SHA: $GITHUB_SHA" | tee startup-smoke-evidence/qa-workflow-sha.txt
+          echo "Expected compiled source SHA: $EXPECTED_BUILD_SHA" | tee startup-smoke-evidence/compiled-source-sha.txt
+          test "$(cat integrated-apk/output/rx01-ux11/SOURCE-SHA.txt)" = "$EXPECTED_BUILD_SHA"
+          (cd integrated-apk && sha256sum -c output/rx01-ux11/apk-sha256.txt)
           cp integrated-apk/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
           cp integrated-apk/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk lab-candidate/app-debug-androidTest.apk
           test -s lab-candidate/app-debug.apk
           test -s lab-candidate/app-debug-androidTest.apk
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$aapt_bin" dump badging lab-candidate/app-debug.apk > startup-smoke-evidence/apk-badging.txt
+          grep -q "package: name='com.framebynavin.app.lab'" startup-smoke-evidence/apk-badging.txt
+          "$signer_bin" verify --verbose --print-certs lab-candidate/app-debug.apk > startup-smoke-evidence/signer.txt
+          grep -q f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0 startup-smoke-evidence/signer.txt
+          echo "PASS: verified exact source, original artifact checksum, Lab identity and signer"
+      - name: Enable KVM for Android 15 emulator
+        run: |
+          set -euo pipefail
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
