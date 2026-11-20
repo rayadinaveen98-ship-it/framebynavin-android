@@ -189,11 +189,19 @@ jobs:
             # The same emulator must run the brand-new double-tap tests
             # with disposable synthetic IDs; no actual user reminder is used.
             adb install -r lab-candidate/app-debug-androidTest.apk
-            runner="$(adb shell pm list instrumentation | grep 'target=com.framebynavin.app.lab' | sed -E 's/^instrumentation:([^ ]+).*/\1/' | tr -d '\r' | head -n 1)"
-            test -n "$runner"
+            # Discover/report installed instrumentation without hiding failures
+            # inside a command-substitution grep. The test APK's Gradle-derived
+            # applicationId is com.framebynavin.app.lab.test for Lab mode.
+            adb shell pm list instrumentation 2>&1 | tee startup-smoke-evidence/instrumentation-list.txt
+            adb shell pm list packages com.framebynavin.app.lab 2>&1 | tee startup-smoke-evidence/lab-installed-packages.txt
+            # Run the declared AndroidJUnitRunner directly; preserve full
+            # failure output if package discovery is unreliable on API35.
             adb shell am instrument -w -e hardeningTestEnvironment ci-emulator \
               -e class com.framebynavin.app.reminders.RX01EntranceGateUiTest \
-              "$runner" 2>&1 | tee startup-smoke-evidence/rx01-double-tap-android-test.txt
+              com.framebynavin.app.lab.test/androidx.test.runner.AndroidJUnitRunner \
+              2>&1 | tee startup-smoke-evidence/rx01-double-tap-android-test.txt
+            # Fail closed on any crash, runner error or absent positive tests.
+            ! grep -Eqi 'INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS: Error|Process crashed|FAILURES!!!' startup-smoke-evidence/rx01-double-tap-android-test.txt
             grep -Eq 'OK \([1-9][0-9]* tests?\)' startup-smoke-evidence/rx01-double-tap-android-test.txt
       - name: Upload installation / launch / screenshot evidence
         if: always()
