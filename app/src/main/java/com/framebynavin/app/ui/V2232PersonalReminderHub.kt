@@ -1416,26 +1416,6 @@ internal fun V2232PersonalEditor(
                             lineHeight = 30.sp,
                             fontWeight = FontWeight.Bold,
                         )
-                        if (composerStep >= 0) {
-                            Spacer(Modifier.height(16.dp))
-                            UX11FPersonalComposerProgress(
-                                currentStep = composerStep,
-                                saving = saving,
-                                onReturnTo = { earlier ->
-                                    if (!saving && earlier < composerStep) {
-                                        composerStep = earlier
-                                        error = null
-                                    }
-                                },
-                                modifier = Modifier.testTag("v296-composer-progress"),
-                            )
-                        } else {
-                            Spacer(Modifier.height(5.dp))
-                            Text(
-                                "Adjust what matters, without changing your other reminders.",
-                                color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
-                            )
-                        }
                     }
                     IconButton(
                         onClick = onDismiss,
@@ -1443,6 +1423,29 @@ internal fun V2232PersonalEditor(
                     ) {
                         Icon(Icons.Outlined.Close, contentDescription = "Close editor", tint = ProjectorIvory)
                     }
+                }
+                // Progress uses the full sheet width, not the reduced header
+                // text column next to Close. All four labels fit at normal
+                // phone font; a scroll affordance remains for large fonts.
+                if (composerStep >= 0) {
+                    Spacer(Modifier.height(16.dp))
+                    UX11FPersonalComposerProgress(
+                        currentStep = composerStep,
+                        saving = saving,
+                        onReturnTo = { earlier ->
+                            if (!saving && earlier < composerStep) {
+                                composerStep = earlier
+                                error = null
+                            }
+                        },
+                        modifier = Modifier.testTag("v296-composer-progress"),
+                    )
+                } else {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Adjust what matters, without changing your other reminders.",
+                        color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                    )
                 }
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(composerScroll)
