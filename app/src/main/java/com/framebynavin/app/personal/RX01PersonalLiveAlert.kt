@@ -1,10 +1,8 @@
 package com.framebynavin.app.personal
 
-import android.animation.ValueAnimator
-import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import com.framebynavin.app.reminders.RX01CurrentReminderMotion
 import com.framebynavin.app.reminders.RX01ReminderDomain
 import com.framebynavin.app.reminders.RX01ReminderExperienceGate
 import com.framebynavin.app.reminders.RX01ReminderIconKind
@@ -36,10 +34,7 @@ internal fun RX01PersonalLiveAlert(
     val token = reminder.pendingToken
     val originalAt = reminder.pendingOccurrenceMillis
     val originalAlert = reminder.alert
-    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
-    val lowPower = remember(activity) {
-        activity.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
-    }
+    val visual = RX01CurrentReminderMotion()
     RX01ReminderExperienceGate(
         domain = RX01ReminderDomain.PERSONAL,
         mode = mode,
@@ -60,8 +55,8 @@ internal fun RX01PersonalLiveAlert(
                         PersonalAlertPresentationState.READY
             }
         },
-        motionEnabled = motionEnabled,
-        lowPower = lowPower,
+        motionEnabled = visual.motionEnabled,
+        lowPower = visual.lowPower,
         onInvalidOccurrence = onInvalidOccurrence,
         mainContent = mainContent,
     )
