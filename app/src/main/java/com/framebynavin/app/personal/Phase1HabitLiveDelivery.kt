@@ -27,6 +27,9 @@ import com.framebynavin.app.reminders.ReminderBackingMusic
 import com.framebynavin.app.reminders.ReminderMusicChoice
 import com.framebynavin.app.reminders.ReminderMusicMode
 import com.framebynavin.app.reminders.ReminderMusicMixPolicy
+import com.framebynavin.app.reminders.RX01ReminderDomain
+import com.framebynavin.app.reminders.RX01ReminderScenePrefs
+import com.framebynavin.app.reminders.RX01ReminderScenePolicy
 import java.lang.ref.WeakReference
 import java.time.Instant
 import java.time.LocalDate
@@ -99,8 +102,9 @@ internal object Phase1HabitNotification {
         // RX01-E: an explicit Activity PendingIntent is allowed when the owner
         // opens the notification. It is NOT a background startActivity call.
         // Quiet challenge alerts retain the original MainActivity deep link.
-        val visualEligible = RX01ChallengePresentationPolicy.eligibleForVisual(
-            kind, scheduledAt
+        val visualEligible = RX01ReminderScenePolicy.challengeVisualEnabled(
+            rx01Enabled = RX01ReminderScenePrefs.enabled(context, RX01ReminderDomain.CHALLENGE_21),
+            eligibleMode = RX01ChallengePresentationPolicy.eligibleForVisual(kind, scheduledAt),
         )
         val visualOpen = if (visualEligible) Intent(
             context, RX01ChallengeAlertActivity::class.java
