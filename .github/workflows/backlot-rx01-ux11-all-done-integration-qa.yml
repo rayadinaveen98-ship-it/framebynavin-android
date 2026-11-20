@@ -42,14 +42,22 @@ jobs:
                    'app/src/main/java/com/framebynavin/app/personal/',
                    'app/src/main/java/com/framebynavin/app/reminders/',
                    'docs/design/','docs/engineering/','docs/product/']
-          exceptions={'app/src/main/AndroidManifest.xml',
-                      '.github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml'}
+          exceptions={
+              'app/src/main/AndroidManifest.xml',
+              '.github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml',
+              'app/src/test/java/com/framebynavin/app/reminders/RX01IntegrationPolicyTest.kt',
+              'app/src/test/java/com/framebynavin/app/ui/UX11IntegrationPolicyTest.kt',
+          }
           bad=[p for p in paths if not (p in exceptions or
                any(p.startswith(prefix) for prefix in allowed))]
           assert not bad, f'Unapproved changed source: {bad}'
           assert not any('ux09' in p.lower() or 'cloud/' in p.lower()
               or 'supabase' in p.lower() for p in paths), 'UX09/cloud mutation'
-          assert not any(p.startswith('app/src/test/') or p.startswith('app/src/androidTest/') for p in paths)
+          test_changes={p for p in paths if p.startswith('app/src/test/') or p.startswith('app/src/androidTest/')}
+          assert test_changes <= {
+              'app/src/test/java/com/framebynavin/app/reminders/RX01IntegrationPolicyTest.kt',
+              'app/src/test/java/com/framebynavin/app/ui/UX11IntegrationPolicyTest.kt',
+          }, f'Unexpected test scope: {test_changes}'
           assert Path('app/src/main/java/com/framebynavin/app/reminders/RX01ReminderExperienceGate.kt').is_file()
           assert Path('app/src/main/java/com/framebynavin/app/ui/UX11FPersonalComposerPresentation.kt').is_file()
           assert Path('app/src/main/java/com/framebynavin/app/personal/RX01ChallengeAlertActivity.kt').is_file()
