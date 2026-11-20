@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -111,9 +113,12 @@ internal fun RX01ReminderSceneSettings() {
                             saveFailed = !RX01ReminderScenePrefs.set(context, domain, newValue)
                             if (!saveFailed) enabled = newValue
                         },
-                        modifier = Modifier.testTag(
-                            "rx01-entrance-toggle-" + domain.name.lowercase()
-                        ),
+                        modifier = Modifier
+                            .testTag("rx01-entrance-toggle-" + domain.name.lowercase())
+                            .semantics {
+                                contentDescription = "Use fluid entrance for " +
+                                    RX01ReminderIconPolicy.domainLabel(domain)
+                            },
                     )
                 }
             }
@@ -193,7 +198,10 @@ private fun RX01ChallengeFullScreenSettings() {
                         .setFullScreenAlarmOptIn(context, enabled)
                     if (!saveFailed) optedIn = enabled
                 },
-                modifier = Modifier.testTag("rx01-challenge-fsi-opt-in"),
+                modifier = Modifier.testTag("rx01-challenge-fsi-opt-in")
+                    .semantics {
+                        contentDescription = "Request Android full screen for 21-day Challenge alarms"
+                    },
             )
         }
         if (saveFailed) Text("Couldn't save this preference. Retry.",
@@ -221,32 +229,38 @@ private fun RX01ChallengeFullScreenSettings() {
             )
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            OutlinedButton(onClick = {
-                launchFailed = !runCatching {
-                    context.startActivity(
-                        Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                            data = Uri.parse("package:" + context.packageName)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                    )
-                }.isSuccess
-            }) {
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    launchFailed = !runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                data = Uri.parse("package:" + context.packageName)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    }.isSuccess
+                },
+            ) {
                 Text("OPEN ANDROID FULL-SCREEN ACCESS", fontSize = 11.sp)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = {
-                launchFailed = !runCatching {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                    )
-                }.isSuccess
-            }) { Text("NOTIFICATION SETTINGS", fontSize = 11.sp) }
-            Button(onClick = { refresh++ }) {
-                Text("REFRESH", fontSize = 11.sp)
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    launchFailed = !runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    }.isSuccess
+                },
+            ) { Text("NOTIFICATION SETTINGS", fontSize = 11.sp) }
+            Button(onClick = { refresh++ }, modifier = Modifier.fillMaxWidth()) {
+                Text("REFRESH ANDROID ACCESS STATUS", fontSize = 11.sp)
             }
         }
         if (launchFailed) Text(
