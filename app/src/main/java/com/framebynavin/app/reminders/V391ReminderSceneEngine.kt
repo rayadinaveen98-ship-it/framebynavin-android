@@ -332,9 +332,10 @@ internal fun V391ReminderSceneSettings() {
             color = V336DirectorPalette.muted, fontSize = 11.sp, lineHeight = 16.sp)
         Spacer(Modifier.height(6.dp))
         Text(
-            "Premiere is a separate opt-in full-screen presentation. When enabled, " +
-                "it takes priority over your chosen Classic or Cinematic background. " +
-                "Switch Premiere off to use this scene during live Voice/Alarm alerts.",
+            "When Fluid Entrance is ON for a reminder domain, the new vibrant " +
+                "entrance and calm main screen take visual priority. With Fluid OFF, " +
+                "Premiere (if selected) takes priority; otherwise these saved " +
+                "Classic/Cinematic backgrounds appear. All selections stay saved.",
             color = V336DirectorPalette.muted,
             fontSize = 11.sp,
             lineHeight = 16.sp,

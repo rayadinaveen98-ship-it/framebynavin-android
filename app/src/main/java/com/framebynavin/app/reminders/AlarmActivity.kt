@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.Composable
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.data.CreatorOsSettingsStore
 import com.framebynavin.app.data.CreatorWorkflowEngine
@@ -89,7 +90,10 @@ class AlarmActivity : ComponentActivity() {
 
         setContent {
             FrameByNavinTheme {
-                ReminderCheckInScreen(
+                // RX01-F: fluid entrance may be disabled independently of
+                // saved Premiere/Classic backgrounds; those values stay intact.
+                val originalScreen: @Composable (Boolean) -> Unit = { rx01Main ->
+                    ReminderCheckInScreen(
                     kind = ReminderCheckInKind.ALARM,
                     title = task.title,
                     dueLabel = task.dueLabel,
@@ -108,7 +112,19 @@ class AlarmActivity : ComponentActivity() {
                     onPause = { dispatchReminderAction(ReminderConstants.ACTION_PAUSE, task.id) },
                     onReschedule = { openReschedulePicker(task.id) },
                     onDismiss = { dispatchReminderAction(ReminderConstants.ACTION_DISMISS, task.id) },
-                )
+                    rx01MainBackdrop = rx01Main,
+                    )
+                }
+                if (RX01ReminderScenePrefs.enabled(applicationContext, RX01ReminderDomain.CREATOR)) {
+                    RX01CreatorLiveAlert(
+                        activity = this@AlarmActivity,
+                        taskId = task.id,
+                        occurrenceId = occurrenceId,
+                        kind = ReminderCheckInKind.ALARM,
+                    ) { originalScreen(true) }
+                } else {
+                    originalScreen(false)
+                }
             }
         }
     }

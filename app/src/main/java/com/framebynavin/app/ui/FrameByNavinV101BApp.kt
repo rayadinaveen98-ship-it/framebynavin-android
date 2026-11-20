@@ -1455,43 +1455,40 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         profileComplete = settings.creatorProfile.isComplete,
     ) && (v393FirstRunFocus != V393FirstRunFocus.PERSONAL ||
         tab != PTab.TODAY || showComposer || showQuickCapture)) {
-        if (v393FirstRunFocus != null) {
-            V393QuickCreatorSetup(
-                existing = settings.creatorProfile,
-                onFinish = { profile ->
-                    val saved = settingsStore.completeCreatorSetup(profile)
-                    settings = settingsStore.snapshot()
-                    if (saved && settings.onboardingComplete &&
-                        settings.creatorProfile.isComplete
-                    ) {
-                        overlay = POverlay.NONE
-                        tab = PTab.TODAY
-                        // Optional permissions, then the six-step first-run guide.
-                        // Project creation stays available from Home and +.
-                        true
-                    } else false
-                },
-            )
-        } else {
-            // Existing partially configured users keep the original five-page
-            // setup; no mandatory migration or preference overwrite.
-            V18CreatorOnboarding(
-                profile = settings.creatorProfile,
-                notificationsReady = permissions.notifications,
-                preciseTimingReady = permissions.preciseTiming,
-                fullScreenReady = permissions.fullScreen,
-                batteryReady = permissions.batteryAccess,
-                onNotifications = ::requestNotifications,
-                onPreciseTiming = ::requestPreciseTiming,
-                onFullScreen = ::requestFullScreen,
-                onBattery = ::openBatterySettings,
-                onFinish = { profile ->
-                    val saved = settingsStore.completeCreatorSetup(profile)
-                    settings = settingsStore.snapshot()
-                    saved && settings.onboardingComplete && settings.creatorProfile.isComplete
-                },
-            )
-        }
+        // UX11-C: restore the ORIGINAL five-page Creator setup for new
+        // Creator/Both journeys, not just older partially configured users.
+        // Preserve the historical full Creator mode/platform/style/goals/
+        // permissions flow with its existing validation and commit contract.
+        // Personal-only users still bypass this setup on their normal entry.
+        V18CreatorOnboarding(
+            profile = settings.creatorProfile,
+            notificationsReady = permissions.notifications,
+            preciseTimingReady = permissions.preciseTiming,
+            fullScreenReady = permissions.fullScreen,
+            batteryReady = permissions.batteryAccess,
+            onNotifications = ::requestNotifications,
+            onPreciseTiming = ::requestPreciseTiming,
+            onFullScreen = ::requestFullScreen,
+            onBattery = ::openBatterySettings,
+            onFinish = { profile ->
+                val saved = settingsStore.completeCreatorSetup(profile)
+                settings = settingsStore.snapshot()
+                val complete = saved && settings.onboardingComplete &&
+                    settings.creatorProfile.isComplete
+                if (complete && (
+                    v393FirstRunFocus == V393FirstRunFocus.CREATOR ||
+                    v393FirstRunFocus == V393FirstRunFocus.BOTH
+                )) {
+                    // The restored page five already presented these exact
+                    // four optional Android permissions. Don't force a second
+                    // UX02 permission tour afterward. If persistence fails,
+                    // the original permission guide remains a safe fallback.
+                    runCatching { v393FirstRunPrefs.markPermissionGuideComplete() }
+                        .onSuccess { v402PermissionGuideComplete = true }
+                }
+                complete
+            },
+        )
     } else if (v393FirstRunFocus != null &&
         settings.accountOnboardingComplete && V144GuidePrefs.hasSelection &&
         !v402PermissionGuideComplete &&

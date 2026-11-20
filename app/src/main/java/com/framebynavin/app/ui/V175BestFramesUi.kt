@@ -378,7 +378,15 @@ internal object V18HeroPlaybackPolicy {
 private fun V18GreetingText(greeting: String, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text("BACKLOT", color = RecRed, fontSize = 8.3.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-        Text(greeting, color = ProjectorIvory, fontSize = 19.sp, fontWeight = FontWeight.Black)
+        Text(
+            greeting,
+            color = ProjectorIvory,
+            fontSize = 19.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -428,32 +436,55 @@ internal fun V18HeroGreetingBar(
     // overflow rail. Keep standalone Hero/legacy callers unchanged by default.
     // On live Home the three actions share one overflow trigger. Legacy callers
     // still receive the original Gallery + by default. Never shrink tap targets.
-    val wrapActions = LocalConfiguration.current.screenWidthDp < 440 ||
-        LocalDensity.current.fontScale >= 1.55f
-    if (wrapActions) {
-        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            V18GreetingText(greeting)
-            Spacer(Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.align(Alignment.End),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    // UX11-B: on the LIVE Home we only have one 48dp avatar/menu trigger.
+    // Its former narrow-phone "wrapActions" branch pushed the avatar below
+    // the greeting (the exact alignment defect from the owner's screenshot).
+    // Keep it in the SAME top row, with title width flexing instead.
+    if (galleryInOverflow) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                .testTag("ux11-home-greeting-face-header"),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            V18GreetingText(
+                greeting = greeting,
+                modifier = Modifier.weight(1f).padding(top = 2.dp),
+            )
+            Box(
+                modifier = Modifier.size(48.dp)
+                    .testTag("ux11-home-avatar-top-right"),
+                contentAlignment = Alignment.TopEnd,
             ) {
                 companionAvatar()
-                if (!galleryInOverflow) {
-                    V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
-                }
             }
         }
     } else {
-        Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            V18GreetingText(greeting, Modifier.weight(1f))
-            companionAvatar()
-            if (!galleryInOverflow) {
+        // Legacy/standalone hero keeps its real second Gallery control and
+        // therefore retains the historical safe wrapping on small widths.
+        val wrapActions = LocalConfiguration.current.screenWidthDp < 440 ||
+            LocalDensity.current.fontScale >= 1.55f
+        if (wrapActions) {
+            Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                V18GreetingText(greeting)
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.align(Alignment.End),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    companionAvatar()
+                    V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
+                }
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                V18GreetingText(greeting, Modifier.weight(1f))
+                companionAvatar()
                 V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
             }
         }

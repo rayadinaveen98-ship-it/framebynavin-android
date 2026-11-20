@@ -381,28 +381,6 @@ internal fun V2232PersonalReminderHub(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp)
                 .testTag("v2232-personal-space-switcher"),
         )
-        if (personalPageName == "TODAY") {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    onClick = {
-                        ux07bPreviewSpaceFocusId = null
-                        ux07bSpaceOpenedFromPreview = true
-                        spacesOpen = true
-                    },
-                    enabled = loaded && loadError == null,
-                    modifier = Modifier.testTag("v289-open-spaces"),
-                ) {
-                    Icon(Icons.Outlined.AutoAwesome, null,
-                        tint = RecRed, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text("My Spaces", color = RecRed, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
 
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(personalPageScroll)
@@ -522,8 +500,11 @@ internal fun V2232PersonalReminderHub(
                             reminders, completionEvents, agendaNowMillis
                         )
                     }
-                    if (reminders.isNotEmpty() || summary.confirmedDoneToday > 0) {
-                        V288PersonalTodayCard(
+                    // UX11-E: one rich, canonical Personal Today hero instead
+                    // of stacking a separate utilitarian summary card above
+                    // disconnected modules. This uses the SAME V288 snapshot
+                    // and original PersonalDeliveryCoordinator callback.
+                    UX11EPersonalSanctuaryHero(
                         snapshot = summary,
                         nowMillis = agendaNowMillis,
                         busy = busy,
@@ -546,8 +527,16 @@ internal fun V2232PersonalReminderHub(
                                 }
                             }
                         },
-                        )
-                    }
+                        onCreateReminder = {
+                            editing = null
+                            editorOpen = true
+                        },
+                        onOpenSpaces = {
+                            ux07bPreviewSpaceFocusId = null
+                            ux07bSpaceOpenedFromPreview = true
+                            spacesOpen = true
+                        },
+                    )
                     if (reminders.isNotEmpty() && !completionHistoryReady) {
                         Text("Progress history unavailable; no completions were inferred.",
                             color = MutedText, fontSize = 10.sp)
@@ -592,6 +581,10 @@ internal fun V2232PersonalReminderHub(
                     // Reuse the Home's already implemented read-only Space
                     // observer. No Room database is created if one is absent,
                     // and private JPEG bytes are never loaded for this preview.
+                    UX11ESanctuarySection(
+                        "Your corners",
+                        "Your saved journals, notes and photos live in My Spaces.",
+                    )
                     V340HomeSpacesEntry(
                         onOpenSpaces = { spaceId ->
                             ux07bPreviewSpaceFocusId = spaceId
@@ -615,6 +608,10 @@ internal fun V2232PersonalReminderHub(
                             displayZone = ZoneId.systemDefault(),
                         )
                     }
+                    UX11ESanctuarySection(
+                        "Looking back",
+                        "Seven days of recorded progress, without assumed completions.",
+                    )
                     UX07EPersonalProgressOverview(
                         snapshot = ux07eProgress,
                         enabled = !busy,
@@ -632,24 +629,18 @@ internal fun V2232PersonalReminderHub(
                 CircularProgressIndicator(color = RecRed)
             } else if (reminders.isEmpty() &&
                 challenges.none { it.alertKind != null }) {
-                Surface(
-                    color = CinemaSurface, shape = RoundedCornerShape(20.dp),
-                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
-                    modifier = Modifier.fillMaxWidth().testTag("v2232-personal-empty"),
-                ) {
-                    Column(Modifier.padding(23.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Outlined.NotificationsNone, null, tint = MutedText,
-                            modifier = Modifier.size(30.dp))
-                        Text("No reminders yet", color = ProjectorIvory,
-                            fontWeight = FontWeight.Bold)
-                        Button(onClick = { editing = null; editorOpen = true },
-                            modifier = Modifier.testTag("v2232-personal-empty-add"),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
-                            Text("ADD REMINDER")
-                        }
-                    }
-                }
+                // No duplicate Create button: the Sanctuary hero has the
+                // single primary action. Preserve the original empty tag.
+                Text(
+                    "Your reminder list is ready whenever you are. " +
+                        "Start with one small thing worth remembering.",
+                    color = MutedText,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(vertical = 9.dp)
+                        .testTag("v2232-personal-empty"),
+                )
             } else {
                 val eligibleChallenges = challenges.filter { it.alertKind != null }
                 val challengeGroupsForCounts = remember(eligibleChallenges, agendaNowMillis) {
@@ -704,6 +695,10 @@ internal fun V2232PersonalReminderHub(
                         scope = V285AgendaScope.SEVEN_DAYS,
                     )
                 }
+                UX11ESanctuarySection(
+                    "Your reminders",
+                    "Browse today, the week ahead or anything needing a response.",
+                )
                 if (challengeLoadError == null) {
                     V406ReminderScopeNavigator(
                         actions = listOf(
@@ -1398,36 +1393,65 @@ internal fun V2232PersonalEditor(
         Surface(
             modifier = Modifier.fillMaxSize()
                 .testTag("v2232-personal-editor"),
-            color = CinemaSurfaceRaised,
+            // UX11-F: more intimate Personal-first editor without replacing
+            // the existing draft, save, scheduling or all-fields edit mode.
+            color = androidx.compose.ui.graphics.Color(0xFF19171D),
             shape = RoundedCornerShape(20.dp),
         ) {
-            Column(Modifier.fillMaxSize().padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 17.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
-                        Text(if (existing == null) "NEW PERSONAL REMINDER" else "EDIT PERSONAL REMINDER",
-                            color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text(if (existing == null) "Make it yours" else "Your personal rhythm",
-                            color = ProjectorIvory, fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold)
-                        if (composerStep >= 0) {
-                            V406PersonalComposerProgress(
-                                currentStep = composerStep,
-                                onReturnTo = { earlier ->
-                                    if (!saving && earlier < composerStep) {
-                                        composerStep = earlier
-                                        error = null
-                                    }
-                                },
-                                modifier = Modifier.testTag("v296-composer-progress"),
-                            )
-                        }
+                        Text(
+                            if (existing == null) "PERSONAL / NEW REMINDER"
+                            else "PERSONAL / EDIT REMINDER",
+                            color = androidx.compose.ui.graphics.Color(0xFFE7AFA8),
+                            fontSize = 10.sp,
+                            letterSpacing = 1.1.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Spacer(Modifier.height(7.dp))
+                        Text(
+                            if (existing == null) "Make it yours" else "Your personal rhythm",
+                            color = ProjectorIvory, fontSize = 24.sp,
+                            lineHeight = 30.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("ux11f-editor-close"),
+                    ) {
                         Icon(Icons.Outlined.Close, contentDescription = "Close editor", tint = ProjectorIvory)
                     }
                 }
-                Column(Modifier.weight(1f).verticalScroll(composerScroll),
-                    verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                // Progress uses the full sheet width, not the reduced header
+                // text column next to Close. All four labels fit at normal
+                // phone font; a scroll affordance remains for large fonts.
+                if (composerStep >= 0) {
+                    Spacer(Modifier.height(16.dp))
+                    UX11FPersonalComposerProgress(
+                        currentStep = composerStep,
+                        saving = saving,
+                        onReturnTo = { earlier ->
+                            if (!saving && earlier < composerStep) {
+                                composerStep = earlier
+                                error = null
+                            }
+                        },
+                        modifier = Modifier.testTag("v296-composer-progress"),
+                    )
+                } else {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Adjust what matters, without changing your other reminders.",
+                        color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(composerScroll)
+                        .padding(top = 17.dp),
+                    verticalArrangement = Arrangement.spacedBy(11.dp),
+                ) {
                     AnimatedVisibility(
                         visible = composerStep == 0 || composerStep < 0,
                         enter = fadeIn() + expandVertically(),
@@ -1436,8 +1460,7 @@ internal fun V2232PersonalEditor(
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     TextButton(
                         onClick = { suggestionsOpen = !suggestionsOpen },
-                        modifier = Modifier.fillMaxWidth()
-                            .testTag("phase1-personal-toggle-suggestions"),
+                        modifier = Modifier.testTag("phase1-personal-toggle-suggestions"),
                     ) {
                         Icon(Icons.Outlined.AutoAwesome, null,
                             tint = RecRed, modifier = Modifier.size(16.dp))
@@ -1511,12 +1534,12 @@ internal fun V2232PersonalEditor(
                     OutlinedTextField(
                         value = title, onValueChange = { title = it.take(180); error = null },
                         label = { Text("What to remember?") }, singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
                         modifier = Modifier.fillMaxWidth().testTag("v2232-personal-title"),
                     )
                     TextButton(
                         onClick = { notesOpen = !notesOpen },
-                        modifier = Modifier.fillMaxWidth()
-                            .testTag("fc13-personal-toggle-notes"),
+                        modifier = Modifier.testTag("fc13-personal-toggle-notes"),
                     ) {
                         Icon(Icons.Outlined.Notes, null, tint = RecRed, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(7.dp))
@@ -1534,6 +1557,7 @@ internal fun V2232PersonalEditor(
                         OutlinedTextField(
                             value = notes, onValueChange = { notes = it.take(2000) },
                             label = { Text("Optional notes") }, minLines = 2, maxLines = 3,
+                            shape = RoundedCornerShape(18.dp),
                             modifier = Modifier.fillMaxWidth()
                                 .testTag("fc13-personal-notes-field"),
                         )
@@ -1891,7 +1915,7 @@ internal fun V2232PersonalEditor(
                     }
                 }
                 if (composerStep in 0..2) {
-                    V296PersonalStepActions(
+                    UX11FPersonalComposerFooter(
                         step = composerStep,
                         saving = saving,
                         onBack = {

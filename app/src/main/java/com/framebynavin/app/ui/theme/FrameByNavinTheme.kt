@@ -158,17 +158,23 @@ private fun FrameTheme.supportedAppearance(): FrameTheme = when (this) {
 
 /**
  * UX01: User-selectable branded opening styles.
- * Keep stable stored ids; unrecognized values safely return to the existing Particle Signature.
+ * Preserve all four stable stored IDs. New installs default to Cinematic Ember
+ * only if the owner never explicitly saved any previous welcome choice.
+ * Unknown explicitly stored IDs retain the legacy Particle fallback.
  */
 enum class V401WelcomeStyle(val displayName: String, val description: String) {
     PARTICLE_SIGNATURE("Particle Signature", "The original colorful Backlot reveal"),
     LIVING_FRAME("Living Frame", "An illuminated frame draws itself into view"),
     PRISMATIC_BLOOM("Prismatic Bloom", "Soft spectral light converges on the identity"),
-    SPARK_FIRST_LIGHT("Spark's First Light", "Our approved Spark brings Backlot into the light");
+    SPARK_FIRST_LIGHT("Spark's First Light", "Our approved Spark brings Backlot into the light"),
+    CINEMATIC_EMBER("Cinematic Ember Reveal", "Soft projector glow, restrained crimson warmth and a sculpted wordmark"),
+    APERTURE_LIGHT_BLOOM("Aperture Light Bloom", "An original optical iris of warm light and delicate concentric arcs"),
+    VELVET_GLASS("Velvet Glass", "Deep velvet gradients and subtle drifting glass reflections");
 
     companion object {
         fun fromStored(value: String?): V401WelcomeStyle =
-            entries.firstOrNull { it.name == value } ?: PARTICLE_SIGNATURE
+            if (value == null) CINEMATIC_EMBER
+            else entries.firstOrNull { it.name == value } ?: PARTICLE_SIGNATURE
     }
 }
 
@@ -185,7 +191,7 @@ object VisualExperiencePrefs {
         private set
     var launchSoundEnabled by mutableStateOf(true)
         private set
-    var welcomeStyle by mutableStateOf(V401WelcomeStyle.PARTICLE_SIGNATURE)
+    var welcomeStyle by mutableStateOf(V401WelcomeStyle.CINEMATIC_EMBER)
         private set
 
     fun initialize(context: Context) {

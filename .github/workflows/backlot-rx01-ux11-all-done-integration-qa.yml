@@ -1,0 +1,263 @@
+name: Backlot RX01 UX11 - isolated final integration QA NOT RELEASE
+
+on:
+  push:
+    branches:
+      - integration/backlot-rx01-ux11-all-done-qa-20261120
+    paths:
+      - ".github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml"
+      - "app/**"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rx01-ux11-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-contract:
+    name: Founder-approved stable ancestry and UX09 exclusion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      reuse_apk: ${{ steps.artifact-provenance.outputs.reuse_apk }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Audit authorized 12-stage change set
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=abbe88984bac16cfafbd990d9cb00ed54cfdd07e
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          git diff --check "$base" HEAD
+          git diff --name-only "$base" HEAD > /tmp/rx01-ux11-diff.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          paths=Path('/tmp/rx01-ux11-diff.txt').read_text().splitlines()
+          assert len(paths)>=40, f'Incomplete stack ({len(paths)} files)'
+          allowed=['app/src/main/java/com/framebynavin/app/ui/',
+                   'app/src/main/java/com/framebynavin/app/personal/',
+                   'app/src/main/java/com/framebynavin/app/reminders/',
+                   'docs/design/','docs/engineering/','docs/product/']
+          exceptions={
+              'app/src/main/AndroidManifest.xml',
+              '.github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml',
+              'app/src/test/java/com/framebynavin/app/reminders/RX01IntegrationPolicyTest.kt',
+              'app/src/test/java/com/framebynavin/app/ui/UX11IntegrationPolicyTest.kt',
+              'app/src/androidTest/java/com/framebynavin/app/reminders/RX01EntranceGateUiTest.kt',
+          }
+          bad=[p for p in paths if not (p in exceptions or
+               any(p.startswith(prefix) for prefix in allowed))]
+          assert not bad, f'Unapproved changed source: {bad}'
+          assert not any('ux09' in p.lower() or 'cloud/' in p.lower()
+              or 'supabase' in p.lower() for p in paths), 'UX09/cloud mutation'
+          test_changes={p for p in paths if p.startswith('app/src/test/') or p.startswith('app/src/androidTest/')}
+          assert test_changes <= {
+              'app/src/test/java/com/framebynavin/app/reminders/RX01IntegrationPolicyTest.kt',
+              'app/src/test/java/com/framebynavin/app/ui/UX11IntegrationPolicyTest.kt',
+              'app/src/androidTest/java/com/framebynavin/app/reminders/RX01EntranceGateUiTest.kt',
+          }, f'Unexpected test scope: {test_changes}'
+          assert Path('app/src/main/java/com/framebynavin/app/reminders/RX01ReminderExperienceGate.kt').is_file()
+          assert Path('app/src/main/java/com/framebynavin/app/ui/UX11FPersonalComposerPresentation.kt').is_file()
+          assert Path('app/src/main/java/com/framebynavin/app/personal/RX01ChallengeAlertActivity.kt').is_file()
+          cloud=Path('app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt').read_text()
+          assert 'vasleafrmsovdbdlrcsw.supabase.co' in cloud
+          assert not Path('app/src/main/java/com/framebynavin/app/cloud/ux09rpc').exists()
+          assert not Path('supabase/lab_migrations').exists()
+          print('PASS: 12-stage cumulative diff, no UX09/Cloud/Gradle mutations:',len(paths),'files')
+          PY
+          git rev-parse HEAD
+      - name: Reuse signed prior artifact ONLY when every subsequent change is this CI YAML
+        id: artifact-provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          approved_apk_source=4909686e360348b404c10f377f103610c38b6a7b
+          workflow_path=.github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml
+          reuse=false
+          if git merge-base --is-ancestor "$approved_apk_source" HEAD; then
+            mapfile -t changes < <(git diff --name-only "$approved_apk_source" HEAD)
+            if [ "${#changes[@]}" -eq 1 ] && [ "${changes[0]}" = "$workflow_path" ]; then
+              git diff --exit-code "$approved_apk_source" HEAD -- app/ >/dev/null
+              git diff --exit-code "$approved_apk_source" HEAD -- gradle.properties settings.gradle.kts build.gradle.kts dev-signing/ >/dev/null
+              reuse=true
+            fi
+          fi
+          echo "reuse_apk=$reuse" >> "$GITHUB_OUTPUT"
+          echo "REUSE VERIFIED APK: $reuse"
+          if [ "$reuse" = true ]; then
+            echo 'Lab APK is from previously green compile+unit+lint source 4909686e; ONLY CI YAML changed afterward.'
+            echo 'Source identity and APK hashes will be rechecked after artifact download.'
+          else
+            echo 'Application/build/source changed or provenance cannot be proven: full independent build is required.'
+          fi
+  compile-unit-lint:
+    name: Compile, all JVM regressions, lint and Lab APK
+    needs: source-contract
+    if: needs.source-contract.outputs.reuse_apk != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Run complete independent build/test/lint failure inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/rx01-ux11
+          cat >> gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8
+          kotlin.compiler.execution.strategy=in-process
+          org.gradle.workers.max=1
+          org.gradle.parallel=false
+          EOF
+          rm -rf app/build
+          timeout --signal=TERM --kill-after=20s 104m gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            :app:testDebugUnitTest :app:lintDebug \
+            --continue -PbacklotLab=true --no-daemon \
+            --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/rx01-ux11/all-gates-build.log
+      - name: Verify compiled Lab APK package, signer and source SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$aapt_bin" dump badging "$apk" > output/rx01-ux11/apk-badging.txt
+          grep -q "package: name='com.framebynavin.app.lab'" output/rx01-ux11/apk-badging.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" > output/rx01-ux11/apk-signer.txt
+          grep -q f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0 output/rx01-ux11/apk-signer.txt
+          sha256sum "$apk" > output/rx01-ux11/apk-sha256.txt
+          git rev-parse HEAD > output/rx01-ux11/SOURCE-SHA.txt
+          if [ -n "$(git status --porcelain -- app/src)" ]; then
+            echo 'FAIL: source modified during QA build'
+            git status --short -- app/src
+            exit 1
+          fi
+          echo 'Lab APK compiled; NOT physical-device certified or a Play release.'
+      - name: Upload QA APK and evidence only on complete green gates
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-RX01-UX11-Integrated-Lab-QA-NOT-CERTIFIED
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            output/rx01-ux11/
+          retention-days: 14
+      - name: Upload complete failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-RX01-UX11-Integration-BLOCKERS
+          path: |
+            output/rx01-ux11/
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  android-15-startup:
+    name: Android API35 install, launch, no-crash smoke
+    needs: [source-contract, compile-unit-lint]
+    if: ${{ always() && needs.source-contract.result == 'success' && (needs.compile-unit-lint.result == 'success' || (needs.source-contract.outputs.reuse_apk == 'true' && needs.compile-unit-lint.result == 'skipped')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-RX01-UX11-Integrated-Lab-QA-NOT-CERTIFIED
+          path: integrated-apk
+          # For workflow-only repairs reuse the *successful prior build*, never a rebuild.
+          # App, Gradle and other source changes force the normal full compile job.
+          run-id: ${{ needs.source-contract.outputs.reuse_apk == 'true' && '44723927524' || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+      - name: Verify source, signed APK bytes, package and test APK before replay
+        env:
+          EXPECTED_BUILD_SHA: ${{ needs.source-contract.outputs.reuse_apk == 'true' && '4909686e360348b404c10f377f103610c38b6a7b' || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p lab-candidate startup-smoke-evidence
+          echo "Current QA script SHA: $GITHUB_SHA" | tee startup-smoke-evidence/qa-workflow-sha.txt
+          echo "Expected compiled source SHA: $EXPECTED_BUILD_SHA" | tee startup-smoke-evidence/compiled-source-sha.txt
+          test "$(cat integrated-apk/output/rx01-ux11/SOURCE-SHA.txt)" = "$EXPECTED_BUILD_SHA"
+          (cd integrated-apk && sha256sum -c output/rx01-ux11/apk-sha256.txt)
+          cp integrated-apk/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
+          cp integrated-apk/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk lab-candidate/app-debug-androidTest.apk
+          test -s lab-candidate/app-debug.apk
+          test -s lab-candidate/app-debug-androidTest.apk
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$aapt_bin" dump badging lab-candidate/app-debug.apk > startup-smoke-evidence/apk-badging.txt
+          grep -q "package: name='com.framebynavin.app.lab'" startup-smoke-evidence/apk-badging.txt
+          "$signer_bin" verify --verbose --print-certs lab-candidate/app-debug.apk > startup-smoke-evidence/signer.txt
+          grep -q f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0 startup-smoke-evidence/signer.txt
+          echo "PASS: verified exact source, original artifact checksum, Lab identity and signer"
+      - name: Enable KVM for Android 15 emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Actual Android 15 launch from existing safe Lab smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            # reactivecircus executes this inline script via /bin/sh.
+            # Use portable POSIX flags here; the underlying source-owned
+            # startup smoke is explicitly invoked with bash below.
+            # The final result grep fails closed if instrumentation fails,
+            # even when tee is the last command in the log pipeline.
+            set -eu
+            bash .github/scripts/backlot-lab-startup-smoke.sh
+            # The same emulator must run the brand-new double-tap tests
+            # with disposable synthetic IDs; no actual user reminder is used.
+            adb install -r lab-candidate/app-debug-androidTest.apk
+            # Discover/report installed instrumentation without hiding failures
+            # inside a command-substitution grep. The test APK's Gradle-derived
+            # applicationId is com.framebynavin.app.lab.test for Lab mode.
+            adb shell pm list instrumentation 2>&1 | tee startup-smoke-evidence/instrumentation-list.txt
+            adb shell pm list packages com.framebynavin.app.lab 2>&1 | tee startup-smoke-evidence/lab-installed-packages.txt
+            # Run the declared AndroidJUnitRunner directly; preserve full
+            # failure output if package discovery is unreliable on API35.
+            # This action invokes EVERY script line via a separate /bin/sh -c.
+            # Do not split a command with backslashes across YAML script lines:
+            # it loses the arguments and creates a false instrumentation failure.
+            adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.RX01EntranceGateUiTest com.framebynavin.app.lab.test/androidx.test.runner.AndroidJUnitRunner 2>&1 | tee startup-smoke-evidence/rx01-double-tap-android-test.txt
+            # Fail closed on any crash, runner error or absent positive tests.
+            ! grep -Eqi 'INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS: Error|Process crashed|FAILURES!!!' startup-smoke-evidence/rx01-double-tap-android-test.txt
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' startup-smoke-evidence/rx01-double-tap-android-test.txt
+      - name: Upload installation / launch / screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-RX01-UX11-Android15-Smoke
+          path: startup-smoke-evidence/
+          if-no-files-found: warn
+          retention-days: 14
