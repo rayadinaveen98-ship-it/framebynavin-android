@@ -47,6 +47,7 @@ jobs:
               '.github/workflows/backlot-rx01-ux11-all-done-integration-qa.yml',
               'app/src/test/java/com/framebynavin/app/reminders/RX01IntegrationPolicyTest.kt',
               'app/src/test/java/com/framebynavin/app/ui/UX11IntegrationPolicyTest.kt',
+              'app/src/androidTest/java/com/framebynavin/app/reminders/RX01EntranceGateUiTest.kt',
           }
           bad=[p for p in paths if not (p in exceptions or
                any(p.startswith(prefix) for prefix in allowed))]
@@ -57,6 +58,7 @@ jobs:
           assert test_changes <= {
               'app/src/test/java/com/framebynavin/app/reminders/RX01IntegrationPolicyTest.kt',
               'app/src/test/java/com/framebynavin/app/ui/UX11IntegrationPolicyTest.kt',
+              'app/src/androidTest/java/com/framebynavin/app/reminders/RX01EntranceGateUiTest.kt',
           }, f'Unexpected test scope: {test_changes}'
           assert Path('app/src/main/java/com/framebynavin/app/reminders/RX01ReminderExperienceGate.kt').is_file()
           assert Path('app/src/main/java/com/framebynavin/app/ui/UX11FPersonalComposerPresentation.kt').is_file()
@@ -129,6 +131,7 @@ jobs:
           name: Backlot-RX01-UX11-Integrated-Lab-QA-NOT-CERTIFIED
           path: |
             app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             output/rx01-ux11/
           retention-days: 14
       - name: Upload complete failure evidence
@@ -159,7 +162,9 @@ jobs:
           set -euo pipefail
           mkdir -p lab-candidate
           cp integrated-apk/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
+          cp integrated-apk/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk lab-candidate/app-debug-androidTest.apk
           test -s lab-candidate/app-debug.apk
+          test -s lab-candidate/app-debug-androidTest.apk
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
@@ -173,7 +178,18 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
-          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+          script: |
+            set -euo pipefail
+            bash .github/scripts/backlot-lab-startup-smoke.sh
+            # The same emulator must run the brand-new double-tap tests
+            # with disposable synthetic IDs; no actual user reminder is used.
+            adb install -r lab-candidate/app-debug-androidTest.apk
+            runner="$(adb shell pm list instrumentation | grep 'target=com.framebynavin.app.lab' | sed -E 's/^instrumentation:([^ ]+).*/\1/' | tr -d '\r' | head -n 1)"
+            test -n "$runner"
+            adb shell am instrument -w -e hardeningTestEnvironment ci-emulator \
+              -e class com.framebynavin.app.reminders.RX01EntranceGateUiTest \
+              "$runner" 2>&1 | tee startup-smoke-evidence/rx01-double-tap-android-test.txt
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' startup-smoke-evidence/rx01-double-tap-android-test.txt
       - name: Upload installation / launch / screenshot evidence
         if: always()
         uses: actions/upload-artifact@v4
