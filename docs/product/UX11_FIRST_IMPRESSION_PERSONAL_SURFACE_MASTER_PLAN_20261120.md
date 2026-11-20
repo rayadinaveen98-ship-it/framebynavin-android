@@ -1,6 +1,6 @@
 # Backlot UX11 — First Impression and Personal Experience
 Date: 2026-11-20
-Status: UX11-A source-staged. UX11-B..F planned only, not implemented. NO final integration/test/Android APK/release authorized until founder says ALL DONE.
+Status: UX11-A..F are now SOURCE-STAGED on independent stacked draft branches, NOT COMPILED OR TESTED. No integration, unit/instrumentation testing, physical QA, APK, merge or release authorized until founder explicitly says ALL DONE.
 
 ## Founder requirement and screenshot evidence
 
@@ -16,7 +16,18 @@ The six explicitly approved changes:
 5. Make Personal Reminder Home feel like a distinct private personal sanctuary rather than a generic utility.
 6. Remove the numeric 1/2/3/4 display from New Personal Reminder while preserving the existing real four-step form logic.
 
-## Current source mapping (verified read-only on source stack)
+## Final UX11 source-staging record (2026-11-20)
+- **A — Premium welcome:** draft PR #454, three original Canvas openings and preserved four older selections.
+- **B — Companion header:** draft PR #455, original character face crop in aligned Home top-right slot.
+- **C — Original setup:** draft PR #456, existing original five-page Creator setup restored for new Creator/Both journeys; Personal-only bypass preserved.
+- **D — Account entry:** draft PR #457, distinct Create/Login/Local visuals over unchanged Credential Manager and account identity ownership.
+- **E — Personal Sanctuary:** draft PR #458, new read-only warm Today hero with original Done/Snooze/Space/Challenge/Progress routes.
+- **F — Personal reminder creation:** draft PR #459 on `feature/backlot-ux11f-personal-composer-cleanup-20261120`, replaces numeric chips with text-only Purpose/Schedule/Alert/Review, a subtle progress rail and a compact first-three-step footer. Original four internal stages, validation and Save remain authoritative.
+- All stages are stacked on RX01-A..F drafts #448–#453 and ultimately on protected main/stable commit `abbe88984bac16cfafbd990d9cb00ed54cfdd07e`. UX09 is excluded.
+- **No final quality/Android runtime claim:** compilation, CI, unit tests, integrated app, accessibility verification, QA APK, physical certification and release promotion all remain pending after ALL DONE.
+
+## Original source mapping at UX11-A planning (historical baseline)
+
 - UX11-A: `ui/V401WelcomeCollection.kt`, `ui/V199ParticleWelcome.kt`, `ui/V401WelcomePicker.kt`, `ui/V131LaunchGate.kt`, `ui/theme/FrameByNavinTheme.kt`, `ui/V127AppearanceSettings.kt`. The existing four selectable welcome style IDs and 3,000ms classic timeline remain valid; the launch gate bypasses branding for widget/external launch.
 - UX11-B: `ui/V18TodayScreen.kt` calls `V18CinematicHomeHero(..., companionAvatar)`. The live home composes `V2214HomeCompanion` via `ui/FrameByNavinV101BApp.kt`; companion behavior/selected assets are in `ui/V2214HomeCompanion.kt` and related guide art. The header slot should be redesigned, NOT a floating full-body overlay.
 - UX11-C: existing real first-run routing lives in `ui/FrameByNavinV101BApp.kt` and `ui/V393FirstRunQuickStart.kt`. New Creator/Both journeys use `V393QuickCreatorSetup`, while the older five-page `V18CreatorOnboarding` is **still referenced** for existing partially set-up users. Historical pre-UX02 source in PR #394 parent `f63e6a1f17101088b859f64d788d7eda95039a81` also references this exact older five-page setup. The rollback must preserve complete accounts, Personal-first bypass, permissions and storage; pin the exact old presentation/copy before altering routing. Do not infer that unrelated old Drive recovery screens should return.
