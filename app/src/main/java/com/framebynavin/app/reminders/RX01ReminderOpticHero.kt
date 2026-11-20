@@ -242,7 +242,7 @@ internal fun RX01ReminderOpticIcon(
         if (scale <= 0f) return@Canvas
         val origin = center
         val orbit = scale * .37f
-        val theta = (2.0 * PI * motionFraction).toFloat()
+        val theta = ((2.0 * PI) * motionFraction.toDouble()).toFloat()
         val breath = (1f + .045f * sin(theta)).coerceIn(.95f, 1.05f)
         val haloRadius = orbit * 1.27f
 
@@ -514,7 +514,7 @@ private fun DrawScope.rx01Glint(
     color: Color,
     scale: Float,
 ) {
-    val radians = (degrees * (PI / 180.0)).toFloat()
+    val radians = (degrees.toDouble() * (PI / 180.0)).toFloat()
     val position = Offset(
         at.x + orbit * cos(radians),
         at.y + orbit * sin(radians),
