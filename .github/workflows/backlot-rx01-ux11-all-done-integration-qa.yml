@@ -179,7 +179,12 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
           script: |
-            set -euo pipefail
+            # reactivecircus executes this inline script via /bin/sh.
+            # Use portable POSIX flags here; the underlying source-owned
+            # startup smoke is explicitly invoked with bash below.
+            # The final result grep fails closed if instrumentation fails,
+            # even when tee is the last command in the log pipeline.
+            set -eu
             bash .github/scripts/backlot-lab-startup-smoke.sh
             # The same emulator must run the brand-new double-tap tests
             # with disposable synthetic IDs; no actual user reminder is used.
