@@ -39,9 +39,9 @@ class UX11IntegrationPolicyTest {
             assertFalse(UX11PremiumWelcomePolicy.supported(style))
         }
         assertEquals(2400L, UX11PremiumWelcomePolicy.DURATION_MS)
-        assertEquals(0f, UX11PremiumWelcomePolicy.progress(0L, 100L, 1100L))
-        assertEquals(.5f, UX11PremiumWelcomePolicy.progress(600L, 100L, 1100L))
-        assertEquals(1f, UX11PremiumWelcomePolicy.progress(1600L, 100L, 1100L))
+        assertEquals(0f, UX11PremiumWelcomePolicy.progress(0L, 100L, 1100L), 0.0001f)
+        assertEquals(.5f, UX11PremiumWelcomePolicy.progress(600L, 100L, 1100L), 0.0001f)
+        assertEquals(1f, UX11PremiumWelcomePolicy.progress(1600L, 100L, 1100L), 0.0001f)
     }
 
     @Test fun userFacingAuthChoiceNeverAssumesBackendIdentityOutcome() {
