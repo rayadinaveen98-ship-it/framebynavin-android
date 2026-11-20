@@ -222,16 +222,18 @@ internal fun UX11EPersonalSanctuaryHero(
                                     }
                                 }
                                 if (V288PersonalTodayPolicy.canRespond(next)) {
-                                    Row(
+                                    // Two full-width actions avoid clipped labels on
+                                    // 320dp phones and 200% system font scaling.
+                                    Column(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         OutlinedButton(
                                             onClick = {
                                                 onRespond(next, PersonalDeliveryContract.ACTION_DONE)
                                             },
                                             enabled = !busy,
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier.fillMaxWidth()
                                                 .heightIn(min = 50.dp)
                                                 .testTag("v288-next-done"),
                                             border = BorderStroke(1.dp, rose.copy(alpha = .72f)),
@@ -248,7 +250,7 @@ internal fun UX11EPersonalSanctuaryHero(
                                                 onRespond(next, PersonalDeliveryContract.ACTION_SNOOZE)
                                             },
                                             enabled = !busy,
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier.fillMaxWidth()
                                                 .heightIn(min = 50.dp)
                                                 .testTag("v288-next-snooze"),
                                             border = BorderStroke(1.dp, gold.copy(alpha = .55f)),
