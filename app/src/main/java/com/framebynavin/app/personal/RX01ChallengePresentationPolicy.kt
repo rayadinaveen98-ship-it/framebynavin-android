@@ -20,10 +20,9 @@ internal object RX01ChallengePresentationPrefs {
         context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
             .getBoolean(FSI_KEY, false)
 
-    fun setFullScreenAlarmOptIn(context: Context, enabled: Boolean) {
+    fun setFullScreenAlarmOptIn(context: Context, enabled: Boolean): Boolean =
         context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-            .edit().putBoolean(FSI_KEY, enabled).apply()
-    }
+            .edit().putBoolean(FSI_KEY, enabled).commit()
 }
 
 internal object RX01ChallengePresentationPolicy {
