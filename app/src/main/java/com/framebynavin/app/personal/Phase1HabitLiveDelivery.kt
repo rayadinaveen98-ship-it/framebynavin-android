@@ -93,8 +93,29 @@ internal object Phase1HabitNotification {
         val open = Intent(context, MainActivity::class.java)
             .setAction(PersonalDeliveryContract.ACTION_OPEN_PERSONAL)
             .setData(Uri.parse("backlot-habit://open/" + Uri.encode(challenge.id)))
-        val pi = PendingIntent.getActivity(context, challenge.id.hashCode(), open,
+        val oldMainPi = PendingIntent.getActivity(context, challenge.id.hashCode(), open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+        // RX01-E: an explicit Activity PendingIntent is allowed when the owner
+        // opens the notification. It is NOT a background startActivity call.
+        // Quiet challenge alerts retain the original MainActivity deep link.
+        val visualEligible = RX01ChallengePresentationPolicy.eligibleForVisual(
+            kind, scheduledAt
+        )
+        val visualOpen = if (visualEligible) Intent(
+            context, RX01ChallengeAlertActivity::class.java
+        ).setAction(RX01ChallengeAlertActivity.ACTION_OPEN_VISUAL)
+            .setData(Uri.parse("backlot-habit://rx01-open/" +
+                Uri.encode(challenge.id) + "/" + scheduledAt))
+            .putExtra(ID, challenge.id)
+            .putExtra(AT, scheduledAt)
+            .putExtra(RX01ChallengeAlertActivity.EXTRA_ALARM_FSI, false)
+        else null
+        val visualPi = visualOpen?.let {
+            PendingIntent.getActivity(context, challenge.id.hashCode() xor 0x214A,
+                it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+        val pi = visualPi ?: oldMainPi
         // Only the small white Spark silhouette may appear in the PUBLIC
         // lock-screen version; activity name, action and large pose stay private.
         val publicVersion = NotificationCompat.Builder(context, channel(kind))
@@ -111,10 +132,34 @@ internal object Phase1HabitNotification {
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(if (kind == Phase1HabitAlertKind.ALARM)
+                NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setPriority(if (kind == Phase1HabitAlertKind.QUIET)
                 NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setSilent(kind == Phase1HabitAlertKind.QUIET)
+
+        // Android 14+ restricts alarm full-screen access. Only a specifically
+        // configured ALARM and an explicit owner opt-in may request it, and
+        // only when the already-established HIGH channel is still eligible.
+        // A denial simply leaves the original actionable notification.
+        if (kind == Phase1HabitAlertKind.ALARM && visualPi != null &&
+            RX01ChallengePresentationPolicy.canOfferAlarmFullScreen(context, scheduledAt)
+        ) {
+            val fullScreenIntent = Intent(
+                context, RX01ChallengeAlertActivity::class.java
+            ).setAction(RX01ChallengeAlertActivity.ACTION_OPEN_VISUAL)
+                .setData(Uri.parse("backlot-habit://rx01-fsi/" +
+                    Uri.encode(challenge.id) + "/" + scheduledAt))
+                .putExtra(ID, challenge.id)
+                .putExtra(AT, scheduledAt)
+                .putExtra(RX01ChallengeAlertActivity.EXTRA_ALARM_FSI, true)
+            val fullScreenPi = PendingIntent.getActivity(
+                context, challenge.id.hashCode() xor 0x214B,
+                fullScreenIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.setFullScreenIntent(fullScreenPi, true)
+        }
         V390CompanionNotificationArt.selectedIcon(context)?.let { builder.setLargeIcon(it) }
         // Only the exact, posted occurrence can be snoozed from the OS notice.
         // Completing a challenge is never inferred from an alert interaction.
