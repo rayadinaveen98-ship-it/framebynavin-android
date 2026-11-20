@@ -381,28 +381,6 @@ internal fun V2232PersonalReminderHub(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp)
                 .testTag("v2232-personal-space-switcher"),
         )
-        if (personalPageName == "TODAY") {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    onClick = {
-                        ux07bPreviewSpaceFocusId = null
-                        ux07bSpaceOpenedFromPreview = true
-                        spacesOpen = true
-                    },
-                    enabled = loaded && loadError == null,
-                    modifier = Modifier.testTag("v289-open-spaces"),
-                ) {
-                    Icon(Icons.Outlined.AutoAwesome, null,
-                        tint = RecRed, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text("My Spaces", color = RecRed, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
 
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(personalPageScroll)
@@ -522,8 +500,11 @@ internal fun V2232PersonalReminderHub(
                             reminders, completionEvents, agendaNowMillis
                         )
                     }
-                    if (reminders.isNotEmpty() || summary.confirmedDoneToday > 0) {
-                        V288PersonalTodayCard(
+                    // UX11-E: one rich, canonical Personal Today hero instead
+                    // of stacking a separate utilitarian summary card above
+                    // disconnected modules. This uses the SAME V288 snapshot
+                    // and original PersonalDeliveryCoordinator callback.
+                    UX11EPersonalSanctuaryHero(
                         snapshot = summary,
                         nowMillis = agendaNowMillis,
                         busy = busy,
@@ -546,8 +527,16 @@ internal fun V2232PersonalReminderHub(
                                 }
                             }
                         },
-                        )
-                    }
+                        onCreateReminder = {
+                            editing = null
+                            editorOpen = true
+                        },
+                        onOpenSpaces = {
+                            ux07bPreviewSpaceFocusId = null
+                            ux07bSpaceOpenedFromPreview = true
+                            spacesOpen = true
+                        },
+                    )
                     if (reminders.isNotEmpty() && !completionHistoryReady) {
                         Text("Progress history unavailable; no completions were inferred.",
                             color = MutedText, fontSize = 10.sp)
@@ -592,6 +581,10 @@ internal fun V2232PersonalReminderHub(
                     // Reuse the Home's already implemented read-only Space
                     // observer. No Room database is created if one is absent,
                     // and private JPEG bytes are never loaded for this preview.
+                    UX11ESanctuarySection(
+                        "Your corners",
+                        "Your saved journals, notes and photos live in My Spaces.",
+                    )
                     V340HomeSpacesEntry(
                         onOpenSpaces = { spaceId ->
                             ux07bPreviewSpaceFocusId = spaceId
@@ -615,6 +608,10 @@ internal fun V2232PersonalReminderHub(
                             displayZone = ZoneId.systemDefault(),
                         )
                     }
+                    UX11ESanctuarySection(
+                        "Looking back",
+                        "Seven days of recorded progress, without assumed completions.",
+                    )
                     UX07EPersonalProgressOverview(
                         snapshot = ux07eProgress,
                         enabled = !busy,
@@ -632,24 +629,18 @@ internal fun V2232PersonalReminderHub(
                 CircularProgressIndicator(color = RecRed)
             } else if (reminders.isEmpty() &&
                 challenges.none { it.alertKind != null }) {
-                Surface(
-                    color = CinemaSurface, shape = RoundedCornerShape(20.dp),
-                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
-                    modifier = Modifier.fillMaxWidth().testTag("v2232-personal-empty"),
-                ) {
-                    Column(Modifier.padding(23.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Outlined.NotificationsNone, null, tint = MutedText,
-                            modifier = Modifier.size(30.dp))
-                        Text("No reminders yet", color = ProjectorIvory,
-                            fontWeight = FontWeight.Bold)
-                        Button(onClick = { editing = null; editorOpen = true },
-                            modifier = Modifier.testTag("v2232-personal-empty-add"),
-                            colors = ButtonDefaults.buttonColors(containerColor = RecRed)) {
-                            Text("ADD REMINDER")
-                        }
-                    }
-                }
+                // No duplicate Create button: the Sanctuary hero has the
+                // single primary action. Preserve the original empty tag.
+                Text(
+                    "Your reminder list is ready whenever you are. " +
+                        "Start with one small thing worth remembering.",
+                    color = MutedText,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(vertical = 9.dp)
+                        .testTag("v2232-personal-empty"),
+                )
             } else {
                 val eligibleChallenges = challenges.filter { it.alertKind != null }
                 val challengeGroupsForCounts = remember(eligibleChallenges, agendaNowMillis) {
@@ -704,6 +695,10 @@ internal fun V2232PersonalReminderHub(
                         scope = V285AgendaScope.SEVEN_DAYS,
                     )
                 }
+                UX11ESanctuarySection(
+                    "Your reminders",
+                    "Browse today, the week ahead or anything needing a response.",
+                )
                 if (challengeLoadError == null) {
                     V406ReminderScopeNavigator(
                         actions = listOf(
