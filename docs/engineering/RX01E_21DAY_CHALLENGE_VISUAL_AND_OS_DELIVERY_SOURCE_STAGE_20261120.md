@@ -1,8 +1,8 @@
 # Backlot RX01-E — 21-Day Challenge premium live visual presentation
 
-**Stage:** SOURCE-STAGED; **NOT** compiled, tested or integrated into stable.  
-**Approved founder workflow:** Source-stage sequentially, then perform integration, unit/Android/physical testing and APK generation **only after “ALL DONE.”**  
-**Date:** 2026-11-20.  
+**Stage:** SOURCE-STAGED; **NOT** compiled, tested or integrated into stable.
+**Approved founder workflow:** Source-stage sequentially, then perform integration, unit/Android/physical testing and APK generation **only after “ALL DONE.”**
+**Date:** 2026-11-20.
 **Based on:** RX01-D draft PR #451 exact head `7964445156ec552c5e83e1788c00d16126397320`, stacked on RX01-A/B/C. Stable/main remain at `abbe88984bac16cfafbd990d9cb00ed54cfdd07e`. **UX09 excluded.**
 
 ## 1. Existing verified architecture — why this stage is different
