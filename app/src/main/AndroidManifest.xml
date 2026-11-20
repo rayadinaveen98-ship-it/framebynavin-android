@@ -49,6 +49,13 @@
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <!-- V223.1 Personal domain: separate non-exported PendingIntent targets. -->
         <receiver android:name=".personal.PersonalReminderReceiver" android:exported="false" />
+        <!-- RX01-E: explicit user-opened Challenge visual; OS-eligible, opt-in Alarm
+             FSI only. No export, independent alarm engine or new permission. -->
+        <activity android:name=".personal.RX01ChallengeAlertActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="standard"
+            android:theme="@style/Theme.FrameByNavin" />
         <receiver android:name=".personal.Phase1HabitAlarmReceiver" android:exported="false" />
         <receiver android:name=".personal.Phase1HabitSnoozeReceiver" android:exported="false" />
         <service android:name=".personal.Phase1HabitVoiceService"
