@@ -22,7 +22,7 @@ The six explicitly approved changes:
 - **C — Original setup:** draft PR #456, existing original five-page Creator setup restored for new Creator/Both journeys; Personal-only bypass preserved.
 - **D — Account entry:** draft PR #457, distinct Create/Login/Local visuals over unchanged Credential Manager and account identity ownership.
 - **E — Personal Sanctuary:** draft PR #458, new read-only warm Today hero with original Done/Snooze/Space/Challenge/Progress routes.
-- **F — Personal reminder creation:** staged on `feature/backlot-ux11f-personal-composer-cleanup-20261120`, replaces numeric chips with text-only Purpose/Schedule/Alert/Review, a subtle progress rail and a compact first-three-step footer. Original four internal stages, validation and Save remain authoritative.
+- **F — Personal reminder creation:** draft PR #459 on `feature/backlot-ux11f-personal-composer-cleanup-20261120`, replaces numeric chips with text-only Purpose/Schedule/Alert/Review, a subtle progress rail and a compact first-three-step footer. Original four internal stages, validation and Save remain authoritative.
 - All stages are stacked on RX01-A..F drafts #448–#453 and ultimately on protected main/stable commit `abbe88984bac16cfafbd990d9cb00ed54cfdd07e`. UX09 is excluded.
 - **No final quality/Android runtime claim:** compilation, CI, unit tests, integrated app, accessibility verification, QA APK, physical certification and release promotion all remain pending after ALL DONE.
 
