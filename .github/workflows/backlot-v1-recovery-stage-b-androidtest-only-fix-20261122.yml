@@ -1,0 +1,106 @@
+name: Backlot 1.0 recovery Stage B2 - test imports only (no JVM)
+
+on:
+  push:
+    branches:
+      - feature/backlot-v1-recovery-onboarding-reminder-looks-20261122
+    paths:
+      - ".github/workflows/backlot-v1-recovery-stage-b-androidtest-only-fix-20261122.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v1-recovery-b2-androidtest-only
+  cancel-in-progress: false
+
+env:
+  GREEN_APP_SOURCE: "8b771a5287b92d33cc8341907fc7747447cfd29a"
+  TEST_IMPORT_FIX_SOURCE: "22754214c13ec7b9cdbb46af192161bc2f05f751"
+  PREVIOUS_STAGE_B_RUN: "45026564764"
+
+jobs:
+  androidtest-only:
+    name: Recompile only affected Android test APK; reuse green app and JVM evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify unchanged production source and exactly two AndroidTest import fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/recovery-stage-b2
+          test "$(git merge-base "$TEST_IMPORT_FIX_SOURCE" HEAD)" = "$TEST_IMPORT_FIX_SOURCE"
+          git diff --exit-code "$GREEN_APP_SOURCE" HEAD -- app/src/main app/src/test app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          git diff --check "$GREEN_APP_SOURCE" HEAD
+          git diff --name-only "$GREEN_APP_SOURCE" HEAD -- app/src/androidTest | sort > output/recovery-stage-b2/TEST-SOURCE-DIFF.txt
+          cat > output/recovery-stage-b2/EXPECTED-DIFF.txt <<'EOF'
+app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryAccountUiTest.kt
+app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryNavigationJourneyUiTest.kt
+EOF
+          diff -u output/recovery-stage-b2/EXPECTED-DIFF.txt output/recovery-stage-b2/TEST-SOURCE-DIFF.txt
+          git diff "$GREEN_APP_SOURCE" HEAD -- app/src/androidTest > output/recovery-stage-b2/TEST-IMPORT-FIX.patch
+          test "$(grep -c '^-import androidx.compose.ui.test.assertDoesNotExist$' output/recovery-stage-b2/TEST-IMPORT-FIX.patch)" -eq 2
+          test "$(grep -c '^-import androidx.compose.ui.test.assertExists$' output/recovery-stage-b2/TEST-IMPORT-FIX.patch)" -eq 2
+          test "$(git diff --numstat "$GREEN_APP_SOURCE" HEAD -- app/src/androidTest | awk '{a+=$1;d+=$2} END{print a+0, d+0}')" = "0 4"
+          echo "$GREEN_APP_SOURCE" > output/recovery-stage-b2/APP-SOURCE-SHA.txt
+          echo "$TEST_IMPORT_FIX_SOURCE" > output/recovery-stage-b2/TEST-SOURCE-SHA.txt
+          git rev-parse HEAD > output/recovery-stage-b2/CI-SHA.txt
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: ${{ env.PREVIOUS_STAGE_B_RUN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-V1-RECOVERY-STAGE-B-LAB-TEST-APKS
+          path: prior-b
+      - name: Verify reusable previously compiled Lab app binary, without claiming test APK passed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s prior-b/app/build/outputs/apk/debug/app-debug.apk
+          sha256sum prior-b/app/build/outputs/apk/debug/app-debug.apk | tee output/recovery-stage-b2/REUSED-APP-SHA256.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build AndroidTest APK only, no JVM suite or owner APK build
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 75m gradle :app:assembleDebugAndroidTest \
+            -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/recovery-stage-b2/ANDROIDTEST-ONLY.log
+      - name: Preserve verified old Lab app and corrected AndroidTest APK for Stage C
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          mkdir -p lab-stage-b/app/build/outputs/apk/debug
+          mkdir -p lab-stage-b/app/build/outputs/apk/androidTest/debug
+          mkdir -p lab-stage-b/output/recovery-stage-b-android
+          cp prior-b/app/build/outputs/apk/debug/app-debug.apk lab-stage-b/app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk lab-stage-b/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          sha256sum lab-stage-b/app/build/outputs/apk/debug/app-debug.apk lab-stage-b/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk > output/recovery-stage-b2/NEW-SHA256SUMS.txt
+          (cd lab-stage-b && sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk) > lab-stage-b/output/recovery-stage-b-android/SHA256SUMS.txt
+          echo "$TEST_IMPORT_FIX_SOURCE" > lab-stage-b/output/recovery-stage-b-android/HEAD.txt
+          echo "PASS: fresh AndroidTest APK and original verified app, JVM remains green at older source" > output/recovery-stage-b2/RESULT.txt
+      - name: Save only test recovery evidence, successful APKs or exact errors
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V1-RECOVERY-STAGE-B2-TEST-FIX-AND-LAB-APKS
+          path: |
+            output/recovery-stage-b2/
+            lab-stage-b/
+          retention-days: 30
+          if-no-files-found: warn
