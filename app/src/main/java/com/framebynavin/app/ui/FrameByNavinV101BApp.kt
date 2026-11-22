@@ -175,6 +175,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
     var showReminders by rememberSaveable { mutableStateOf(false) }
+    // UX12 D3: visual-only, one-time arrival after a successful setup write.
+    // Never launch this for a reminder/widget/deep-link external entry.
+    var ux12D3Arrival by rememberSaveable {
+        mutableStateOf<UX12D3ArrivalDestination?>(null)
+    }
     var activityCenterOpen by rememberSaveable { mutableStateOf(false) }
     var creatorActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     var personalActivityFocusId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -633,6 +638,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
 
     LaunchedEffect(externalLaunch?.nonce) {
         val launch = externalLaunch ?: return@LaunchedEffect
+        ux12D3Arrival = null // external actions always bypass decorative arrival
         // Deep links and widgets must stay instant. A normal launch can resume the tour later.
         guidedTourStepName = null
         showControl = false
@@ -673,8 +679,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         v393FirstRunFocus,
         v402PermissionGuideComplete,
         externalLaunch?.nonce,
+        ux12D3Arrival,
     ) {
         if (
+            ux12D3Arrival == null &&
             guidedTourStepName == null &&
             // New Creator/Both accounts see the six-step guided tour once after
             // optional permission guidance. Existing completed accounts remain exempt.
@@ -1494,6 +1502,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settings = settingsStore.snapshot()
                 val complete = saved && settings.onboardingComplete &&
                     settings.creatorProfile.isComplete
+                if (UX12D3ArrivalPolicy.shouldPresent(
+                    setupCommitted = complete,
+                    externalLaunch = externalLaunch != null,
+                )) {
+                    ux12D3Arrival = UX12D3ArrivalDestination.CREATOR
+                }
                 if (complete && (
                     v393UnifiedEntry ||
                     v393FirstRunFocus == V393FirstRunFocus.CREATOR ||
@@ -1548,6 +1562,12 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         personalReminderSpace = true
                         activityCenterOpen = false
                         showReminders = true
+                        if (UX12D3ArrivalPolicy.shouldPresent(
+                            setupCommitted = true,
+                            externalLaunch = externalLaunch != null,
+                        )) {
+                            ux12D3Arrival = UX12D3ArrivalDestination.PERSONAL
+                        }
                     }
                     .onFailure {
                         Toast.makeText(context, "Could not save Personal setup. Try again.",
@@ -1633,6 +1653,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settings = settingsStore.snapshot()
                 guidedTourStepName = null
             },
+        )
+    }
+
+    // Render last to cover the already prepared destination, with no changes
+    // to canonical Creator/Personal reminder actions or first-run storage.
+    ux12D3Arrival?.takeIf { externalLaunch == null }?.let { destination ->
+        UX12D3WorkspaceArrival(
+            destination = destination,
+            onFinished = { ux12D3Arrival = null },
         )
     }
 }
