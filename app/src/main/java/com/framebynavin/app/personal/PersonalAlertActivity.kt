@@ -191,11 +191,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
                     )
                 }
                 if (!keyguardShowing && !invalid && candidate != null &&
-                    candidate.alert != PersonalAlert.NOTIFICATION &&
-                    com.framebynavin.app.reminders.RX01ReminderScenePrefs.enabled(
-                        applicationContext,
-                        com.framebynavin.app.reminders.RX01ReminderDomain.PERSONAL,
-                    )
+                    candidate.alert != PersonalAlert.NOTIFICATION
                 ) {
                     RX01PersonalLiveAlert(
                         activity = this@PersonalAlertActivity,
@@ -252,50 +248,16 @@ internal fun V2233PersonalAlertScreen(
         DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a", Locale.getDefault())
             .format(Instant.ofEpochMilli(it).atZone(reminder.zoneId))
     }
-    // The existing locked/invalid/loading presentation is always retained.
-    // Never expose Personal titles or actions over keyguard, including in V394.
-    val premiereKind = if (reminder?.alert == PersonalAlert.VOICE)
-        ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM
-    com.framebynavin.app.reminders.V394PremierePrefs.initialize(context)
-    val premiereEligible = reminder?.alert == PersonalAlert.VOICE ||
-        reminder?.alert == PersonalAlert.ALARM
-    if (!rx01MainBackdrop && com.framebynavin.app.reminders.V394PremierePresentationPolicy.personal(
-            enabled = com.framebynavin.app.reminders.V394PremierePrefs.enabled(premiereKind),
-            locked = locked,
-            validReminder = reminder != null && !invalid && premiereEligible,
-        )
-    ) {
-        val active = requireNotNull(reminder)
-        com.framebynavin.app.reminders.V394PremiereReminderScreen(
-            mode = com.framebynavin.app.reminders.V394PremiereMode.PERSONAL,
-            kind = premiereKind,
-            title = active.title,
-            timeLabel = scheduledLabel.orEmpty(),
-            contextLabel = if (scheduledLabel != null)
-                "SCHEDULED  /  " + scheduledLabel else "PERSONAL REMINDER",
-            supportingText = when (active.alert) {
-                PersonalAlert.ALARM -> "Alarm · " + active.alarmDurationSeconds + " seconds"
-                PersonalAlert.VOICE -> "Voice · " + active.voiceRepeatCount + " announcements"
-                PersonalAlert.NOTIFICATION -> "Personal notification"
-            },
-            primaryLabel = "DONE",
-            snoozeLabel = "SNOOZE " + active.snoozeMinutes + " MIN",
-            onPrimary = onDone,
-            onSnooze = onSnooze,
-            onDismiss = onDismiss,
-            error = error,
-            busy = busy,
-        )
-        return
-    }
+    // Historic Premiere scenes are not an active route. Locked and invalid
+    // content continues to obey the original privacy and action guards.
     Box(
         modifier = Modifier.fillMaxSize()
             .background(if (rx01MainBackdrop) Color.Transparent else V336DirectorPalette.black)
             .testTag("v2233-personal-alert-screen"),
     ) {
-        if (!rx01MainBackdrop) com.framebynavin.app.reminders.V391ReminderBackdrop(
-            kind = if (reminder?.alert == PersonalAlert.VOICE)
-                ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
+        if (!rx01MainBackdrop) com.framebynavin.app.reminders.RX01FluidReminderBackdrop(
+            domain = RX01ReminderDomain.PERSONAL,
+            phase = com.framebynavin.app.reminders.RX01SurfacePhase.MAIN,
             motionEnabled = motionEnabled, lowPower = lowPower,
             modifier = Modifier.fillMaxSize(),
         )
