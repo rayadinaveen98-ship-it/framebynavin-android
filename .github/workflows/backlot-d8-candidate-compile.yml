@@ -1,0 +1,90 @@
+name: Backlot D8 candidate - compile only, NOT release
+
+on:
+  push:
+    branches:
+      - integration/backlot-ux12-rx02-rx03-d8-candidate-20261122
+    paths:
+      - ".github/workflows/backlot-d8-candidate-compile.yml"
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-d8-candidate-compile-20261122
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Verify ancestry, scope and protected-baseline boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Founder D8 isolated source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=abbe88984bac16cfafbd990d9cb00ed54cfdd07e
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          git diff --check "$base" HEAD
+          git diff --name-only "$base" HEAD > /tmp/backlot-d8-changed.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          files=Path('/tmp/backlot-d8-changed.txt').read_text().splitlines()
+          assert len(files) >= 75, f'Unexpectedly incomplete D8 source stack ({len(files)})'
+          bad = [p for p in files if
+                 ('ux09' in p.lower() or 'cloud/' in p.lower() or
+                  'supabase' in p.lower() or 'lab_migrations' in p.lower())]
+          assert not bad, f'Forbidden UX09/cloud changes: {bad}'
+          assert 'app/src/main/java/com/framebynavin/app/reminders/RX02EntranceMediaStore.kt' in files
+          assert 'app/src/main/java/com/framebynavin/app/reminders/RX03BReminderScripts.kt' in files
+          assert 'app/src/main/java/com/framebynavin/app/reminders/VoiceGreetingBuilder.kt' in files
+          print('PASS: staged D8 source ancestry, permitted data boundary and known features')
+          PY
+          git rev-parse HEAD
+
+  compile:
+    name: Compile Lab Kotlin only; diagnostics artifact on failure
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+          cache-read-only: false
+      - name: Compile isolated Lab app (no unit/lint/emulator/APK)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/d8-compile
+          git rev-parse HEAD | tee output/d8-compile/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 5900s gradle \
+            :app:compileDebugKotlin -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/d8-compile/compile.log
+      - name: Save diagnostic logs with exact SHA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-D8-Compile-Diagnostics
+          path: |
+            output/d8-compile/
+            app/build/reports/
+          retention-days: 14
+          if-no-files-found: warn
