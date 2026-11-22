@@ -87,9 +87,6 @@ internal fun PTodayScreen(
     projectsLoaded: Boolean = true,
     ideas: List<CreatorIdea> = emptyList(),
     onAdd: () -> Unit,
-    onCreatorSetup: (() -> Unit)? = null,
-    cloudRecoveryAvailable: Boolean = false,
-    onReviewCloudRecovery: () -> Unit = {},
     onStart: (String) -> Unit,
     onAdvance: (String) -> Unit,
     onViewAllReminders: () -> Unit,
@@ -110,6 +107,10 @@ internal fun PTodayScreen(
     homeSpacesRevision: Int = 0,
     homeGreetingName: String? = null,
     weeklyFocusRequestNonce: Long = 0L,
+    // Added at the end to preserve existing positional call sites.
+    onCreatorSetup: (() -> Unit)? = null,
+    cloudRecoveryAvailable: Boolean = false,
+    onReviewCloudRecovery: () -> Unit = {},
 ) {
     // V222 pre-Play cold-start fix: CreatorViewModel.tasks is a mutableStateListOf.
     // The list object keeps its identity while DataStore loads projects into it,
