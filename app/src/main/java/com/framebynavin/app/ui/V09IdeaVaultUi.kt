@@ -6,6 +6,7 @@ import android.app.TimePickerDialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,7 +35,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -600,14 +603,19 @@ internal fun V09NewIdeaCleanEditor(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("THE IDEA VAULT", color = RecRed, fontSize = 11.sp,
-                            fontWeight = FontWeight.Black, letterSpacing = 1.3.sp)
-                        Text("Catch the spark.", color = ProjectorIvory,
-                            fontSize = 29.sp, lineHeight = 34.sp,
+                        Text("THE IDEA VAULT", color = RecRed, fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                        Text("New idea", color = ProjectorIvory,
+                            fontSize = 26.sp, lineHeight = 31.sp,
                             fontWeight = FontWeight.Black)
-                        Text("One thought now. Make it something bigger later.",
-                            color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
                     }
+                    // Small contextual companion, using approved artwork.
+                    // It supports the writing moment without covering the page.
+                    V144GuideCharacter(
+                        guide = V144GuidePrefs.currentGuide,
+                        state = CinePulseState.THINK,
+                        modifier = Modifier.size(48.dp).testTag("ux12-d5-idea-companion"),
+                    )
                     IconButton(onClick = ::dismiss) {
                         Icon(Icons.Outlined.Close, "Close", tint = ProjectorIvory)
                     }
@@ -644,40 +652,57 @@ internal fun V09NewIdeaCleanEditor(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
+                    // UX12 D5: ONE writing surface; no OutlinedTextField nested
+                    // inside another bordered card. No model/save changes.
                     Surface(
-                        Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(22.dp),
+                        Modifier.fillMaxWidth().testTag("ux12-d5-writing-surface"),
+                        shape = RoundedCornerShape(18.dp),
                         color = CinemaSurfaceRaised,
-                        border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
+                        border = BorderStroke(1.dp, RecRed.copy(alpha = .21f)),
                     ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text(writingPrompt.helper.uppercase(),
-                                color = RecRed, fontSize = 10.sp,
-                                fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                            Spacer(Modifier.height(9.dp))
-                            OutlinedTextField(
-                                title,
-                                { title = it },
-                                modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-title"),
-                                placeholder = {
-                                    Text(writingPrompt.placeholder, fontSize = 14.sp,
-                                        lineHeight = 20.sp)
-                                },
-                                minLines = 4,
-                                maxLines = 7,
-                                shape = RoundedCornerShape(16.dp),
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 15.dp)) {
+                            Text(
+                                writingPrompt.helper,
+                                color = MutedGold, fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
                             )
-                            IdeaVaultGuidance.similarTitles(title, existingIdeas).firstOrNull()?.let { duplicate ->
-                                Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
-                            }
+                            Spacer(Modifier.height(12.dp))
+                            BasicTextField(
+                                value = title,
+                                onValueChange = { title = it },
+                                modifier = Modifier.fillMaxWidth()
+                                    .testTag("v2203-new-idea-title"),
+                                textStyle = TextStyle(
+                                    color = ProjectorIvory,
+                                    fontSize = 16.sp,
+                                    lineHeight = 24.sp,
+                                ),
+                                cursorBrush = SolidColor(RecRed),
+                                minLines = 4,
+                                maxLines = 8,
+                                decorationBox = { field ->
+                                    Box(Modifier.fillMaxWidth().heightIn(min = 112.dp)) {
+                                        if (title.isEmpty()) {
+                                            Text(
+                                                writingPrompt.placeholder,
+                                                color = MutedText, fontSize = 14.sp,
+                                                lineHeight = 21.sp,
+                                            )
+                                        }
+                                        field()
+                                    }
+                                },
+                            )
+                            IdeaVaultGuidance.similarTitles(title, existingIdeas)
+                                .firstOrNull()?.let { duplicate ->
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "Similar saved idea: ${duplicate.title}. You can still save this.",
+                                        color = MutedGold, fontSize = 11.sp,
+                                    )
+                                }
                         }
                     }
-
-                    Text(
-                        "These prompts are writing guides. Your exact words are saved.",
-                        color = MutedText, fontSize = 11.sp,
-                        modifier = Modifier.padding(start = 3.dp, top = 8.dp),
-                    )
                     Spacer(Modifier.height(13.dp))
                     Text("OR CAPTURE YOUR VOICE", color = MutedText,
                         fontSize = 11.sp, fontWeight = FontWeight.Bold,
