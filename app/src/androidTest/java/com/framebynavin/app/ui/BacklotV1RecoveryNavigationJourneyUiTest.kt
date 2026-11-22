@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -44,18 +45,18 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         awaitTag("backlot-bottom-nav")
         assertCreatorWizardAbsent()
 
-        rule.onNodeWithText("Ideas").performClick()
+        rule.onNodeWithContentDescription("Ideas").performClick()
         rule.onNodeWithText("Capture now. Produce later.").assertExists()
         assertCreatorWizardAbsent()
 
-        rule.onNodeWithText("Create").performClick()
+        rule.onNodeWithContentDescription("Projects").performClick()
         rule.onNodeWithText("Turn ideas into finished work.").assertExists()
         assertCreatorWizardAbsent()
 
-        rule.onNodeWithText("Insights").performClick()
+        rule.onNodeWithContentDescription("Insights").performClick()
         assertCreatorWizardAbsent()
 
-        rule.onNodeWithText("Home").performClick()
+        rule.onNodeWithContentDescription("Home").performClick()
         awaitTag("backlot-start-creator-setup")
         assertCreatorWizardAbsent()
 
