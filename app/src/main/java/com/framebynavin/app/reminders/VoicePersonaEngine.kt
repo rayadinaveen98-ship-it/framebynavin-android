@@ -1,5 +1,6 @@
 package com.framebynavin.app.reminders
 
+import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
 import com.framebynavin.app.data.VoicePersona
@@ -13,8 +14,25 @@ import java.util.Locale
  * with persona-specific reminder phrasing. This deliberately does not pretend to be neural TTS.
  */
 object VoicePersonaEngine {
-    fun apply(tts: TextToSpeech, persona: VoicePersona) {
-        selectDeviceVoice(tts, persona)
+    fun apply(
+        tts: TextToSpeech,
+        persona: VoicePersona,
+        context: Context? = null,
+        previewVoiceName: String? = null,
+    ) {
+        // Explicit user-selected offline speaker first. Do not override it
+        // with persona-index fallback; old users keep their prior behavior.
+        val engineName = runCatching { tts.defaultEngine }.getOrNull().orEmpty()
+        val explicit = if (previewVoiceName != null) {
+            RX03VoiceIdentityRegistry.installedOffline(tts)
+                .firstOrNull { it.name == previewVoiceName }
+                ?.let { RX03VoiceSelection(engineName, it.name, it.languageTag) }
+        } else {
+            context?.let { RX03VoiceIdentityRegistry.saved(it, persona) }
+        }
+        val selected = explicit != null &&
+            RX03VoiceIdentityRegistry.chooseVoice(tts, explicit)
+        if (!selected) selectDeviceVoice(tts, persona)
         val (pitch, rate) = when (persona) {
             VoicePersona.WARM -> 0.99f to 0.90f
             VoicePersona.WOMAN -> 1.04f to 0.95f
@@ -57,6 +75,10 @@ object VoicePersonaEngine {
         VoicePersona.ALIEN -> "Low, strange transmission tone"
         VoicePersona.ROBOT -> "Measured synthetic-style delivery"
     }
+
+    /** Exact same audio text for identity comparison, independent of wording/style. */
+    fun comparisonPreviewText(): String =
+        "Backlot reminder. Your next creative task is ready. Let's get started."
 
     fun previewText(persona: VoicePersona): String = when (persona) {
         VoicePersona.WARM -> "Backlot voice check. Calm, clear, and ready when you are."
@@ -132,7 +154,7 @@ object VoicePersonaEngine {
         val localePool = when {
             exactLocale.isNotEmpty() -> exactLocale
             sameLanguage.isNotEmpty() -> sameLanguage
-            else -> local
+            else -> return emptyList() // Never switch speech to an unrelated language.
         }
 
         val bestQuality = localePool.maxOfOrNull { it.quality } ?: Voice.QUALITY_NORMAL
