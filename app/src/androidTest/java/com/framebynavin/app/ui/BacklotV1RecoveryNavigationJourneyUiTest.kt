@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.framebynavin.app.MainActivity
 import com.framebynavin.app.data.HardeningTestEnvironment
@@ -61,11 +62,30 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         assertCreatorWizardAbsent()
 
         // Unlike the rejected v1 APK, setup is explicitly requested.
-        rule.onNodeWithTag("backlot-start-creator-setup").performClick()
+        rule.onNodeWithTag("backlot-start-creator-setup").performScrollTo().performClick()
         rule.onNodeWithText("Tell us what you make").assertExists()
         rule.onNodeWithTag("backlot-creator-setup-not-now").performClick()
         assertCreatorWizardAbsent()
         awaitTag("backlot-bottom-nav")
+
+        // This reproduces the other owner-reported tap sequence: Home menu,
+        // Settings, reminder background choices, Back and normal navigation.
+        rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
+        rule.onNodeWithTag("v402-menu-settings").performScrollTo().performClick()
+        rule.onNodeWithTag("v207-settings-fullscreen").assertExists()
+        assertCreatorWizardAbsent()
+
+        rule.onNodeWithText("Appearance & sound").performClick()
+        rule.onNodeWithText("Reminder appearance").performClick()
+        rule.onNodeWithTag("rx02-reminder-appearance").assertExists()
+        rule.onNodeWithTag("rx02-open-older-looks").assertDoesNotExist()
+        assertCreatorWizardAbsent()
+
+        rule.onNodeWithContentDescription("Back").performClick()
+        rule.onNodeWithContentDescription("Back").performClick()
+        rule.onNodeWithContentDescription("Back").performClick()
+        awaitTag("backlot-bottom-nav")
+        assertCreatorWizardAbsent()
 
         // The same test instance verifies durability without relying on
         // order-dependent data resets across multiple JUnit test methods.
