@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -39,6 +40,27 @@ class BacklotV1RecoveryAccountUiTest {
         rule.setContent { UX11PremiumAccountReturning(error = null) }
         rule.onNodeWithTag("backlot-returning-retry-local-save").assertDoesNotExist()
         rule.onNodeWithText("Checking account details…").assertExists()
+    }
+
+    @Test fun completedCloudClaimExposesLocalOnlyRetryWithoutAnotherAccountCreation() {
+        var localRetryRequested = 0
+        rule.setContent {
+            UX11PremiumAccountIdentity(
+                displayName = "Test Creator",
+                username = "testcreator",
+                busy = false,
+                error = "Local setup could not be saved.",
+                onDisplayNameChange = {},
+                onUsernameChange = {},
+                onCreateAccount = { localRetryRequested++ },
+                localCompletionPending = true,
+            )
+        }
+        rule.onNodeWithText("RETRY SAVING ON THIS DEVICE").assertExists()
+        rule.onNodeWithTag("ux11-auth-display-name").assertIsNotEnabled()
+        rule.onNodeWithTag("ux11-auth-username").assertIsNotEnabled()
+        rule.onNodeWithTag("ux11-auth-claim").performClick()
+        rule.runOnIdle { assertEquals(1, localRetryRequested) }
     }
 
     @Test fun creatorWizardIsUserDismissableWithoutSavingAnyProfile() {
