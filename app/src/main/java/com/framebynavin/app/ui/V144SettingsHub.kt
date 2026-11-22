@@ -225,6 +225,8 @@ internal fun V144SettingsHub(
                     onPreview = { V403VoicePreviewPlayer.play(context, it) },
                 )
                 Spacer(Modifier.height(16.dp))
+                RX03LocalVoiceIdentityStudio()
+                Spacer(Modifier.height(16.dp))
                 V273ReminderMusicPicker(
                     mode = defaultMusicMode,
                     uri = defaultMusicUri,
@@ -234,8 +236,9 @@ internal fun V144SettingsHub(
                 )
                 Spacer(Modifier.height(8.dp))
                 V144SettingsNote(
-                    "This voice is the default for new project reminders. Existing projects keep their own voice choice. " +
-                        "Preview uses your phone's text-to-speech options; results vary by device and installed languages."
+                    "New projects use the selected Backlot voice style. Existing projects keep their chosen style; " +
+                        "if you assign a different installed speaker to a style, that speaker also applies to existing projects using that style. " +
+                        "Offline identity choices depend on the device's installed TTS engine and language."
                 )
             }
 
