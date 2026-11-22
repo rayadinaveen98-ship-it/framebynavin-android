@@ -184,6 +184,9 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:2.8.5")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.core:core-splashscreen:1.2.0")
+    // P1 local, silent 15-second entrance video; no network service or playback receipts.
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-ui:1.11.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     // Explicit lifecycle owner for Spark voice cleanup with wrapped Compose contexts.
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
