@@ -86,6 +86,8 @@ internal object P2OfflineVoiceStore {
     fun save(context: Context, tts: TextToSpeech, persona: VoicePersona,
         identity: P2VoiceIdentity): Boolean {
         if (!P2VoiceIdentityPolicy.valid(identity)) return false
+        // Current Creator reminder templates are in English. Telugu audition is preview-only.
+        if (java.util.Locale.forLanguageTag(identity.languageTag).language != "en") return false
         val engine = runCatching { tts.defaultEngine.orEmpty() }.getOrDefault("")
         if (engine != identity.enginePackage) return false
         val exists = runCatching { tts.voices.orEmpty() }.getOrDefault(emptySet())

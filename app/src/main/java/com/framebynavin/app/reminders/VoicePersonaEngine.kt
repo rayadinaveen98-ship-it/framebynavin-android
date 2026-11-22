@@ -13,6 +13,19 @@ import java.util.Locale
  * with persona-specific reminder phrasing. This deliberately does not pretend to be neural TTS.
  */
 object VoicePersonaEngine {
+    /**
+     * An explicitly auditioned local speaker has a neutral pitch and speed.
+     * Otherwise the exact established eight-style Backlot TTS behavior remains.
+     */
+    fun applyWithChosenOfflineSpeaker(
+        tts: TextToSpeech, persona: VoicePersona, context: android.content.Context,
+    ) {
+        if (P2OfflineVoiceStore.applyIfAvailable(context, tts, persona)) {
+            tts.setPitch(1.0f)
+            tts.setSpeechRate(1.0f)
+        } else apply(tts, persona)
+    }
+
     fun apply(tts: TextToSpeech, persona: VoicePersona) {
         selectDeviceVoice(tts, persona)
         val (pitch, rate) = when (persona) {

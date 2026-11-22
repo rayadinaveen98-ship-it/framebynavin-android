@@ -158,6 +158,8 @@ internal fun V144SettingsHub(
                     onSelected = onVoice,
                     onPreview = { v144PreviewVoice(context, it) },
                 )
+                Spacer(Modifier.height(12.dp))
+                P2VoiceIdentityLab()
                 Spacer(Modifier.height(16.dp))
                 V273ReminderMusicPicker(
                     mode = defaultMusicMode,
@@ -693,7 +695,7 @@ private fun v144PreviewVoice(context: android.content.Context, persona: VoicePer
     tts = TextToSpeech(context.applicationContext) { status ->
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.getDefault()
-            tts?.let { VoicePersonaEngine.apply(it, persona) }
+            tts?.let { VoicePersonaEngine.applyWithChosenOfflineSpeaker(it, persona, context.applicationContext) }
             tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "v144-${persona.name}")
             Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
         } else {
