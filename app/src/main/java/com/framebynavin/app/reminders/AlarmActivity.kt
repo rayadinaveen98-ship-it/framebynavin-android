@@ -90,8 +90,8 @@ class AlarmActivity : ComponentActivity() {
 
         setContent {
             FrameByNavinTheme {
-                // RX01-F: fluid entrance may be disabled independently of
-                // saved Premiere/Classic backgrounds; those values stay intact.
+                // RX01 now owns the live Creator entrance and verified main.
+                // Historical Premiere/Classic settings remain stored only for upgrades.
                 val originalScreen: @Composable (Boolean) -> Unit = { rx01Main ->
                     ReminderCheckInScreen(
                     kind = ReminderCheckInKind.ALARM,
