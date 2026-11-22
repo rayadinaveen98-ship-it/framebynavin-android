@@ -44,6 +44,7 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         awaitTag("ux11-auth-choose")
         rule.onNodeWithTag("ux11-auth-continue-locally").performClick()
         awaitTag("backlot-bottom-nav")
+        rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
         assertCreatorWizardAbsent()
 
         rule.onNodeWithContentDescription("Ideas").performClick()
@@ -85,12 +86,14 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithContentDescription("Back").performClick()
         awaitTag("backlot-bottom-nav")
+        rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
         assertCreatorWizardAbsent()
 
         // The same test instance verifies durability without relying on
         // order-dependent data resets across multiple JUnit test methods.
         rule.activityRule.scenario.recreate()
         awaitTag("backlot-bottom-nav")
+        rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
         assertCreatorWizardAbsent()
         rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
     }
