@@ -138,9 +138,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var companionEnabled by remember(companionPrefStore) { mutableStateOf(companionPrefStore.enabled()) }
     var driveRecoveryRevision by rememberSaveable { mutableIntStateOf(0) }
     var settings by remember { mutableStateOf(settingsStore.snapshot()) }
+    // No automatic first-run flag mutations from Compose recomposition.
+    // The explicit account choice and optional Creator setup own their gates.
+    var permissions by remember { mutableStateOf(pPermissions(context)) }
+    var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
+    var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
+    var v402WeeklyFocusRequestNonce by remember { mutableLongStateOf(0L) }
+    var v402AccountIdentityRevision by remember { mutableIntStateOf(0) }
     // The original Cloud recovery decision remains available by an explicit
     // Home action. It must not hijack every tab because Creator setup is empty.
-    val pendingCloudRecoverySession = remember(driveRecoveryRevision,
+    val pendingCloudRecoverySession = remember(driveRecoveryRevision, v402AccountIdentityRevision,
         settings.accountOnboardingComplete, settings.onboardingComplete,
         settings.creatorProfile.isComplete) {
         CloudSyncManager(context.applicationContext).localState().session?.takeIf { session ->
@@ -149,13 +156,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 !driveVaultLocalStore.recoveryReviewed(session.email)
         }
     }
-    // No automatic first-run flag mutations from Compose recomposition.
-    // The explicit account choice and optional Creator setup own their gates.
-    var permissions by remember { mutableStateOf(pPermissions(context)) }
-    var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
-    var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
-    var v402WeeklyFocusRequestNonce by remember { mutableLongStateOf(0L) }
-    var v402AccountIdentityRevision by remember { mutableIntStateOf(0) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     // Recovery P0: Creator setup is an explicit opt-in action, never a side effect of tabs.
     var creatorSetupRequested by remember { mutableStateOf(false) }
