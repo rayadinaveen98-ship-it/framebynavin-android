@@ -131,53 +131,19 @@ internal class V393FirstRunPrefs(context: Context) {
 }
 
 /**
- * First real app decision: no forced account connection, notification permissions,
- * or arbitrary Creator goal assumptions. Existing completed accounts skip this gate.
+ * UX12-D2 routes first-run directly into account choice. Legacy focus values
+ * remain in preferences for upgrade compatibility; the obsolete screen is gone.
  */
-@Composable
-internal fun V393FirstRunFocusScreen(onChoose: (V393FirstRunFocus) -> Unit) {
-    Surface(Modifier.fillMaxSize().testTag("v393-first-run-focus"), color = CinemaBlack) {
-        Column(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = BacklotUX10Tokens.pageGutter, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(13.dp),
-        ) {
-            Text("BACKLOT / FIRST RUN", color = MutedGold, fontSize = 10.sp,
-                fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-            Spacer(Modifier.height(8.dp))
-            Text("Make Backlot yours.", color = ProjectorIvory, fontSize = 31.sp,
-                lineHeight = 37.sp, fontWeight = FontWeight.Black)
-            Text("What would you like help with first? You can use other Backlot features later.",
-                color = MutedText, fontSize = 14.sp, lineHeight = 21.sp)
-            Spacer(Modifier.height(10.dp))
-            V393FirstRunFocus.entries.forEach { focus ->
-                Surface(
-                    Modifier.fillMaxWidth()
-                        .heightIn(min = 102.dp)
-                        .clickable { onChoose(focus) }
-                        .testTag("v393-focus-${focus.name}"),
-                    shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
-                    // All three are equally valid; don't falsely preselect BOTH.
-                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
-                    color = CinemaSurfaceRaised,
-                ) {
-                    Column(Modifier.padding(19.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(focus.title, color = ProjectorIvory, fontSize = 20.sp,
-                            fontWeight = FontWeight.Black)
-                        Text(focus.detail, color = MutedText,
-                            fontSize = 13.sp, lineHeight = 19.sp)
-                        Text("CHOOSE ${focus.title.uppercase()}", color = MutedGold,
-                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                            letterSpacing = .6.sp)
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            Text("Next: connect Google or continue locally, choose Spark or Mira, and personalize your workspace.",
-                color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
-        }
-    }
+internal object UX12D2FirstRunRoutePolicy {
+    fun shouldShowCreatorSetup(
+        creatorSetupIncomplete: Boolean,
+        legacyFocus: V393FirstRunFocus?,
+        unifiedJourney: Boolean,
+        creatorWorkRequested: Boolean,
+    ): Boolean = creatorSetupIncomplete && (
+        creatorWorkRequested ||
+            (!unifiedJourney && legacyFocus != V393FirstRunFocus.PERSONAL)
+        )
 }
 
 /** Only fields actually required by CreatorProfile.isComplete; no fake defaults. */
