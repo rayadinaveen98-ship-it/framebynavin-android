@@ -7,6 +7,8 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import com.framebynavin.app.data.VoicePersona
 import com.framebynavin.app.reminders.VoicePersonaEngine
+import com.framebynavin.app.reminders.VoiceCreatorNameResolver
+import com.framebynavin.app.reminders.VoiceGreetingBuilder
 import java.util.Locale
 
 /**
@@ -84,10 +86,15 @@ internal object V403VoicePreviewPlayer {
                             }
                         }
                     })
+                    val previewBody = if (compareSameSample)
+                        VoicePersonaEngine.comparisonPreviewText()
+                    else sampleTextOverride ?: VoicePersonaEngine.previewText(persona)
+                    val previewText = VoiceGreetingBuilder.spokenReminder(
+                        VoiceCreatorNameResolver.resolveKnownName(context.applicationContext),
+                        previewBody,
+                    )
                     engine.speak(
-                        if (compareSameSample)
-                            VoicePersonaEngine.comparisonPreviewText()
-                        else sampleTextOverride ?: VoicePersonaEngine.previewText(persona),
+                        previewText,
                         TextToSpeech.QUEUE_FLUSH,
                         null,
                         "backlot-preview-" + persona.name + "-" + currentGeneration,
