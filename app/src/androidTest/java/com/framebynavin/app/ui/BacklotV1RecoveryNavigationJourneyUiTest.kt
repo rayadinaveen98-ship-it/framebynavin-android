@@ -95,6 +95,25 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
         assertCreatorWizardAbsent()
 
+        // Both reminder spaces must remain navigable for Personal-first
+        // users with an optional (incomplete) Creator profile. Opening either
+        // hub must NEVER reopen five-page setup.
+        rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
+        rule.onNodeWithTag("v402-menu-reminders-expand").performScrollTo().performClick()
+        rule.onNodeWithTag("v402-menu-personal-reminders").performScrollTo().performClick()
+        rule.onNodeWithTag("v288-personal-toolbar-back").assertExists()
+        assertCreatorWizardAbsent()
+        rule.onNodeWithTag("v288-personal-toolbar-back").performClick()
+        awaitTag("backlot-bottom-nav")
+
+        rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
+        rule.onNodeWithTag("v402-menu-reminders-expand").performScrollTo().performClick()
+        rule.onNodeWithTag("v402-menu-creator-reminders").performScrollTo().performClick()
+        rule.onNodeWithText("Stay on track").assertExists()
+        assertCreatorWizardAbsent()
+        rule.onNodeWithContentDescription("Back").performClick()
+        awaitTag("backlot-bottom-nav")
+
         // The same test instance verifies durability without relying on
         // order-dependent data resets across multiple JUnit test methods.
         scenario.recreate()
