@@ -69,12 +69,12 @@ android {
     defaultConfig {
         applicationId = if (backlotLabMode) "com.framebynavin.app.lab" else "com.framebynavin.app"
         buildConfigField("boolean", "BACKLOT_LAB", backlotLabMode.toString())
-        resValue("string", "backlot_install_label", if (backlotLabMode) "Backlot Lab" else "Backlot")
+        resValue("string", "backlot_install_label", "Backlot")
         minSdk = 26
         targetSdk = 36
         // RC12: RC6 UI preserved; explicit Android14+ full-screen access fallback.
-        versionCode = 337
-        versionName = "2.28.7-premiere-cinematic-enhanced-02" + if (backlotLabMode) "-lab" else ""
+        versionCode = 338
+        versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
