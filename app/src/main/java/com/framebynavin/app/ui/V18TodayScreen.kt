@@ -87,6 +87,7 @@ internal fun PTodayScreen(
     projectsLoaded: Boolean = true,
     ideas: List<CreatorIdea> = emptyList(),
     onAdd: () -> Unit,
+    onCreatorSetup: () -> Unit = {},
     onStart: (String) -> Unit,
     onAdvance: (String) -> Unit,
     onViewAllReminders: () -> Unit,
@@ -161,6 +162,30 @@ internal fun PTodayScreen(
                 // slideshow photo editor is still opened by the same nonce.
                 galleryInOverflow = homeHeaderOverflowMenu,
             )
+            if (!creatorProfile.isComplete) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                        .testTag("backlot-creator-setup-invite"),
+                    shape = RoundedCornerShape(16.dp),
+                    color = CinemaSurface,
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Your Creator workspace", color = ProjectorIvory,
+                                fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(3.dp))
+                            Text("Optional setup for your platforms and goals. You can explore Backlot now.",
+                                color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
+                        }
+                        TextButton(onClick = onCreatorSetup,
+                            modifier = Modifier.testTag("backlot-start-creator-setup")) {
+                            Text("SET UP", color = RecRed, fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
             // V220.3: when connected channel Insights has usable ranked videos,
             // the existing Top 3 carousel must appear ABOVE the Up Next project.
             // The section itself remains absent for disconnected/no-data users.
