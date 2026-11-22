@@ -115,16 +115,15 @@ class AlarmActivity : ComponentActivity() {
                     rx01MainBackdrop = rx01Main,
                     )
                 }
-                if (RX01ReminderScenePrefs.enabled(applicationContext, RX01ReminderDomain.CREATOR)) {
+                // Modern live presentation is the sole Creator route. Historical
+                // visual off/preferences no longer expose rejected backgrounds.
                     RX01CreatorLiveAlert(
                         activity = this@AlarmActivity,
                         taskId = task.id,
                         occurrenceId = occurrenceId,
                         kind = ReminderCheckInKind.ALARM,
                     ) { originalScreen(true) }
-                } else {
-                    originalScreen(false)
-                }
+
             }
         }
     }
