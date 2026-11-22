@@ -88,6 +88,8 @@ internal fun PTodayScreen(
     ideas: List<CreatorIdea> = emptyList(),
     onAdd: () -> Unit,
     onCreatorSetup: () -> Unit = {},
+    cloudRecoveryAvailable: Boolean = false,
+    onReviewCloudRecovery: () -> Unit = {},
     onStart: (String) -> Unit,
     onAdvance: (String) -> Unit,
     onViewAllReminders: () -> Unit,
@@ -162,6 +164,29 @@ internal fun PTodayScreen(
                 // slideshow photo editor is still opened by the same nonce.
                 galleryInOverflow = homeHeaderOverflowMenu,
             )
+            if (cloudRecoveryAvailable) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                        .testTag("backlot-cloud-recovery-invite"),
+                    shape = RoundedCornerShape(16.dp), color = CinemaSurface,
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Review saved Backlot work", color = ProjectorIvory,
+                                fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(3.dp))
+                            Text("Your connected account may have saved work. Choose when to review or recover it.",
+                                color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
+                        }
+                        TextButton(onClick = onReviewCloudRecovery,
+                            modifier = Modifier.testTag("backlot-review-cloud-recovery")) {
+                            Text("REVIEW", color = RecRed, fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
             if (!creatorProfile.isComplete) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
