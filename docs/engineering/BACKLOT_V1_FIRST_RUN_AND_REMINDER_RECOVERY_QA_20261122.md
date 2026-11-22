@@ -109,3 +109,32 @@ Status: **SOURCE STAGED ONLY**. Founder asked to continue the approved recovery;
 - Stage all fixes and reviewed test cases before running CI. After explicit founder authorization, compile **once** on isolated Lab candidate, apply targeted fixes and rerun only invalidated checks, then perform final cumulative UX/device verification before any owner-preview APK.
 - Do not reset saved owner data to "fix" login. Cloud conflict resolution remains an explicit owner choice. Never merge stable, deploy hosted UX09 or change signing without separate approval.
 
+
+## Source-integration closure — next "continue" review (2026-11-22)
+
+**Stage: SOURCE REVIEWED AND STAGED, NOT COMPILED / NOT CERTIFIED.** The founder has not authorized the final cumulative tests or replacement APK.
+
+### Findings and direct patches
+- **Compile preflight:** `PersonalAlertActivity.kt` now imports `RX01FluidReminderBackdrop` and `RX01SurfacePhase` after replacing the old renderer. This was a concrete missing-import risk in the staged source; only a real compiler can confirm the full module.
+- **Real navigation selector:** The actual Home bottom bar uses **Projects** (not "Create") and did not have a root `backlot-bottom-nav` test tag. The live bar now exposes the tag, and the emulator journey test uses accessible names (Home, Ideas, Projects, Insights) instead of invented text.
+- **All-access Settings route:** The root journey UI test now traverses Home overflow → Settings → Appearance & sound → Reminder appearance → Back to Home and verifies that Creator onboarding and the rejected old collections do not intercept it.
+- **Actual account-gate dismissal:** The root test asserts that the account selection screen is absent after local continuation and Home returns, not merely that Home has been composed underneath an unwanted overlay.
+- **Compatibility appearance entry:** Legacy `RX01ReminderSceneSettings()` now delegates to `RX02ReminderAppearanceSettings()`. A dormant old entry path cannot offer a switch back to rejected Classic/Cinematic/Premiere screens. Challenge full-screen alarm permission controls remain independent.
+- **Cloud recovery prompt recency:** The optional Home cloud-work review recomputes when account identity revision changes, not only when unrelated Creator setup flags change. It continues to require explicit owner review and never silently restores.
+- **Welcome recreation:** `V131LaunchGate` saves the completed welcome flag across Activity recreation; a fresh normal app launch still shows the selected premium opening, while widget/deep-link entry is immediate.
+- **Existing safety retained:** no direct changes to reminder scheduling, TTS engine, voice/music services, occurrence tokens, Google credential storage, cloud schemas, backup/restore, hosted resources, main or the owner installation.
+
+### Approval-dependent execution sequence
+1. **At final founder authorization only**, freeze this source SHA. Confirm package/label/version and no surprise changes to main or hosted cloud.
+2. Run **one isolated Kotlin compile** first. Any compiler failure → smallest affected-source correction and targeted compilation only. The previous APK's green results belong to a different SHA.
+3. Run targeted new JVM route contracts and impacted policy tests; only expand test scope based on changed dependencies and for final integration certification. Keep passing artifacts tied to their source SHA.
+4. On a disposable emulator, launch with a fresh local account and **execute** `BacklotV1RecoveryNavigationJourneyUiTest` and account/appearance UI tests, plus failure-injection/returning-identity paths using synthetic approved accounts only. Capture screenshot and action traces.
+5. Check real audio/reminder domain flows: Creator Voice/Alarm; Personal Voice/Alarm; 21-Day Reminder; entrance single-tap/double-tap, main buttons, token validation, music/speech, permissions and notification fallback. Do not mistake screenshot-only tests for response-delivery certification.
+6. If all gates pass, build **same-package signed owner preview** with monotonic internal versionCode (installed preview may be 338; choose higher if necessary), versionName **1.0**, installed label **Backlot**. Verify package identity, public owner signer, SHA256 and actual install/upgrade eligibility, then request physical phone acceptance.
+7. Only after satisfactory founder physical tests propose stable-promotion approval. **No auto merge, Play upload, hosted Supabase changes, owner-data reset or forced uninstall.**
+
+### Known residual scope
+- The old source renderer and preference class implementations may remain compiled as compatibility internals, but no approved user-facing picker or normal live Creator/Personal route should select them. Literal removal of obsolete compiled types requires a separate call-site audit and compile evidence; **do not claim binary-level removal**.
+- Built-in new Main scenes and preview are integrated; gallery media customizes the **entrance only**, not the Main scene.
+- Challenge full-screen delivery remains permission/owner opt-in; an off-state is not silently changed. The new appearance page includes an explicit enable option.
+- Login visuals, premium motion, device-specific insets and long-idle Personal reliability still require *actual* screen/device acceptance, not only source review.
