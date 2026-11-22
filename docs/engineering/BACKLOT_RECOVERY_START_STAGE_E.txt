@@ -1,0 +1,16 @@
+Founder-authorized Backlot 1.0 owner-preview Stage E, NOT stable release.
+STAGE_A_RUN_ID=45023567967
+STAGE_B_RUN_ID=45032575621
+STAGE_C_RUN_ID=45034910254
+STAGE_D_RUN_ID=45035559601
+
+Evidence summary:
+Stage A Kotlin source compile PASS, frozen app SHA 8b771a5287b92d33cc8341907fc7747447cfd29a.
+Stage B1 focused JVM job 137220769856 PASS in partially failed original Stage B run; fixed only Android instrumentation assertion imports.
+Stage B2 corrected AndroidTest compilation PASS, reused verified Lab app APK, fresh AndroidTest APK, no full JVM rerun.
+Stage C disposable Android 15 KVM emulator all seven tests PASS; 4 account/retry, 2 appearance, 1 first-run navigation. Artifact 14759675618.
+Stage D focused reminder lifecycle / voice JVM and Android lint BOTH PASS, artifact 14761546488.
+No app production source modifications since frozen SHA, except exactly four invalid imports deleted from two androidTest sources.
+
+Build only same-package owner preview via existing :app:assemblePersonalStable; validate package com.framebynavin.app, visible label Backlot, versionName 1.0, versionCode 338, public preview signing certificate and SHA256.
+No merge to stable, no production credentials or hosted data mutation, no physical user data reset. Not Play release and not physical-device certified.
