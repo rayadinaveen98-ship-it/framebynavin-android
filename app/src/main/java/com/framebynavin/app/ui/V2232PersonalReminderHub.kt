@@ -581,10 +581,6 @@ internal fun V2232PersonalReminderHub(
                     // Reuse the Home's already implemented read-only Space
                     // observer. No Room database is created if one is absent,
                     // and private JPEG bytes are never loaded for this preview.
-                    UX11ESanctuarySection(
-                        "Your corners",
-                        "Your saved journals, notes and photos live in My Spaces.",
-                    )
                     V340HomeSpacesEntry(
                         onOpenSpaces = { spaceId ->
                             ux07bPreviewSpaceFocusId = spaceId
@@ -608,10 +604,6 @@ internal fun V2232PersonalReminderHub(
                             displayZone = ZoneId.systemDefault(),
                         )
                     }
-                    UX11ESanctuarySection(
-                        "Looking back",
-                        "Seven days of recorded progress, without assumed completions.",
-                    )
                     UX07EPersonalProgressOverview(
                         snapshot = ux07eProgress,
                         enabled = !busy,
@@ -632,8 +624,7 @@ internal fun V2232PersonalReminderHub(
                 // No duplicate Create button: the Sanctuary hero has the
                 // single primary action. Preserve the original empty tag.
                 Text(
-                    "Your reminder list is ready whenever you are. " +
-                        "Start with one small thing worth remembering.",
+                    "No saved reminders yet.",
                     color = MutedText,
                     fontSize = 12.sp,
                     lineHeight = 18.sp,
@@ -695,10 +686,7 @@ internal fun V2232PersonalReminderHub(
                         scope = V285AgendaScope.SEVEN_DAYS,
                     )
                 }
-                UX11ESanctuarySection(
-                    "Your reminders",
-                    "Browse today, the week ahead or anything needing a response.",
-                )
+                UX11ESanctuarySection("Reminders", "")
                 if (challengeLoadError == null) {
                     V406ReminderScopeNavigator(
                         actions = listOf(
