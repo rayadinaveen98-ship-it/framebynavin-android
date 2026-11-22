@@ -3,10 +3,16 @@ package com.framebynavin.app.ui
 import android.os.SystemClock
 import android.provider.Settings
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +23,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
@@ -29,10 +36,12 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.framebynavin.app.R
 import com.framebynavin.app.ui.theme.V401WelcomeStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -71,6 +80,40 @@ internal object UX11PremiumWelcomePolicy {
         val p = progress(at, from, until)
         return p * p * (3f - 2f * p)
     }
+}
+
+/**
+ * UX12-D1: approved B identity, progressive editorial wordmark, no new artwork.
+ * Progress helpers are pure so CI can verify the visual ordering without devices.
+ */
+internal object UX12D1SignatureTimeline {
+    const val MARK_START_MS = 320L
+    const val MARK_END_MS = 1_100L
+    const val WORDMARK_START_MS = 880L
+    const val WORDMARK_END_MS = 1_580L
+    const val TAGLINE_START_MS = 1_220L
+    const val TAGLINE_END_MS = 1_750L
+    const val EXIT_START_MS = 2_100L
+
+    fun mark(timeMs: Long, reducedMotion: Boolean): Float =
+        if (reducedMotion) 1f else UX11PremiumWelcomePolicy.eased(
+            timeMs, MARK_START_MS, MARK_END_MS,
+        )
+
+    fun wordmark(timeMs: Long, reducedMotion: Boolean): Float =
+        if (reducedMotion) 1f else UX11PremiumWelcomePolicy.eased(
+            timeMs, WORDMARK_START_MS, WORDMARK_END_MS,
+        )
+
+    fun tagline(timeMs: Long, reducedMotion: Boolean): Float =
+        if (reducedMotion) 1f else UX11PremiumWelcomePolicy.eased(
+            timeMs, TAGLINE_START_MS, TAGLINE_END_MS,
+        )
+
+    fun exit(timeMs: Long, reducedMotion: Boolean): Float =
+        if (reducedMotion) 1f else 1f - UX11PremiumWelcomePolicy.eased(
+            timeMs, EXIT_START_MS, UX11PremiumWelcomePolicy.DURATION_MS,
+        )
 }
 
 @Composable
@@ -113,12 +156,10 @@ internal fun UX11PremiumWelcomeExperience(
     }
 
     val t = elapsedMs
-    val reveal = if (reducedMotion) 1f else
-        UX11PremiumWelcomePolicy.eased(t, 390L, 1_190L)
-    val tagline = if (reducedMotion) 1f else
-        UX11PremiumWelcomePolicy.eased(t, 850L, 1_550L)
-    val exit = if (reducedMotion) 1f else
-        1f - UX11PremiumWelcomePolicy.eased(t, 2_100L, 2_400L)
+    val mark = UX12D1SignatureTimeline.mark(t, reducedMotion)
+    val wordmark = UX12D1SignatureTimeline.wordmark(t, reducedMotion)
+    val tagline = UX12D1SignatureTimeline.tagline(t, reducedMotion)
+    val exit = UX12D1SignatureTimeline.exit(t, reducedMotion)
     val cream = Color(0xFFF8F3EC)
     val soft = Color(0xFFDFCBBE)
 
@@ -137,34 +178,50 @@ internal fun UX11PremiumWelcomeExperience(
                 else -> Unit
             }
         }
-        // Name/logo is rendered in Compose typography, never rasterised into
-        // particles. Premium art remains behind the legible brand wordmark.
-        Text(
-            text = "BACKLOT",
-            modifier = Modifier.align(Alignment.Center)
-                .offset(y = (-12).dp)
-                .alpha(reveal * exit)
-                .graphicsLayer {
-                    scaleX = .975f + .025f * reveal
-                    scaleY = .975f + .025f * reveal
-                },
-            color = cream,
-            fontSize = 38.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 4.sp,
-            maxLines = 1,
-        )
-        Text(
-            text = "BUILT FOR CREATORS",
-            modifier = Modifier.align(Alignment.Center)
-                .offset(y = 48.dp)
-                .alpha(tagline * exit),
-            color = soft,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 2.6.sp,
-            maxLines = 1,
-        )
+
+        // One scalable approved vector mark plus simple text; no large raster
+        // splash asset, floating showcase cards or artificial film props.
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .graphicsLayer { alpha = exit },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Image(
+                painter = painterResource(R.drawable.backlot_v198_brand_mark),
+                contentDescription = null, // decorative; Backlot wordmark labels brand
+                modifier = Modifier.size(136.dp)
+                    .alpha(mark)
+                    .graphicsLayer {
+                        val scale = .975f + .025f * mark
+                        scaleX = scale
+                        scaleY = scale
+                        translationY = (1f - mark) * 10.dp.toPx()
+                    }
+                    .testTag("ux12-d1-approved-brand-mark"),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "BACKLOT",
+                modifier = Modifier.alpha(wordmark).testTag("ux12-d1-brand-wordmark"),
+                color = cream,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+                maxLines = 1,
+            )
+            Spacer(Modifier.height(9.dp))
+            Text(
+                text = "BUILT FOR CREATORS",
+                modifier = Modifier.alpha(tagline),
+                color = soft,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -196,43 +253,32 @@ private fun DrawScope.ux11Light(
 }
 
 private fun DrawScope.ux11Ember(t: Long, reduced: Boolean) {
-    ux11Base(Color(0xFF09060A), Color(0xFF13080C))
-    val time = if (reduced) .7f else t / 1_000f
-    val warm = Color(0xFFFF603E)
-    val amber = Color(0xFFFFB264)
+    ux11Base(Color(0xFF08080C), Color(0xFF150B11))
+    val opening = if (reduced) 1f else UX11PremiumWelcomePolicy.eased(t, 0L, 900L)
     val w = size.width
     val h = size.height
     val u = size.minDimension
-    val opening = if (reduced) 1f else UX11PremiumWelcomePolicy.eased(t, 80L, 1_100L)
 
-    // Two broad, slow atmospheric light wells behind an ink-black label zone.
-    ux11Light(warm, Offset(w * (.14f + .035f * sin(time)), h * .80f),
-        u * .98f, .31f * opening)
-    ux11Light(amber, Offset(w * (.88f + .02f * cos(time * .85f)), h * .20f),
-        u * .82f, .22f * opening)
-
-    // Restrained projector-like light streaks converge from the edges.
-    repeat(5) { index ->
-        val dx = (index - 2) * u * .075f
-        val start = Offset(w * .5f + dx - w * .42f, h * .88f)
-        val end = Offset(w * .5f + dx * .16f, h * .42f)
-        drawLine(
-            color = if (index % 2 == 0) warm.copy(alpha = .095f * opening)
-                else amber.copy(alpha = .075f * opening),
-            start = start,
-            end = end,
-            strokeWidth = (1.5f + (index % 3)).dp.toPx(),
-            cap = StrokeCap.Round,
-        )
-    }
-    // Thin original cinematic frame detail; never behind text at full opacity.
-    val borderAlpha = .25f * opening
-    val half = min(w * .40f, 190.dp.toPx())
-    val y = h * .51f
-    drawLine(amber.copy(alpha = borderAlpha), Offset(w*.5f-half, y+80.dp.toPx()),
-        Offset(w*.5f-half*.42f, y+80.dp.toPx()), 1.dp.toPx())
-    drawLine(amber.copy(alpha = borderAlpha), Offset(w*.5f+half*.42f, y+80.dp.toPx()),
-        Offset(w*.5f+half, y+80.dp.toPx()), 1.dp.toPx())
+    // Single quiet optical light treatment. Deliberately no repeated film
+    // strips, particle fields, photographic backdrops or dashboard framing.
+    ux11Light(
+        Color(0xFFBF4F43), Offset(w * .17f, h * .68f), u * .83f, .22f * opening,
+    )
+    ux11Light(
+        Color(0xFFD8A77A), Offset(w * .83f, h * .31f), u * .79f, .13f * opening,
+    )
+    drawLine(
+        brush = Brush.horizontalGradient(
+            listOf(
+                Color.Transparent,
+                Color(0xFFE8BA94).copy(alpha = .19f * opening),
+                Color.Transparent,
+            ),
+        ),
+        start = Offset(w * .18f, h * .67f),
+        end = Offset(w * .82f, h * .67f),
+        strokeWidth = 1.dp.toPx(),
+    )
 }
 
 private fun DrawScope.ux11Aperture(t: Long, reduced: Boolean) {
