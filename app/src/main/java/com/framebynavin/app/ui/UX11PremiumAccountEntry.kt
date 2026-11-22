@@ -318,6 +318,7 @@ internal fun UX11PremiumAccountReturning(
             UX11PrimaryAuthButton(
                 label = "RETRY OPENING BACKLOT",
                 onClick = onRetry,
+                enabled = true,
                 modifier = Modifier.testTag("backlot-returning-retry-local-save"),
             )
         }
