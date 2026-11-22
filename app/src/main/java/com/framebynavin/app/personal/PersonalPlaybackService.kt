@@ -25,6 +25,10 @@ import androidx.core.content.ContextCompat
 import com.framebynavin.app.R
 import com.framebynavin.app.reminders.ReminderBackingMusic
 import com.framebynavin.app.reminders.ReminderMusicChoice
+import com.framebynavin.app.reminders.RX03BReminderScripts
+import com.framebynavin.app.reminders.RX03BVoiceDomain
+import com.framebynavin.app.reminders.RX03BVoicePackPreferences
+import com.framebynavin.app.reminders.VoicePersonaEngine
 import java.lang.ref.WeakReference
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -204,7 +208,11 @@ internal class PersonalPlaybackService : Service() {
         // Spoken personal notes are deliberately excluded; the title is frozen
         // for the selected repeats. User Done/Snooze or another occurrence ends
         // this generation and silences both TTS and piano immediately.
-        val message = "Personal reminder. $title"
+        val pack = RX03BVoicePackPreferences.selected(
+            applicationContext, RX03BVoiceDomain.PERSONAL
+        )
+        val message = pack?.let { RX03BReminderScripts.personal(it, title) }
+            ?: "Personal reminder. $title"
         music.start(choice) // Best-effort local backing; TTS always remains primary.
         try {
             tts = TextToSpeech(this) { status ->
@@ -217,6 +225,10 @@ internal class PersonalPlaybackService : Service() {
                     endPlayback()
                     return@TextToSpeech
                 }
+                // Null means legacy text and unchanged Android device TTS.
+                // Opted-in packs also use the existing RX03 installed-voice
+                // override, with the same offline/locale safety fallback.
+                if (pack != null) VoicePersonaEngine.apply(engine, pack, applicationContext)
                 engine.setAudioAttributes(AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
