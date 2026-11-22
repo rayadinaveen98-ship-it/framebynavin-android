@@ -1,0 +1,86 @@
+name: Backlot 1.0 recovery Stage D - targeted reminder lifecycle and lint
+
+on:
+  push:
+    branches:
+      - feature/backlot-v1-recovery-onboarding-reminder-looks-20261122
+    paths:
+      - "docs/engineering/BACKLOT_RECOVERY_START_STAGE_D.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v1-recovery-stage-d
+  cancel-in-progress: false
+
+env:
+  FROZEN_APP_SHA: "8b771a5287b92d33cc8341907fc7747447cfd29a"
+
+jobs:
+  reminder-contracts-and-lint:
+    name: Focused reminder action, safety, voice and lint — not full JVM suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify no app-source changes since passed compile and UI gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/recovery-stage-d
+          test "$(git merge-base "$FROZEN_APP_SHA" HEAD)" = "$FROZEN_APP_SHA"
+          git diff --exit-code "$FROZEN_APP_SHA" HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          git diff --check "$FROZEN_APP_SHA" HEAD
+          git rev-parse HEAD > output/recovery-stage-d/WORKFLOW-SHA.txt
+          echo "$FROZEN_APP_SHA" > output/recovery-stage-d/FROZEN-APP-SHA.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Run focused reminder action, snooze, scene, reliability and greeting JVM tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 92m gradle :app:testDebugUnitTest \
+            --tests 'com.framebynavin.app.reminders.ReminderActionSafetyRc3Test' \
+            --tests 'com.framebynavin.app.reminders.ReminderR1ReliabilityTest' \
+            --tests 'com.framebynavin.app.reminders.V182ReminderLifecycleRegressionTest' \
+            --tests 'com.framebynavin.app.reminders.ReminderCheckInPresentationRc26Test' \
+            --tests 'com.framebynavin.app.reminders.V280ReminderSnoozePolicyTest' \
+            --tests 'com.framebynavin.app.reminders.V407ReminderAccessPolicyTest' \
+            --tests 'com.framebynavin.app.reminders.VoiceGreetingBuilderV148Test' \
+            -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/recovery-stage-d/FOCUSED-REMINDER-JVM.log
+          echo "PASS: focused reminder lifecycle and voice policy classes" > output/recovery-stage-d/REMINDER-RESULT.txt
+      - name: Run Android lint on the frozen application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 75m gradle :app:lintDebug \
+            -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/recovery-stage-d/LINT.log
+          echo "PASS: Android lint" > output/recovery-stage-d/LINT-RESULT.txt
+      - name: Preserve stage D reports and failed diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V1-RECOVERY-STAGE-D-REMINDER-LINT-RESULTS
+          path: |
+            output/recovery-stage-d/
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          if-no-files-found: warn
+          retention-days: 30
