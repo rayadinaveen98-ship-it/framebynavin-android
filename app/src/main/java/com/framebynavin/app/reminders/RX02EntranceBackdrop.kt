@@ -35,6 +35,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.framebynavin.app.R
@@ -81,6 +82,10 @@ internal fun RX02EntranceBackdrop(
     }
 
     Box(modifier.fillMaxSize().testTag("rx02-custom-entrance-" + domain.name.lowercase())) {
+        // Failed image/video decode must show the trustworthy original scene,
+        // not a blank or inaccessible alert. No second RX01 foreground layer.
+        RX01FluidReminderBackdrop(domain, RX01SurfacePhase.ENTRANCE,
+            motionEnabled = false, lowPower = true, modifier = Modifier.fillMaxSize())
         when (media.kind) {
             RX02MediaKind.IMAGE -> RX02StillImage(media.file, Modifier.fillMaxSize())
             RX02MediaKind.ANIMATED -> {
@@ -133,8 +138,6 @@ private fun RX02StillImage(file: File, modifier: Modifier) {
             contentScale = ContentScale.Crop,
             modifier = modifier,
         )
-    } else {
-        Box(modifier.background(Color(0xFF12101A)))
     }
 }
 
@@ -174,20 +177,27 @@ private fun RX02AnimatedImage(file: File, modifier: Modifier) {
     )
 }
 
+@OptIn(UnstableApi::class)
 @Composable
 private fun RX02MutedVideo(media: RX02Media, modifier: Modifier) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     var playerError by remember(media.file.absolutePath) { mutableStateOf(false) }
     val player = remember(media.file.absolutePath) {
-        ExoPlayer.Builder(context).build().apply {
-            volume = 0f
-            trackSelectionParameters = trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
-            repeatMode = Player.REPEAT_MODE_ONE
-            setMediaItem(MediaItem.fromUri(android.net.Uri.fromFile(media.file)))
-            prepare()
-        }
+        runCatching {
+            ExoPlayer.Builder(context).build().apply {
+                volume = 0f
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
+                repeatMode = Player.REPEAT_MODE_ONE
+                setMediaItem(MediaItem.fromUri(android.net.Uri.fromFile(media.file)))
+                prepare()
+            }
+        }.getOrNull()
+    }
+    if (player == null) {
+        if (media.poster != null) RX02StillImage(media.poster, modifier)
+        return
     }
     DisposableEffect(player, owner) {
         val listener = object : Player.Listener {
@@ -211,7 +221,6 @@ private fun RX02MutedVideo(media: RX02Media, modifier: Modifier) {
     }
     if (playerError) {
         if (media.poster != null) RX02StillImage(media.poster, modifier)
-        else Box(modifier.background(Color(0xFF12101A)))
     } else {
         AndroidView(
             factory = {
