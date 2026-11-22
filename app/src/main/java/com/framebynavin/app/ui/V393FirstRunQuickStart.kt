@@ -187,7 +187,7 @@ internal fun V393FirstRunFocusScreen(onChoose: (V393FirstRunFocus) -> Unit) {
                 }
             }
             Spacer(Modifier.height(4.dp))
-            Text("Next: connect Google or continue locally, choose Spark or Mira, and personalize your workspace.",
+            Text("Next: connect Google or continue locally. You can choose Spark or Mira and personalize your workspace later.",
                 color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
