@@ -96,15 +96,16 @@ internal fun UX07BPersonalRhythm(
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
-                    "YOUR RHYTHM",
+                    "ROUTINES",
                     color = MutedGold, fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                 )
-                Text(
-                    if (recurringCount == 0) "Make room for the routines that matter."
-                    else "$recurringCount active recurring reminder${if (recurringCount == 1) "" else "s"}",
-                    color = MutedText, fontSize = 11.sp,
-                )
+                if (recurringCount > 0) {
+                    Text(
+                        "$recurringCount recurring",
+                        color = MutedText, fontSize = 11.sp,
+                    )
+                }
             }
             TextButton(
                 onClick = onNewRoutine,
@@ -119,7 +120,7 @@ internal fun UX07BPersonalRhythm(
 
         if (rhythm.isEmpty()) {
             Text(
-                "No upcoming recurring reminders. Create one whenever you're ready.",
+                "No recurring reminders yet.",
                 color = MutedText, fontSize = 12.sp,
                 modifier = Modifier.testTag("ux07b-rhythm-empty"),
             )
