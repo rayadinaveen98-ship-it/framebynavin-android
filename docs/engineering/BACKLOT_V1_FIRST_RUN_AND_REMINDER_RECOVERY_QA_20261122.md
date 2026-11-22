@@ -161,3 +161,19 @@ Status: **SOURCE STAGED ONLY**. Founder asked to continue the approved recovery;
 
 ### Explicit future founder gate
 Freeze the branch SHA, run focused compilation and corrected-first tests, fix and rerun only invalidated checks, then run one cumulative end-to-end integration/device acceptance with screenshot proof. Package the next **Backlot 1.0** owner preview only on green gates with correct same-app package/signing and an install-safe versionCode above an installed 338 where required; no merge or hosted changes by default.
+
+## Founder decision — restore original three-way first-run choice (2026-11-22)
+
+**SOURCE STAGED; NOT COMPILED, NOT TESTED, NOT APK-BUILT, NOT MERGED.**
+Founder supplied the original `Make Backlot yours.` screenshot and requested keeping this screen.
+
+- Restored the actual existing `V393FirstRunFocusScreen` composable from protected main, preserving Creator, Personal and Both cards, neutral selection styles and scrollable layout.
+- On the isolated recovery branch, show it only when account, Creator profile and legacy first-run decision are all absent; never hijack existing accounts or an already-started unified preview journey.
+- Save focus synchronously before showing account entry. On failure, show retry instead of pretending it succeeded.
+- After durable account completion, Personal goes once to the existing Personal Reminder hub; Creator and Both continue to Home. Focus alone never creates fake Creator metadata, forces the five-page wizard, starts the guide, or prompts permissions.
+- Corrected footer text: selecting a companion and further personalization are available later; they are not falsely implied to be another mandatory immediate screen.
+- Staged (not executed) root Android UI test first selecting Creator then verifying account, Home, tabs, reminders, Settings and that the choice never reappears after recreation.
+- Keep old companion/setup/permissions behavior opt-in, preserving the current no-navigation-hijack recovery contract.
+- Existing recovery compilation issue `UX11PremiumAccountEntry.kt:312 Icons.Outlined.Info` is a separate **OPEN** compiler blocker; do not call this branch tested.
+- No source changes to cloud services, hosted UX09, saved reminders, backup storage, signers, main, alarm receivers or physical device data.
+- No CI run, Gradle, build, or APK dispatch is authorized by this source-only staging.
