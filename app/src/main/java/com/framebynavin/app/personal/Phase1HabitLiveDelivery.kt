@@ -30,6 +30,10 @@ import com.framebynavin.app.reminders.ReminderMusicMixPolicy
 import com.framebynavin.app.reminders.RX01ReminderDomain
 import com.framebynavin.app.reminders.RX01ReminderScenePrefs
 import com.framebynavin.app.reminders.RX01ReminderScenePolicy
+import com.framebynavin.app.reminders.RX03BReminderScripts
+import com.framebynavin.app.reminders.RX03BVoiceDomain
+import com.framebynavin.app.reminders.RX03BVoicePackPreferences
+import com.framebynavin.app.reminders.VoicePersonaEngine
 import java.lang.ref.WeakReference
 import java.time.Instant
 import java.time.LocalDate
@@ -440,6 +444,15 @@ internal class Phase1HabitVoiceService : Service() {
                 stopSelf(startId)
                 return@TextToSpeech
             }
+            // A new Challenge pack is strictly opt-in. Existing saved
+            // activities retain their original phrase and Android voice until
+            // a pack is deliberately selected in Voice Settings.
+            val pack = RX03BVoicePackPreferences.selected(
+                applicationContext, RX03BVoiceDomain.CHALLENGE_21
+            )
+            if (pack != null) VoicePersonaEngine.apply(tts, pack, applicationContext)
+            val frozenPhrase = pack?.let { RX03BReminderScripts.challenge(it, activity) }
+                ?: "It's time for " + activity
             // Each completed utterance is acknowledged once. A duplicate or stale
             // TTS callback must never add an extra announcement.
             var lastCompletedIndex = -1
@@ -447,7 +460,7 @@ internal class Phase1HabitVoiceService : Service() {
                 if (current != generation) return
                 if (index !in 0 until repeatCount) return
                 music.setSpeaking(true)
-                if (tts.speak("It's time for " + activity, TextToSpeech.QUEUE_FLUSH,
+                if (tts.speak(frozenPhrase, TextToSpeech.QUEUE_FLUSH,
                     null, current.toString() + "-" + index) != TextToSpeech.SUCCESS) {
                     Phase1HabitDeliveryLedger.recordAsync(this, id, at,
                         Phase1HabitDeliveryStage.VOICE_SPEAK_FAILED)
