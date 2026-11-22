@@ -34,7 +34,9 @@ jobs:
           set -euo pipefail
           base=abbe88984bac16cfafbd990d9cb00ed54cfdd07e
           test "$(git merge-base "$base" HEAD)" = "$base"
-          git diff --check "$base" HEAD
+          # Markdown documents intentionally use two trailing spaces for line breaks.
+          # Scope whitespace checks to executable source and build configuration.
+          git diff --check "$base" HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts .github/workflows/backlot-d8-v1-compile-gate.yml
           test "$GITHUB_REF_NAME" = "integration/backlot-d8-v1-owner-qa-20261122"
           grep -Fq 'versionCode = 338' app/build.gradle.kts
           grep -Fq 'versionName = "1.0"' app/build.gradle.kts
