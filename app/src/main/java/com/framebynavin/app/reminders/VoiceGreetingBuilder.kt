@@ -61,11 +61,20 @@ object VoiceGreetingBuilder {
         else "${greeting(creatorName, nowMillis, zoneId)} $body"
     }
 
-    internal fun firstName(value: String): String = value
-        .trim()
-        .split(Regex("\\s+"))
-        .firstOrNull()
-        .orEmpty()
-        .trim(',', '.', ';', ':')
-        .take(40)
+    internal fun firstName(value: String): String {
+        val token = value.trim()
+            .split(Regex("\\s+"))
+            .firstOrNull()
+            .orEmpty()
+            .trim(',', '.', ';', ':')
+        // Display-name caches must never leak a fallback email address,
+        // URL, username handle or machine identifier into spoken alerts.
+        // If a credible first name is absent, use the neutral "Hey there".
+        return token.takeIf {
+            it.isNotBlank() &&
+                it.any { character -> character.isLetter() } &&
+                '@' !in it && '/' !in it && '\\' !in it &&
+                !it.startsWith("http", ignoreCase = true)
+        }?.take(40).orEmpty()
+    }
 }
