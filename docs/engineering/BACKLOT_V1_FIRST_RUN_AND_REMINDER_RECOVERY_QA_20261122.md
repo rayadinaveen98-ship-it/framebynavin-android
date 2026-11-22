@@ -138,3 +138,26 @@ Status: **SOURCE STAGED ONLY**. Founder asked to continue the approved recovery;
 - Built-in new Main scenes and preview are integrated; gallery media customizes the **entrance only**, not the Main scene.
 - Challenge full-screen delivery remains permission/owner opt-in; an off-state is not silently changed. The new appearance page includes an explicit enable option.
 - Login visuals, premium motion, device-specific insets and long-idle Personal reliability still require *actual* screen/device acceptance, not only source review.
+
+
+## Incremental source hardening — owner-journey, identity and QA isolation
+
+**State: SOURCE PATCHES STAGED. No compile, APK, CI or Android device execution in this continuation.**
+
+### Confirmed gaps closed
+1. `BacklotV1RecoveryNavigationJourneyUiTest` formerly used `createAndroidComposeRule<MainActivity>()`. That Android test rule launches the Activity before a test method can check `HardeningTestEnvironment.requireCiEmulator()`. Replaced with `createEmptyComposeRule()` and `ActivityScenario.launch(MainActivity::class.java)` **after** verifying the explicit disposable CI-emulator marker and emulator hardware. Scenarios close in `finally`. Never execute against a physical owner app.
+2. The true end-to-end local journey now includes **Personal Reminder Hub** and **Creator Reminder Hub**, back to Home, as well as Settings, Appearance, project tabs, and Activity recreation. It uses the exact existing UI tags and retains the existing expanded Reminders menu state. This reproduces the owner's report that "wherever I click" onboarding reopened.
+3. If the Creator profile fields are complete but an interrupted restore left the **setup receipt** incomplete, Home and Profile now expose the same explicit setup-repair CTA. Existing valid profiles are not overwritten just to dismiss a gate. Unit route-policy assertions cover this case.
+4. On `CloudOperationResult.Success` from remote username claiming, `V23AccountOnboarding` saves a `pendingLocalAccountFinishName` marker **before** attempting the local completion write. If that write fails, retry calls only `onComplete` (local persistence), never `claimUsername` again. The UX11 UI locks the already-claimed name and labels the operation **RETRY SAVING ON THIS DEVICE**, not "create account." An isolated composable UI test is staged. After Activity recreation, existing cloud-profile detection is still the authoritative returning-account path.
+5. All changes above are confined to account UI, transient navigation and their isolated test definitions. No changes to network endpoints, OAuth credentials, notifications, reminder engines, scheduled jobs, backup/restore, user records or stable `main`.
+
+### Risk register for the eventual executable gate
+- These tests must be executed on **fresh, disposable Lab emulator data**, never real connected accounts or owner storage. A test's mere presence does not certify a real device or Google identity.
+- A one-pass targeted Kotlin compile must check Compose imports, overload compatibility and account callback signatures; static source inspection cannot establish compile success.
+- The actual Personal/Creator reminder hubs must be exercised after tapping **from Home**; a launcher-only smoke must not be treated as a navigation test.
+- Native 21-Day reminder permission opt-in, long-idle Personal alarm delivery and voice/audio under lockscreen remain separate physical-device release blockers.
+- Successful username claim with simulated local write failure should be fault-injected on disposable test state; current UI-only test proves the revised label and callback path, not backend idempotency.
+- Reuse prior gate evidence only when the relevant source/build inputs are byte-for-byte identical. Android full release QA is not authorized by the word **continue**.
+
+### Explicit future founder gate
+Freeze the branch SHA, run focused compilation and corrected-first tests, fix and rerun only invalidated checks, then run one cumulative end-to-end integration/device acceptance with screenshot proof. Package the next **Backlot 1.0** owner preview only on green gates with correct same-app package/signing and an install-safe versionCode above an installed 338 where required; no merge or hosted changes by default.
