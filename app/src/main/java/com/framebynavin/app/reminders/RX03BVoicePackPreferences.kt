@@ -24,9 +24,13 @@ internal object RX03BVoicePackPreferences {
     }
 
     fun selected(context: Context, domain: RX03BVoiceDomain): VoicePersona? {
-        val raw = context.applicationContext
-            .getSharedPreferences(FILE, Context.MODE_PRIVATE)
-            .getString(key(domain), null) ?: return null
+        // Corrupted/wrong-type local preferences must never crash a live
+        // foreground voice service or turn a reminder into a delivery failure.
+        val raw = runCatching {
+            context.applicationContext
+                .getSharedPreferences(FILE, Context.MODE_PRIVATE)
+                .getString(key(domain), null)
+        }.getOrNull() ?: return null
         return runCatching { VoicePersona.valueOf(raw) }.getOrNull()
     }
 
