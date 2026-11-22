@@ -72,6 +72,25 @@ internal class V393FirstRunPrefs(context: Context) {
         runCatching { V393FirstRunFocus.valueOf(it) }.getOrNull()
     }
 
+    /**
+     * UX12-D2: a new installation starts with a unified, Personal-ready
+     * workspace, without asking for Creator/Personal/Both. This is a distinct
+     * routing flag: never write a fake PERSONAL choice into the legacy focus.
+     * Existing CREATOR/PERSONAL/BOTH selections remain authoritative.
+     */
+    fun unifiedEntryStarted(): Boolean =
+        selectedFocus() == null && prefs.getBoolean("ux12_unified_entry", false)
+
+    fun beginUnifiedEntry(): Boolean {
+        if (selectedFocus() != null) return false
+        if (unifiedEntryStarted()) return true
+        check(prefs.edit()
+            .putBoolean("ux12_unified_entry", true)
+            .putBoolean("ux02_first_run", true)
+            .commit()) { "Unable to save unified Backlot setup route" }
+        return true
+    }
+
     /** Commit synchronously before proceeding to avoid returning to this gate on crash. */
     fun saveFocus(focus: V393FirstRunFocus) {
         check(prefs.edit().putString("focus", focus.name)
