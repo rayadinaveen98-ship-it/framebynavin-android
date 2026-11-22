@@ -24,9 +24,16 @@ internal object V403VoicePreviewPlayer {
     private var timeout: Runnable? = null
     private const val PREVIEW_TIMEOUT_MS = 12_000L
 
-    fun play(context: Context, persona: VoicePersona) {
+    fun play(
+        context: Context,
+        persona: VoicePersona,
+        voiceNameToCompare: String? = null,
+        compareSameSample: Boolean = false,
+    ) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            handler.post { play(context.applicationContext, persona) }
+            handler.post {
+                play(context.applicationContext, persona, voiceNameToCompare, compareSameSample)
+            }
             return
         }
 
@@ -56,7 +63,9 @@ internal object V403VoicePreviewPlayer {
                 }
 
                 runCatching {
-                    VoicePersonaEngine.apply(engine, persona)
+                    VoicePersonaEngine.apply(
+                        engine, persona, context.applicationContext, voiceNameToCompare,
+                    )
                     engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                         override fun onStart(utteranceId: String?) = Unit
 
@@ -74,7 +83,9 @@ internal object V403VoicePreviewPlayer {
                         }
                     })
                     engine.speak(
-                        VoicePersonaEngine.previewText(persona),
+                        if (compareSameSample)
+                            VoicePersonaEngine.comparisonPreviewText()
+                        else VoicePersonaEngine.previewText(persona),
                         TextToSpeech.QUEUE_FLUSH,
                         null,
                         "backlot-preview-" + persona.name + "-" + currentGeneration,
