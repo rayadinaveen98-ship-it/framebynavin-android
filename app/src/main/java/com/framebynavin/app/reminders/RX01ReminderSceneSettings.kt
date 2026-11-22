@@ -41,100 +41,15 @@ import com.framebynavin.app.personal.Phase1HabitNotification
 import com.framebynavin.app.personal.RX01ChallengePresentationPrefs
 import com.framebynavin.app.personal.RX01ChallengePresentationPolicy
 
-/** Settings UI only. No scheduling, deliveries or alarm/permission mutation. */
+/**
+ * Compatibility route for existing settings links. Do not resurrect the
+ * old selector or allow switches to fall through to rejected Premiere /
+ * Classic scenes. The approved RX02 screen now owns all appearance choices.
+ * Challenge full-screen alarm permission controls remain separate below.
+ */
 @Composable
 internal fun RX01ReminderSceneSettings() {
-    val context = LocalContext.current
-    val domains = listOf(
-        Triple(RX01ReminderDomain.CREATOR, "PULSE STUDIO", "Creator • Electric cobalt / violet"),
-        Triple(RX01ReminderDomain.PERSONAL, "LIVING BLOOM", "Personal • Coral / apricot / lavender"),
-        Triple(RX01ReminderDomain.CHALLENGE_21, "RISE CORE", "21-Day Challenge • Crimson / ember / gold"),
-    )
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().testTag("rx01-scene-settings"),
-    ) {
-        Text(
-            "FLUID REMINDER ENTRANCES",
-            color = V336DirectorPalette.ivory,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp,
-        )
-        Text(
-            "Vibrant entrance → double tap → a different, calmer main screen. " +
-                "Each reminder type has its own style. Voice, alarm timing, " +
-                "Snooze and Done continue to use their existing controls.",
-            color = V336DirectorPalette.muted,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
-        )
-        domains.forEach { (domain, name, summary) ->
-            var enabled by remember(domain) {
-                mutableStateOf(RX01ReminderScenePrefs.enabled(context, domain))
-            }
-            var saveFailed by remember(domain) { mutableStateOf(false) }
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = V336DirectorPalette.panel,
-                border = BorderStroke(1.dp, V336DirectorPalette.line.copy(alpha = .65f)),
-                modifier = Modifier.fillMaxWidth()
-                    .testTag("rx01-palette-setting-" + domain.name.lowercase()),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        modifier = Modifier.width(91.dp).height(81.dp)
-                            .clip(RoundedCornerShape(13.dp)),
-                    ) {
-                        RX01FluidReminderBackdrop(
-                            domain = domain,
-                            phase = RX01SurfacePhase.ENTRANCE,
-                            motionEnabled = false,
-                            lowPower = true,
-                        )
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(name, color = V336DirectorPalette.ivory,
-                            fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        Text(summary, color = V336DirectorPalette.muted,
-                            fontSize = 11.sp, lineHeight = 15.sp)
-                        if (saveFailed) Text(
-                            "Couldn't save this preference. Retry.",
-                            color = V336DirectorPalette.hot, fontSize = 11.sp,
-                        )
-                    }
-                    Switch(
-                        checked = enabled,
-                        onCheckedChange = { newValue ->
-                            saveFailed = !RX01ReminderScenePrefs.set(context, domain, newValue)
-                            if (!saveFailed) enabled = newValue
-                        },
-                        modifier = Modifier
-                            .testTag("rx01-entrance-toggle-" + domain.name.lowercase())
-                            .semantics {
-                                contentDescription = "Use fluid entrance for " +
-                                    RX01ReminderIconPolicy.domainLabel(domain)
-                            },
-                    )
-                }
-            }
-        }
-
-        Text(
-            "If a fluid entrance is switched off: Creator and Personal return " +
-                "to your saved Premiere choice (if enabled), otherwise your " +
-                "Classic/Cinematic scene. A 21-Day Challenge returns to its " +
-                "original notification link. Your older selections are never deleted.",
-            color = V336DirectorPalette.muted,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
-            modifier = Modifier.testTag("rx01-legacy-scene-precedence"),
-        )
-    }
+    RX02ReminderAppearanceSettings()
 }
 
 /**
