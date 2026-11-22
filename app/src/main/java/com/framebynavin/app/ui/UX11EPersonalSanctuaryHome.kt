@@ -2,27 +2,16 @@ package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Snooze
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -33,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,17 +34,16 @@ import com.framebynavin.app.personal.PersonalReminder
 import com.framebynavin.app.personal.V288PersonalTodayPolicy
 import com.framebynavin.app.personal.V288TodaySnapshot
 import com.framebynavin.app.ui.theme.MutedText
-import com.framebynavin.app.ui.theme.ProjectorIvory
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * UX11-E: data-backed, read-only Personal Today projection, not a new store,
- * alarm, completion/streak engine, photo observer or response coordinator.
- * Reuses the exact V288 today snapshot and source-authorized Done/Snooze.
- * Render only in the unlocked local Personal hub, never notification/keyguard.
+ * UX12 D4: compact, emotionally warm Personal Today presentation.
+ * The existing read-only V288 snapshot and PersonalDeliveryCoordinator caller
+ * remain authoritative; this composable adds no scheduler, storage or side effect.
+ * The original V288/UX11E test tags and exact Done/Snooze action codes are retained.
  */
 @Composable
 internal fun UX11EPersonalSanctuaryHero(
@@ -66,14 +56,15 @@ internal fun UX11EPersonalSanctuaryHero(
     onOpenSpaces: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val ink = Color(0xFFFFF5EF)
-    val rose = Color(0xFFFFB9AE)
-    val gold = Color(0xFFE9C69A)
-    val soft = Color(0xFFBDB1B9)
+    val ivory = Color(0xFFFFF4EB)
+    val secondary = Color(0xFFCFC0C2)
+    val accent = Color(0xFFE7BAA3)
     val next = snapshot.next
-    val attention = V288PersonalTodayPolicy.isNeedsAttention(next, nowMillis)
+    val needsAttention = V288PersonalTodayPolicy.isNeedsAttention(next, nowMillis)
+    val compactWidth = LocalConfiguration.current.screenWidthDp <= 360 ||
+        LocalDensity.current.fontScale > 1.3f
     val day = snapshot.date.format(
-        DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())
+        DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())
     )
     val greeting = when (
         Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault()).hour
@@ -83,234 +74,187 @@ internal fun UX11EPersonalSanctuaryHero(
         in 17..21 -> "Good evening"
         else -> "A quiet moment"
     }
-    Box(modifier.fillMaxWidth().testTag("ux11e-personal-sanctuary-hero")) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().testTag("v288-today-home"),
-            shape = RoundedCornerShape(26.dp),
-            color = Color(0xFF1C121D),
-            border = BorderStroke(1.dp, Color(0xFF7F5660).copy(alpha = .60f)),
-        ) {
-            Box {
-                // Original warm atmospheric material, deliberately static,
-                // with no always-running bitmap/shader/remote-image decode.
-                Canvas(Modifier.matchParentSize()) {
-                    drawRect(Brush.verticalGradient(listOf(
-                        Color(0xFF241825), Color(0xFF18141D), Color(0xFF1C1218)
-                    )))
-                    val w = size.width
-                    val h = size.height
-                    val top = Offset(w * .97f, h * .03f)
-                    drawCircle(
-                        brush = Brush.radialGradient(listOf(
-                            Color(0xFFD05F6C).copy(alpha = .25f),
-                            Color(0xFF9E4C64).copy(alpha = .07f),
-                            Color.Transparent
-                        ), center = top, radius = w * .82f),
-                        center = top, radius = w * .82f,
+
+    Surface(
+        modifier = modifier.fillMaxWidth()
+            .testTag("ux11e-personal-sanctuary-hero")
+            .testTag("v288-today-home"),
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xFF20151F),
+        border = BorderStroke(1.dp, Color(0xFF7B5864).copy(alpha = .26f)),
+    ) {
+        Box {
+            // One static, inexpensive ambient surface. No perpetual GPU animation.
+            Canvas(Modifier.matchParentSize()) {
+                drawRect(Brush.verticalGradient(
+                    listOf(Color(0xFF251821), Color(0xFF1B161F))
+                ))
+                val center = Offset(size.width * .94f, size.height * .05f)
+                val radius = size.width * .88f
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color(0xFFB66472).copy(alpha = .15f), Color.Transparent),
+                        center = center, radius = radius,
+                    ),
+                    center = center, radius = radius,
+                )
+            }
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp),
+                verticalArrangement = Arrangement.spacedBy(11.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("PERSONAL", color = accent, fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = 1.15.sp)
+                    Text(day, color = secondary, fontSize = 11.sp, maxLines = 1)
+                }
+                Text(
+                    "$greeting.",
+                    color = ivory, fontSize = 22.sp, lineHeight = 27.sp,
+                    fontWeight = FontWeight.Bold, maxLines = 2,
+                    modifier = Modifier.testTag("ux11e-personal-greeting"),
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "${snapshot.activeReminderCount} active reminders",
+                        color = secondary, fontSize = 11.sp,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
                     )
-                    val bottom = Offset(w * .02f, h * .96f)
-                    drawCircle(
-                        brush = Brush.radialGradient(listOf(
-                            Color(0xFFE9AD78).copy(alpha = .15f),
-                            Color.Transparent
-                        ), center = bottom, radius = w * .72f),
-                        center = bottom, radius = w * .72f,
+                    Text(
+                        if (historyReady) "${snapshot.confirmedDoneToday} done today"
+                        else "Progress unavailable",
+                        color = secondary, fontSize = 11.sp,
+                        modifier = Modifier.testTag("v288-today-confirmed-done"),
+                        maxLines = 2,
                     )
                 }
+
+                HorizontalDivider(color = accent.copy(alpha = .15f))
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(15.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("v288-next-action"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(Icons.Outlined.AutoAwesome, null, tint = rose,
-                            modifier = Modifier.size(17.dp))
-                        Text("YOUR PERSONAL SPACE", color = gold,
-                            fontSize = 10.sp, fontWeight = FontWeight.Black,
-                            letterSpacing = 1.3.sp)
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(greeting + ".", color = ink, fontSize = 27.sp,
-                            lineHeight = 34.sp, fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            modifier = Modifier.testTag("ux11e-personal-greeting"))
-                        Text("A little room for what matters to you.",
-                            color = soft, fontSize = 13.sp, lineHeight = 19.sp)
-                        Text(day, color = gold.copy(alpha = .92f), fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        UX11ESanctuaryStat(
-                            label = "PERSONAL ACTIVE",
-                            value = snapshot.activeReminderCount.toString(),
-                            modifier = Modifier.weight(1f),
-                        )
-                        UX11ESanctuaryStat(
-                            label = "DONE TODAY",
-                            value = if (historyReady) snapshot.confirmedDoneToday.toString()
-                                else "—",
-                            detail = if (historyReady) null else "Unavailable",
-                            modifier = Modifier.weight(1f)
-                                .testTag("v288-today-confirmed-done"),
-                        )
-                    }
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().testTag("v288-next-action"),
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xE626222B),
-                        border = BorderStroke(1.dp,
-                            if (attention) gold.copy(alpha = .75f)
-                            else Color(0xFF73585C).copy(alpha = .53f)),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(15.dp),
-                            verticalArrangement = Arrangement.spacedBy(9.dp),
+                    Text(
+                        if (needsAttention) "NEEDS ATTENTION" else "UP NEXT",
+                        color = accent, fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = .8.sp,
+                    )
+                    if (next == null) {
+                        // A small editorial cameo only in the empty summary.
+                        // The toolbar retains its separate face-only avatar.
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(9.dp),
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                            ) {
-                                Icon(Icons.Outlined.CalendarToday, null, tint = gold,
-                                    modifier = Modifier.size(16.dp))
+                            V144GuideCharacter(
+                                guide = V144GuidePrefs.currentGuide,
+                                state = CinePulseState.THINK,
+                                modifier = Modifier.size(62.dp),
+                            )
+                            Text(
+                                if (snapshot.activeReminderCount == 0)
+                                    "Start with one small reminder."
+                                else "Nothing due next.",
+                                color = ivory, fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    } else {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            V288PersonalReminderIcon(next)
+                            Column(Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(
-                                    if (attention) "NEEDS ATTENTION" else "UP NEXT",
-                                    color = gold, fontWeight = FontWeight.Black,
-                                    fontSize = 10.sp, letterSpacing = .9.sp,
+                                    next.title, color = ivory,
+                                    fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.testTag("v288-next-title"),
+                                )
+                                Text(
+                                    snapshot.nextAtMillis?.let {
+                                        Instant.ofEpochMilli(it).atZone(next.zoneId)
+                                            .format(DateTimeFormatter.ofPattern(
+                                                "EEE, d MMM · h:mm a", Locale.getDefault()
+                                            ))
+                                    } ?: "Check schedule in your reminders",
+                                    color = secondary, fontSize = 11.sp,
+                                    maxLines = 2,
                                 )
                             }
-                            if (next == null) {
-                                Text("Nothing waiting right now.", color = ink,
-                                    fontSize = 16.sp, lineHeight = 22.sp,
-                                    fontWeight = FontWeight.Bold)
-                                Text("Your next Personal reminder will appear here when scheduled.",
-                                    color = soft, fontSize = 12.sp, lineHeight = 18.sp)
-                            } else {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color(0xFF583D4D),
-                                        modifier = Modifier.size(43.dp),
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            V288PersonalReminderIcon(next, large = true)
-                                        }
-                                    }
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        Text(next.title, color = ink, fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold, maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.testTag("v288-next-title"))
-                                        val time = snapshot.nextAtMillis?.let {
-                                            Instant.ofEpochMilli(it).atZone(next.zoneId)
-                                                .format(DateTimeFormatter.ofPattern(
-                                                    "EEE, d MMM · h:mm a", Locale.getDefault()
-                                                ))
-                                        } ?: "Check its schedule in your reminders"
-                                        Text(time, color = soft, fontSize = 11.sp,
-                                            lineHeight = 16.sp, maxLines = 2)
-                                    }
-                                }
-                                if (V288PersonalTodayPolicy.canRespond(next)) {
-                                    // Two full-width actions avoid clipped labels on
-                                    // 320dp phones and 200% system font scaling.
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        OutlinedButton(
-                                            onClick = {
-                                                onRespond(next, PersonalDeliveryContract.ACTION_DONE)
-                                            },
-                                            enabled = !busy,
-                                            modifier = Modifier.fillMaxWidth()
-                                                .heightIn(min = 50.dp)
-                                                .testTag("v288-next-done"),
-                                            border = BorderStroke(1.dp, rose.copy(alpha = .72f)),
-                                            shape = RoundedCornerShape(13.dp),
-                                        ) {
-                                            Icon(Icons.Outlined.CheckCircle, null, tint = rose,
-                                                modifier = Modifier.size(16.dp))
-                                            Spacer(Modifier.width(5.dp))
-                                            Text("DONE", color = ink, fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold)
-                                        }
-                                        OutlinedButton(
-                                            onClick = {
-                                                onRespond(next, PersonalDeliveryContract.ACTION_SNOOZE)
-                                            },
-                                            enabled = !busy,
-                                            modifier = Modifier.fillMaxWidth()
-                                                .heightIn(min = 50.dp)
-                                                .testTag("v288-next-snooze"),
-                                            border = BorderStroke(1.dp, gold.copy(alpha = .55f)),
-                                            shape = RoundedCornerShape(13.dp),
-                                        ) {
-                                            Icon(Icons.Outlined.Snooze, null, tint = gold,
-                                                modifier = Modifier.size(16.dp))
-                                            Spacer(Modifier.width(5.dp))
-                                            Text("SNOOZE " + next.snoozeMinutes + "m",
-                                                color = ink, fontSize = 11.sp, maxLines = 1)
-                                        }
-                                    }
-                                } else if (attention) {
-                                    Text("This reminder needs review. Android delivery " +
-                                        "and response eligibility are checked separately.",
-                                        color = soft, fontSize = 11.sp, lineHeight = 17.sp)
-                                }
-                            }
+                        }
+                        if (V288PersonalTodayPolicy.canRespond(next)) {
+                            // Never offer Done/Snooze for a future/unpresented lease.
+                            UX12D4EligibleResponses(
+                                reminder = next,
+                                busy = busy,
+                                stacked = compactWidth,
+                                onRespond = onRespond,
+                            )
+                        } else if (needsAttention) {
+                            Text(
+                                "Open the reminder below to review its response status.",
+                                color = secondary, fontSize = 11.sp, lineHeight = 16.sp,
+                            )
                         }
                     }
-                    if (snapshot.attentionCount > 1) {
-                        Text(snapshot.attentionCount.toString() +
-                            " Personal reminders need attention. Review the agenda below.",
-                            color = gold, fontSize = 11.sp,
-                            modifier = Modifier.testTag("ux11e-attention-summary"))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                }
+
+                if (snapshot.attentionCount > 1) {
+                    Text(
+                        "${snapshot.attentionCount} reminders need attention.",
+                        color = accent, fontSize = 11.sp,
+                        modifier = Modifier.testTag("ux11e-attention-summary"),
+                    )
+                }
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    Button(
+                        onClick = onCreateReminder,
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag("ux11e-create-personal-reminder"),
+                        shape = RoundedCornerShape(13.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF18B82),
+                            contentColor = Color(0xFF261417),
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                     ) {
-                        Button(
-                            onClick = onCreateReminder,
-                            enabled = !busy,
-                            modifier = Modifier.weight(1f)
-                                .heightIn(min = 54.dp)
-                                .testTag("ux11e-create-personal-reminder"),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFED6769),
-                                contentColor = Color(0xFF1B1017)),
-                            shape = RoundedCornerShape(15.dp),
-                        ) {
-                            Icon(Icons.Outlined.Add, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("REMINDER", fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        }
-                        OutlinedButton(
-                            onClick = onOpenSpaces,
-                            enabled = !busy,
-                            modifier = Modifier.weight(1f)
-                                .heightIn(min = 54.dp)
-                                .testTag("v289-open-spaces"),
-                            border = BorderStroke(1.dp, Color(0xFF9A7D83)),
-                            shape = RoundedCornerShape(15.dp),
-                        ) {
-                            Icon(Icons.Outlined.FolderOpen, null, tint = gold,
-                                modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("MY SPACES", color = ink, fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
+                        Icon(Icons.Outlined.Add, null, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("New reminder", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            maxLines = 2)
+                    }
+                    OutlinedButton(
+                        onClick = onOpenSpaces,
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag("v289-open-spaces"),
+                        border = BorderStroke(1.dp, accent.copy(alpha = .35f)),
+                        shape = RoundedCornerShape(13.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    ) {
+                        Icon(Icons.Outlined.FolderOpen, null, tint = accent,
+                            modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("My Spaces", color = ivory, fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold, maxLines = 2)
                     }
                 }
             }
@@ -319,34 +263,77 @@ internal fun UX11EPersonalSanctuaryHero(
 }
 
 @Composable
-private fun UX11ESanctuaryStat(
-    label: String,
-    value: String,
-    modifier: Modifier,
-    detail: String? = null,
+private fun UX12D4EligibleResponses(
+    reminder: PersonalReminder,
+    busy: Boolean,
+    stacked: Boolean,
+    onRespond: (PersonalReminder, String) -> Unit,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = Color(0x802D2530),
-        border = BorderStroke(1.dp, Color(0xFF84636A).copy(alpha = .29f)),
-    ) {
+    // Both buttons retain the exact old contract and test tags.
+    if (stacked) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            Text(value, color = ProjectorIvory, fontSize = 21.sp,
-                fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(label, color = Color(0xFFE1C0B9), fontSize = 9.sp,
-                fontWeight = FontWeight.Bold, letterSpacing = .6.sp,
-                maxLines = 1)
-            if (detail != null) {
-                Text(detail, color = MutedText, fontSize = 10.sp)
-            }
+            UX12D4DoneButton(reminder, busy, onRespond, Modifier.fillMaxWidth())
+            UX12D4SnoozeButton(reminder, busy, onRespond, Modifier.fillMaxWidth())
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            UX12D4DoneButton(reminder, busy, onRespond, Modifier.weight(1f))
+            UX12D4SnoozeButton(reminder, busy, onRespond, Modifier.weight(1f))
         }
     }
 }
 
+@Composable
+private fun UX12D4DoneButton(
+    reminder: PersonalReminder,
+    busy: Boolean,
+    onRespond: (PersonalReminder, String) -> Unit,
+    modifier: Modifier,
+) {
+    OutlinedButton(
+        onClick = { onRespond(reminder, PersonalDeliveryContract.ACTION_DONE) },
+        enabled = !busy,
+        modifier = modifier.heightIn(min = 48.dp).testTag("v288-next-done"),
+        border = BorderStroke(1.dp, Color(0xFFF1A6A0).copy(alpha = .6f)),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Icon(Icons.Outlined.CheckCircle, null, tint = Color(0xFFF1B7AA),
+            modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(5.dp))
+        Text("Done", color = Color(0xFFFFF4EB), fontSize = 12.sp,
+            fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun UX12D4SnoozeButton(
+    reminder: PersonalReminder,
+    busy: Boolean,
+    onRespond: (PersonalReminder, String) -> Unit,
+    modifier: Modifier,
+) {
+    OutlinedButton(
+        onClick = { onRespond(reminder, PersonalDeliveryContract.ACTION_SNOOZE) },
+        enabled = !busy,
+        modifier = modifier.heightIn(min = 48.dp).testTag("v288-next-snooze"),
+        border = BorderStroke(1.dp, Color(0xFFE7BAA3).copy(alpha = .3f)),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Icon(Icons.Outlined.Snooze, null, tint = Color(0xFFE7BAA3),
+            modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(5.dp))
+        Text("Snooze ${reminder.snoozeMinutes}m",
+            color = Color(0xFFFFF4EB), fontSize = 12.sp, maxLines = 2)
+    }
+}
+
+/** A compact section label. The optional detail is shown only when useful. */
 @Composable
 internal fun UX11ESanctuarySection(
     title: String,
@@ -354,13 +341,14 @@ internal fun UX11ESanctuarySection(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth()
-            .padding(top = 13.dp, bottom = 3.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier.fillMaxWidth().padding(top = 9.dp, bottom = 1.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(title.uppercase(Locale.getDefault()),
             color = Color(0xFFE9B5A8), fontSize = 11.sp,
-            letterSpacing = 1.sp, fontWeight = FontWeight.Black)
-        Text(detail, color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+            letterSpacing = .9.sp, fontWeight = FontWeight.Bold)
+        if (detail.isNotBlank()) {
+            Text(detail, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
+        }
     }
 }
