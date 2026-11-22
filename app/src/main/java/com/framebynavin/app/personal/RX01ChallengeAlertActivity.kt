@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -37,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,9 +51,7 @@ import com.framebynavin.app.reminders.RX01ReminderExperienceGate
 import com.framebynavin.app.reminders.RX01ReminderIconKind
 import com.framebynavin.app.reminders.RX01SurfacePhase
 import com.framebynavin.app.reminders.UX12D7ReminderEditorialHeader
-import com.framebynavin.app.ui.CinePulseState
-import com.framebynavin.app.ui.V144GuideCharacter
-import com.framebynavin.app.ui.V144GuidePrefs
+import com.framebynavin.app.reminders.V407ReminderCompanionMoment
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -323,8 +319,7 @@ private fun RX01ChallengeMain(
         RX01SurfacePhase.MAIN)
     val compactMain = LocalConfiguration.current.screenHeightDp < 720
     // This screen is composed only after the existing unlocked/valid checks.
-    // Saved companion selection is read, never changed by a reminder screen.
-    V144GuidePrefs.initialize(LocalContext.current)
+    // UX06E companion visibility is user-controlled, not forced by D7.
     Column(
         modifier = Modifier.fillMaxSize().safeDrawingPadding()
             .verticalScroll(rememberScrollState())
@@ -338,19 +333,14 @@ private fun RX01ChallengeMain(
             label = "21-DAY CHALLENGE",
         )
         Spacer(Modifier.height(if (compactMain) 6.dp else 10.dp))
-        // Approved Spark/Mira pose; purely decorative and never a progress
-        // meter, microphone indicator or confirmation of a completed day.
-        Box(
-            modifier = Modifier.fillMaxWidth().height(if (compactMain) 64.dp else 90.dp)
-                .testTag("ux12-d7-challenge-companion"),
-            contentAlignment = Alignment.Center,
-        ) {
-            V144GuideCharacter(
-                guide = V144GuidePrefs.currentGuide,
-                state = CinePulseState.PRESENT,
-                modifier = Modifier.size(if (compactMain) 68.dp else 96.dp),
-            )
-        }
+        // The existing optional UX06E companion respects the same saved
+        // "show on live alerts" setting as Creator/Personal. The occurrence-
+        // keyed three-second moment never delays or obscures response controls.
+        // It has no content at all when the user opted out.
+        V407ReminderCompanionMoment(
+            occurrenceKey = "challenge:${challenge.id}:${challenge.activity}",
+            modifier = Modifier.testTag("ux12-d7-challenge-companion"),
+        )
         Spacer(Modifier.height(if (compactMain) 10.dp else 15.dp))
         val number = challenge.dayNumber(Instant.now())
         Text(if (number == null) "YOUR COMMITMENT" else "DAY " + number + " OF 21",
