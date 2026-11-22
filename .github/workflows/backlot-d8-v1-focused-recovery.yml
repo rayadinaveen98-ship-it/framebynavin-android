@@ -1,0 +1,241 @@
+name: Backlot 1.0 D8 - focused unit-test recovery, preserve green artifacts
+
+on:
+  push:
+    branches:
+      - integration/backlot-d8-v1-owner-qa-20261122
+    paths:
+      - ".github/workflows/backlot-d8-v1-focused-recovery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-d8-v1-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APPROVED_ASSEMBLED_SOURCE: 8b628789a2353e627780ce2b9b06c9fbc678c054
+  PREVIOUS_QA_RUN_ID: "45000266134"
+
+jobs:
+  focused-then-full-unit:
+    name: Recheck 13 greeting assertions, then full JVM suite only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify ONLY greeting tests and recovery CI changed since verified compile/lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          old="$APPROVED_ASSEMBLED_SOURCE"
+          test "$(git merge-base "$old" HEAD)" = "$old"
+          git diff --check "$old" HEAD -- app/src
+          git diff --exit-code "$old" HEAD -- app/src/main app/src/androidTest app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties .github/scripts
+          git diff --name-only "$old" HEAD > /tmp/d8-touched-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          actual=set(Path('/tmp/d8-touched-files.txt').read_text().splitlines())
+          expected={
+            'app/src/test/java/com/framebynavin/app/reminders/VoiceGreetingBuilderV148Test.kt',
+            '.github/workflows/backlot-d8-v1-focused-recovery.yml',
+          }
+          assert actual==expected, f'Unexpected change from proven app build: {sorted(actual^expected)}'
+          print('PASS: previous app compile, Lab APK, Android-test compilation and lint unchanged')
+          PY
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Record current and previous source SHAs
+        shell: bash
+        run: |
+          mkdir -p output/d8-v1/focused
+          git rev-parse HEAD > output/d8-v1/focused/REPAIRED-TEST-SOURCE-SHA.txt
+          echo "$APPROVED_ASSEMBLED_SOURCE" > output/d8-v1/focused/UNCHANGED-APP-SOURCE-SHA.txt
+      - name: Rerun ONLY the previously failed greeting test class
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 92m gradle \
+            :app:testDebugUnitTest \
+            --tests 'com.framebynavin.app.reminders.VoiceGreetingBuilderV148Test' \
+            -PbacklotLab=true --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/d8-v1/focused/GREETING-TARGETED.log
+      - name: Recheck full JVM suite only (without recompiling or rerunning lint by command)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 92m gradle :app:testDebugUnitTest \
+            -PbacklotLab=true --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/d8-v1/focused/FULL-JVM.log
+      - name: Preserve all corrections and exact unit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-FOCUSED-JVM-RECOVERY-RESULTS
+          path: |
+            output/d8-v1/focused/
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
+
+  verified-lab-apk:
+    name: Reuse and independently verify previously green compiled Lab APK
+    needs: focused-then-full-unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: 45000266134
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-1-0-D8-LAB-QA-AND-DIAGNOSTICS
+          path: previous-lab
+      - name: Verify previous compiled app SHA, APK package, public signer and identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat previous-lab/output/d8-v1/lab/SOURCE-SHA.txt)" = "$APPROVED_ASSEMBLED_SOURCE"
+          git diff --exit-code "$APPROVED_ASSEMBLED_SOURCE" HEAD -- app/src/main app/src/androidTest app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          mkdir -p output/d8-v1/reused-lab
+          apk=previous-lab/app/build/outputs/apk/debug/app-debug.apk
+          test_apk=previous-lab/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s "$apk"
+          test -s "$test_apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$apk" > output/d8-v1/reused-lab/IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app.lab' versionCode='338' versionName='1.0'" output/d8-v1/reused-lab/IDENTITY.txt
+          grep -q "application-label:'Backlot'" output/d8-v1/reused-lab/IDENTITY.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" > output/d8-v1/reused-lab/SIGNER.txt
+          grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/d8-v1/reused-lab/SIGNER.txt
+          (cd previous-lab && sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk) > output/d8-v1/reused-lab/SHA256SUMS.txt
+          git rev-parse HEAD > output/d8-v1/reused-lab/REPAIRED-TEST-SOURCE-SHA.txt
+          echo "$APPROVED_ASSEMBLED_SOURCE" > output/d8-v1/reused-lab/COMPILED-APP-SOURCE-SHA.txt
+          echo "Lab binaries are reused ONLY because app+build inputs are unchanged; all tests were rechecked on updated test source" > output/d8-v1/reused-lab/PROVENANCE.txt
+      - name: Publish verified reusable Lab APK evidence, not release
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-VERIFIED-LAB-APKS-NOT-RELEASE
+          path: |
+            previous-lab/app/build/outputs/apk/debug/app-debug.apk
+            previous-lab/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            output/d8-v1/reused-lab/
+          retention-days: 30
+
+  owner-preview:
+    name: Build Backlot 1.0 owner-preview APK only after green JVM tests
+    needs: focused-then-full-unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Assemble same-package signed owner preview from unchanged app inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/d8-v1/owner
+          git rev-parse HEAD > output/d8-v1/owner/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 105m gradle :app:assemblePersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/d8-v1/owner/BUILD.log
+      - name: Verify owner package, public preview signer, version and SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$apk" > output/d8-v1/owner/IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app' versionCode='338' versionName='1.0'" output/d8-v1/owner/IDENTITY.txt
+          grep -q "application-label:'Backlot'" output/d8-v1/owner/IDENTITY.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" > output/d8-v1/owner/SIGNER.txt
+          grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/d8-v1/owner/SIGNER.txt
+          sha256sum "$apk" > output/d8-v1/owner/SHA256SUMS.txt
+          echo "Public prototype/owner preview signing, NOT a production-release identity." > output/d8-v1/owner/STATUS.txt
+      - name: Upload verified owner preview only after successful build, NEVER merge
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-OWNER-PREVIEW-NOT-CERTIFIED
+          path: |
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            output/d8-v1/owner/
+          retention-days: 30
+      - name: Persist exact owner build error log if failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-OWNER-FAILURE-DIAGNOSTICS
+          path: output/d8-v1/owner/
+          retention-days: 30
+          if-no-files-found: warn
+
+  android15-lab-smoke:
+    name: Android 15 launch from reused, verified Lab APK
+    needs: verified-lab-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-1-0-D8-VERIFIED-LAB-APKS-NOT-RELEASE
+          path: verified-lab
+      - name: Verify compiled APK SHA and copy into disposable Lab candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat verified-lab/output/d8-v1/reused-lab/COMPILED-APP-SOURCE-SHA.txt)" = "$APPROVED_ASSEMBLED_SOURCE"
+          mkdir -p lab-candidate
+          cp verified-lab/previous-lab/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
+          test -s lab-candidate/app-debug.apk
+          (cd verified-lab/previous-lab && sha256sum -c ../output/d8-v1/reused-lab/SHA256SUMS.txt)
+      - name: Observe isolated Android 15 startup, no production data
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+      - name: Preserve emulator startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-ANDROID15-STARTUP-RESULT
+          path: startup-smoke-evidence/
+          retention-days: 30
+          if-no-files-found: warn
