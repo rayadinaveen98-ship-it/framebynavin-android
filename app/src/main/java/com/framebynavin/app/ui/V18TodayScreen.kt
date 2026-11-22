@@ -87,7 +87,7 @@ internal fun PTodayScreen(
     projectsLoaded: Boolean = true,
     ideas: List<CreatorIdea> = emptyList(),
     onAdd: () -> Unit,
-    onCreatorSetup: () -> Unit = {},
+    onCreatorSetup: (() -> Unit)? = null,
     cloudRecoveryAvailable: Boolean = false,
     onReviewCloudRecovery: () -> Unit = {},
     onStart: (String) -> Unit,
@@ -187,7 +187,7 @@ internal fun PTodayScreen(
                     }
                 }
             }
-            if (!creatorProfile.isComplete) {
+            if (!creatorProfile.isComplete && onCreatorSetup != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                         .testTag("backlot-creator-setup-invite"),
