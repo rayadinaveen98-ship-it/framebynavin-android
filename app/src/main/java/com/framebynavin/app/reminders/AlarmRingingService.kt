@@ -267,7 +267,7 @@ class AlarmRingingService : Service() {
 
     private fun startVoice(task: CreatorTask) {
         val token = currentToken
-        val creatorName = VoiceCreatorNameResolver.resolve(applicationContext)
+        val creatorName = VoiceCreatorNameResolver.resolveKnownName(applicationContext)
         val urgency = when (task.priority) {
             TaskPriority.NORMAL -> "reminder"
             TaskPriority.IMPORTANT -> "important creator reminder"
@@ -288,7 +288,7 @@ class AlarmRingingService : Service() {
             if (status == TextToSpeech.SUCCESS) {
                 val engine = tts ?: return@TextToSpeech
                 engine.language = Locale.getDefault()
-                VoicePersonaEngine.apply(engine, task.voicePersona)
+                VoicePersonaEngine.apply(engine, task.voicePersona, applicationContext)
                 engine.speak(
                     speechText,
                     TextToSpeech.QUEUE_FLUSH,
