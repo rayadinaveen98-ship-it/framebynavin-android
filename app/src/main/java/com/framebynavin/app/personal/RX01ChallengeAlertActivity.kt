@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +52,10 @@ import com.framebynavin.app.reminders.RX01ReminderDomain
 import com.framebynavin.app.reminders.RX01ReminderExperienceGate
 import com.framebynavin.app.reminders.RX01ReminderIconKind
 import com.framebynavin.app.reminders.RX01SurfacePhase
+import com.framebynavin.app.reminders.UX12D7ReminderEditorialHeader
+import com.framebynavin.app.ui.CinePulseState
+import com.framebynavin.app.ui.V144GuideCharacter
+import com.framebynavin.app.ui.V144GuidePrefs
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -314,6 +321,10 @@ private fun RX01ChallengeMain(
 ) {
     val palette = RX01FluidTheme.palette(RX01ReminderDomain.CHALLENGE_21,
         RX01SurfacePhase.MAIN)
+    val compactMain = LocalConfiguration.current.screenHeightDp < 720
+    // This screen is composed only after the existing unlocked/valid checks.
+    // Saved companion selection is read, never changed by a reminder screen.
+    V144GuidePrefs.initialize(LocalContext.current)
     Column(
         modifier = Modifier.fillMaxSize().safeDrawingPadding()
             .verticalScroll(rememberScrollState())
@@ -322,10 +333,25 @@ private fun RX01ChallengeMain(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("BACKLOT / 21-DAY CHALLENGE", color = palette.iconHalo,
-            fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            letterSpacing = 1.5.sp, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(28.dp))
+        UX12D7ReminderEditorialHeader(
+            domain = RX01ReminderDomain.CHALLENGE_21,
+            label = "21-DAY CHALLENGE",
+        )
+        Spacer(Modifier.height(if (compactMain) 6.dp else 10.dp))
+        // Approved Spark/Mira pose; purely decorative and never a progress
+        // meter, microphone indicator or confirmation of a completed day.
+        Box(
+            modifier = Modifier.fillMaxWidth().height(if (compactMain) 64.dp else 90.dp)
+                .testTag("ux12-d7-challenge-companion"),
+            contentAlignment = Alignment.Center,
+        ) {
+            V144GuideCharacter(
+                guide = V144GuidePrefs.currentGuide,
+                state = CinePulseState.PRESENT,
+                modifier = Modifier.size(if (compactMain) 68.dp else 96.dp),
+            )
+        }
+        Spacer(Modifier.height(if (compactMain) 10.dp else 15.dp))
         val number = challenge.dayNumber(Instant.now())
         Text(if (number == null) "YOUR COMMITMENT" else "DAY " + number + " OF 21",
             color = palette.iconTint, fontSize = 15.sp,
@@ -338,7 +364,7 @@ private fun RX01ChallengeMain(
         Text("A reminder is not a completed day. Open your challenge to confirm your progress.",
             color = palette.ink.copy(alpha = .84f), fontSize = 13.sp,
             lineHeight = 20.sp, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(38.dp))
+        Spacer(Modifier.height(if (compactMain) 20.dp else 28.dp))
         Button(
             onClick = onOpenChallenge,
             modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
@@ -358,6 +384,9 @@ private fun RX01ChallengeMain(
                 color = palette.iconTint, modifier = Modifier.padding(top = 10.dp))
         }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = onClose) { Text("CLOSE REMINDER SCREEN") }
+        OutlinedButton(
+            onClick = onClose,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        ) { Text("CLOSE REMINDER SCREEN") }
     }
 }
