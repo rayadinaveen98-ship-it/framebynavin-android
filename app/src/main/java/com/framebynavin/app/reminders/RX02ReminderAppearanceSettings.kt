@@ -125,6 +125,32 @@ internal fun RX02ReminderAppearanceSettings() {
                 )
             }
         }
+        if (currentDomain == RX01ReminderDomain.CHALLENGE_21 &&
+            !RX01ReminderScenePrefs.enabled(context, RX01ReminderDomain.CHALLENGE_21)
+        ) {
+            Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface) {
+                Column(Modifier.fillMaxWidth().padding(13.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("21-Day entrance is off on this device",
+                        color = ProjectorIvory, fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold)
+                    Text("You can enable the new entrance without granting extra Android alarm permissions. Delivery permissions remain in Notifications & Reminders.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    Button(
+                        onClick = {
+                            if (RX01ReminderScenePrefs.set(context,
+                                    RX01ReminderDomain.CHALLENGE_21, true)) {
+                                revision++
+                                message = "Modern 21-Day entrance enabled."
+                            } else message = "Could not save the 21-Day appearance choice."
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("backlot-enable-modern-challenge-visual"),
+                    ) { Text("ENABLE MODERN 21-DAY ENTRANCE") }
+                }
+            }
+        }
+
         Text("ENTRANCE BACKGROUND", color = MutedGold, fontSize = 11.sp,
             letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
         // Built-in is the unmodified original RX01 palette for this domain.
