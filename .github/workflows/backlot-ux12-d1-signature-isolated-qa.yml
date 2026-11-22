@@ -1,14 +1,6 @@
 name: Backlot UX12 D1 - isolated signature ident QA NOT RELEASE
 
 on:
-  push:
-    branches:
-      - feature/backlot-ux12-d1-signature-ident-20261122
-    paths:
-      - "app/src/main/java/com/framebynavin/app/ui/UX11PremiumWelcomeExperience.kt"
-      - "app/src/test/java/com/framebynavin/app/ui/UX12D1SignatureTimelineTest.kt"
-      - "docs/design/UX12_D1_SIGNATURE_IDENT_ISOLATED_STAGE_20261122.md"
-      - ".github/workflows/backlot-ux12-d1-signature-isolated-qa.yml"
   workflow_dispatch:
 
 permissions:
