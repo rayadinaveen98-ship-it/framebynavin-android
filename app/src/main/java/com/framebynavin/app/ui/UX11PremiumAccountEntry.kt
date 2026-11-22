@@ -144,17 +144,18 @@ internal fun UX11PremiumAccountEntry(
                 UX11LocalContinuation(onContinueLocally, busy)
             }
             UX11AuthEntryMode.SIGN_UP, UX11AuthEntryMode.LOG_IN -> {
-                OutlinedButton(
+                // UX12-D2: one user intent, one Google action. Alternate account
+                // modes and local-only continuation belong ONLY to CHOOSE.
+                // Back returns there without silently starting another auth route.
+                androidx.compose.material3.TextButton(
                     onClick = onBack,
                     enabled = !busy,
                     modifier = Modifier.heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
                         .testTag("ux11-auth-back"),
-                    border = BorderStroke(1.dp, CinemaLine),
-                    shape = RoundedCornerShape(14.dp),
                 ) {
                     Icon(Icons.Outlined.ArrowBack, contentDescription = null,
                         modifier = Modifier.size(17.dp), tint = ProjectorIvory)
-                    Text("  ALL OPTIONS", color = ProjectorIvory,
+                    Text("  BACK", color = ProjectorIvory,
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(17.dp))
@@ -164,51 +165,28 @@ internal fun UX11PremiumAccountEntry(
                     enabled = !busy,
                     modifier = Modifier.testTag("ux11-auth-google"),
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(14.dp))
                 Text(
-                    "Google handles authentication. Backlot determines whether " +
-                        "to open your existing account or ask for a new profile.",
+                    "Google verifies your identity. Backlot recognizes existing " +
+                        "accounts and guides new accounts through profile setup.",
                     color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                    modifier = Modifier.testTag("ux12-d2-focused-auth-note"),
                 )
-                Spacer(Modifier.height(27.dp))
-                Text(
-                    if (mode == UX11AuthEntryMode.SIGN_UP)
-                        "Already have a Backlot account?"
-                    else "New to Backlot?",
-                    color = MutedText, fontSize = 12.sp,
-                )
-                OutlinedButton(
-                    onClick = if (mode == UX11AuthEntryMode.SIGN_UP)
-                        onSelectLogin else onSelectSignUp,
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
-                        .testTag("ux11-auth-switch-mode"),
-                    shape = RoundedCornerShape(15.dp),
-                    border = BorderStroke(1.dp, CinemaLine),
-                ) {
-                    Text(
-                        if (mode == UX11AuthEntryMode.SIGN_UP) "GO TO LOG IN"
-                        else "CREATE AN ACCOUNT",
-                        color = ProjectorIvory, fontWeight = FontWeight.Bold,
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-                UX11AuthDividerLabel("OR USE BACKLOT LOCALLY")
-                Spacer(Modifier.height(10.dp))
-                UX11LocalContinuation(onContinueLocally, busy)
             }
         }
         if (error != null) {
             Spacer(Modifier.height(16.dp))
             UX11AuthError(error)
         }
-        Spacer(Modifier.height(24.dp))
-        Text(
-            "Local use doesn't require Google. Cloud backup/recovery covers " +
-                "supported data only; automatic two-device synchronization isn't available yet.",
-            color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
-            modifier = Modifier.testTag("ux11-auth-data-disclosure"),
-        )
+        if (mode == UX11AuthEntryMode.CHOOSE) {
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Local use doesn't require Google. Cloud backup/recovery covers " +
+                    "supported data only; automatic two-device synchronization isn't available yet.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
+                modifier = Modifier.testTag("ux11-auth-data-disclosure"),
+            )
+        }
     }
 }
 
