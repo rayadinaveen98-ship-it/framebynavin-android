@@ -142,23 +142,47 @@ internal fun V144SettingsHub(
                 onSearchDestination = ::openSearchDestination,
             )
 
-            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("APPEARANCE & SOUND", "Appearance & sound", ::navigateBack) {
-                V144CategoryCard("Appearance", "Themes, icon, welcome animation and sound", Icons.Outlined.Palette, RecRed) {
-                    sectionName = V167SettingsSection.APPEARANCE.name
-                }
-                V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
-                    onOpenHomeSlideshow()
-                }
-                V144CategoryCard("Reminder scenes", "Fluid entrances, Classic/Premiere and 21-day full-screen options", Icons.Outlined.MovieFilter, MutedGold) {
-                    sectionName = V167SettingsSection.REMINDER_SCENES.name
-                }
-                V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
-                    sectionName = V167SettingsSection.GUIDE.name
-                }
-                V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
-                    sectionName = V167SettingsSection.VOICE.name
-                }
-                // Ordinary app defaults are self-describing; no introduction card.
+            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("PERSONALIZATION", "Your Backlot world", ::navigateBack) {
+                V404SettingsGroupLabel("LOOK & FEEL")
+                V294QuietSettingRow(
+                    title = "Theme, icon & welcome",
+                    icon = Icons.Outlined.Palette,
+                    support = "${VisualExperiencePrefs.currentTheme.displayName} · ${VisualExperiencePrefs.welcomeStyle.displayName}",
+                ) { sectionName = V167SettingsSection.APPEARANCE.name }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow(
+                    title = "Home photos",
+                    icon = Icons.Outlined.Collections,
+                    support = "Manage the existing Home slideshow",
+                    onClick = onOpenHomeSlideshow,
+                )
+                V294QuietSettingsDivider()
+                V294QuietSettingRow(
+                    title = "Reminder scenes",
+                    icon = Icons.Outlined.MovieFilter,
+                    support = "Creator, Personal and Challenge visual preferences",
+                ) { sectionName = V167SettingsSection.REMINDER_SCENES.name }
+
+                Spacer(Modifier.height(18.dp))
+                V404SettingsGroupLabel("COMPANION & SOUND")
+                V294QuietSettingRow(
+                    title = "Companion",
+                    icon = Icons.Outlined.Face,
+                    support = "${V144GuidePrefs.currentGuide.displayName} · choose your character and suggestions",
+                ) { sectionName = V167SettingsSection.GUIDE.name }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow(
+                    title = "Reminder voice",
+                    icon = Icons.Outlined.RecordVoiceOver,
+                    support = "Existing voice styles and default background music",
+                ) { sectionName = V167SettingsSection.VOICE.name }
+                Spacer(Modifier.height(17.dp))
+                Text(
+                    "Your saved choices stay in place. Appearance changes do not edit " +
+                        "projects, reminders, recordings or account data.",
+                    color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
+                    modifier = Modifier.padding(horizontal = 9.dp),
+                )
             }
 
             V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
@@ -576,6 +600,10 @@ private fun V144SettingsHome(
     ) {
         V144SettingsHeader("BACKLOT", "Settings", onClose)
         Spacer(Modifier.height(10.dp))
+        UX12D6StudioProfileCard(onOpenPersonalization = {
+            onOpen(V167SettingsSection.PERSONALIZATION)
+        })
+        Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = searchText,
             onValueChange = { searchText = it.take(80) },
@@ -626,7 +654,7 @@ private fun V144SettingsHome(
                 }
             }
         } else {
-            V404SettingsGroupLabel("ACCOUNT & PERSONALIZATION")
+            V404SettingsGroupLabel("YOU & YOUR STUDIO")
             V294QuietSettingRow(
                 title = "Account & profile",
                 icon = Icons.Outlined.Person,
@@ -637,11 +665,11 @@ private fun V144SettingsHome(
             V294QuietSettingRow(
                 title = "Appearance & sound",
                 icon = Icons.Outlined.Palette,
-                support = "Theme, welcome animation, companion and voice",
+                support = "${VisualExperiencePrefs.currentTheme.displayName} · ${VisualExperiencePrefs.welcomeStyle.displayName}",
             ) { onOpen(V167SettingsSection.PERSONALIZATION) }
 
             Spacer(Modifier.height(13.dp))
-            V404SettingsGroupLabel("REMINDERS & PLANNING")
+            V404SettingsGroupLabel("REMINDERS & WORKFLOW")
             V294QuietSettingRow(
                 title = "Notifications & reminders",
                 icon = Icons.Outlined.NotificationsActive,
@@ -656,7 +684,7 @@ private fun V144SettingsHome(
             ) { onOpen(V167SettingsSection.PLANNING) }
 
             Spacer(Modifier.height(13.dp))
-            V404SettingsGroupLabel("PRIVACY & HELP")
+            V404SettingsGroupLabel("PRIVACY & SUPPORT")
             V294QuietSettingRow(
                 title = "Privacy & data",
                 icon = Icons.Outlined.Shield,
@@ -681,6 +709,54 @@ private fun V144SettingsHome(
                     "Device-level alarm permissions may affect delivery.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
                 modifier = Modifier.padding(horizontal = 9.dp),
+            )
+        }
+    }
+}
+
+/**
+ * UX12 D6: Read-only studio identity, backed by the already persisted
+ * appearance, opening and companion choices. The whole panel opens the
+ * existing Personalization route; it never writes settings itself.
+ */
+@Composable
+private fun UX12D6StudioProfileCard(onOpenPersonalization: () -> Unit) {
+    V144GuidePrefs.initialize(LocalContext.current)
+    val guide = V144GuidePrefs.currentGuide
+    Surface(
+        onClick = onOpenPersonalization,
+        modifier = Modifier.fillMaxWidth().testTag("ux12-d6-current-look"),
+        shape = RoundedCornerShape(17.dp),
+        color = CinemaSurface,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 15.dp, end = 12.dp, top = 11.dp, bottom = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "YOUR BACKLOT", color = MutedGold, fontSize = 10.sp,
+                    fontWeight = FontWeight.Black, letterSpacing = 1.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "${VisualExperiencePrefs.currentTheme.displayName} · ${guide.displayName}",
+                    color = ProjectorIvory, fontSize = 14.sp, lineHeight = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Opening: ${VisualExperiencePrefs.welcomeStyle.displayName}",
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text("Personalize", color = RecRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(8.dp))
+            V144GuideCharacter(
+                guide = guide, state = CinePulseState.THINK,
+                modifier = Modifier.size(74.dp),
             )
         }
     }
