@@ -1,0 +1,115 @@
+name: Backlot 1.0 recovery Stage B - targeted JVM and Android test compilation
+
+on:
+  push:
+    branches:
+      - feature/backlot-v1-recovery-onboarding-reminder-looks-20261122
+    paths:
+      - "docs/engineering/BACKLOT_RECOVERY_START_STAGE_B.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-v1-recovery-stage-b
+  cancel-in-progress: false
+
+jobs:
+  focused-jvm:
+    name: Targeted onboarding and reminder contract tests (no full JVM suite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove expected frozen application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/recovery-stage-b-jvm
+          git diff --exit-code 8cc4666ec889632aac4dfbf27aeeb456f0afd65d HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          test "$(git merge-base 8cc4666ec889632aac4dfbf27aeeb456f0afd65d HEAD)" = "8cc4666ec889632aac4dfbf27aeeb456f0afd65d"
+          git rev-parse HEAD | tee output/recovery-stage-b-jvm/HEAD.txt
+          echo "8cc4666ec889632aac4dfbf27aeeb456f0afd65d" > output/recovery-stage-b-jvm/FROZEN-SOURCE.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Run impacted unit tests only
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 62m gradle :app:testDebugUnitTest \
+            --tests 'com.framebynavin.app.ui.BacklotV1RecoveryRoutePolicyTest' \
+            --tests 'com.framebynavin.app.ui.V149CreatorOnboardingPolicyTest' \
+            --tests 'com.framebynavin.app.ui.UX11IntegrationPolicyTest' \
+            --tests 'com.framebynavin.app.reminders.RX01IntegrationPolicyTest' \
+            -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/recovery-stage-b-jvm/FOCUSED-JVM.log
+          echo "PASS - targeted JVM test classes only" > output/recovery-stage-b-jvm/RESULT.txt
+      - name: Retain focused JVM logs and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V1-RECOVERY-STAGE-B-JVM
+          path: |
+            output/recovery-stage-b-jvm/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+          retention-days: 30
+
+  android-test-compile:
+    name: Android instrumentation test APK compile only (no emulator)
+    needs: focused-jvm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Source unchanged since green compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/recovery-stage-b-android
+          git diff --exit-code 8cc4666ec889632aac4dfbf27aeeb456f0afd65d HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          git rev-parse HEAD | tee output/recovery-stage-b-android/HEAD.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Compile Lab Android-test sources and dependency APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 72m gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+            -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/recovery-stage-b-android/ANDROID-TEST-COMPILE.log
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          echo "PASS - Lab Android and androidTest compile; no instrumentation executed" > output/recovery-stage-b-android/RESULT.txt
+          sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk > output/recovery-stage-b-android/SHA256SUMS.txt
+      - name: Preserve Lab-only binaries and compile diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V1-RECOVERY-STAGE-B-LAB-TEST-APKS
+          path: |
+            output/recovery-stage-b-android/
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: warn
+          retention-days: 30
