@@ -1025,17 +1025,25 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onFullScreen = ::requestFullScreen,
                 onBattery = ::openBatterySettings,
                 onReplayTour = {
-                    settingsStore.resetGuidedTour()
-                    settings = settingsStore.snapshot()
-                    overlay = POverlay.NONE
-                    showControl = false
-                    showQuickCapture = false
-                    showReminders = false
-                    if (showComposer || returnToComposerFromSettings) finishComposerSession()
-                    focusTaskId = null
-                    externalStudioId = null
-                    tab = PTab.TODAY
-                    guidedTourStepName = CreatorGuidedTourStep.TODAY.name
+                    if (!settings.onboardingComplete || !settings.creatorProfile.isComplete) {
+                        // Personal-first is valid; do not start a Creator-only
+                        // six-step overlay that cannot render or complete.
+                        Toast.makeText(context,
+                            "The Creator tour is available after optional Creator setup.",
+                            Toast.LENGTH_LONG).show()
+                    } else {
+                        settingsStore.resetGuidedTour()
+                        settings = settingsStore.snapshot()
+                        overlay = POverlay.NONE
+                        showControl = false
+                        showQuickCapture = false
+                        showReminders = false
+                        if (showComposer || returnToComposerFromSettings) finishComposerSession()
+                        focusTaskId = null
+                        externalStudioId = null
+                        tab = PTab.TODAY
+                        guidedTourStepName = CreatorGuidedTourStep.TODAY.name
+                    }
                 },
                 onCloudSync = { context.startActivity(Intent(context, CloudSyncActivity::class.java)) },
                 onYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
