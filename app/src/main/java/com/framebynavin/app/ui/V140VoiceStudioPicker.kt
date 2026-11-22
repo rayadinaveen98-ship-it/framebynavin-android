@@ -116,7 +116,8 @@ internal fun V140VoiceStudioPicker(
             Spacer(Modifier.height(8.dp))
         }
         Text(
-            "Eight Backlot delivery styles use voices installed on your device. Preview to hear how they sound here.",
+            "Eight Backlot styles use installed device voices. Previews include a " +
+                "personalized morning, afternoon or evening greeting when applicable.",
             color = MutedText,
             fontSize = 11.sp,
             lineHeight = 16.sp,
