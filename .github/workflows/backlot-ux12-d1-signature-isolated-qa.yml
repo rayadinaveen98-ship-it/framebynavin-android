@@ -1,0 +1,106 @@
+name: Backlot UX12 D1 - isolated signature ident QA NOT RELEASE
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ux12-d1-signature-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify founder-approved isolated scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=5fb8c288c0ceea70db03504b0188cddddd6873d0
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          git diff --check "$base" HEAD
+          git diff --name-only "$base" HEAD > /tmp/ux12-d1-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          changed=set(Path('/tmp/ux12-d1-files.txt').read_text().splitlines())
+          allowed={
+            'app/src/main/java/com/framebynavin/app/ui/UX11PremiumWelcomeExperience.kt',
+            'app/src/test/java/com/framebynavin/app/ui/UX12D1SignatureTimelineTest.kt',
+            'docs/design/UX12_D1_SIGNATURE_IDENT_ISOLATED_STAGE_20261122.md',
+            '.github/workflows/backlot-ux12-d1-signature-isolated-qa.yml',
+          }
+          assert changed == allowed, f'Unexpected or missing D1 files: {sorted(changed ^ allowed)}'
+          print('PASS: source-fenced UX12 D1 changes only:', *sorted(changed),sep='\n')
+          PY
+          test "$(git status --porcelain | wc -l)" -eq 0
+          git rev-parse HEAD
+
+  compile-unit-lint:
+    name: Complete compile, JVM tests, lint and isolated Lab APK
+    needs: scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Compile changed D1 source; run all unit tests + lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/ux12-d1
+          cat >> gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8
+          kotlin.compiler.execution.strategy=in-process
+          org.gradle.workers.max=1
+          org.gradle.parallel=false
+          EOF
+          timeout --signal=TERM --kill-after=20s 100m gradle \
+            :app:assembleDebug :app:testDebugUnitTest :app:lintDebug \
+            --continue -PbacklotLab=true --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/ux12-d1/build-test-lint.log
+      - name: Verify Lab package and source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$aapt_bin" dump badging "$apk" > output/ux12-d1/apk-badging.txt
+          grep -q "package: name='com.framebynavin.app.lab'" output/ux12-d1/apk-badging.txt
+          git rev-parse HEAD > output/ux12-d1/SOURCE-SHA.txt
+          sha256sum "$apk" > output/ux12-d1/apk-sha256.txt
+          test -z "$(git status --porcelain -- app/src)"
+          echo "Source-identified Lab APK built; NOT physical-device certified or released."
+      - name: Upload QA evidence and Lab APK (not a release)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX12-D1-Lab-QA-NOT-CERTIFIED
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            output/ux12-d1/
+          retention-days: 14
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-UX12-D1-QA-BLOCKERS
+          path: |
+            output/ux12-d1/
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
