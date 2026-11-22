@@ -144,7 +144,10 @@ internal fun V09IdeaVaultScreen(
         }
     }
 
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+    Surface(
+        modifier = Modifier.fillMaxSize().testTag("backlot-ideas-screen"),
+        color = CinemaBlack,
+    ) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
