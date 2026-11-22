@@ -234,6 +234,26 @@ internal fun RX02ReminderAppearanceSettings() {
             color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
         )
         Spacer(Modifier.height(14.dp))
+        // Move the existing optional live-alert companion control out of the
+        // removed legacy collection. This preserves the same preference.
+        V407ReminderCompanionPrefs.initialize(context)
+        Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface,
+            modifier = Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().padding(13.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Companion on live reminders", color = ProjectorIvory,
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Optional, brief Spark or Mira appearance without delaying reminder actions.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                }
+                Switch(
+                    checked = V407ReminderCompanionPrefs.showOnLiveAlerts,
+                    onCheckedChange = V407ReminderCompanionPrefs::set,
+                    modifier = Modifier.testTag("backlot-reminder-companion-toggle"),
+                )
+            }
+        }
         // Each domain has a distinct, existing RX01 MAIN palette rather than
         // exposing rejected V391/V394 collections or creating a new renderer.
         Text("MAIN REMINDER SCREEN", color = MutedGold,
