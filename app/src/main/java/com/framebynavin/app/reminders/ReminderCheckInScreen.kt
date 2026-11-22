@@ -131,31 +131,8 @@ internal fun ReminderCheckInScreen(
     val lowPower = remember(context) {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
-    // V394 is an opt-in complete presentation. Existing reminder delivery,
-    // callbacks, saved V391 backgrounds and classic particle intro stay intact.
-    V394PremierePrefs.initialize(context)
-    if (!rx01MainBackdrop && V394PremierePresentationPolicy.creator(V394PremierePrefs.enabled(kind))) {
-        V394PremiereReminderScreen(
-            mode = V394PremiereMode.CREATOR,
-            kind = kind,
-            title = title,
-            timeLabel = clockLabel,
-            contextLabel = contextLine,
-            supportingText = listOfNotNull(
-                nextAction, notes.takeIf { it.isNotBlank() }, smartSnoozeHint
-            ).joinToString(" · "),
-            primaryLabel = if (stageCheckIn) "STEP DONE" else "I'M WORKING",
-            snoozeLabel = snoozeLabel,
-            onPrimary = if (stageCheckIn) onStageDone else onWorking,
-            onSnooze = onSnooze,
-            onDismiss = onDismiss,
-            onWorking = if (stageCheckIn) onWorking else null,
-            onPause = if (stageCheckIn) onPause else null,
-            onReschedule = onReschedule,
-            onReplay = onReplay,
-        )
-        return
-    }
+    // The earlier Premiere selector is intentionally removed from the live
+    // visual route. Reminder controls/callbacks are unchanged.
     // The user, not an intro timer, chooses when to reveal controls.
     // When OS animations are disabled, accessible controls appear immediately.
     var revealed by rememberSaveable(kind, title, rx01MainBackdrop) {
@@ -184,8 +161,9 @@ internal fun ReminderCheckInScreen(
             label = "v231-reminder-backdrop-transition",
         ) { showingActions ->
             if (showingActions) {
-                V391ReminderBackdrop(
-                    kind = kind,
+                RX01FluidReminderBackdrop(
+                    domain = RX01ReminderDomain.CREATOR,
+                    phase = RX01SurfacePhase.MAIN,
                     lowPower = lowPower,
                     motionEnabled = motionEnabled,
                     modifier = Modifier.fillMaxSize(),
