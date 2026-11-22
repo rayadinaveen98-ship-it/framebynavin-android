@@ -46,11 +46,18 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         // Guard before MainActivity can run recovery, scheduling or cloud work.
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         try {
-        // The exact selected Welcome ident completes before account choice.
+        // The restored original focus is a genuine once-only fresh-install choice.
+        // Choose Creator so the rest of the journey validates every tab from Home.
+        awaitTag("v393-first-run-focus")
+        rule.onNodeWithTag("v393-focus-CREATOR").assertExists()
+        rule.onNodeWithTag("v393-focus-PERSONAL").assertExists()
+        rule.onNodeWithTag("v393-focus-BOTH").assertExists()
+        rule.onNodeWithTag("v393-focus-CREATOR").performScrollTo().performClick()
         awaitTag("ux11-auth-choose")
         rule.onNodeWithTag("ux11-auth-continue-locally").performClick()
         awaitTag("backlot-bottom-nav")
         rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
+        rule.onNodeWithTag("v393-first-run-focus").assertDoesNotExist()
         assertCreatorWizardAbsent()
 
         rule.onNodeWithContentDescription("Ideas").performClick()
