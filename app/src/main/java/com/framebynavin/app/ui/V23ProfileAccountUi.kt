@@ -35,6 +35,7 @@ internal fun V23ProfileAccountScreen(
     onEditCreatorSetup: () -> Unit, // explicit Creator setup for incomplete profiles only
     onOpenYouTube: () -> Unit,
     onSaveCreatorProfile: (CreatorProfile) -> Boolean = { false },
+    creatorSetupComplete: Boolean = true,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -146,7 +147,7 @@ internal fun V23ProfileAccountScreen(
             V23InfoRow("Platforms", creatorProfile.platforms.sorted().joinToString().ifBlank { "Not set" }, Icons.Outlined.Hub)
             V23InfoRow("Primary goal", creatorProfile.primaryGoal.ifBlank { "Not set" }, Icons.Outlined.TrackChanges)
             V23InfoRow("Publishing target", "${creatorProfile.weeklyPublishingTarget} / week", Icons.Outlined.CalendarMonth)
-            if (!creatorProfile.isComplete) {
+            if (!creatorSetupComplete || !creatorProfile.isComplete) {
                 Button(
                     onClick = onEditCreatorSetup,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
