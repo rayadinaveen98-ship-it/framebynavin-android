@@ -3,7 +3,7 @@ package com.framebynavin.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,11 +31,11 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
             Spacer(Modifier.height(18.dp))
         }
 
-        Text("APPEARANCE", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("APP THEME", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose your look", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text("Two looks. One Backlot.", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Text(
-            "Pick a theme. Your existing projects and recordings will not change.",
+            "Director's Cut and Light share the same layouts, controls and saved content.",
             color = MutedText,
             fontSize = 11.sp,
             lineHeight = 16.sp,
@@ -63,7 +64,7 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(BacklotCardRadius),
             color = CinemaSurface,
-            border = BacklotUX10Tokens.quietBorder(CinemaLine),
+            border = null,
         ) {
             Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                 Surface(Modifier.size(34.dp), RoundedCornerShape(BacklotSmallRadius), RecRed.copy(alpha = .12f)) {
@@ -92,19 +93,18 @@ private fun V148AppearanceCard(
     active: Boolean,
     onSelect: () -> Unit,
 ) {
-    val palette = theme.palette
-    val profile = theme.profile
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onSelect),
-        shape = RoundedCornerShape(BacklotCardRadius),
-        color = CinemaSurface,
-        border = BorderStroke(
-            width = if (active) 1.5.dp else BacklotBorderWidth,
-            color = if (active) RecRed else CinemaLine.copy(alpha = 0.4f),
+        modifier = Modifier.fillMaxWidth().selectable(
+            selected = active,
+            onClick = onSelect,
+            role = Role.RadioButton,
         ),
+        shape = RoundedCornerShape(BacklotCardRadius),
+        color = if (active) CinemaSurfaceRaised else CinemaSurface,
+        border = if (active) BorderStroke(1.dp, RecRed.copy(alpha = .85f)) else null,
     ) {
         Column(Modifier.padding(12.dp)) {
-            V148AppearancePreview(theme, Modifier.fillMaxWidth().height(98.dp))
+            V148AppearancePreview(theme, Modifier.fillMaxWidth().height(80.dp))
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -133,7 +133,7 @@ private fun V148AppearancePreview(theme: FrameTheme, modifier: Modifier = Modifi
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         color = p.background,
-        border = BorderStroke(1.dp, p.line),
+        border = null,
     ) {
         Box(Modifier.fillMaxSize()) {
             Canvas(Modifier.matchParentSize()) {
