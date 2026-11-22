@@ -1,0 +1,5 @@
+Founder-authorized Stage B targeted QA gate.
+Confirmed Stage A Kotlin source SHA 8b771a5287b92d33cc8341907fc7747447cfd29a compiled successfully in GitHub Actions run 45023567967 (24m 38s).
+Only workflow and this trigger have changed since that verified application SHA.
+Run existing targeted JVM regression classes first; if green compile Android instrumentation test APKs without running the emulator.
+No full JVM suite, no owner APK, no stable merge or hosted changes.
