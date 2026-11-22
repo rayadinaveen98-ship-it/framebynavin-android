@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.reminders.ReminderCheckInKind
+import com.framebynavin.app.reminders.RX01ReminderDomain
+import com.framebynavin.app.reminders.UX12D7ReminderEditorialHeader
 import com.framebynavin.app.reminders.V336DirectorBackdrop
 import com.framebynavin.app.reminders.V336DirectorSignalArt
 import com.framebynavin.app.reminders.V336DirectorPalette
@@ -305,14 +307,21 @@ internal fun V2233PersonalAlertScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 13.dp),
         ) {
-            Text(
-                "BACKLOT  /  PERSONAL REMINDERS",
-                color = V336DirectorPalette.ivory,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.7.sp,
-                modifier = Modifier.align(Alignment.Start),
-            )
+            if (rx01MainBackdrop && !locked && !invalid && reminder != null) {
+                UX12D7ReminderEditorialHeader(
+                    domain = RX01ReminderDomain.PERSONAL,
+                    label = "PERSONAL REMINDER",
+                )
+            } else {
+                Text(
+                    "BACKLOT  /  PERSONAL REMINDERS",
+                    color = V336DirectorPalette.ivory,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.7.sp,
+                    modifier = Modifier.align(Alignment.Start),
+                )
+            }
             Text(
                 when (reminder?.alert) {
                     PersonalAlert.VOICE -> "VOICE"
@@ -355,7 +364,7 @@ internal fun V2233PersonalAlertScreen(
             // response affordances over the keyguard.
             Box(
                 Modifier.fillMaxWidth()
-                    .height(if (compact) 176.dp else 220.dp),
+                    .height(if (rx01MainBackdrop) 148.dp else if (compact) 176.dp else 220.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 V2233PersonalParticleWave(reminder.alert)
@@ -381,7 +390,7 @@ internal fun V2233PersonalAlertScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth().testTag("v336-personal-schedule"),
                     color = V336DirectorPalette.panel,
-                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                    border = if (rx01MainBackdrop) null else BorderStroke(1.dp, V336DirectorPalette.line),
                     shape = RoundedCornerShape(20.dp),
                 ) {
                     Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
@@ -397,7 +406,7 @@ internal fun V2233PersonalAlertScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth().testTag("v336-personal-reminder-status"),
                 color = V336DirectorPalette.panel,
-                border = BorderStroke(1.dp, V336DirectorPalette.line),
+                border = if (rx01MainBackdrop) null else BorderStroke(1.dp, V336DirectorPalette.line),
                 shape = RoundedCornerShape(20.dp),
             ) {
                 Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
