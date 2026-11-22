@@ -43,3 +43,9 @@ This ledger records the evidence known when written; GitHub Actions is the live 
 - **Stage D started: 45035559601.** Only seven specific reminder and voice JVM policy classes and lint; no full JVM suite reset.
 - Production application and JVM source remain byte-for-byte identical to frozen `8b771a5287b92d33cc8341907fc7747447cfd29a`. Only four invalid Compose assertion imports removed in two Android instrumentation test files.
 - Stage E remains untriggered until Stage D is green. Owner-preview `com.framebynavin.app` signed APK has not been created. Keep all cloud and stable services untouched.
+
+## 2026-11-22 — Reminder verification completed and owner APK stage entered
+
+- **Stage D PASS: 45035559601**. Focused reminder safety, snooze, lifecycle, check-in, access and greeting JVM tests: `BUILD SUCCESSFUL`. Android lint: independent `BUILD SUCCESSFUL`. Artifact `14761546488`. No full JVM suite restart.
+- **Stage E started: 45040978231**. Exact A/B2/C/D run-success gates and old B1 focused JVM job-success gate passed; owner `:app:assemblePersonalStable` compilation active at ledger update. APK not yet built, signer/hash checks pending. Do not publish an unverified binary.
+- Frozen app production source remains `8b771a52` and original three-way first-run chooser preserved. Protected `main` remains unchanged at `abbe88984bac16cfafbd990d9cb00ed54cfdd07e` when checked.
