@@ -1,0 +1,89 @@
+name: Backlot 1.0 recovery Stage C - disposable API35 Lab UI, NO REBUILD
+
+on:
+  push:
+    branches:
+      - feature/backlot-v1-recovery-onboarding-reminder-looks-20261122
+    paths:
+      - "docs/engineering/BACKLOT_RECOVERY_START_STAGE_C.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v1-recovery-stage-c
+  cancel-in-progress: false
+
+env:
+  FROZEN_APP_SHA: "8b771a5287b92d33cc8341907fc7747447cfd29a"
+  STAGE_B_RUN_ID: "45026564764"
+  STAGE_B_HEAD: "f17fced80cf07ebb81d124f7b2181305f9807187"
+
+jobs:
+  api35-root-navigation:
+    name: Verify unchanged source; run seven actual UI tests on disposable Lab emulator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert frozen application, source provenance and no destructive changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/recovery-stage-c
+          test "$(git merge-base "$FROZEN_APP_SHA" HEAD)" = "$FROZEN_APP_SHA"
+          git diff --exit-code "$FROZEN_APP_SHA" HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          git diff --check "$FROZEN_APP_SHA" HEAD
+          grep -Fq 'versionCode = 338' app/build.gradle.kts
+          grep -Fq 'versionName = "1.0"' app/build.gradle.kts
+          test ! -d supabase/lab_migrations
+          git rev-parse HEAD > output/recovery-stage-c/WORKFLOW-SHA.txt
+          echo "$FROZEN_APP_SHA" > output/recovery-stage-c/FROZEN-APP-SHA.txt
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: ${{ env.STAGE_B_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-V1-RECOVERY-STAGE-B-LAB-TEST-APKS
+          path: lab-stage-b
+      - name: Verify exactly Stage B binaries and SHA256, not an older APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat lab-stage-b/output/recovery-stage-b-android/HEAD.txt)" = "$STAGE_B_HEAD"
+          test -s lab-stage-b/app/build/outputs/apk/debug/app-debug.apk
+          test -s lab-stage-b/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          (cd lab-stage-b && sha256sum -c output/recovery-stage-b-android/SHA256SUMS.txt) | tee output/recovery-stage-c/STAGE-B-SHA256-VERIFICATION.txt
+      - name: Enable KVM and reject unsupported runner before emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-backlot-recovery-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm || { echo "BLOCKED: /dev/kvm unavailable; no fake app failure"; exit 1; }
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+          echo "PASS: KVM ready" > output/recovery-stage-c/KVM-PREFLIGHT.txt
+      - name: Run first-run, account and appearance Lab UI suites on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 420
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-v1-recovery-stage-c-ui-tests.sh
+      - name: Preserve screenshots, logs and exact UI results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-V1-RECOVERY-STAGE-C-ANDROID15-UI-EVIDENCE
+          path: output/recovery-stage-c/
+          if-no-files-found: warn
+          retention-days: 30
