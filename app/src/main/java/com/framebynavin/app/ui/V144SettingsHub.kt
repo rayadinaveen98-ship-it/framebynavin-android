@@ -224,7 +224,9 @@ internal fun V144SettingsHub(
                     onSelected = onVoice,
                     onPreview = { V403VoicePreviewPlayer.play(context, it) },
                 )
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(18.dp))
+                RX03BReminderVoicePacksSettings()
+                Spacer(Modifier.height(18.dp))
                 RX03LocalVoiceIdentityStudio()
                 Spacer(Modifier.height(16.dp))
                 V273ReminderMusicPicker(
