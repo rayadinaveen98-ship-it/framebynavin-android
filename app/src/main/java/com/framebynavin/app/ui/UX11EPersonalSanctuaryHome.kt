@@ -75,10 +75,9 @@ internal fun UX11EPersonalSanctuaryHero(
         else -> "A quiet moment"
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth()
-            .testTag("ux11e-personal-sanctuary-hero")
-            .testTag("v288-today-home"),
+    Box(modifier.fillMaxWidth().testTag("ux11e-personal-sanctuary-hero")) {
+        Surface(
+        modifier = Modifier.fillMaxWidth().testTag("v288-today-home"),
         shape = RoundedCornerShape(22.dp),
         color = Color(0xFF20151F),
         border = BorderStroke(1.dp, Color(0xFF7B5864).copy(alpha = .26f)),
@@ -258,6 +257,7 @@ internal fun UX11EPersonalSanctuaryHero(
                     }
                 }
             }
+        }
         }
     }
 }
