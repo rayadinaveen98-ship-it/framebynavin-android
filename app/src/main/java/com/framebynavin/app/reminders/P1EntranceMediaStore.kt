@@ -65,7 +65,7 @@ internal object P1EntranceMediaStore {
 
     /** Call only on Dispatchers.IO. Failed imports leave the previous choice untouched. */
     @Synchronized
-    fun import(context: Context, domain: P1ReminderScope, uri: Uri): Result<P1Media> =
+    fun importGallery(context: Context, domain: P1ReminderScope, uri: Uri): Result<P1Media> =
         runCatching {
             val app = context.applicationContext
             val mime = app.contentResolver.getType(uri)?.lowercase().orEmpty()

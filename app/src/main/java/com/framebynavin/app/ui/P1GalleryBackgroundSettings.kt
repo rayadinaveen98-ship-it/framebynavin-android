@@ -96,7 +96,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                 importing = true
                 feedback = null
                 val result = withContext(Dispatchers.IO) {
-                    P1EntranceMediaStore.import(context, target, uri)
+                    P1EntranceMediaStore.importGallery(context, target, uri)
                 }
                 if (result.isSuccess) {
                     withContext(Dispatchers.IO) {

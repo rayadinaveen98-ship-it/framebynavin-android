@@ -34,3 +34,9 @@ Founder continued Point 1, authorizing source-staging of compatible Personal and
 - Without selected gallery media, the original V337 paths remain unchanged. Creator continues its existing one-tap particle entrance, including its existing foreground and callbacks.
 - Locked Personal media is not displayed; challenge gallery media is not shown while locked. All new entrance content is dismissed using double tap or an accessibility action.
 - This milestone is SOURCE-STAGED / UNCOMPILED / UNTESTED. No acceptance claim until founder authorizes targeted QA later.
+
+## Focused test cases staged; not executed
+
+- P1ReminderEntranceCompatibilityPolicyTest checks that Personal media cannot appear while locked, invalid, unselected or already revealed; and that 21-Day plans must be unpaused, unarchived, ALARM/VOICE mode and in their 21-day date range.
+- Media import function renamed to importGallery for unambiguous Kotlin source naming; the Settings gallery picker calls the same function.
+- Still required at test gate: build compile, Android UI, Photo Picker MIME cases, keyguard and notification-to-app integration, no regressions in alarm and snooze, video resource cleanup.
