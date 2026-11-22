@@ -168,6 +168,12 @@ internal class PersonalAlertActivity : ComponentActivity() {
                         }
                     }
                 }
+                com.framebynavin.app.reminders.P1PersonalGalleryEntrance(
+                    occurrenceKey = id + ":" + token,
+                    reminder = reminder,
+                    invalid = invalid,
+                    locked = keyguardShowing,
+                ) {
                 V2233PersonalAlertScreen(
                     reminder = reminder,
                     invalid = invalid,
@@ -179,6 +185,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
                     onDismiss = { respond(PersonalDeliveryContract.ACTION_DISMISS) },
                     onClose = { finish() },
                 )
+                }
             }
         }
     }

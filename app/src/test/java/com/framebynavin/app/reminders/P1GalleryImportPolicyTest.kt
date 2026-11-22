@@ -34,7 +34,7 @@ class P1GalleryImportPolicyTest {
     @Test fun v337ActualHostSupportIsNotInvented() {
         assertEquals(3, P1ReminderScope.entries.size)
         assertTrue(P1V337HostCompatibility.liveEntranceAvailable(P1ReminderScope.CREATOR))
-        assertFalse(P1V337HostCompatibility.liveEntranceAvailable(P1ReminderScope.PERSONAL))
-        assertFalse(P1V337HostCompatibility.liveEntranceAvailable(P1ReminderScope.CHALLENGE_21))
+        assertTrue(P1V337HostCompatibility.liveEntranceAvailable(P1ReminderScope.PERSONAL))
+        assertTrue(P1V337HostCompatibility.liveEntranceAvailable(P1ReminderScope.CHALLENGE_21))
     }
 }

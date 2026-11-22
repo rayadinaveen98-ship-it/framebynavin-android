@@ -15,6 +15,5 @@ internal object P1GalleryImportPolicy {
 
 /** V337 has a live Creator entrance only; never invent another alert route. */
 internal object P1V337HostCompatibility {
-    fun liveEntranceAvailable(scope: P1ReminderScope): Boolean =
-        scope == P1ReminderScope.CREATOR
+    fun liveEntranceAvailable(scope: P1ReminderScope): Boolean = true
 }

@@ -24,3 +24,13 @@ QA5 Personal/21-day live entrance only after separate approved compatible host i
 QA6 separate signed owner-preview identity/hash and physical owner acceptance.
 
 No tests or APK builds manually triggered for this source staging. No stable branch or cloud changes.
+
+## Source compatibility milestone — 2026-11-22
+
+Founder continued Point 1, authorizing source-staging of compatible Personal and 21-Day visual-only entrances, not CI/build/release or Points 2–10.
+
+- Personal: P1PersonalGalleryEntrance wraps the existing PersonalAlertActivity content after its exact posted occurrence token is ready and unlocked. The original alert screen and Done/Snooze/Dismiss callbacks are not modified.
+- 21-Day: P1ChallengeNotificationEntrance overlays only after the original MainActivity challenge notification route is used. It reads a currently active ALARM/VOICE challenge and does not write any challenge data. Quiet alerts and invalid/archived/paused challenges do not show gallery media.
+- Without selected gallery media, the original V337 paths remain unchanged. Creator continues its existing one-tap particle entrance, including its existing foreground and callbacks.
+- Locked Personal media is not displayed; challenge gallery media is not shown while locked. All new entrance content is dismissed using double tap or an accessibility action.
+- This milestone is SOURCE-STAGED / UNCOMPILED / UNTESTED. No acceptance claim until founder authorizes targeted QA later.
