@@ -109,9 +109,9 @@ internal fun RX02EntranceBackdrop(
         // Light custom content must not wash out the original white/gold
         // microphone, alarm glyph, domain label and double-tap prompt.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-            0f to Color.Black.copy(alpha = .45f),
-            .42f to Color.Black.copy(alpha = .24f),
-            1f to Color.Black.copy(alpha = .67f),
+            0f to Color.Black.copy(alpha = .62f),
+            .42f to Color.Black.copy(alpha = .65f),
+            1f to Color.Black.copy(alpha = .78f),
         )))
     }
 }
@@ -162,9 +162,23 @@ private fun RX02AnimatedImage(file: File, modifier: Modifier) {
         RX02StillImage(file, modifier)
         return
     }
-    DisposableEffect(drawable) {
-        (drawable as? AnimatedImageDrawable)?.start()
-        onDispose { (drawable as? AnimatedImageDrawable)?.stop() }
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(drawable, owner) {
+        val animated = drawable as? AnimatedImageDrawable
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> animated?.start()
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> animated?.stop()
+                else -> Unit
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+            animated?.start()
+        onDispose {
+            owner.lifecycle.removeObserver(observer)
+            animated?.stop()
+        }
     }
     AndroidView(
         factory = { context ->
