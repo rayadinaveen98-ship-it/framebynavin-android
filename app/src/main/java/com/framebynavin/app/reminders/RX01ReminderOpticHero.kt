@@ -185,7 +185,7 @@ internal fun RX01ReminderEntranceHero(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Open your reminder",
+                text = RX01ReminderIconPolicy.accessibilityLabel(mode),
                 fontSize = 12.sp,
                 color = palette.ink.copy(alpha = .76f),
                 textAlign = TextAlign.Center,
