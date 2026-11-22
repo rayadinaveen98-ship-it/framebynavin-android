@@ -85,7 +85,7 @@ internal object RX01EntryGatePolicy {
 }
 
 /**
- * New reusable RX01-C visual wrapper, NOT called by current live Activities.
+ * Reusable RX01-C visual wrapper used by Creator, Personal and 21-Day live Activities.
  *
  * Important invariants:
  * - ENTRANCE/EXITING compose NO mainContent at all; hidden Done/Snooze controls
