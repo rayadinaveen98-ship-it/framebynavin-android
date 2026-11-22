@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,6 +53,7 @@ import com.framebynavin.app.reminders.RX01ReminderIconKind
 import com.framebynavin.app.reminders.RX01SurfacePhase
 import com.framebynavin.app.reminders.UX12D7ReminderEditorialHeader
 import com.framebynavin.app.reminders.V407ReminderCompanionMoment
+import com.framebynavin.app.reminders.V407ReminderCompanionPrefs
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -175,6 +177,7 @@ internal class RX01ChallengeAlertActivity : ComponentActivity() {
                     ) {
                         RX01ChallengeMain(
                             challenge = challenge,
+                            occurrenceKey = "challenge:" + requestedId + ":" + requestedAt,
                             savingSnooze = requestingSnooze,
                             snoozeError = snoozeError,
                             onOpenChallenge = {
@@ -309,6 +312,7 @@ private fun RX01ChallengeSafeSurface(
 @Composable
 private fun RX01ChallengeMain(
     challenge: Phase1HabitChallenge,
+    occurrenceKey: String,
     savingSnooze: Boolean,
     snoozeError: Boolean,
     onOpenChallenge: () -> Unit,
@@ -319,7 +323,9 @@ private fun RX01ChallengeMain(
         RX01SurfacePhase.MAIN)
     val compactMain = LocalConfiguration.current.screenHeightDp < 720
     // This screen is composed only after the existing unlocked/valid checks.
-    // UX06E companion visibility is user-controlled, not forced by D7.
+    // Preserve the same local opt-in as Creator and Personal alert cameos.
+    V407ReminderCompanionPrefs.initialize(LocalContext.current)
+    val showCompanion = V407ReminderCompanionPrefs.showOnLiveAlerts
     Column(
         modifier = Modifier.fillMaxSize().safeDrawingPadding()
             .verticalScroll(rememberScrollState())
@@ -333,15 +339,20 @@ private fun RX01ChallengeMain(
             label = "21-DAY CHALLENGE",
         )
         Spacer(Modifier.height(if (compactMain) 6.dp else 10.dp))
-        // The existing optional UX06E companion respects the same saved
-        // "show on live alerts" setting as Creator/Personal. The occurrence-
-        // keyed three-second moment never delays or obscures response controls.
-        // It has no content at all when the user opted out.
-        V407ReminderCompanionMoment(
-            occurrenceKey = "challenge:${challenge.id}:${challenge.activity}",
-            modifier = Modifier.testTag("ux12-d7-challenge-companion"),
-        )
-        Spacer(Modifier.height(if (compactMain) 10.dp else 15.dp))
+        // The existing UX06E cameo is optional and ends after three seconds.
+        // Reserve its small layout region for that occurrence only, so the
+        // action buttons never jump when the short appearance fades away.
+        if (showCompanion) {
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .height(if (compactMain) 84.dp else 96.dp)
+                    .testTag("ux12-d7-challenge-companion"),
+                contentAlignment = Alignment.Center,
+            ) {
+                V407ReminderCompanionMoment(occurrenceKey = occurrenceKey)
+            }
+            Spacer(Modifier.height(if (compactMain) 10.dp else 15.dp))
+        }
         val number = challenge.dayNumber(Instant.now())
         Text(if (number == null) "YOUR COMMITMENT" else "DAY " + number + " OF 21",
             color = palette.iconTint, fontSize = 15.sp,
