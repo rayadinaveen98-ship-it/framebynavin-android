@@ -15,25 +15,38 @@ object VoiceGreetingBuilder {
         cachedAccountName: String,
         creatorProfileName: String,
     ): String {
-        return firstName(googleAccountName)
-            .ifBlank { firstName(cachedAccountName) }
-            .ifBlank { firstName(creatorProfileName) }
+        return preferredKnownName(googleAccountName, cachedAccountName, creatorProfileName)
             .ifBlank { "Creator" }
     }
+
+    /** The locally cached first name, or blank if none is known.
+     * Never speak a fabricated account name or fetch remotely during an alert.
+     */
+    fun preferredKnownName(
+        googleAccountName: String,
+        cachedAccountName: String,
+        creatorProfileName: String,
+    ): String = firstName(googleAccountName)
+        .ifBlank { firstName(cachedAccountName) }
+        .ifBlank { firstName(creatorProfileName) }
 
     fun greeting(
         creatorName: String,
         nowMillis: Long = System.currentTimeMillis(),
         zoneId: ZoneId = ZoneId.systemDefault(),
     ): String {
-        val safeName = firstName(creatorName).ifBlank { "Creator" }
+        val safeName = firstName(creatorName)
+        val opening = if (safeName.isBlank()) "Hey there" else "Hey $safeName"
         val hour = Instant.ofEpochMilli(nowMillis).atZone(zoneId).hour
-        val dayPart = when (hour) {
-            in 5..11 -> "Morning"
-            in 12..16 -> "Afternoon"
-            else -> "Evening"
+        // Never say “Good night” in an alert. An overnight notification
+        // avoids the equally odd “Good evening” at two in the morning.
+        val wish = when (hour) {
+            in 5..11 -> "good morning"
+            in 12..16 -> "good afternoon"
+            in 17..23 -> "good evening"
+            else -> ""
         }
-        return "Hi, Good $dayPart, $safeName."
+        return if (wish.isBlank()) "$opening." else "$opening, $wish."
     }
 
     /** One envelope for alarm voice, dedicated voice reminders and future spoken surfaces. */
