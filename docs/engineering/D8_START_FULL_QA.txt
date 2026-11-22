@@ -1,0 +1,7 @@
+Backlot 1.0 D8 cumulative QA activation
+Authorized by founder after initial compile success.
+Kotlin compile evidence: GitHub Actions run 44998273720, lab compile source SHA 2078ddb2c862fae2d247bec2e1086588a4c90717, conclusion success.
+Branch head before this marker: 1c148308c413ee814397ec330e3dc7426db918be
+Subsequent changes: CI workflow and documentation only; app source and Gradle unchanged.
+No stable merge, release, hosted backend write, or publication authorized.
+Run cumulative Lab tests/lint/Android instrumentation packaging and signed owner preview only through the fail-closed workflow. Preserve all evidence.
