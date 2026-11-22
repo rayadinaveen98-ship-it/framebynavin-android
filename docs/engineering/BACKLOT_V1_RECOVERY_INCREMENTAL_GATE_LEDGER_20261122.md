@@ -49,3 +49,12 @@ This ledger records the evidence known when written; GitHub Actions is the live 
 - **Stage D PASS: 45035559601**. Focused reminder safety, snooze, lifecycle, check-in, access and greeting JVM tests: `BUILD SUCCESSFUL`. Android lint: independent `BUILD SUCCESSFUL`. Artifact `14761546488`. No full JVM suite restart.
 - **Stage E started: 45040978231**. Exact A/B2/C/D run-success gates and old B1 focused JVM job-success gate passed; owner `:app:assemblePersonalStable` compilation active at ledger update. APK not yet built, signer/hash checks pending. Do not publish an unverified binary.
 - Frozen app production source remains `8b771a52` and original three-way first-run chooser preserved. Protected `main` remains unchanged at `abbe88984bac16cfafbd990d9cb00ed54cfdd07e` when checked.
+
+## 2026-11-22 — Signed owner-preview evidence completed
+
+- **Stage E PASS: 45040978231**, job `137265129907`. `:app:assemblePersonalStable` **BUILD SUCCESSFUL in 39m 44s**.
+- Required A/B2/C/D GitHub workflow gates were green, previous Stage B1 selected focused-JVM job separately verified green; no full JVM rerun.
+- APK output `app/build/outputs/apk/personalStable/app-personalStable.apk` verified by `aapt` for package `com.framebynavin.app`, `versionCode 338`, `versionName 1.0`, label `Backlot`. `apksigner verify` passed, certificate SHA-256 `f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0`; APK file SHA-256 generated and preserved in artifact.
+- Verified download: https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/45040978231/artifacts/14762664414
+- Artifact name `Backlot-1-0-RECOVERY-OWNER-PREVIEW-PHYSICAL-QA-REQUIRED`; GitHub artifact ID `14762664414`, includes signed owner APK and `output/recovery-stage-e` verification evidence. Artifact ZIP SHA-256 in GitHub Actions log `62daee504b86756f36749c9240b3615c6d8c5f13ff7a4e143716aece9262ddbe` (distinct from APK SHA-256).
+- **Release state:** Owner preview built and CI verified; `NOT CERTIFIED` for actual Google sign-in, real user/device 21-day reminder, overnight scheduling/voice, UX09 cloud sync or production release. Await founder install and physical acceptance. No stable merge or backend changes authorized.
