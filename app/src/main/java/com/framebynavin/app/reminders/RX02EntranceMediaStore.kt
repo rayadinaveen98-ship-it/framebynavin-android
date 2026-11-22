@@ -43,8 +43,12 @@ internal object RX02EntranceMediaStore {
 
     @Synchronized
     fun selected(context: Context, domain: RX01ReminderDomain): RX02Media? {
-        val file = validated(context, domain, prefs(context).getString(key(domain), null))
-            ?: return null
+        // A wrong-type/corrupt stored preference must NEVER crash a live
+        // reminder's double-tap screen. Fall back to stock RX01 artwork.
+        val savedName = runCatching {
+            prefs(context).getString(key(domain), null)
+        }.getOrNull()
+        val file = validated(context, domain, savedName) ?: return null
         val kind = when (file.extension.lowercase()) {
             "jpg", "png", "heic", "heif" -> RX02MediaKind.IMAGE
             "gif", "webp" -> RX02MediaKind.ANIMATED
