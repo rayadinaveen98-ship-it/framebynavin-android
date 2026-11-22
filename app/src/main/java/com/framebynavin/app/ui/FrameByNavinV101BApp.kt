@@ -1399,15 +1399,30 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     if (BacklotV1RecoveryRoutePolicy.needsAccountEntry(settings.accountOnboardingComplete)) {
         V23AccountOnboarding(
             onComplete = { displayName ->
-                if (displayName.isNotBlank()) {
-                    settingsStore.setCreatorProfile(settings.creatorProfile.copy(displayName = displayName))
+                // Do not dismiss account entry until both the account flag and
+                // any missing local display name are durably committed together.
+                val saved = runCatching {
+                    settingsStore.completeAccountEntry(displayName)
+                }.getOrDefault(false)
+                if (saved) {
+                    settings = settingsStore.snapshot()
+                } else {
+                    Toast.makeText(context,
+                        "Could not save your Backlot account setup. Please try again.",
+                        Toast.LENGTH_LONG).show()
                 }
-                settingsStore.setAccountOnboardingComplete(true)
-                settings = settingsStore.snapshot()
             },
             onContinueLocally = {
-                settingsStore.setAccountOnboardingComplete(true)
-                settings = settingsStore.snapshot()
+                val saved = runCatching {
+                    settingsStore.completeAccountEntry()
+                }.getOrDefault(false)
+                if (saved) {
+                    settings = settingsStore.snapshot()
+                } else {
+                    Toast.makeText(context,
+                        "Could not save local setup. Please try again.",
+                        Toast.LENGTH_LONG).show()
+                }
             },
             onReturningAccount = {
                 runCatching { v393FirstRunPrefs.markReturningAccount() }
