@@ -267,7 +267,10 @@ internal fun UX11PremiumAccountIdentity(
 }
 
 @Composable
-internal fun UX11PremiumAccountReturning(error: String?) {
+internal fun UX11PremiumAccountReturning(
+    error: String?,
+    onRetry: () -> Unit = {},
+) {
     UX11AuthShell(
         title = "Welcome back.",
         subtitle = "Checking your existing Backlot account and available saved work.",
@@ -286,13 +289,23 @@ internal fun UX11PremiumAccountReturning(error: String?) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MutedGold,
-                    strokeWidth = 2.dp,
-                )
+                if (error == null) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MutedGold,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = BacklotError,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
                 Text(
-                    "Checking account details…",
+                    if (error == null) "Checking account details…"
+                    else "Account recognized · local setup needs attention",
                     color = ProjectorIvory, fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -301,6 +314,12 @@ internal fun UX11PremiumAccountReturning(error: String?) {
         if (error != null) {
             Spacer(Modifier.height(14.dp))
             UX11AuthError(error)
+            Spacer(Modifier.height(12.dp))
+            UX11PrimaryAuthButton(
+                label = "RETRY OPENING BACKLOT",
+                onClick = onRetry,
+                modifier = Modifier.testTag("backlot-returning-retry-local-save"),
+            )
         }
         Spacer(Modifier.height(14.dp))
         Text(
