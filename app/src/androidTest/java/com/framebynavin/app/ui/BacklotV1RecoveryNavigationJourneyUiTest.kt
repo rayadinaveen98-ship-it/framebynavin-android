@@ -107,8 +107,15 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         awaitTag("backlot-bottom-nav")
 
         rule.onNodeWithTag("v339-home-overflow-trigger").performClick()
-        rule.onNodeWithTag("v402-menu-reminders-expand").performScrollTo().performClick()
-        rule.onNodeWithTag("v402-menu-creator-reminders").performScrollTo().performClick()
+        // The menu intentionally remembers its expanded section across visits.
+        // Don't toggle it shut if the Creator option is already visible.
+        if (rule.onAllNodesWithTag("v402-menu-creator-reminders")
+                .fetchSemanticsNodes().isEmpty()) {
+            rule.onNodeWithTag("v402-menu-reminders-expand")
+                .performScrollTo().performClick()
+        }
+        rule.onNodeWithTag("v402-menu-creator-reminders")
+            .performScrollTo().performClick()
         rule.onNodeWithText("Stay on track").assertExists()
         assertCreatorWizardAbsent()
         rule.onNodeWithContentDescription("Back").performClick()
