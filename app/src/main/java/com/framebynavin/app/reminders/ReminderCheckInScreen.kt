@@ -133,14 +133,13 @@ internal fun ReminderCheckInScreen(
     }
     // The earlier Premiere selector is intentionally removed from the live
     // visual route. Reminder controls/callbacks are unchanged.
-    // The user, not an intro timer, chooses when to reveal controls.
-    // When OS animations are disabled, accessible controls appear immediately.
+    // RX01 owns the only interactive entrance/double-tap gate.
+    // This compatibility content screen is always actionable when invoked
+    // directly; it must not show an obsolete particle intro or hide actions.
     var revealed by rememberSaveable(kind, title, rx01MainBackdrop) {
-        mutableStateOf(rx01MainBackdrop || V197ReminderRevealPolicy.startRevealed(motionEnabled))
+        mutableStateOf(true)
     }
-    LaunchedEffect(motionEnabled, rx01MainBackdrop) {
-        if (!motionEnabled || rx01MainBackdrop) revealed = true
-    }
+    LaunchedEffect(kind, title, rx01MainBackdrop) { revealed = true }
     val revealAlpha by animateFloatAsState(
         targetValue = if (revealed) 1f else 0f,
         animationSpec = tween(durationMillis = 650),
@@ -152,34 +151,18 @@ internal fun ReminderCheckInScreen(
             .fillMaxSize()
             .background(if (rx01MainBackdrop) Color.Transparent else BacklotBackground),
     ) {
-        // Intro is UNCHANGED: clock/mic silhouette still forms from real particles.
-        // After the user's tap, crossfade to diffuse moving color waves only;
-        // no particles remain behind action buttons.
-        if (!rx01MainBackdrop) Crossfade(
-            targetState = revealed,
-            animationSpec = tween(durationMillis = if (motionEnabled) 480 else 0),
-            label = "v231-reminder-backdrop-transition",
-        ) { showingActions ->
-            if (showingActions) {
-                RX01FluidReminderBackdrop(
-                    domain = RX01ReminderDomain.CREATOR,
-                    phase = RX01SurfacePhase.MAIN,
-                    lowPower = lowPower,
-                    motionEnabled = motionEnabled,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                V195ReminderParticleScene(
-                    kind = kind,
-                    revealed = false,
-                    lowPower = lowPower,
-                    onReveal = { revealed = true },
-                    modifier = Modifier.fillMaxSize(),
-                    motionEnabled = motionEnabled,
-                )
-            }
+        // No Classic/Cinematic particle stage remains in this fallback path.
+        // All actual Creator deliveries use the RX01 verified double-tap gate.
+        if (!rx01MainBackdrop) {
+            RX01FluidReminderBackdrop(
+                domain = RX01ReminderDomain.CREATOR,
+                phase = RX01SurfacePhase.MAIN,
+                lowPower = lowPower,
+                motionEnabled = motionEnabled,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
-        // Only render actionable controls after manual reveal; no ghost actions under the intro.
+        // Existing response controls retain all original actions and occurrence checks.
         if (revealed) Column(
             modifier = Modifier
                 .align(Alignment.Center)
