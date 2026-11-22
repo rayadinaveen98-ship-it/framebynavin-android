@@ -199,12 +199,15 @@ internal fun UX11PremiumAccountIdentity(
     onDisplayNameChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onCreateAccount: () -> Unit,
+    localCompletionPending: Boolean = false,
 ) {
     UX11AuthShell(
-        title = "Make it yours.",
-        subtitle = "Your Google account is connected. Choose the name and unique " +
+        title = if (localCompletionPending) "One last device step." else "Make it yours.",
+        subtitle = if (localCompletionPending)
+            "Your Backlot account already exists. Only this device's local setup needs saving."
+        else "Your Google account is connected. Choose the name and unique " +
             "username that will identify your Backlot profile.",
-        eyebrow = "FINISH CREATING YOUR ACCOUNT",
+        eyebrow = if (localCompletionPending) "ACCOUNT CREATED · LOCAL SAVE" else "FINISH CREATING YOUR ACCOUNT",
         variant = UX11AuthEntryMode.SIGN_UP,
         testTag = "ux11-auth-profile",
     ) {
@@ -229,6 +232,7 @@ internal fun UX11PremiumAccountIdentity(
                     value = displayName,
                     onValueChange = onDisplayNameChange,
                     label = { Text("Display name") },
+                    enabled = !busy && !localCompletionPending,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("ux11-auth-display-name"),
                 )
@@ -237,6 +241,7 @@ internal fun UX11PremiumAccountIdentity(
                     onValueChange = onUsernameChange,
                     prefix = { Text("@") },
                     label = { Text("Unique username") },
+                    enabled = !busy && !localCompletionPending,
                     supportingText = {
                         Text("3–24 letters, numbers or underscores. Username availability " +
                             "is confirmed when you create the account.")
@@ -248,9 +253,14 @@ internal fun UX11PremiumAccountIdentity(
         }
         Spacer(Modifier.height(15.dp))
         UX11PrimaryAuthButton(
-            label = if (busy) "CREATING YOUR ACCOUNT…" else "FINISH ACCOUNT SETUP",
+            label = when {
+                busy && localCompletionPending -> "SAVING ON THIS DEVICE…"
+                busy -> "CREATING YOUR ACCOUNT…"
+                localCompletionPending -> "RETRY SAVING ON THIS DEVICE"
+                else -> "FINISH ACCOUNT SETUP"
+            },
             onClick = onCreateAccount,
-            enabled = !busy && username.length in 3..24,
+            enabled = !busy && (localCompletionPending || username.length in 3..24),
             modifier = Modifier.testTag("ux11-auth-claim"),
         )
         if (error != null) {
@@ -259,7 +269,9 @@ internal fun UX11PremiumAccountIdentity(
         }
         Spacer(Modifier.height(13.dp))
         Text(
-            "Only the existing account service can confirm a username or finish " +
+            if (localCompletionPending)
+                "This retry only saves local setup. It does not create another account or reclaim your username."
+            else "Only the existing account service can confirm a username or finish " +
                 "registration. Your profile isn't created until it confirms success.",
             fontSize = 11.sp, lineHeight = 17.sp, color = MutedText,
         )
