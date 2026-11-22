@@ -129,7 +129,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     val v393FirstRunPrefs = remember(context) { V393FirstRunPrefs(context.applicationContext) }
+    // Legacy focus choices remain readable, but new installs no longer select a mode.
     var v393FirstRunFocus by remember { mutableStateOf(v393FirstRunPrefs.selectedFocus()) }
+    var v393UnifiedEntry by remember { mutableStateOf(v393FirstRunPrefs.unifiedEntryStarted()) }
     var v402PermissionGuideComplete by remember { mutableStateOf(v393FirstRunPrefs.permissionGuideComplete()) }
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
     // The Activity owns the preference so the REAL Settings screen can silence
@@ -138,6 +140,31 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var companionEnabled by remember(companionPrefStore) { mutableStateOf(companionPrefStore.enabled()) }
     var driveRecoveryRevision by rememberSaveable { mutableIntStateOf(0) }
     var settings by remember { mutableStateOf(settingsStore.snapshot()) }
+    // UX12-D2: record a new unified journey without a visible "Make Backlot
+    // yours" choice and without overwriting any legacy focus preference.
+    // Existing completed accounts and completed Creator profiles are exempt.
+    LaunchedEffect(
+        settings.accountOnboardingComplete,
+        settings.onboardingComplete,
+        settings.creatorProfile.isComplete,
+        v393FirstRunFocus,
+    ) {
+        if (!settings.accountOnboardingComplete &&
+            !settings.onboardingComplete &&
+            !settings.creatorProfile.isComplete &&
+            v393FirstRunFocus == null && !v393UnifiedEntry
+        ) {
+            runCatching { v393FirstRunPrefs.beginUnifiedEntry() }
+                .onSuccess {
+                    v393UnifiedEntry = it
+                    v402PermissionGuideComplete = v393FirstRunPrefs.permissionGuideComplete()
+                }
+                .onFailure {
+                    Toast.makeText(context, "Could not save Backlot setup. Please retry.",
+                        Toast.LENGTH_LONG).show()
+                }
+        }
+    }
     var permissions by remember { mutableStateOf(pPermissions(context)) }
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
     var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
@@ -1385,23 +1412,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    if (!settings.accountOnboardingComplete && v393FirstRunFocus == null &&
-        !settings.onboardingComplete && !settings.creatorProfile.isComplete) {
-        V393FirstRunFocusScreen { focus ->
-            runCatching {
-                v393FirstRunPrefs.saveFocus(focus)
-                // Do not skip the next Google-or-local choice. Focus is not
-                // evidence of account creation or authentication.
-            }.onSuccess {
-                v393FirstRunFocus = focus
-                v402PermissionGuideComplete = false
-                settings = settingsStore.snapshot()
-            }.onFailure {
-                Toast.makeText(context, "Could not save setup choice. Try again.",
-                    Toast.LENGTH_LONG).show()
-            }
-        }
-    } else if (!settings.accountOnboardingComplete) {
+    // No separate Creator/Personal/Both screen. Authentication is the first
+    // intentional first-run choice; Creator setup stays contextual below.
+    if (!settings.accountOnboardingComplete) {
         V23AccountOnboarding(
             onComplete = { displayName ->
                 if (displayName.isNotBlank()) {
@@ -1450,11 +1463,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         // New creators choose the companion before the restored five-page setup.
         // Do NOT show this gate to existing users whose setup is complete.
         V144GuideChoiceGate()
-    } else if (V151SetupPolicy.needsCreatorSetup(
-        onboardingComplete = settings.onboardingComplete,
-        profileComplete = settings.creatorProfile.isComplete,
-    ) && (v393FirstRunFocus != V393FirstRunFocus.PERSONAL ||
-        tab != PTab.TODAY || showComposer || showQuickCapture)) {
+    } else if (UX12D2FirstRunRoutePolicy.shouldShowCreatorSetup(
+        creatorSetupIncomplete = V151SetupPolicy.needsCreatorSetup(
+            onboardingComplete = settings.onboardingComplete,
+            profileComplete = settings.creatorProfile.isComplete,
+        ),
+        legacyFocus = v393FirstRunFocus,
+        unifiedJourney = v393UnifiedEntry,
+        creatorWorkRequested = tab != PTab.TODAY ||
+            showComposer || showQuickCapture ||
+            (showReminders && !personalReminderSpace),
+    )) {
         // UX11-C: restore the ORIGINAL five-page Creator setup for new
         // Creator/Both journeys, not just older partially configured users.
         // Preserve the historical full Creator mode/platform/style/goals/
@@ -1476,6 +1495,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 val complete = saved && settings.onboardingComplete &&
                     settings.creatorProfile.isComplete
                 if (complete && (
+                    v393UnifiedEntry ||
                     v393FirstRunFocus == V393FirstRunFocus.CREATOR ||
                     v393FirstRunFocus == V393FirstRunFocus.BOTH
                 )) {
@@ -1489,10 +1509,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 complete
             },
         )
-    } else if (v393FirstRunFocus != null &&
+    } else if ((v393FirstRunFocus != null || v393UnifiedEntry) &&
         settings.accountOnboardingComplete && V144GuidePrefs.hasSelection &&
         !v402PermissionGuideComplete &&
-        (v393FirstRunFocus == V393FirstRunFocus.PERSONAL ||
+        (v393FirstRunFocus == V393FirstRunFocus.PERSONAL || v393UnifiedEntry ||
             (settings.onboardingComplete && settings.creatorProfile.isComplete))
     ) {
         V402FirstRunPermissionGuide(
@@ -1514,7 +1534,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             },
         )
     } else if (
-        v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
+        (v393FirstRunFocus == V393FirstRunFocus.PERSONAL || v393UnifiedEntry) &&
         v393FirstRunPrefs.startedUx02Journey() &&
         settings.accountOnboardingComplete && !settings.onboardingComplete &&
         V144GuidePrefs.hasSelection && v402PermissionGuideComplete &&
