@@ -65,14 +65,9 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         rule.onNodeWithTag("backlot-creator-setup-not-now").performClick()
         assertCreatorWizardAbsent()
         awaitTag("backlot-bottom-nav")
-    }
 
-    @Test fun localEntryDoesNotReopenWizardAfterActivityRecreation() {
-        HardeningTestEnvironment.requireCiEmulator()
-        awaitTag("ux11-auth-choose")
-        rule.onNodeWithTag("ux11-auth-continue-locally").performClick()
-        awaitTag("backlot-bottom-nav")
-        assertCreatorWizardAbsent()
+        // The same test instance verifies durability without relying on
+        // order-dependent data resets across multiple JUnit test methods.
         rule.activityRule.scenario.recreate()
         awaitTag("backlot-bottom-nav")
         assertCreatorWizardAbsent()
