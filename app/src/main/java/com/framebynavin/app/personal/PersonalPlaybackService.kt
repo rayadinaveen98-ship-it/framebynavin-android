@@ -26,6 +26,8 @@ import com.framebynavin.app.R
 import com.framebynavin.app.reminders.ReminderBackingMusic
 import com.framebynavin.app.reminders.ReminderMusicChoice
 import com.framebynavin.app.reminders.RX03BReminderScripts
+import com.framebynavin.app.reminders.VoiceGreetingBuilder
+import com.framebynavin.app.reminders.VoiceCreatorNameResolver
 import com.framebynavin.app.reminders.RX03BVoiceDomain
 import com.framebynavin.app.reminders.RX03BVoicePackPreferences
 import com.framebynavin.app.reminders.VoicePersonaEngine
@@ -213,6 +215,11 @@ internal class PersonalPlaybackService : Service() {
         )
         val message = pack?.let { RX03BReminderScripts.personal(it, title) }
             ?: "Personal reminder. $title"
+        // Read only the durable, locally cached first name; personal notes
+        // remain unspoken. No Google/Cloud request occurs in a live alert.
+        val firstMessage = VoiceGreetingBuilder.spokenReminder(
+            VoiceCreatorNameResolver.resolveKnownName(applicationContext), message,
+        )
         music.start(choice) // Best-effort local backing; TTS always remains primary.
         try {
             tts = TextToSpeech(this) { status ->
@@ -241,7 +248,7 @@ internal class PersonalPlaybackService : Service() {
                     activeId = utteranceId
                     music.setSpeaking(true)
                     val result = engine.speak(
-                        message,
+                        if (index == 0) firstMessage else message,
                         if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
                         null,
                         utteranceId,
