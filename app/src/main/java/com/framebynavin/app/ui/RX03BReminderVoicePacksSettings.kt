@@ -73,8 +73,9 @@ internal fun RX03BReminderVoicePacksSettings() {
         Text("PERSONAL & CHALLENGE VOICE PACKS",
             color = MutedGold, fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp, fontSize = 11.sp)
-        Text("Eight familiar voice styles, with different scripts for Personal " +
-            "and 21-day reminders. The original Android voice remains the default.",
+        Text("All previews and live Voice reminders start with a greeting using " +
+            "your saved first name when available. Repeats keep the reminder " +
+            "instructions without repeating the greeting.",
             color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
         val personalPack = remember(revision) {
             RX03BVoicePackPreferences.selected(context, RX03BVoiceDomain.PERSONAL)
