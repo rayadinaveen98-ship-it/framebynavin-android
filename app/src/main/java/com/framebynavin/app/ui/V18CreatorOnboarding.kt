@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +45,7 @@ internal fun V18CreatorOnboarding(
     onFullScreen: () -> Unit,
     onBattery: () -> Unit,
     onFinish: (CreatorProfile) -> Boolean,
+    onCancel: (() -> Unit)? = null,
 ) {
     var page by rememberSaveable { mutableIntStateOf(0) }
     var isSaving by remember { mutableStateOf(false) }
@@ -96,6 +98,11 @@ internal fun V18CreatorOnboarding(
                 Column(Modifier.weight(1f)) {
                     Text("Backlot · Built for Creators", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, letterSpacing = .5.sp, fontWeight = FontWeight.Bold)
                     Text("Tell us what you make", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+                if (onCancel != null) {
+                    TextButton(onClick = onCancel, modifier = Modifier.testTag("backlot-creator-setup-not-now")) {
+                        Text("NOT NOW", color = ProjectorIvory, fontSize = 11.sp)
+                    }
                 }
                 Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
