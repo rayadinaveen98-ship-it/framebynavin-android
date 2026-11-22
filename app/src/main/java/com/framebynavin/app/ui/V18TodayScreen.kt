@@ -111,6 +111,7 @@ internal fun PTodayScreen(
     onCreatorSetup: (() -> Unit)? = null,
     cloudRecoveryAvailable: Boolean = false,
     onReviewCloudRecovery: () -> Unit = {},
+    creatorSetupComplete: Boolean = true,
 ) {
     // V222 pre-Play cold-start fix: CreatorViewModel.tasks is a mutableStateListOf.
     // The list object keeps its identity while DataStore loads projects into it,
@@ -188,7 +189,7 @@ internal fun PTodayScreen(
                     }
                 }
             }
-            if (!creatorProfile.isComplete && onCreatorSetup != null) {
+            if ((!creatorSetupComplete || !creatorProfile.isComplete) && onCreatorSetup != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                         .testTag("backlot-creator-setup-invite"),
