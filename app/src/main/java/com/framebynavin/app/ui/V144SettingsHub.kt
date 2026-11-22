@@ -274,6 +274,10 @@ internal fun V144SettingsHub(
                         "These affect some advanced reminder delivery modes. Android may still delay or restrict alerts.",
                         color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
                     )
+                    Spacer(Modifier.height(12.dp))
+                    // RX02: permission/OS entitlement belongs to delivery
+                    // settings, never to the media/appearance chooser.
+                    com.framebynavin.app.reminders.RX01ChallengeFullScreenSettings()
                 }
 
                 Spacer(Modifier.height(18.dp))
