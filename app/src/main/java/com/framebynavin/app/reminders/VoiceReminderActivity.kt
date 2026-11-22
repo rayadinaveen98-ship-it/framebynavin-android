@@ -122,16 +122,15 @@ class VoiceReminderActivity : ComponentActivity() {
                     rx01MainBackdrop = rx01Main,
                     )
                 }
-                if (RX01ReminderScenePrefs.enabled(applicationContext, RX01ReminderDomain.CREATOR)) {
+                // Modern live presentation is the sole Creator route. Historical
+                // visual off/preferences no longer expose rejected backgrounds.
                     RX01CreatorLiveAlert(
                         activity = this@VoiceReminderActivity,
                         taskId = task.id,
                         occurrenceId = occurrenceId,
                         kind = ReminderCheckInKind.VOICE,
                     ) { originalScreen(true) }
-                } else {
-                    originalScreen(false)
-                }
+
             }
         }
     }
