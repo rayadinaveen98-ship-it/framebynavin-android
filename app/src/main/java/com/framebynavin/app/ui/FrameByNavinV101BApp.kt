@@ -1389,7 +1389,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     // Recovery P0: only genuine first-account completion may block Home.
     // All other first-run experiences (Creator setup, guide and permissions)
     // are opt-in and never intercept an ordinary tab, reminder or Settings tap.
-    if (!settings.accountOnboardingComplete) {
+    if (BacklotV1RecoveryRoutePolicy.needsAccountEntry(settings.accountOnboardingComplete)) {
         V23AccountOnboarding(
             onComplete = { displayName ->
                 if (displayName.isNotBlank()) {
@@ -1412,8 +1412,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     }
             },
         )
-    } else if (creatorSetupRequested && V151SetupPolicy.needsCreatorSetup(
-        onboardingComplete = settings.onboardingComplete,
+    } else if (BacklotV1RecoveryRoutePolicy.showCreatorSetup(
+        accountOnboardingComplete = settings.accountOnboardingComplete,
+        explicitlyRequested = creatorSetupRequested,
+        creatorSetupComplete = settings.onboardingComplete,
         profileComplete = settings.creatorProfile.isComplete,
     )) {
         V18CreatorOnboarding(
