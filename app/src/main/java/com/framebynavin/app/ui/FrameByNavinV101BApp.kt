@@ -1411,6 +1411,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         "Could not save your Backlot account setup. Please try again.",
                         Toast.LENGTH_LONG).show()
                 }
+                saved
             },
             onContinueLocally = {
                 val saved = runCatching {
