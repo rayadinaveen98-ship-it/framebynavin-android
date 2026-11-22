@@ -873,6 +873,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     if (key != null && guideTargets[key] != bounds) guideTargets[key] = bounds
                 },
                 modifier = Modifier.align(Alignment.BottomCenter)
+                    .testTag("backlot-bottom-nav")
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
                     .onGloballyPositioned { coordinates ->
