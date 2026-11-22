@@ -34,7 +34,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output/recovery-stage-e
-          git diff --exit-code "$FROZEN_APP_SHA" HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          git diff --exit-code "$FROZEN_APP_SHA" HEAD -- app/src/main app/src/test app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          git diff --name-only "$FROZEN_APP_SHA" HEAD -- app/src/androidTest | sort > output/recovery-stage-e/TEST-DIFF.txt
+          printf '%s\n' 'app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryAccountUiTest.kt' 'app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryNavigationJourneyUiTest.kt' > output/recovery-stage-e/EXPECTED-TEST-DIFF.txt
+          diff -u output/recovery-stage-e/EXPECTED-TEST-DIFF.txt output/recovery-stage-e/TEST-DIFF.txt
           test "$(git merge-base "$FROZEN_APP_SHA" HEAD)" = "$FROZEN_APP_SHA"
           git diff --check "$FROZEN_APP_SHA" HEAD
           test ! -d supabase/lab_migrations
@@ -51,7 +54,10 @@ jobs:
             printf '%s=%s PASS\n' "$key" "$id" | tee -a output/recovery-stage-e/REQUIRED-GATES.txt
           done
           test "$(grep '^STAGE_A_RUN_ID=' "$gates")" = "STAGE_A_RUN_ID=45023567967"
-          test "$(grep '^STAGE_B_RUN_ID=' "$gates")" = "STAGE_B_RUN_ID=45026564764"
+          test "$(grep '^STAGE_B_RUN_ID=' "$gates")" = "STAGE_B_RUN_ID=45032575621"
+          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/137220769856" > /tmp/recovery-stage-b1-focused-jvm.json
+          jq -e '.status=="completed" and .conclusion=="success"' /tmp/recovery-stage-b1-focused-jvm.json >/dev/null
+          echo "STAGE_B1_FOCUSED_JVM_JOB_ID=137220769856 PASS" | tee -a output/recovery-stage-e/REQUIRED-GATES.txt
           git rev-parse HEAD > output/recovery-stage-e/WORKFLOW-SHA.txt
           echo "$FROZEN_APP_SHA" > output/recovery-stage-e/APP-SOURCE-SHA.txt
       - uses: actions/setup-java@v4
