@@ -143,7 +143,7 @@ class VoiceReminderService : Service() {
                 stopVoiceService(task.id, token)
                 return@TextToSpeech
             }
-            VoicePersonaEngine.apply(engine, task.voicePersona)
+            VoicePersonaEngine.apply(engine, task.voicePersona, applicationContext)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
                     if (isCurrent(task.id, token) && generation == speechGeneration) {
