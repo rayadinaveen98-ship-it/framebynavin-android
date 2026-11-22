@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.reminders.ReminderCheckInKind
+import com.framebynavin.app.reminders.RX01FluidReminderBackdrop
+import com.framebynavin.app.reminders.RX01SurfacePhase
 import com.framebynavin.app.reminders.RX01ReminderDomain
 import com.framebynavin.app.reminders.UX12D7ReminderEditorialHeader
 import com.framebynavin.app.reminders.V336DirectorBackdrop
