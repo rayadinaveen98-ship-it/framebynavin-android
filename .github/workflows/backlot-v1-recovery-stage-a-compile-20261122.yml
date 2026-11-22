@@ -30,15 +30,15 @@ jobs:
           set -euo pipefail
           mkdir -p output/recovery-stage-a
           git rev-parse HEAD | tee output/recovery-stage-a/WORKFLOW-COMMIT.txt
-          git diff --exit-code 8cc4666ec889632aac4dfbf27aeeb456f0afd65d HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
-          test "$(git merge-base 8cc4666ec889632aac4dfbf27aeeb456f0afd65d HEAD)" = "8cc4666ec889632aac4dfbf27aeeb456f0afd65d"
-          git diff --check 8cc4666ec889632aac4dfbf27aeeb456f0afd65d HEAD
+          git diff --exit-code 8b771a5287b92d33cc8341907fc7747447cfd29a HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          test "$(git merge-base 8b771a5287b92d33cc8341907fc7747447cfd29a HEAD)" = "8b771a5287b92d33cc8341907fc7747447cfd29a"
+          git diff --check 8b771a5287b92d33cc8341907fc7747447cfd29a HEAD
           grep -Fq 'versionCode = 338' app/build.gradle.kts
           grep -Fq 'versionName = "1.0"' app/build.gradle.kts
           grep -Fq 'resValue("string", "backlot_install_label", "Backlot")' app/build.gradle.kts
           test ! -d app/src/main/java/com/framebynavin/app/cloud/ux09rpc
           test ! -d supabase/lab_migrations
-          echo "8cc4666ec889632aac4dfbf27aeeb456f0afd65d" | tee output/recovery-stage-a/FROZEN-APP-SHA.txt
+          echo "8b771a5287b92d33cc8341907fc7747447cfd29a" | tee output/recovery-stage-a/FROZEN-APP-SHA.txt
           echo "Stage A only: no app install, no APK, no JVM suite, no Android instrumentation, no hosted changes." | tee output/recovery-stage-a/SCOPE.txt
       - uses: actions/setup-java@v4
         with:
