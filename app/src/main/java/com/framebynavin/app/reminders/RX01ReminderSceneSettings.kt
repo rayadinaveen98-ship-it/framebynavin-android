@@ -134,8 +134,6 @@ internal fun RX01ReminderSceneSettings() {
             lineHeight = 16.sp,
             modifier = Modifier.testTag("rx01-legacy-scene-precedence"),
         )
-        Spacer(Modifier.height(5.dp))
-        RX01ChallengeFullScreenSettings()
     }
 }
 
@@ -145,7 +143,7 @@ internal fun RX01ReminderSceneSettings() {
  * delivery can request it. Voice / Quiet cannot auto-launch full screen.
  */
 @Composable
-private fun RX01ChallengeFullScreenSettings() {
+internal fun RX01ChallengeFullScreenSettings() {
     val context = LocalContext.current
     var optedIn by remember {
         mutableStateOf(RX01ChallengePresentationPrefs.fullScreenAlarmOptIn(context))
