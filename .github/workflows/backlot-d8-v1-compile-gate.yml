@@ -1,0 +1,95 @@
+name: Backlot 1.0 D8 - isolated compile diagnostics (NOT RELEASE)
+
+on:
+  push:
+    branches:
+      - integration/backlot-d8-v1-owner-qa-20261122
+    paths:
+      - ".github/workflows/backlot-d8-v1-compile-gate.yml"
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-d8-v1-compile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-contract:
+    name: Confirm stable ancestry, version 1.0, no hosted mutations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact isolated candidate ancestry and identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=abbe88984bac16cfafbd990d9cb00ed54cfdd07e
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          git diff --check "$base" HEAD
+          test "$GITHUB_REF_NAME" = "integration/backlot-d8-v1-owner-qa-20261122"
+          grep -Fq 'versionCode = 338' app/build.gradle.kts
+          grep -Fq 'versionName = "1.0"' app/build.gradle.kts
+          grep -Fq 'resValue("string", "backlot_install_label", "Backlot")' app/build.gradle.kts
+          grep -Fq 'applicationId = if (backlotLabMode) "com.framebynavin.app.lab" else "com.framebynavin.app"' app/build.gradle.kts
+          grep -Fq 'android:label="@string/backlot_install_label"' app/src/main/AndroidManifest.xml
+          test -f dev-signing/framebynavin-public-debug.jks
+          test ! -d app/src/main/java/com/framebynavin/app/cloud/ux09rpc
+          test ! -d supabase/lab_migrations
+          echo "Exact source SHA: $(git rev-parse HEAD)"
+          echo "Identity: Backlot / 1.0 / versionCode 338"
+          echo "Protected main/stable never checked out as a write target."
+
+  compile-lab:
+    name: Compile Lab Kotlin (fail-fast before full QA)
+    needs: source-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Record source SHA for reproducible diagnostics
+        shell: bash
+        run: |
+          mkdir -p output/d8-v1/compile
+          git rev-parse HEAD | tee output/d8-v1/compile/SOURCE-SHA.txt
+      - name: Initial isolated compilation; preserve exact error log
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 96m gradle \
+            :app:compileDebugKotlin -PbacklotLab=true \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/d8-v1/compile/COMPILE.log
+      - name: Confirm build didn't rewrite tracked source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain -- app/src app/build.gradle.kts)"
+          echo "PASS: Kotlin compilation on exact candidate source."
+      - name: Always upload compile evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-D8-V1-COMPILE-DIAGNOSTICS-NOT-RELEASE
+          path: |
+            output/d8-v1/compile/
+            app/build/reports/
+          if-no-files-found: warn
+          retention-days: 30
