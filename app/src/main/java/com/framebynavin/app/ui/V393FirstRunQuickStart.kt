@@ -131,8 +131,9 @@ internal class V393FirstRunPrefs(context: Context) {
 }
 
 /**
- * UX12-D2 routes first-run directly into account choice. Legacy focus values
- * remain in preferences for upgrade compatibility; the obsolete screen is gone.
+ * Legacy UX12-D2 unified-entry preferences remain readable for upgrade
+ * compatibility. The original selection screen is now restored for genuine
+ * fresh accounts; existing unified journeys are not retroactively reset.
  */
 internal object UX12D2FirstRunRoutePolicy {
     fun shouldShowCreatorSetup(
