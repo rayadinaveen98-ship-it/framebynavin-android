@@ -38,6 +38,7 @@ class VoiceReminderService : Service() {
     private var currentStartId: Int = 0
     private var speechGeneration = 0
     private var frozenSpeechText = ""
+    private var frozenReminderBody = ""
     private var currentUtteranceId: String? = null
     private var repeatCount = 1
     private var repeatIntervalMillis = 5_000L
@@ -86,7 +87,7 @@ class VoiceReminderService : Service() {
         currentToken = token
         currentStartId = startId
         currentTask = task
-        currentCreatorName = VoiceCreatorNameResolver.resolve(applicationContext)
+        currentCreatorName = VoiceCreatorNameResolver.resolveKnownName(applicationContext)
         handler.removeCallbacksAndMessages(null)
         ensureChannel()
         if (previous != null && !sameOccurrence) {
@@ -121,7 +122,10 @@ class VoiceReminderService : Service() {
         val generation = ++speechGeneration
         repeatCount = V403VoiceRepeatPolicy.count(task.voiceRepeatCount)
         repeatIntervalMillis = task.voiceRepeatIntervalSeconds.coerceIn(5, 60) * 1000L
-        frozenSpeechText = buildSpeechText(task)
+        frozenReminderBody = buildSpeechText(task)
+        frozenSpeechText = VoiceGreetingBuilder.spokenReminder(
+            currentCreatorName, frozenReminderBody
+        )
 
         tts = TextToSpeech(this) { status ->
             if (!isCurrent(task.id, token) || generation != speechGeneration) return@TextToSpeech
@@ -212,7 +216,7 @@ class VoiceReminderService : Service() {
             notes = task.notes,
             includeNotes = true,
         )
-        return VoiceGreetingBuilder.spokenReminder(currentCreatorName, reminder)
+        return reminder
     }
 
     private fun speakFrozen(task: CreatorTask, token: String, generation: Int, index: Int) {
@@ -223,7 +227,10 @@ class VoiceReminderService : Service() {
         currentUtteranceId = utteranceId
         music.setSpeaking(true)
         val queueMode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        val result = engine.speak(frozenSpeechText, queueMode, null, utteranceId)
+        // The greeting belongs only to the first announcement of this cycle.
+        // Repeats retain the identical task details without greeting fatigue.
+        val speechText = if (index == 0) frozenSpeechText else frozenReminderBody
+        val result = engine.speak(speechText, queueMode, null, utteranceId)
         if (result == TextToSpeech.ERROR) {
             currentUtteranceId = null
             fallbackToNotification(task, token, "Voice playback failed · notification reminder")
@@ -368,6 +375,7 @@ class VoiceReminderService : Service() {
         currentToken = ""
         currentCreatorName = "Creator"
         frozenSpeechText = ""
+        frozenReminderBody = ""
         currentUtteranceId = null
         speechGeneration++
         music.stop()
@@ -386,6 +394,7 @@ class VoiceReminderService : Service() {
         currentToken = ""
         currentCreatorName = "Creator"
         frozenSpeechText = ""
+        frozenReminderBody = ""
         currentUtteranceId = null
         speechGeneration++
         handler.removeCallbacksAndMessages(null)
