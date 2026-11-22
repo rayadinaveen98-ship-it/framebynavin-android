@@ -59,7 +59,7 @@ jobs:
           cp verified-lab/previous-lab/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
           test -s lab-candidate/app-debug.apk
           echo "VERIFIED: Existing signed Lab APK reused, no build or full JVM test launched."
-      - name: Fix original emulator failure: enable GitHub Ubuntu KVM with fail-fast proof
+      - name: Enable GitHub Ubuntu KVM with fail-fast proof
         shell: bash
         run: |
           set -euo pipefail
@@ -75,7 +75,7 @@ jobs:
           ls -l /dev/kvm | tee -a output/d8-v1/android15-kvm/KVM-PREFLIGHT.txt
           test -r /dev/kvm && test -w /dev/kvm
           echo "PASS: runner can use KVM; safe to launch Android 15 emulator." | tee -a output/d8-v1/android15-kvm/KVM-PREFLIGHT.txt
-      - name: Android 15 emulator only: install and launch same proven Lab APK
+      - name: Android 15 emulator smoke using proven Lab APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
