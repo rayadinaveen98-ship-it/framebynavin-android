@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,7 +32,7 @@ import java.util.Locale
 internal fun V23ProfileAccountScreen(
     creatorProfile: CreatorProfile,
     onClose: () -> Unit,
-    onEditCreatorSetup: () -> Unit, // retained only for older call-site compatibility
+    onEditCreatorSetup: () -> Unit, // explicit Creator setup for incomplete profiles only
     onOpenYouTube: () -> Unit,
     onSaveCreatorProfile: (CreatorProfile) -> Boolean = { false },
 ) {
@@ -145,6 +146,15 @@ internal fun V23ProfileAccountScreen(
             V23InfoRow("Platforms", creatorProfile.platforms.sorted().joinToString().ifBlank { "Not set" }, Icons.Outlined.Hub)
             V23InfoRow("Primary goal", creatorProfile.primaryGoal.ifBlank { "Not set" }, Icons.Outlined.TrackChanges)
             V23InfoRow("Publishing target", "${creatorProfile.weeklyPublishingTarget} / week", Icons.Outlined.CalendarMonth)
+            if (!creatorProfile.isComplete) {
+                Button(
+                    onClick = onEditCreatorSetup,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("backlot-profile-finish-creator-setup"),
+                ) { Text("FINISH CREATOR SETUP", color = ProjectorIvory,
+                    fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.height(8.dp))
+            }
             OutlinedButton(onClick = { showCreatorEditor = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, CinemaLine)) {
                 Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
