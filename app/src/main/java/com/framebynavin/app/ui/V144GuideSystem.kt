@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -120,10 +121,16 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
     V217GuideChoiceContent(onSelect = { guide -> V144GuidePrefs.select(guide) })
 }
 
-/** Reused production first-run companion UI, independently testable without clearing saved setup. */
+/** Reused production selection. Same choice/persistence; warmer native staging. */
 @Composable
 internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
+    Box(
+        modifier = Modifier.fillMaxSize()
+            .background(CinemaBlack)
+            .testTag("ux12-d3-companion-selection"),
+    ) {
+        // A softly breathing native backdrop; it is never a listening/voice UI.
+        UX12D3WarmCompanionBackdrop()
         Column(
             Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
@@ -132,25 +139,25 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("BACKLOT", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 2.4.sp)
+            Text("BACKLOT / YOUR COMPANION", color = MutedGold, fontSize = 10.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+            Spacer(Modifier.height(10.dp))
+            Text("Someone for the journey.", color = ProjectorIvory,
+                fontSize = 25.sp, lineHeight = 31.sp, fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center)
             Spacer(Modifier.height(7.dp))
-            Text("Choose your companion", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(5.dp))
             Text(
-                "Spark or Mira will accompany you across Backlot. Choose who feels right for you; change anytime in Settings.",
-                color = MutedText,
-                fontSize = 10.sp,
-                lineHeight = 15.sp,
+                "Choose Spark or Mira. You can change your companion in Settings.",
+                color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(26.dp))
 
             V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
-                // Measure the tallest card once per row; shorter descriptions
-                // must not leave one SELECT button floating above its neighbor.
+                // Preserve aligned selection controls at large font scales.
                 Row(
                     Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     guides.forEach { guide ->
                         V144GuideChoiceCard(
@@ -159,9 +166,9 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
-                    // Both companions share consistent card height, spacing and actions.
                 }
-                if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(10.dp))
+                if (index < V145SelectableGuides.chunked(2).lastIndex)
+                    Spacer(Modifier.height(10.dp))
             }
         }
     }
@@ -177,8 +184,8 @@ private fun V144GuideChoiceCard(
     Surface(
         modifier = modifier.testTag("v217-choice-${guide.name}"),
         shape = RoundedCornerShape(20.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.2.dp, identity.copy(alpha = .76f)),
+        color = CinemaSurface.copy(alpha = .88f),
+        border = BorderStroke(1.dp, identity.copy(alpha = .37f)),
     ) {
         Column(
             Modifier.fillMaxHeight().padding(9.dp),
@@ -187,14 +194,14 @@ private fun V144GuideChoiceCard(
             Surface(
                 modifier = Modifier.fillMaxWidth().height(174.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = V144GuideStage,
-                border = BorderStroke(1.dp, identity.copy(alpha = .25f)),
+                color = V144GuideStage.copy(alpha = .66f),
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     V144GuideCharacter(
                         guide = guide,
-                        state = CinePulseState.WAVE,
-                        modifier = Modifier.size(144.dp),
+                        state = if (guide == V144GuideIdentity.FUNNY)
+                            CinePulseState.PRESENT else CinePulseState.WAVE,
+                        modifier = Modifier.size(150.dp),
                     )
                 }
             }
