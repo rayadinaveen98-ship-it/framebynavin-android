@@ -689,6 +689,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                         creatorSetupRequested = false
                         cloudRecoveryRequested = true
                     },
+                    creatorSetupComplete = settings.onboardingComplete,
                     onStart = vm::startTask,
                     onAdvance = ::advanceWorkflowWithJourney,
                     onViewAllReminders = { showReminders = true },
@@ -956,6 +957,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             )
             POverlay.PROFILE -> V23ProfileAccountScreen(
                 creatorProfile = settings.creatorProfile,
+                creatorSetupComplete = settings.onboardingComplete,
                 onClose = {
                     overlay = if (v402ProfileFromHome) POverlay.NONE else POverlay.SETTINGS
                 },
