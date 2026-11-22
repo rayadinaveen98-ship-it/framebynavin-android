@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,15 @@ import com.framebynavin.app.ui.theme.VisualExperiencePrefs
 internal fun V401WelcomePicker() {
     val selected = VisualExperiencePrefs.welcomeStyle
     var preview by remember { mutableStateOf<V401WelcomeStyle?>(null) }
+    val premiumStyles = listOf(
+        V401WelcomeStyle.CINEMATIC_EMBER,
+        V401WelcomeStyle.APERTURE_LIGHT_BLOOM,
+        V401WelcomeStyle.VELVET_GLASS,
+    )
+    val classicStyles = V401WelcomeStyle.entries.filterNot { it in premiumStyles }
+    // An existing classic choice stays visible when Settings first opens.
+    // A preview is always transient; only Choose persists a new style.
+    var showClassics by rememberSaveable { mutableStateOf(selected in classicStyles) }
 
     Column(Modifier.fillMaxWidth().testTag("v401-welcome-picker")) {
         Text(
@@ -67,9 +77,8 @@ internal fun V401WelcomePicker() {
             modifier = Modifier.padding(top = 4.dp),
         )
         Text(
-            text = "Three new cinematic openings and four preserved originals. " +
-                "Premium openings last 2.4 seconds; classics stay at 3 seconds. " +
-                "Previews are silent and never change your saved choice.",
+            text = "Explore three cinematic openings or reveal the four original styles. " +
+                "Preview is silent; only Choose saves your opening.",
             color = MutedText,
             fontSize = 11.sp,
             lineHeight = 16.sp,
@@ -84,13 +93,8 @@ internal fun V401WelcomePicker() {
             letterSpacing = 1.5.sp,
             modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
         )
-        val premiumStyles = listOf(
-            V401WelcomeStyle.CINEMATIC_EMBER,
-            V401WelcomeStyle.APERTURE_LIGHT_BLOOM,
-            V401WelcomeStyle.VELVET_GLASS,
-        )
-        val classicStyles = V401WelcomeStyle.entries.filterNot { it in premiumStyles }
-        (premiumStyles + classicStyles).forEachIndexed { index, style ->
+        val shownStyles = if (showClassics) premiumStyles + classicStyles else premiumStyles
+        shownStyles.forEachIndexed { index, style ->
             if (index == premiumStyles.size) {
                 Text(
                     text = "CLASSIC COLLECTION",
@@ -153,9 +157,18 @@ internal fun V401WelcomePicker() {
                     }
                 }
             }
-            if (index != (premiumStyles.size + classicStyles.size - 1)) {
+            if (index != shownStyles.lastIndex) {
                 HorizontalDivider(color = CinemaLine.copy(alpha = .52f))
             }
+        }
+        TextButton(
+            onClick = { showClassics = !showClassics },
+            modifier = Modifier.fillMaxWidth().testTag("ux12-d6-toggle-classics"),
+        ) {
+            Text(
+                if (showClassics) "Hide original openings" else "See all four original openings",
+                color = MutedGold,
+            )
         }
     }
 
