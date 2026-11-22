@@ -224,6 +224,23 @@ class CreatorOsSettingsStore(context: Context) {
         }
     }
 
+    /**
+     * Account entry is not Creator setup. Persist the account gate and any
+     * previously missing display name together so an interrupted first-run
+     * cannot leave a completed entry with a separately pending name write.
+     * Never overwrite an already saved local creator display name.
+     */
+    fun completeAccountEntry(connectedDisplayName: String? = null): Boolean {
+        val existingName = prefs.getString(KEY_CREATOR_NAME, "").orEmpty().trim()
+        val incomingName = connectedDisplayName.orEmpty().trim().take(40)
+        val useIncoming = existingName.isBlank() && incomingName.isNotBlank()
+        val editor = prefs.edit()
+        if (useIncoming) editor.putString(KEY_CREATOR_NAME, incomingName)
+        if (!editor.putBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, true).commit()) return false
+        return prefs.getBoolean(KEY_ACCOUNT_ONBOARDING_COMPLETE, false) &&
+            (!useIncoming || prefs.getString(KEY_CREATOR_NAME, "") == incomingName)
+    }
+
     fun setOnboardingComplete(value: Boolean) {
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).commit()
     }
