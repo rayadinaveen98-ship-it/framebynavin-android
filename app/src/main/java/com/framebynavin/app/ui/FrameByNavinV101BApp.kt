@@ -1401,6 +1401,28 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     // Recovery P0: only genuine first-account completion may block Home.
     // All other first-run experiences (Creator setup, guide and permissions)
     // are opt-in and never intercept an ordinary tab, reminder or Settings tap.
+    // The saved first-run focus has ONE immediate destination after account
+    // completion. Creator/Both use Home; Personal opens the existing Personal hub.
+    // None of these choices completes or fabricates a Creator profile.
+    fun enterSelectedFirstWorkspace() {
+        if (firstRunFocus == V393FirstRunFocus.PERSONAL &&
+            externalLaunch == null &&
+            !v393FirstRunPrefs.personalFirstEntryShown()
+        ) {
+            runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
+                .onSuccess {
+                    personalReminderSpace = true
+                    activityCenterOpen = false
+                    showReminders = true
+                }
+                .onFailure {
+                    Toast.makeText(context,
+                        "Your account is ready. Open Personal from Home to get started.",
+                        Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
     // First-run choice is a one-time intentional decision, not a Creator setup
     // requirement and never a side effect of Home/tab/reminder navigation.
     if (!settings.accountOnboardingComplete &&
@@ -1429,6 +1451,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 }.getOrDefault(false)
                 if (saved) {
                     settings = settingsStore.snapshot()
+                    enterSelectedFirstWorkspace()
                 } else {
                     Toast.makeText(context,
                         "Could not save your Backlot account setup. Please try again.",
@@ -1442,6 +1465,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 }.getOrDefault(false)
                 if (saved) {
                     settings = settingsStore.snapshot()
+                    enterSelectedFirstWorkspace()
                 } else {
                     Toast.makeText(context,
                         "Could not save local setup. Please try again.",
