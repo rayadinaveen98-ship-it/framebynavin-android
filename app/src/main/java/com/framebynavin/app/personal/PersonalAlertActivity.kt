@@ -374,11 +374,15 @@ internal fun V2233PersonalAlertScreen(
                         .padding(end = 7.dp, bottom = 7.dp),
                 )
             }
-            Text(
-                "PERSONAL REMINDER",
-                color = V336DirectorPalette.hot,
-                fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 2.4.sp,
-            )
+            // The RX01 MAIN header already identifies the Personal domain.
+            // Legacy/Classic keeps its original category caption unchanged.
+            if (!rx01MainBackdrop) {
+                Text(
+                    "PERSONAL REMINDER",
+                    color = V336DirectorPalette.hot,
+                    fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 2.4.sp,
+                )
+            }
             Text(
                 reminder.title, color = V336DirectorPalette.ivory,
                 fontSize = if (compact) 22.sp else 26.sp,
