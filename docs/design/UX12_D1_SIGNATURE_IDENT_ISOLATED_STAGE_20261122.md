@@ -33,7 +33,7 @@ The repository already contains the original `res/drawable/backlot_v198_brand_ma
    - Verifies reveal ordering, full mark/wordmark visibility before exit, normal finish, reduced-motion static values, and legacy route scope.
 
 3. `.github/workflows/backlot-ux12-d1-signature-isolated-qa.yml`
-   - Narrow branch-only source fence, Gradle build/unit/lint and Lab APK candidate. This does **not** certify the design on physical tablets; CI outcomes must be read separately.
+   - Manual-only full-stage source fence, Gradle build/unit/lint and Lab APK candidate. Workflow runs ONLY via explicit `workflow_dispatch` after the founder's final-stage command; never on per-stage pushes. This does **not** certify the design on physical tablets; CI outcomes must be read separately.
 
 ## Explicit preservation and QA
 
@@ -49,6 +49,15 @@ Unchanged: `VisualExperiencePrefs` saved welcome style IDs, welcome selection UI
 - Reduced-motion and Battery Saver scenarios require physical verification. The current renderer does not add any heavy GPU shader or video dependency.
 - P0 Personal Reminder reliability incident remains a separate gate; the visual stage cannot claim Alarm/Snooze certification.
 - Any design changes beyond D1 (first-run, companion, personal/idea/settings, RX01 reminders) require their separately planned UX12 stages.
+
+## Founder-approved stage-first testing policy (2026-11-22)
+
+- Stage each approved UX12 feature in repository source first, without automatically running Android tests, lint, build, device QA, or APK generation after individual changes.
+- The exact founder authorization to begin the final verification cycle is **“Done bro, start next steps and give APK”** (or another equally explicit final-stage command).
+- Only after that authorization, run the cumulative scope review, unit/instrumentation tests, lint, build, APK provenance checks and owner physical acceptance. Do not falsely mark implementation as tested before those checks.
+- The D1 workflow was initially introduced with a push trigger and automatically started run `44989498145` before this instruction; that preexisting run does not constitute owner-authorized final verification. Its trigger was amended to manual-only on this branch; no new automated QA should trigger from later D1 pushes.
+- The stage-first rule applies to all remaining UX12 branches and integration workflows, not only D1. Avoid generic push-triggered workflows where feasible; coordinate disabling/updating any affected gates before later changes.
+- Keep the Personal Reminder P0 incident as a separate active release gate.
 
 ## Current evidence classification
 
