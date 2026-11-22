@@ -80,17 +80,11 @@ object VoicePersonaEngine {
     fun comparisonPreviewText(): String =
         "Backlot reminder. Your next creative task is ready. Let's get started."
 
-    fun previewText(persona: VoicePersona): String = when (persona) {
-        VoicePersona.WARM -> "Backlot voice check. Calm, clear, and ready when you are."
-        VoicePersona.WOMAN -> "Backlot voice check. Your next creative step is ready."
-        VoicePersona.MAN -> "Backlot voice check. Focus on the next stage."
-        VoicePersona.YOUNG -> "Hey, Backlot here! Your next big idea is ready. Let's go!"
-        VoicePersona.FUNNY -> "Plot twist! Your reminder is ready. I brought the energy. You bring the ideas!"
-        VoicePersona.CARTOON -> "Attention, creative hero! Backlot has a mission. Ready, set, create!"
-        VoicePersona.ALIEN -> "Backlot transmission received. Creative signal detected."
-        VoicePersona.ROBOT -> "Backlot system check. Creator task detected. Ready."
-    }
+    /** Use the actual new Creator script in the persona picker preview. */
+    fun previewText(persona: VoicePersona): String =
+        RX03BReminderScripts.creatorPreview(persona)
 
+    /** The runtime Creator reminder gets the same safe, domain-aware copy. */
     fun reminderText(
         persona: VoicePersona,
         title: String,
@@ -98,19 +92,9 @@ object VoicePersonaEngine {
         stage: String,
         notes: String,
         includeNotes: Boolean,
-    ): String {
-        val core = when (persona) {
-            VoicePersona.WARM -> "Backlot. $title. This is your $urgency. Current stage: $stage."
-            VoicePersona.WOMAN -> "Backlot check-in. $title. Your $urgency is ready. You are at $stage."
-            VoicePersona.MAN -> "Backlot. Focus check. $title. $urgency. Current stage: $stage."
-            VoicePersona.YOUNG -> "Hey, it's Backlot! $title is ready. Time for your $urgency. You're at $stage!"
-            VoicePersona.FUNNY -> "Plot twist! $title needs its creator. It's $urgency time. You're on $stage. Let's roll!"
-            VoicePersona.CARTOON -> "Attention, creative hero! $title is calling. Your $urgency awaits. Next stop: $stage!"
-            VoicePersona.ALIEN -> "Backlot transmission. Subject: $title. Signal priority: $urgency. Current stage: $stage."
-            VoicePersona.ROBOT -> "Backlot reminder. Task: $title. Priority: $urgency. Stage: $stage."
-        }
-        return if (includeNotes && notes.isNotBlank()) "$core $notes" else core
-    }
+    ): String = RX03BReminderScripts.creator(
+        persona, title, urgency, stage, notes, includeNotes,
+    )
 
     fun availabilityHint(tts: TextToSpeech): String {
         val count = candidateVoices(tts).size
