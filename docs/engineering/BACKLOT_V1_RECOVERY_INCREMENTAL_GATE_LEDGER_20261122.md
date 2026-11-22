@@ -25,3 +25,14 @@ Source is fixed on the isolated branch. Fail at gate N => inspect exact logs, co
 
 ## Snapshot note
 This ledger records the evidence known when written; GitHub Actions is the live source of truth for subsequent stage status, and new results must be appended with run IDs rather than silently revising historical failures.
+
+## Incremental recovery checkpoint (2026-11-22)
+
+- **Stage A PASS:** run `45023567967`, compile-only frozen application SHA `8b771a52`.
+- **Stage B1 PASS:** job `137220769856` of run `45026564764` passed targeted JVM assertions. Entire run remained red because AndroidTest compilation subsequently failed; do not misreport whole Stage B as passed.
+- **Stage B AndroidTest failure diagnosed:** job `137226886901`, `compileDebugAndroidTestKotlin`, four invalid top-level imports of `assertExists`/`assertDoesNotExist` in `BacklotV1RecoveryAccountUiTest.kt` and `BacklotV1RecoveryNavigationJourneyUiTest.kt`. Android debug app assembled successfully; warnings about Play Services D8 stack-map were not the compiler blocker.
+- **Only two test files modified:** removed exactly four invalid imports, no production application source edits. The initial Stage B2 workflow `45032527848` was invalid YAML (no test jobs started), corrected YAML only.
+- **Stage B2 PASS:** `45032575621`, job `137239172032`, prior green Lab app retained with SHA256, changed Android instrumentation test APK rebuilt. Artifact `14759176751` named `Backlot-V1-RECOVERY-STAGE-B2-TEST-FIX-AND-LAB-APKS`.
+- **Stage C launched:** `45034910254` uses pinned B2 binaries on disposable Android 15 KVM, root UI suite; not certified until run and individual test evidence are green.
+- Stage D and E workflow integrity gates updated to permit the exact two AndroidTest-only import changes and verify previous green focused JVM/B2 results without repeating earlier full JVM compilation.
+- Protected `main` stayed at `abbe88984bac16cfafbd990d9cb00ed54cfdd07e` when checked. No owner signed APK, hosted data modification or stable merge in this checkpoint.
