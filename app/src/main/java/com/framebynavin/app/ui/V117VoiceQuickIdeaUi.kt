@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -150,11 +151,11 @@ internal fun V117VoiceIdeaInput(
                         Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Voice capture", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text("Open the dot field to dictate.", color = MutedText, fontSize = 8.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Dictate an idea as text", color = MutedText, fontSize = 11.sp, maxLines = 2)
                         }
                     }
                     Spacer(Modifier.height(5.dp))
-                    Text("Audio is never saved.", color = MutedText, fontSize = 7.7.sp)
+                    Text("No audio saved during dictation.", color = MutedText, fontSize = 10.sp)
                 }
             } else {
                 Column(
@@ -193,13 +194,19 @@ internal fun V117VoiceIdeaInput(
                         modifier = Modifier.size(166.dp),
                     )
                     Text(if (listening) "Listening" else "Tap to listen", color = ProjectorIvory, fontSize = 12.8.sp, fontWeight = FontWeight.Black)
-                    Text(if (listening) "Tap again to stop" else "Nothing is listening yet", color = MutedText, fontSize = 8.4.sp)
+                    Text(if (listening) "Tap again to stop" else "Microphone off", color = MutedText, fontSize = 10.5.sp)
 
                     if (partial.isNotBlank()) {
                         Spacer(Modifier.height(9.dp))
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(13.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-                            Text(partial, Modifier.padding(11.dp), color = ProjectorIvory.copy(alpha=.90f), fontSize = 10.2.sp, lineHeight = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                        }
+                        Text(
+                            partial,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp)
+                                .testTag("ux12-d5-live-transcript"),
+                            color = ProjectorIvory.copy(alpha = .90f),
+                            fontSize = 12.sp, lineHeight = 18.sp,
+                            maxLines = 4, overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                     error?.let { message ->
                         Spacer(Modifier.height(7.dp))
@@ -214,9 +221,25 @@ internal fun V117VoiceIdeaInput(
 }
 
 /**
- * FC13: real microphone RMS drives a field of individual dots, not a rotating
- * orb. No recorder, external analyzer, or audio persistence is added.
- * Idle is calm; speaking pushes the dots outward and creates a subtle wave.
+ * UX12 D5: presentation-only idle motion helpers. Neither one is a microphone
+ * state indicator. Reduced-motion or low-power modes use a static field.
+ */
+internal object UX12D5DotMotionPolicy {
+    fun idleExpansion(wave: Float, attenuation: Float, enabled: Boolean): Float =
+        if (enabled) (0.05f + wave.coerceIn(0f, 1f) * 0.14f) *
+            attenuation.coerceIn(0f, 1f)
+        else 0f
+
+    fun reaction(speechIntensity: Float, wave: Float, attenuation: Float): Float =
+        speechIntensity.coerceIn(0f, 1f) *
+            wave.coerceIn(0f, 1f) *
+            attenuation.coerceIn(0f, 1f)
+}
+
+/**
+ * FC13: microphone RMS supplies ONLY the listening reaction; an independent
+ * slow, low-amplitude phase also keeps the idle dot field gently breathing.
+ * No recorder, analyzer, permission request or audio persistence is added.
  */
 @Composable
 internal fun FC13ReactiveDotField(
@@ -255,6 +278,7 @@ internal fun FC13ReactiveDotField(
     } else 0f
     Canvas(
         modifier
+            .testTag("ux12-d5-voice-dot-field")
             .semantics {
                 contentDescription = if (active) "Stop voice listening" else "Start voice listening"
             }
@@ -295,17 +319,33 @@ internal fun FC13ReactiveDotField(
                 val traveling = (
                     kotlin.math.sin(distance * 1.35f - motion * 1.2f) + 1f
                 ) * .5f
-                val reaction = intensity * traveling * attenuation
-                val offset = reaction * spacing * .24f
+                // The mic-off field breathes independently of RMS. Listening
+                // adds a larger outward reaction only when real speech arrives.
+                val idle = UX12D5DotMotionPolicy.idleExpansion(
+                    wave = traveling, attenuation = attenuation,
+                    enabled = reactiveMotion,
+                )
+                val speech = UX12D5DotMotionPolicy.reaction(
+                    speechIntensity = intensity,
+                    wave = traveling,
+                    attenuation = attenuation,
+                )
+                val expansion = idle + speech * .24f
                 val xSign = if (distance > .001f) horizontal / distance else 0f
                 val ySign = if (distance > .001f) vertical / distance else 0f
+                val wanderX = if (reactiveMotion) kotlin.math.sin(
+                    motion + horizontal * .42f + vertical * .21f,
+                ) * spacing * .08f * attenuation else 0f
+                val wanderY = if (reactiveMotion) kotlin.math.cos(
+                    motion * .81f + vertical * .38f - horizontal * .16f,
+                ) * spacing * .08f * attenuation else 0f
                 val dotCenter = Offset(
-                    c.x + horizontal * spacing + xSign * offset,
-                    c.y + vertical * spacing + ySign * offset,
+                    c.x + horizontal * spacing + xSign * spacing * expansion + wanderX,
+                    c.y + vertical * spacing + ySign * spacing * expansion + wanderY,
                 )
-                val light = (attenuation * (.45f + reaction * .55f))
+                val light = (attenuation * (.44f + idle * .32f + speech * .50f))
                     .coerceIn(.20f, 1f)
-                val radius = (spacing * (.125f + reaction * .145f))
+                val radius = (spacing * (.13f + idle * .20f + speech * .14f))
                     .coerceAtMost(spacing * .33f)
                 val dotColor = if ((x + y) % 4 == 0) ProjectorIvory else RecRed
                 drawCircle(
