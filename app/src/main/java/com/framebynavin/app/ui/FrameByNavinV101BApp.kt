@@ -129,10 +129,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     val v393FirstRunPrefs = remember(context) { V393FirstRunPrefs(context.applicationContext) }
-    // Legacy focus choices remain readable, but new installs no longer select a mode.
-    var v393FirstRunFocus by remember { mutableStateOf(v393FirstRunPrefs.selectedFocus()) }
-    var v393UnifiedEntry by remember { mutableStateOf(v393FirstRunPrefs.unifiedEntryStarted()) }
-    var v402PermissionGuideComplete by remember { mutableStateOf(v393FirstRunPrefs.permissionGuideComplete()) }
+    // Legacy first-run preferences are retained only to read/write older
+    // compatibility markers; they no longer control Home navigation.
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
     // The Activity owns the preference so the REAL Settings screen can silence
     // a still-composed Home card in the very same frame after a successful save.
@@ -151,31 +149,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 !driveVaultLocalStore.recoveryReviewed(session.email)
         }
     }
-    // UX12-D2: record a new unified journey without a visible "Make Backlot
-    // yours" choice and without overwriting any legacy focus preference.
-    // Existing completed accounts and completed Creator profiles are exempt.
-    LaunchedEffect(
-        settings.accountOnboardingComplete,
-        settings.onboardingComplete,
-        settings.creatorProfile.isComplete,
-        v393FirstRunFocus,
-    ) {
-        if (!settings.accountOnboardingComplete &&
-            !settings.onboardingComplete &&
-            !settings.creatorProfile.isComplete &&
-            v393FirstRunFocus == null && !v393UnifiedEntry
-        ) {
-            runCatching { v393FirstRunPrefs.beginUnifiedEntry() }
-                .onSuccess {
-                    v393UnifiedEntry = it
-                    v402PermissionGuideComplete = v393FirstRunPrefs.permissionGuideComplete()
-                }
-                .onFailure {
-                    Toast.makeText(context, "Could not save Backlot setup. Please retry.",
-                        Toast.LENGTH_LONG).show()
-                }
-        }
-    }
+    // No automatic first-run flag mutations from Compose recomposition.
+    // The explicit account choice and optional Creator setup own their gates.
     var permissions by remember { mutableStateOf(pPermissions(context)) }
     var tab by rememberSaveable { mutableStateOf(PTab.TODAY) }
     var homeSlideshowRequestNonce by remember { mutableLongStateOf(0L) }
@@ -1426,7 +1401,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             },
             onReturningAccount = {
                 runCatching { v393FirstRunPrefs.markReturningAccount() }
-                    .onSuccess { v402PermissionGuideComplete = true }
                     .onFailure {
                         Toast.makeText(context,
                             "Could not save returning-account status. Please retry.",
@@ -1474,7 +1448,10 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     // Persist the existing optional-permissions marker if the
                     // original five-page setup has already shown those options.
                     runCatching { v393FirstRunPrefs.markPermissionGuideComplete() }
-                        .onSuccess { v402PermissionGuideComplete = true }
+                        .onFailure {
+                            android.util.Log.w("BacklotSetup",
+                                "Optional permission guide completion marker not saved", it)
+                        }
                     creatorSetupRequested = false
                 }
                 complete
