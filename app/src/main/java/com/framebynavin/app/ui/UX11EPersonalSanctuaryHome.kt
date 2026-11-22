@@ -85,6 +85,7 @@ internal fun UX11EPersonalSanctuaryHero(
         Box {
             // One static, inexpensive ambient surface. No perpetual GPU animation.
             Canvas(Modifier.matchParentSize()) {
+                if (size.minDimension <= 0f) return@Canvas
                 drawRect(Brush.verticalGradient(
                     listOf(Color(0xFF251821), Color(0xFF1B161F))
                 ))
