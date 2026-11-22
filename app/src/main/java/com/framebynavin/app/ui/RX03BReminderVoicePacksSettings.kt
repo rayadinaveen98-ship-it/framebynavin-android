@@ -51,6 +51,7 @@ internal fun RX03BReminderVoicePacksSettings() {
     var domain by rememberSaveable { mutableStateOf(RX03BVoiceDomain.PERSONAL) }
     var revision by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     val selected = remember(domain, revision) {
         RX03BVoicePackPreferences.selected(context, domain)
     }
@@ -72,9 +73,33 @@ internal fun RX03BReminderVoicePacksSettings() {
         Text("PERSONAL & CHALLENGE VOICE PACKS",
             color = MutedGold, fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp, fontSize = 11.sp)
-        Text("One voice style, eight personalities. Each reminder space gets " +
-            "its own words, not simply the Creator script in a different pitch.",
+        Text("Eight familiar voice styles, with different scripts for Personal " +
+            "and 21-day reminders. The original Android voice remains the default.",
             color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+        val personalPack = remember(revision) {
+            RX03BVoicePackPreferences.selected(context, RX03BVoiceDomain.PERSONAL)
+        }
+        val challengePack = remember(revision) {
+            RX03BVoicePackPreferences.selected(context, RX03BVoiceDomain.CHALLENGE_21)
+        }
+        Text(
+            "Personal: " + (personalPack?.let(VoicePersonaEngine::label) ?: "Original") +
+                "   ·   21-Day: " +
+                (challengePack?.let(VoicePersonaEngine::label) ?: "Original"),
+            color = MutedGold,
+            fontSize = 11.sp,
+            modifier = Modifier.testTag("rx03b-domain-pack-summary"),
+        )
+        OutlinedButton(
+            onClick = {
+                expanded = !expanded
+                V403VoicePreviewPlayer.stop()
+            },
+            modifier = Modifier.fillMaxWidth().testTag("rx03b-expand-packs"),
+        ) {
+            Text(if (expanded) "HIDE VOICE PACK CHOICES" else "CUSTOMIZE VOICE PACKS")
+        }
+        if (expanded) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = domain == RX03BVoiceDomain.PERSONAL,
@@ -191,5 +216,6 @@ internal fun RX03BReminderVoicePacksSettings() {
                 "This setting is shared by reminders of the selected type.",
             color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
         )
+        }
     }
 }
