@@ -47,9 +47,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * One owner-visible home for all reminder appearance settings. The old V391
- * and V394 choices are displayed in the expandable legacy/main section, not
- * removed or migrated. Android FSI/permissions remain under delivery settings.
+ * One coherent approved appearance screen for Creator, Personal and Challenge.
+ * Old Classic/Cinematic/Premiere selectors are intentionally absent. Historical
+ * preference records remain readable for safe upgrades, never deleted here.
+ * Android FSI and alarms remain owned by delivery settings.
  */
 @Composable
 internal fun RX02ReminderAppearanceSettings() {
@@ -61,8 +62,8 @@ internal fun RX02ReminderAppearanceSettings() {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf(false) }
+    var previewMain by remember { mutableStateOf(false) }
     var previewMode by remember { mutableStateOf(RX01ReminderIconKind.VOICE) }
-    var showLegacy by rememberSaveable { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
@@ -95,9 +96,6 @@ internal fun RX02ReminderAppearanceSettings() {
     val media = remember(currentDomain, revision) {
         RX02EntranceMediaStore.selected(context, currentDomain)
     }
-    var fluidEnabled by remember(currentDomain, revision) {
-        mutableStateOf(RX01ReminderScenePrefs.enabled(context, currentDomain))
-    }
     Column(
         modifier = Modifier.fillMaxWidth().testTag("rx02-reminder-appearance"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -127,30 +125,6 @@ internal fun RX02ReminderAppearanceSettings() {
                 )
             }
         }
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = CinemaSurface,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Enable fluid entrance", color = ProjectorIvory,
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Keep the double-tap screen active for this reminder type.",
-                        color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
-                }
-                Switch(
-                    checked = fluidEnabled,
-                    onCheckedChange = { wanted ->
-                        val saved = RX01ReminderScenePrefs.set(context, currentDomain, wanted)
-                        if (saved) fluidEnabled = wanted
-                        else message = "The visual preference could not be saved."
-                    },
-                    modifier = Modifier.testTag("rx02-fluid-enabled"),
-                )
-            }
-        }
-
         Text("ENTRANCE BACKGROUND", color = MutedGold, fontSize = 11.sp,
             letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
         // Built-in is the unmodified original RX01 palette for this domain.
@@ -176,9 +150,10 @@ internal fun RX02ReminderAppearanceSettings() {
                     onClick = {
                         val cleared = RX02EntranceMediaStore.clear(context, currentDomain)
                         if (cleared) {
-                            if (RX01ReminderScenePrefs.set(context, currentDomain, true)) {
-                                fluidEnabled = true
-                            }
+                            // Keep the approved modern entrance active after
+                            // selecting the original; Challenge's OS permission
+                            // controls remain separate in Delivery Settings.
+                            RX01ReminderScenePrefs.set(context, currentDomain, true)
                             revision++
                             message = "Original Backlot entrance selected."
                         } else message = "Could not restore the original entrance."
@@ -259,19 +234,37 @@ internal fun RX02ReminderAppearanceSettings() {
             color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
         )
         Spacer(Modifier.height(14.dp))
-        Text("MAIN SCREEN & OLDER LOOKS", color = MutedGold,
+        // Each domain has a distinct, existing RX01 MAIN palette rather than
+        // exposing rejected V391/V394 collections or creating a new renderer.
+        Text("MAIN REMINDER SCREEN", color = MutedGold,
             fontWeight = FontWeight.Bold, fontSize = 11.sp, letterSpacing = 1.sp)
-        Text(
-            "Your previous Classic/Cinematic, Premiere, Voice and Alarm " +
-                "scene choices are preserved. They appear when Fluid Entrance " +
-                "is disabled for the relevant reminder.",
-            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
-        )
-        OutlinedButton(
-            onClick = { showLegacy = !showLegacy },
-            modifier = Modifier.fillMaxWidth().testTag("rx02-open-older-looks"),
-        ) { Text(if (showLegacy) "HIDE SAVED MAIN SCREEN STYLES" else "MAIN SCREEN STYLES & CLASSICS") }
-        if (showLegacy) V391ReminderSceneSettings()
+        Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface,
+            modifier = Modifier.fillMaxWidth().testTag("backlot-modern-main-background")) {
+            Column(Modifier.fillMaxWidth().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.fillMaxWidth().height(132.dp)) {
+                    RX01FluidReminderBackdrop(
+                        domain = currentDomain,
+                        phase = RX01SurfacePhase.MAIN,
+                        motionEnabled = false, lowPower = true,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                Text(when (currentDomain) {
+                    RX01ReminderDomain.CREATOR -> "Studio Nocturne"
+                    RX01ReminderDomain.PERSONAL -> "Velvet Sanctuary"
+                    RX01ReminderDomain.CHALLENGE_21 -> "Ember Command"
+                }, color = ProjectorIvory, fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp)
+                Text("A quieter, readable background for your real reminder text and actions.",
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                OutlinedButton(
+                    onClick = { previewMain = true },
+                    modifier = Modifier.fillMaxWidth().testTag("backlot-preview-modern-main"),
+                ) { Text("PREVIEW MAIN SCREEN") }
+            }
+        }
+
     }
 
     if (preview) {
@@ -317,4 +310,34 @@ internal fun RX02ReminderAppearanceSettings() {
             }
         }
     }
+    if (previewMain) {
+        Dialog(onDismissRequest = { previewMain = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Box(Modifier.fillMaxSize().background(Color.Black)
+                .testTag("backlot-main-background-preview")) {
+                RX01FluidReminderBackdrop(
+                    domain = currentDomain, phase = RX01SurfacePhase.MAIN,
+                    motionEnabled = true, lowPower = false,
+                )
+                Column(
+                    modifier = Modifier.align(Alignment.Center).fillMaxWidth()
+                        .padding(horizontal = 30.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("MAIN REMINDER PREVIEW", color = ProjectorIvory,
+                        fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(9.dp))
+                    Text("Your live reminder text and response controls appear here. This preview takes no action.",
+                        color = ProjectorIvory, fontSize = 12.sp, lineHeight = 18.sp)
+                }
+                TextButton(
+                    onClick = { previewMain = false },
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .safeDrawingPadding().padding(12.dp)
+                        .testTag("backlot-close-main-preview"),
+                ) { Text("CLOSE", color = Color.White) }
+            }
+        }
+    }
+
 }
