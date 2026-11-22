@@ -140,6 +140,17 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var companionEnabled by remember(companionPrefStore) { mutableStateOf(companionPrefStore.enabled()) }
     var driveRecoveryRevision by rememberSaveable { mutableIntStateOf(0) }
     var settings by remember { mutableStateOf(settingsStore.snapshot()) }
+    // The original Cloud recovery decision remains available by an explicit
+    // Home action. It must not hijack every tab because Creator setup is empty.
+    val pendingCloudRecoverySession = remember(driveRecoveryRevision,
+        settings.accountOnboardingComplete, settings.onboardingComplete,
+        settings.creatorProfile.isComplete) {
+        CloudSyncManager(context.applicationContext).localState().session?.takeIf { session ->
+            settings.accountOnboardingComplete &&
+                (!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
+                !driveVaultLocalStore.recoveryReviewed(session.email)
+        }
+    }
     // UX12-D2: record a new unified journey without a visible "Make Backlot
     // yours" choice and without overwriting any legacy focus preference.
     // Existing completed accounts and completed Creator profiles are exempt.
@@ -173,6 +184,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     // Recovery P0: Creator setup is an explicit opt-in action, never a side effect of tabs.
     var creatorSetupRequested by rememberSaveable { mutableStateOf(false) }
+    var cloudRecoveryRequested by rememberSaveable { mutableStateOf(false) }
     var v402ProfileFromHome by rememberSaveable { mutableStateOf(false) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
@@ -288,8 +300,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             homeSpacesRevision++
         }
     }
-    BackHandler(enabled = creatorSetupRequested || guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
+    BackHandler(enabled = cloudRecoveryRequested || creatorSetupRequested || guidedTourStepName != null || focusTaskId != null || showComposer || showQuickCapture || showReminders || showControl || overlay != POverlay.NONE || tab != PTab.TODAY) {
         when {
+            cloudRecoveryRequested -> cloudRecoveryRequested = false
             creatorSetupRequested -> creatorSetupRequested = false
             // Real surfaces always get first chance to close. A Back press inside Quick Capture or
             // New Project must not silently count as skipping the entire guided journey.
@@ -689,7 +702,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     onCreatorSetup = {
                         overlay = POverlay.NONE
                         showReminders = false
+                        cloudRecoveryRequested = false
                         creatorSetupRequested = true
+                    },
+                    cloudRecoveryAvailable = pendingCloudRecoverySession != null,
+                    onReviewCloudRecovery = {
+                        overlay = POverlay.NONE
+                        showReminders = false
+                        creatorSetupRequested = false
+                        cloudRecoveryRequested = true
                     },
                     onStart = vm::startTask,
                     onAdvance = ::advanceWorkflowWithJourney,
@@ -964,6 +985,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     // Explicit opt-in only; do not overwrite an existing profile or tasks.
                     overlay = POverlay.NONE
                     showReminders = false
+                    cloudRecoveryRequested = false
                     creatorSetupRequested = true
                 },
                 onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
@@ -1410,6 +1432,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                             "Could not save returning-account status. Please retry.",
                             Toast.LENGTH_LONG).show()
                     }
+            },
+        )
+    } else if (cloudRecoveryRequested && pendingCloudRecoverySession != null) {
+        V20DriveRecoveryGate(
+            session = pendingCloudRecoverySession,
+            onRecovered = {
+                cloudRecoveryRequested = false
+                driveRecoveryRevision++
+                settings = settingsStore.snapshot()
+            },
+            onStartNew = {
+                cloudRecoveryRequested = false
+                driveRecoveryRevision++
+                settings = settingsStore.snapshot()
             },
         )
     } else if (BacklotV1RecoveryRoutePolicy.showCreatorSetup(
