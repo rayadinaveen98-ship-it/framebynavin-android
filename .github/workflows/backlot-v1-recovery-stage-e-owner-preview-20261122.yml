@@ -1,0 +1,105 @@
+name: Backlot 1.0 recovery Stage E - gated signed owner preview (NOT RELEASE)
+
+on:
+  push:
+    branches:
+      - feature/backlot-v1-recovery-onboarding-reminder-looks-20261122
+    paths:
+      - "docs/engineering/BACKLOT_RECOVERY_START_STAGE_E.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-v1-recovery-stage-e
+  cancel-in-progress: false
+
+env:
+  FROZEN_APP_SHA: "8b771a5287b92d33cc8341907fc7747447cfd29a"
+
+jobs:
+  owner-preview:
+    name: Confirm A/B/C/D evidence, then build exact owner-preview signed APK once
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Confirm frozen source, all CI gates and owner-upgrade version identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p output/recovery-stage-e
+          git diff --exit-code "$FROZEN_APP_SHA" HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties
+          test "$(git merge-base "$FROZEN_APP_SHA" HEAD)" = "$FROZEN_APP_SHA"
+          git diff --check "$FROZEN_APP_SHA" HEAD
+          test ! -d supabase/lab_migrations
+          grep -Fq 'versionCode = 338' app/build.gradle.kts
+          grep -Fq 'versionName = "1.0"' app/build.gradle.kts
+          grep -Fq 'resValue("string", "backlot_install_label", "Backlot")' app/build.gradle.kts
+          gates=docs/engineering/BACKLOT_RECOVERY_START_STAGE_E.txt
+          test -s "$gates"
+          for key in STAGE_A_RUN_ID STAGE_B_RUN_ID STAGE_C_RUN_ID STAGE_D_RUN_ID; do
+            id="$(grep -E "^$key=[0-9]+$" "$gates" | cut -d= -f2)"
+            test -n "$id"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id" > "/tmp/recovery-$key.json"
+            jq -e --arg branch "$GITHUB_REF_NAME" '.status=="completed" and .conclusion=="success" and .head_branch==$branch' "/tmp/recovery-$key.json" >/dev/null
+            printf '%s=%s PASS\n' "$key" "$id" | tee -a output/recovery-stage-e/REQUIRED-GATES.txt
+          done
+          test "$(grep '^STAGE_A_RUN_ID=' "$gates")" = "STAGE_A_RUN_ID=45023567967"
+          test "$(grep '^STAGE_B_RUN_ID=' "$gates")" = "STAGE_B_RUN_ID=45026564764"
+          git rev-parse HEAD > output/recovery-stage-e/WORKFLOW-SHA.txt
+          echo "$FROZEN_APP_SHA" > output/recovery-stage-e/APP-SOURCE-SHA.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Assemble existing personalStable signed owner preview from frozen app inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 102m gradle :app:assemblePersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/recovery-stage-e/OWNER-BUILD.log
+      - name: Verify real Backlot owner package, signed certificate, version and SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$apk" > output/recovery-stage-e/APP-IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app' versionCode='338' versionName='1.0'" output/recovery-stage-e/APP-IDENTITY.txt
+          grep -q "application-label:'Backlot'" output/recovery-stage-e/APP-IDENTITY.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" > output/recovery-stage-e/SIGNER.txt
+          grep -qi 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/recovery-stage-e/SIGNER.txt
+          sha256sum "$apk" > output/recovery-stage-e/SHA256SUMS.txt
+          test -z "$(git status --porcelain -- app/src)"
+          printf 'SIGNED OWNER PREVIEW; source frozen; NOT Play production, stable promotion or physical-device-certified\n' > output/recovery-stage-e/STATUS.txt
+      - name: Upload verified same-package owner-preview APK only after all gates pass
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-RECOVERY-OWNER-PREVIEW-PHYSICAL-QA-REQUIRED
+          path: |
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            output/recovery-stage-e/
+          retention-days: 30
+      - name: Preserve failure-only diagnostics; never mislabel failed APK as final
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-RECOVERY-OWNER-BUILD-ERROR
+          path: output/recovery-stage-e/
+          retention-days: 30
+          if-no-files-found: warn
