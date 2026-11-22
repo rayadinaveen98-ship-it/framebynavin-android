@@ -1,0 +1,238 @@
+name: Backlot D8 candidate - verification and Lab APK, NOT release
+
+# Deliberate two-phase gate. Simply editing Kotlin/build files runs only the
+# D8 compile diagnostics workflow. This full suite runs ONLY after a verified
+# compile, when the D8 owner/agent commits the specific gate marker.
+on:
+  push:
+    branches:
+      - integration/backlot-ux12-rx02-rx03-d8-candidate-20261122
+    paths:
+      - "docs/engineering/D8_START_VERIFICATION_GATE_20261122.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-d8-candidate-final-verification-20261122
+  cancel-in-progress: true
+
+jobs:
+  source:
+    name: Verify candidate, no UX09/cloud or stable changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify isolated candidate ancestry and trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=abbe88984bac16cfafbd990d9cb00ed54cfdd07e
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          git diff --check "$base" HEAD -- app .github/workflows/backlot-d8-candidate-final-verification.yml
+          git diff --name-only "$base" HEAD > /tmp/d8-scope.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/d8-scope.txt').read_text().splitlines()
+          assert len(p)>=75, 'Not the full cumulative staged source'
+          forbidden=[x for x in p if 'ux09' in x.lower() or
+                     'supabase' in x.lower() or 'cloud/' in x.lower() or
+                     'lab_migrations' in x.lower()]
+          assert not forbidden, forbidden
+          for item in ('app/src/main/java/com/framebynavin/app/reminders/RX02EntranceBackdrop.kt',
+                       'app/src/main/java/com/framebynavin/app/reminders/RX03BReminderScripts.kt',
+                       'app/src/main/java/com/framebynavin/app/reminders/VoiceGreetingBuilder.kt'):
+              assert item in p, item
+          print('PASS: cumulative, isolated D8 verification candidate')
+          PY
+          git rev-parse HEAD
+
+  unit:
+    name: Full JVM unit regression tests
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+          cache-read-only: false
+      - name: Run Lab-safe full JVM unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/d8-unit
+          git rev-parse HEAD > output/d8-unit/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 5900s gradle :app:testDebugUnitTest \
+            -PbacklotLab=true --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/d8-unit/UNIT.log
+      - name: Preserve unit evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-D8-Full-Unit-Evidence
+          path: |
+            output/d8-unit/
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          retention-days: 21
+          if-no-files-found: warn
+
+  lint:
+    name: Android lint, independently of JVM tests
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+          cache-read-only: false
+      - name: Run Lab Android lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/d8-lint
+          git rev-parse HEAD > output/d8-lint/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 5900s gradle :app:lintDebug \
+            -PbacklotLab=true --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/d8-lint/LINT.log
+      - name: Preserve lint evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-D8-Lint-Evidence
+          path: |
+            output/d8-lint/
+            app/build/reports/lint-results-debug.*
+            app/build/intermediates/lint_intermediate_text_report/
+          retention-days: 21
+          if-no-files-found: warn
+
+  apk:
+    name: Package signed isolated Lab APK after unit and lint
+    needs: [source, unit, lint]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+          cache-read-only: false
+      - name: Assemble Lab app and instrumented test APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/d8-apk
+          timeout --signal=TERM --kill-after=20s 6000s gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            -PbacklotLab=true --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain 2>&1 | tee output/d8-apk/BUILD.log
+      - name: Verify Lab identity, exact source and known public preview signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=app/build/outputs/apk/debug/app-debug.apk
+          testapp=app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -s "$app"
+          test -s "$testapp"
+          aapt=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          "$aapt" dump badging "$app" > output/d8-apk/BADGING.txt
+          "$apksigner" verify --verbose --print-certs "$app" > output/d8-apk/SIGNER.txt
+          grep -q "package: name='com.framebynavin.app.lab'" output/d8-apk/BADGING.txt
+          grep -q "f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0" output/d8-apk/SIGNER.txt
+          git rev-parse HEAD > output/d8-apk/SOURCE-SHA.txt
+          sha256sum "$app" "$testapp" > output/d8-apk/SHA256SUMS.txt
+          echo 'Source-identified, publicly signed LAB only. Not production, not owner-accepted.' > output/d8-apk/RELEASE-NOTE.txt
+      - name: Preserve signed Lab APK, test APK, exact SHA and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-D8-Verified-Isolated-Lab-APK
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            output/d8-apk/
+          retention-days: 21
+          if-no-files-found: warn
+
+  emulator:
+    name: Android 15 smoke + RX01 double-tap instrumentation
+    needs: apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-D8-Verified-Isolated-Lab-APK
+          path: lab-candidate
+      - name: Check artifact source and content integrity before emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(cat lab-candidate/output/d8-apk/SOURCE-SHA.txt)"
+          test "$sha" = "$(git rev-parse HEAD)"
+          cd lab-candidate
+          sha256sum -c output/d8-apk/SHA256SUMS.txt
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install, launch, and run double-tap smoke on disposable Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: |
+            set -eu
+            mkdir -p output/d8-android15
+            adb install -r lab-candidate/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r lab-candidate/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell pm list instrumentation | tee output/d8-android15/instrumentations.txt
+            adb shell am instrument -w -e hardeningTestEnvironment ci-emulator -e class com.framebynavin.app.reminders.RX01EntranceGateUiTest com.framebynavin.app.lab.test/androidx.test.runner.AndroidJUnitRunner > output/d8-android15/rx01-test.txt 2>&1
+            cat output/d8-android15/rx01-test.txt
+            ! grep -Eqi 'INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS: Error|Process crashed|FAILURES!!!' output/d8-android15/rx01-test.txt
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' output/d8-android15/rx01-test.txt
+      - name: Preserve Android instrumentation output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-D8-Android15-Smoke
+          path: output/d8-android15/
+          retention-days: 21
+          if-no-files-found: warn
