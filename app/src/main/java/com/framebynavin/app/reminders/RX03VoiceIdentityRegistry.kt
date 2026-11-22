@@ -46,10 +46,18 @@ internal object RX03VoiceIdentityRegistry {
     }
 
     fun saved(context: Context, persona: VoicePersona): RX03VoiceSelection? {
-        val settings = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val engine = settings.getString(key(persona, "engine"), null)
-        val id = settings.getString(key(persona, "id"), null)
-        val language = settings.getString(key(persona, "language"), null)
+        // The preference may be corrupt after an interrupted OS restore.
+        // An optional speaker override must never fail actual TTS startup.
+        val values = runCatching {
+            val settings = context.applicationContext
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            Triple(
+                settings.getString(key(persona, "engine"), null),
+                settings.getString(key(persona, "id"), null),
+                settings.getString(key(persona, "language"), null),
+            )
+        }.getOrNull() ?: return null
+        val (engine, id, language) = values
         if (engine.isNullOrBlank() || id.isNullOrBlank() || language.isNullOrBlank())
             return null
         return RX03VoiceSelection(engine, id, language)
