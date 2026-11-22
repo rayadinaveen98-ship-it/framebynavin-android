@@ -54,7 +54,7 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
         assertCreatorWizardAbsent()
 
         rule.onNodeWithContentDescription("Ideas").performClick()
-        rule.onNodeWithText("Capture now. Produce later.").assertExists()
+        rule.onNodeWithTag("backlot-ideas-screen").assertExists()
         assertCreatorWizardAbsent()
 
         rule.onNodeWithContentDescription("Projects").performClick()
