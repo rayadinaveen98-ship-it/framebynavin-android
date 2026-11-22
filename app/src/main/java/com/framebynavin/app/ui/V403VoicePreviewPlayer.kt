@@ -29,10 +29,12 @@ internal object V403VoicePreviewPlayer {
         persona: VoicePersona,
         voiceNameToCompare: String? = null,
         compareSameSample: Boolean = false,
+        sampleTextOverride: String? = null,
     ) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             handler.post {
-                play(context.applicationContext, persona, voiceNameToCompare, compareSameSample)
+                play(context.applicationContext, persona, voiceNameToCompare,
+                    compareSameSample, sampleTextOverride)
             }
             return
         }
@@ -85,7 +87,7 @@ internal object V403VoicePreviewPlayer {
                     engine.speak(
                         if (compareSameSample)
                             VoicePersonaEngine.comparisonPreviewText()
-                        else VoicePersonaEngine.previewText(persona),
+                        else sampleTextOverride ?: VoicePersonaEngine.previewText(persona),
                         TextToSpeech.QUEUE_FLUSH,
                         null,
                         "backlot-preview-" + persona.name + "-" + currentGeneration,
