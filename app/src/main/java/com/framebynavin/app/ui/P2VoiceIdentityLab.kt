@@ -20,6 +20,7 @@ import com.framebynavin.app.reminders.P2VoiceIdentityPolicy
 import com.framebynavin.app.reminders.P2OfflineVoiceStore
 import com.framebynavin.app.ui.theme.*
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Point 2: opt-in audition of ACTUAL device TTS IDs, not new synthetic voices.
@@ -61,10 +62,12 @@ internal fun P2VoiceIdentityLab() {
             if (expanded) {
                 DisposableEffect(context) {
                     val handler = Handler(Looper.getMainLooper())
+                    val stillOpen = AtomicBoolean(true)
                     engineReady = false
                     status = "Checking offline speakers…"
                     val created = TextToSpeech(context.applicationContext) { initStatus ->
                         handler.post {
+                            if (!stillOpen.get()) return@post
                             if (initStatus == TextToSpeech.SUCCESS) {
                                 engineReady = true
                                 status = "Offline voice catalog ready"
@@ -76,6 +79,7 @@ internal fun P2VoiceIdentityLab() {
                     }
                     engine = created
                     onDispose {
+                        stillOpen.set(false)
                         engineReady = false
                         engine = null
                         created.stop()
