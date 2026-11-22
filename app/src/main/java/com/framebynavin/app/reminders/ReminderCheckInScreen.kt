@@ -216,22 +216,30 @@ internal fun ReminderCheckInScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "BACKLOT  /  CREATOR REMINDERS",
-                    color = V336DirectorPalette.ivory,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp,
+            if (rx01MainBackdrop) {
+                UX12D7ReminderEditorialHeader(
+                    domain = RX01ReminderDomain.CREATOR,
+                    label = "CREATOR REMINDER",
+                    trailingText = clockLabel,
                 )
-                Text(
-                    clockLabel, color = V336DirectorPalette.muted,
-                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "BACKLOT  /  CREATOR REMINDERS",
+                        color = V336DirectorPalette.ivory,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp,
+                    )
+                    Text(
+                        clockLabel, color = V336DirectorPalette.muted,
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             Text(
@@ -244,7 +252,7 @@ internal fun ReminderCheckInScreen(
             // The full alert action column is never covered or delayed.
             Box(
                 Modifier.fillMaxWidth()
-                    .height(if (compact) 170.dp else 220.dp)
+                    .height(if (rx01MainBackdrop) 148.dp else if (compact) 170.dp else 220.dp)
                     .testTag(if (kind == ReminderCheckInKind.VOICE)
                         "v195-voice-guide" else "v195-alarm-guide"),
             ) {
@@ -284,8 +292,8 @@ internal fun ReminderCheckInScreen(
                     modifier = Modifier.fillMaxWidth()
                         .testTag("v336-creator-reminder-context"),
                     color = V336DirectorPalette.panel,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                    shape = RoundedCornerShape(if (rx01MainBackdrop) 14.dp else 20.dp),
+                    border = if (rx01MainBackdrop) null else BorderStroke(1.dp, V336DirectorPalette.line),
                 ) {
                     Column(Modifier.padding(horizontal = 17.dp, vertical = 14.dp)) {
                         Text("SCHEDULED  /  STAGE", color = V336DirectorPalette.hot,
@@ -304,8 +312,8 @@ internal fun ReminderCheckInScreen(
                     modifier = Modifier.fillMaxWidth()
                         .testTag("v336-creator-reminder-next-step"),
                     color = V336DirectorPalette.panel,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                    shape = RoundedCornerShape(if (rx01MainBackdrop) 14.dp else 20.dp),
+                    border = if (rx01MainBackdrop) null else BorderStroke(1.dp, V336DirectorPalette.line),
                 ) {
                     Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
                         Text("NEXT MOVE", color = V336DirectorPalette.hot,
