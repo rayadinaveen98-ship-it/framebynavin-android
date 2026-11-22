@@ -158,9 +158,9 @@ internal fun V144SettingsHub(
                 )
                 V294QuietSettingsDivider()
                 V294QuietSettingRow(
-                    title = "Reminder scenes",
+                    title = "Reminder appearance",
                     icon = Icons.Outlined.MovieFilter,
-                    support = "Creator, Personal and Challenge visual preferences",
+                    support = "Entrance gallery, originals, Classic and Premiere",
                 ) { sectionName = V167SettingsSection.REMINDER_SCENES.name }
 
                 Spacer(Modifier.height(18.dp))
@@ -190,22 +190,13 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.REMINDER_SCENES -> V144SettingsPage(
-                "REMINDER SCENES", "Cinematic alert backgrounds", ::navigateBack,
+                "REMINDER APPEARANCE", "Entrance backgrounds and preserved classic styles",
+                ::navigateBack,
             ) {
-                V144SettingsNote(
-                    "Choose a premium entrance and a separate main-screen background " +
-                        "for Creator, Personal and the 21-Day Challenge. " +
-                        "These options change visuals, not reminder timing, completion or voice."
-                )
-                Spacer(Modifier.height(12.dp))
-                com.framebynavin.app.reminders.RX01ReminderSceneSettings()
-                Spacer(Modifier.height(22.dp))
-                V144SectionTitle(
-                    "CLASSIC & PREMIERE COLLECTIONS",
-                    "Your existing scenes are preserved and remain available when fluid is off.",
-                )
-                Spacer(Modifier.height(10.dp))
-                com.framebynavin.app.reminders.V391ReminderSceneSettings()
+                // RX02: one place for gallery/default entrance art and all
+                // preserved Classic/Premiere choices. Never mutate delivery
+                // behavior or legacy preferences merely by opening Settings.
+                com.framebynavin.app.reminders.RX02ReminderAppearanceSettings()
             }
 
             V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {
