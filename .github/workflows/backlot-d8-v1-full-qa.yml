@@ -1,0 +1,200 @@
+name: Backlot 1.0 D8 - cumulative QA and owner preview (NOT RELEASE)
+
+on:
+  push:
+    branches:
+      - integration/backlot-d8-v1-owner-qa-20261122
+    paths:
+      - "docs/engineering/D8_START_FULL_QA.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-d8-v1-full-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-identity:
+    name: Final candidate source, Backlot name, version and ancestry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Read-only provenance and source scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=abbe88984bac16cfafbd990d9cb00ed54cfdd07e
+          test "$(git merge-base "$base" HEAD)" = "$base"
+          git diff --check "$base" HEAD -- app/src app/build.gradle.kts build.gradle.kts settings.gradle.kts
+          grep -Fq 'versionCode = 338' app/build.gradle.kts
+          grep -Fq 'versionName = "1.0"' app/build.gradle.kts
+          grep -Fq 'resValue("string", "backlot_install_label", "Backlot")' app/build.gradle.kts
+          test ! -d app/src/main/java/com/framebynavin/app/cloud/ux09rpc
+          test ! -d supabase/lab_migrations
+          git rev-parse HEAD
+
+  lab-regressions:
+    name: All JVM tests, lint and Lab Android-test compilation
+    needs: source-identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Record exact candidate SHA
+        shell: bash
+        run: |
+          mkdir -p output/d8-v1/lab
+          git rev-parse HEAD | tee output/d8-v1/lab/SOURCE-SHA.txt
+      - name: Enumerate independent failing gates once (no blind restart)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=20s 110m gradle \
+            :app:assembleDebug :app:assembleDebugAndroidTest \
+            :app:testDebugUnitTest :app:lintDebug \
+            -PbacklotLab=true --continue \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/d8-v1/lab/FULL-QA.log
+      - name: Verify Backlot 1.0 Lab APK identity and public preview signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$apk" > output/d8-v1/lab/IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app.lab' versionCode='338' versionName='1.0'" output/d8-v1/lab/IDENTITY.txt
+          grep -q "application-label:'Backlot'" output/d8-v1/lab/IDENTITY.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" > output/d8-v1/lab/SIGNER.txt
+          grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/d8-v1/lab/SIGNER.txt
+          sha256sum "$apk" > output/d8-v1/lab/SHA256SUMS.txt
+          test -z "$(git status --porcelain -- app/src)"
+      - name: Preserve failures and evidence (do not hide red tests)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-LAB-QA-AND-DIAGNOSTICS
+          path: |
+            output/d8-v1/lab/
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  owner-preview:
+    name: Owner-preview Backlot 1.0 signed APK (not Play release)
+    needs: lab-regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Compile owner signature variant from same exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/d8-v1/owner
+          git rev-parse HEAD > output/d8-v1/owner/SOURCE-SHA.txt
+          timeout --signal=TERM --kill-after=20s 100m gradle :app:assemblePersonalStable \
+            --no-daemon --no-parallel --max-workers=1 \
+            -Pkotlin.compiler.execution.strategy=in-process \
+            '-Dorg.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1450m -Dfile.encoding=UTF-8' \
+            --console=plain --stacktrace 2>&1 | tee output/d8-v1/owner/OWNER-BUILD.log
+      - name: Enforce same-package upgrade identity and public prototype signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          aapt_bin="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          signer_bin="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$aapt_bin" dump badging "$apk" > output/d8-v1/owner/IDENTITY.txt
+          grep -q "package: name='com.framebynavin.app' versionCode='338' versionName='1.0'" output/d8-v1/owner/IDENTITY.txt
+          grep -q "application-label:'Backlot'" output/d8-v1/owner/IDENTITY.txt
+          "$signer_bin" verify --verbose --print-certs "$apk" > output/d8-v1/owner/SIGNER.txt
+          grep -q 'f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/d8-v1/owner/SIGNER.txt
+          sha256sum "$apk" > output/d8-v1/owner/SHA256SUMS.txt
+          test -z "$(git status --porcelain -- app/src)"
+          echo "Owner-preview signing is PUBLIC; this is NOT a Play production release." > output/d8-v1/owner/STATUS.txt
+      - name: Upload owner preview only if all source, unit, lint and app-signing gates pass
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-OWNER-APK-PENDING-PHYSICAL-QA
+          path: |
+            app/build/outputs/apk/personalStable/app-personalStable.apk
+            output/d8-v1/owner/
+          retention-days: 30
+      - name: Preserve owner compile errors, if any
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-OWNER-BLOCKERS
+          path: |
+            output/d8-v1/owner/
+            app/build/reports/
+          if-no-files-found: warn
+          retention-days: 30
+
+  android15-lab-smoke:
+    name: Android 15 disposable Lab startup (not physical acceptance)
+    needs: lab-regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-1-0-D8-LAB-QA-AND-DIAGNOSTICS
+          path: lab-qa
+      - name: Prepare exact verified Lab APK, no production install
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s lab-qa/app/build/outputs/apk/debug/app-debug.apk
+          test "$(cat lab-qa/output/d8-v1/lab/SOURCE-SHA.txt)" = "$(git rev-parse HEAD)"
+          mkdir -p lab-candidate
+          cp lab-qa/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
+          cd lab-qa && sha256sum -c output/d8-v1/lab/SHA256SUMS.txt
+      - name: Start app on isolated Android 15 emulator, no user data
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+      - name: Always preserve emulator results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-ANDROID15-STARTUP-EVIDENCE
+          path: startup-smoke-evidence/
+          if-no-files-found: warn
+          retention-days: 30
