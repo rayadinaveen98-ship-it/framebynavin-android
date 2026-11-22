@@ -1,0 +1,106 @@
+name: Backlot 1.0 D8 - Android 15 emulator-only KVM recovery (NO REBUILD)
+
+on:
+  push:
+    branches:
+      - integration/backlot-d8-v1-owner-qa-20261122
+    paths:
+      - ".github/workflows/backlot-d8-v1-emulator-only-kvm.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-d8-v1-kvm-only-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROVEN_APP_SHA: 8b628789a2353e627780ce2b9b06c9fbc678c054
+  PROVEN_JVM_SHA: 0971dc6cfa7750726f33f08cdc08cedac2ffd485
+
+jobs:
+  android15-only:
+    name: Reuse checked Lab APK; boot KVM Android 15 and smoke Backlot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact app source and retain passing compile/JVM/lint evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base "$PROVEN_JVM_SHA" HEAD)" = "$PROVEN_JVM_SHA"
+          git diff --exit-code "$PROVEN_APP_SHA" HEAD -- \
+            app/src/main app/src/androidTest \
+            app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties \
+            .github/scripts/backlot-lab-startup-smoke.sh
+          mkdir -p output/d8-v1/android15-kvm
+          git rev-parse HEAD > output/d8-v1/android15-kvm/QA-CHECKOUT-SHA.txt
+          echo "$PROVEN_APP_SHA" > output/d8-v1/android15-kvm/COMPILED-APP-SHA.txt
+          echo "Previous Android compilation, full JVM (incl. repaired greetings), lint and signed APK were verified in previous runs. This workflow does NOT rerun Gradle." | tee output/d8-v1/android15-kvm/NO-REBUILD.txt
+      - uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: 45005329429
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-1-0-D8-VERIFIED-LAB-APKS-NOT-RELEASE
+          path: verified-lab
+      - name: Verify exact proven Lab APK bytes before emulator startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat verified-lab/output/d8-v1/reused-lab/COMPILED-APP-SOURCE-SHA.txt)" = "$PROVEN_APP_SHA"
+          ( cd verified-lab/previous-lab && sha256sum -c ../output/d8-v1/reused-lab/SHA256SUMS.txt ) | tee output/d8-v1/android15-kvm/REUSED-BINARIES-SHA256.txt
+          mkdir -p lab-candidate
+          cp verified-lab/previous-lab/app/build/outputs/apk/debug/app-debug.apk lab-candidate/app-debug.apk
+          test -s lab-candidate/app-debug.apk
+          echo "VERIFIED: Existing signed Lab APK reused, no build or full JVM test launched."
+      - name: Fix original emulator failure: enable GitHub Ubuntu KVM with fail-fast proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-backlot-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          echo "Runner KVM availability:" | tee output/d8-v1/android15-kvm/KVM-PREFLIGHT.txt
+          if [ ! -e /dev/kvm ]; then
+            echo "BLOCKED: /dev/kvm is absent. Do NOT launch an unaccelerated emulator or mistake this for an app failure." | tee -a output/d8-v1/android15-kvm/KVM-PREFLIGHT.txt
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          ls -l /dev/kvm | tee -a output/d8-v1/android15-kvm/KVM-PREFLIGHT.txt
+          test -r /dev/kvm && test -w /dev/kvm
+          echo "PASS: runner can use KVM; safe to launch Android 15 emulator." | tee -a output/d8-v1/android15-kvm/KVM-PREFLIGHT.txt
+      - name: Android 15 emulator only: install and launch same proven Lab APK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 420
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash .github/scripts/backlot-lab-startup-smoke.sh
+      - name: Persist PASS only if actual startup evidence exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "Status: ok" startup-smoke-evidence/activity-start.txt
+          test -s startup-smoke-evidence/process.txt
+          test -s startup-smoke-evidence/screen.png
+          echo "PASS: API 35 emulator booted, Backlot Lab launch returned ok and process survived. No physical-device certificate." > output/d8-v1/android15-kvm/RESULT.txt
+      - name: Always preserve focused emulator diagnostics, never overwrite other test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-1-0-D8-ANDROID15-KVM-ONLY-EVIDENCE
+          path: |
+            output/d8-v1/android15-kvm/
+            startup-smoke-evidence/
+          if-no-files-found: warn
+          retention-days: 30
