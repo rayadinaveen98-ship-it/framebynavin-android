@@ -48,7 +48,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * P1: render-only BACKGROUND for the existing RX01 double-tap entrance.
+ * P1: render-only BACKGROUND. V337 Creator has a particle entrance; no new double-tap host is imported.
  * No pointer handling, audio, alarm scheduling, notification permissions,
  * service ownership, completion, response or MAIN-phase rendering.
  *
@@ -94,7 +94,7 @@ internal fun P1EntranceBackdrop(
     }
     Box(modifier.fillMaxSize().clipToBounds().testTag("p1-custom-entrance-" + domain.name.lowercase())) {
         // Failed image/video decode must show the trustworthy original scene,
-        // not a blank or inaccessible alert. No second RX01 foreground layer.
+        // not a blank or inaccessible alert. No additional interactive foreground layer.
         P1OriginalBackdrop(false, true, Modifier.fillMaxSize())
         when (media.kind) {
             P1MediaKind.IMAGE -> P1StillImage(media.file, mediaLayer)

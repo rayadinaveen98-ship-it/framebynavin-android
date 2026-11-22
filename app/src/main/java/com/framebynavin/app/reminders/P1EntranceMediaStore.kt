@@ -20,8 +20,8 @@ internal enum class P1MediaKind { IMAGE, ANIMATED, VIDEO }
 internal data class P1Media(val kind: P1MediaKind, val file: File, val poster: File?)
 
 internal object P1EntranceMediaStore {
-    const val MAX_VIDEO_MILLIS = 15_000L
-    const val MAX_BYTES = 40L * 1024 * 1024
+    const val MAX_VIDEO_MILLIS = P1GalleryImportPolicy.MAX_VIDEO_MILLIS
+    const val MAX_BYTES = P1GalleryImportPolicy.MAX_BYTES
     private const val PREFS = "backlot_p1_gallery_entrance_v1"
     private val types = mapOf(
         "image/jpeg" to ("jpg" to P1MediaKind.IMAGE),
@@ -49,7 +49,7 @@ internal object P1EntranceMediaStore {
     @Synchronized
     fun selected(context: Context, domain: P1ReminderScope): P1Media? {
         // A wrong-type/corrupt stored preference must NEVER crash a live
-        // reminder's double-tap screen. Fall back to stock RX01 artwork.
+        // reminder's double-tap screen. Fall back to the unchanged V337 entrance.
         val savedName = runCatching {
             prefs(context).getString(key(domain), null)
         }.getOrNull()
@@ -100,7 +100,7 @@ internal object P1EntranceMediaStore {
                         val duration = retriever.extractMetadata(
                             MediaMetadataRetriever.METADATA_KEY_DURATION
                         )?.toLongOrNull() ?: 0L
-                        if (duration !in 1..MAX_VIDEO_MILLIS)
+                        if (!P1GalleryImportPolicy.validVideoDuration(duration))
                             throw IllegalArgumentException(
                                 "Choose a video up to 15 seconds. Trim longer clips in Gallery first."
                             )
@@ -152,10 +152,11 @@ internal object P1EntranceMediaStore {
     @Synchronized
     fun saveFraming(context: Context, domain: P1ReminderScope, frame: P1MediaFraming): Boolean {
         val prefix = domain.name + ".frame."
+        val safe = P1GalleryImportPolicy.boundedFraming(frame)
         return prefs(context).edit()
-            .putFloat(prefix + "zoom", frame.zoom.coerceIn(1f, 2.5f))
-            .putFloat(prefix + "x", frame.horizontal.coerceIn(-1f, 1f))
-            .putFloat(prefix + "y", frame.vertical.coerceIn(-1f, 1f))
+            .putFloat(prefix + "zoom", safe.zoom)
+            .putFloat(prefix + "x", safe.horizontal)
+            .putFloat(prefix + "y", safe.vertical)
             .commit()
     }
 
