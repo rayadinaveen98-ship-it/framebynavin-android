@@ -59,7 +59,7 @@ internal object RX02EntranceMediaStore {
     fun import(context: Context, domain: RX01ReminderDomain, uri: Uri): Result<RX02Media> =
         runCatching {
             val app = context.applicationContext
-            val mime = app.contentResolver.getType(uri)?.lowercase()
+            val mime = app.contentResolver.getType(uri)?.lowercase().orEmpty()
             val (extension, kind) = types[mime]
                 ?: throw IllegalArgumentException("Select a JPG, PNG, GIF, WebP, HEIF, or compatible video.")
             if ((extension == "heic" || extension == "heif") && Build.VERSION.SDK_INT < 28)
