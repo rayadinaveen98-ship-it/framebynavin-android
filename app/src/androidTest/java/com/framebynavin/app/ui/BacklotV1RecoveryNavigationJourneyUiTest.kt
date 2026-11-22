@@ -2,7 +2,8 @@ package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.test.core.app.ActivityScenario
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -25,7 +26,9 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class BacklotV1RecoveryNavigationJourneyUiTest {
-    @get:Rule val rule = createAndroidComposeRule<MainActivity>()
+    // Unlike createAndroidComposeRule, this rule does NOT launch MainActivity
+    // before @Test can verify disposable-emulator identity.
+    @get:Rule val rule = createEmptyComposeRule()
 
     private fun awaitTag(tag: String) {
         rule.waitUntil(45_000L) {
@@ -40,6 +43,9 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
 
     @Test fun freshLocalEntryNavigatesEveryCreatorTabWithoutReopeningSetup() {
         HardeningTestEnvironment.requireCiEmulator()
+        // Guard before MainActivity can run recovery, scheduling or cloud work.
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        try {
         // The exact selected Welcome ident completes before account choice.
         awaitTag("ux11-auth-choose")
         rule.onNodeWithTag("ux11-auth-continue-locally").performClick()
@@ -91,10 +97,13 @@ class BacklotV1RecoveryNavigationJourneyUiTest {
 
         // The same test instance verifies durability without relying on
         // order-dependent data resets across multiple JUnit test methods.
-        rule.activityRule.scenario.recreate()
+        scenario.recreate()
         awaitTag("backlot-bottom-nav")
         rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
         assertCreatorWizardAbsent()
         rule.onNodeWithTag("ux11-auth-choose").assertDoesNotExist()
+        } finally {
+            scenario.close()
+        }
     }
 }
