@@ -39,9 +39,9 @@ jobs:
           git diff --check "$GREEN_APP_SOURCE" HEAD
           git diff --name-only "$GREEN_APP_SOURCE" HEAD -- app/src/androidTest | sort > output/recovery-stage-b2/TEST-SOURCE-DIFF.txt
           cat > output/recovery-stage-b2/EXPECTED-DIFF.txt <<'EOF'
-app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryAccountUiTest.kt
-app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryNavigationJourneyUiTest.kt
-EOF
+          app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryAccountUiTest.kt
+          app/src/androidTest/java/com/framebynavin/app/ui/BacklotV1RecoveryNavigationJourneyUiTest.kt
+          EOF
           diff -u output/recovery-stage-b2/EXPECTED-DIFF.txt output/recovery-stage-b2/TEST-SOURCE-DIFF.txt
           git diff "$GREEN_APP_SOURCE" HEAD -- app/src/androidTest > output/recovery-stage-b2/TEST-IMPORT-FIX.patch
           test "$(grep -c '^-import androidx.compose.ui.test.assertDoesNotExist$' output/recovery-stage-b2/TEST-IMPORT-FIX.patch)" -eq 2
