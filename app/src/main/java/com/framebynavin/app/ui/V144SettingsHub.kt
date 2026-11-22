@@ -160,7 +160,7 @@ internal fun V144SettingsHub(
                 V294QuietSettingRow(
                     title = "Reminder appearance",
                     icon = Icons.Outlined.MovieFilter,
-                    support = "Entrance gallery, originals, Classic and Premiere",
+                    support = "Creator, Personal and 21-Day entrance and main backgrounds",
                 ) { sectionName = V167SettingsSection.REMINDER_SCENES.name }
 
                 Spacer(Modifier.height(18.dp))
@@ -190,12 +190,12 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.REMINDER_SCENES -> V144SettingsPage(
-                "REMINDER APPEARANCE", "Entrance backgrounds and preserved classic styles",
+                "REMINDER APPEARANCE", "Modern entrance and main backgrounds",
                 ::navigateBack,
             ) {
-                // RX02: one place for gallery/default entrance art and all
-                // preserved Classic/Premiere choices. Never mutate delivery
-                // behavior or legacy preferences merely by opening Settings.
+                // RX02: modern Creator/Personal/Challenge entrance and main
+                // previews, with old visual selectors removed from the UI.
+                // No delivery or saved reminder record is changed.
                 com.framebynavin.app.reminders.RX02ReminderAppearanceSettings()
             }
 
