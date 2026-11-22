@@ -63,6 +63,7 @@ internal fun P1EntranceBackdrop(
     lowPower: Boolean,
     modifier: Modifier = Modifier,
     overrideMedia: P1Media? = null,
+    overrideFraming: P1MediaFraming? = null,
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
@@ -84,7 +85,7 @@ internal fun P1EntranceBackdrop(
         return
     }
 
-    val framing = P1EntranceMediaStore.framing(context, domain)
+    val framing = overrideFraming ?: P1EntranceMediaStore.framing(context, domain)
     val mediaLayer = Modifier.fillMaxSize().graphicsLayer {
         scaleX = framing.zoom
         scaleY = framing.zoom
@@ -260,5 +261,49 @@ private fun P1MutedVideo(media: P1Media, modifier: Modifier) {
             update = { it.player = player },
             modifier = modifier,
         )
+    }
+}
+
+/**
+ * P1-only overlay for the existing V337 Creator particle entrance.
+ * No touch handlers, new navigation, reminder receipts, sound or action callbacks.
+ * The V337 one-tap reveal stays unchanged; gallery media never displays while locked.
+ */
+@Composable
+internal fun P1CreatorEntranceUnderlay(
+    modifier: Modifier = Modifier,
+    motionEnabled: Boolean,
+    lowPower: Boolean,
+    content: @Composable (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    val owner = LocalLifecycleOwner.current
+    val media = remember(context) {
+        P1EntranceMediaStore.selected(context, P1ReminderScope.CREATOR)
+    }
+    var unlocked by remember { mutableStateOf(false) }
+    DisposableEffect(owner, context) {
+        val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        val refresh = { unlocked = keyguard?.isKeyguardLocked == false }
+        refresh()
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START || event == Lifecycle.Event.ON_RESUME) refresh()
+            if (event == Lifecycle.Event.ON_STOP) unlocked = false
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    val custom = unlocked && media != null
+    Box(modifier.fillMaxSize()) {
+        if (custom) {
+            P1EntranceBackdrop(
+                domain = P1ReminderScope.CREATOR,
+                motionEnabled = motionEnabled,
+                lowPower = lowPower,
+                modifier = Modifier.fillMaxSize(),
+                overrideMedia = media,
+            )
+        }
+        content(custom)
     }
 }

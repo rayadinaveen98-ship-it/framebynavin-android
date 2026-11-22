@@ -56,6 +56,9 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
         V133AppIconPicker()
 
         Spacer(Modifier.height(16.dp))
+        P1GalleryBackgroundLaunchCard()
+
+        Spacer(Modifier.height(16.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(BacklotCardRadius),

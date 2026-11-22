@@ -105,13 +105,19 @@ internal fun V195ReminderParticleScene(
         .semantics { contentDescription = "Show reminder controls" }
         .clickable(interactionSource = interactions, indication = null, onClick = onReveal)
 
-    Canvas(modifier = modifier.fillMaxSize().testTag("v1952-ambient-particles").then(touch)) {
-        drawRect(brush = atmosphere)
+    P1CreatorEntranceUnderlay(
+        modifier = modifier,
+        motionEnabled = motionEnabled,
+        lowPower = lowPower,
+    ) { customGalleryVisible ->
+        Canvas(modifier = Modifier.fillMaxSize()
+            .testTag("v1952-ambient-particles").then(touch)) {
+        if (!customGalleryVisible) drawRect(brush = atmosphere)
 
         val center = Offset(size.width * .5f, size.height * .42f)
         // Two fixed-cost radial blooms behind the wave; never blur every dot.
         // Lower-power devices skip these extra draws entirely.
-        if (!lowPower) {
+        if (!customGalleryVisible && !lowPower) {
             val bloomRadius = min(size.width * .67f, size.height * .43f)
             drawCircle(
                 brush = Brush.radialGradient(
@@ -212,5 +218,6 @@ internal fun V195ReminderParticleScene(
         if (revealProgress > 0f) {
             drawRect(Color.Black.copy(alpha = .05f * revealProgress))
         }
+    }
     }
 }
