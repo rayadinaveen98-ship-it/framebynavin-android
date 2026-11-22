@@ -28,6 +28,15 @@ class BacklotV1RecoveryRoutePolicyTest {
             creatorSetupComplete = true, profileComplete = false))
     }
 
+    @Test fun completedProfileWithMissingSetupReceiptCanBeRepairedExplicitly() {
+        assertTrue(BacklotV1RecoveryRoutePolicy.showCreatorSetup(
+            accountOnboardingComplete = true, explicitlyRequested = true,
+            creatorSetupComplete = false, profileComplete = true))
+        assertFalse(BacklotV1RecoveryRoutePolicy.showCreatorSetup(
+            accountOnboardingComplete = true, explicitlyRequested = false,
+            creatorSetupComplete = false, profileComplete = true))
+    }
+
     @Test fun completedCreatorIsNeverForcedBackIntoSetup() {
         for (requested in listOf(false, true)) {
             assertFalse(BacklotV1RecoveryRoutePolicy.showCreatorSetup(
