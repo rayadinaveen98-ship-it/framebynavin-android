@@ -51,6 +51,9 @@ internal fun V23AccountOnboarding(
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var displayName by rememberSaveable { mutableStateOf(session?.displayName.orEmpty()) }
     var username by rememberSaveable { mutableStateOf(profile?.username.orEmpty()) }
+    // A remote username claim can succeed even if the subsequent local
+    // completion write fails. A retry must not re-claim the username remotely.
+    var pendingLocalAccountFinishName by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun reload() {
         session = manager.localState().session
@@ -120,19 +123,34 @@ internal fun V23AccountOnboarding(
         error = null
         scope.launch {
             try {
-                when (val op = manager.claimUsername(username, displayName)) {
-                    is CloudOperationResult.Success -> {
-                        reload()
-                        val done = onComplete(displayName.ifBlank { session?.displayName.orEmpty() })
-                        if (!done) {
-                            error = "Your Backlot profile was created, but local setup didn't save. Retry to finish."
-                        }
+                val pendingName = pendingLocalAccountFinishName
+                if (pendingName != null) {
+                    // No second remote write after confirmed profile creation.
+                    if (onComplete(pendingName)) {
+                        pendingLocalAccountFinishName = null
+                    } else {
+                        error = "Your account is ready, but this device couldn't save setup. Retry without creating another account."
                     }
-                    is CloudOperationResult.Skipped -> error = op.message
-                    is CloudOperationResult.Failure -> error = op.message
+                } else {
+                    when (val op = manager.claimUsername(username, displayName)) {
+                        is CloudOperationResult.Success -> {
+                            reload()
+                            val savedName = displayName.ifBlank {
+                                profile?.displayName.orEmpty().ifBlank { session?.displayName.orEmpty() }
+                            }
+                            pendingLocalAccountFinishName = savedName
+                            if (onComplete(savedName)) {
+                                pendingLocalAccountFinishName = null
+                            } else {
+                                error = "Your account is ready, but this device couldn't save setup. Retry without creating another account."
+                            }
+                        }
+                        is CloudOperationResult.Skipped -> error = op.message
+                        is CloudOperationResult.Failure -> error = op.message
+                    }
                 }
             } catch (e: Exception) {
-                error = e.message ?: "Could not finish account setup. Please try again."
+                error = e.message ?: "Could not finish local setup. Please retry."
             } finally {
                 busy = false
             }
@@ -177,6 +195,7 @@ internal fun V23AccountOnboarding(
                     .take(24)
             },
             onCreateAccount = ::claim,
+            localCompletionPending = pendingLocalAccountFinishName != null,
         )
         CloudCreatorAccountRoute.RETURNING_CREATOR ->
             UX11PremiumAccountReturning(
