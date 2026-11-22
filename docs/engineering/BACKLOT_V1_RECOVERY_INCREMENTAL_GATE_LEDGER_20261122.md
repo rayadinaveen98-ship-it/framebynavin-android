@@ -36,3 +36,10 @@ This ledger records the evidence known when written; GitHub Actions is the live 
 - **Stage C launched:** `45034910254` uses pinned B2 binaries on disposable Android 15 KVM, root UI suite; not certified until run and individual test evidence are green.
 - Stage D and E workflow integrity gates updated to permit the exact two AndroidTest-only import changes and verify previous green focused JVM/B2 results without repeating earlier full JVM compilation.
 - Protected `main` stayed at `abbe88984bac16cfafbd990d9cb00ed54cfdd07e` when checked. No owner signed APK, hosted data modification or stable merge in this checkpoint.
+
+## 2026-11-22 — Emulator gate certified; targeted reliability launched
+
+- **Stage C PASS: 45034910254.** Disposable Android 15 KVM emulator, `com.framebynavin.app.lab`, run on immutable Stage B2 Lab app and new test APK. All seven instrumentation tests reported `OK`: four account/retry tests, two reminder appearance tests and one first-run navigation test. SHA-256 and emulator identity verified; screenshots and logs preserved in artifact `14759675618`. This is actual emulator evidence, not physical-device certification or live Google authentication.
+- **Stage D started: 45035559601.** Only seven specific reminder and voice JVM policy classes and lint; no full JVM suite reset.
+- Production application and JVM source remain byte-for-byte identical to frozen `8b771a5287b92d33cc8341907fc7747447cfd29a`. Only four invalid Compose assertion imports removed in two Android instrumentation test files.
+- Stage E remains untriggered until Stage D is green. Owner-preview `com.framebynavin.app` signed APK has not been created. Keep all cloud and stable services untouched.
