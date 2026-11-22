@@ -158,8 +158,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var v402AccountIdentityRevision by remember { mutableIntStateOf(0) }
     var overlay by rememberSaveable { mutableStateOf(POverlay.NONE) }
     // Recovery P0: Creator setup is an explicit opt-in action, never a side effect of tabs.
-    var creatorSetupRequested by rememberSaveable { mutableStateOf(false) }
-    var cloudRecoveryRequested by rememberSaveable { mutableStateOf(false) }
+    var creatorSetupRequested by remember { mutableStateOf(false) }
+    var cloudRecoveryRequested by remember { mutableStateOf(false) }
     var v402ProfileFromHome by rememberSaveable { mutableStateOf(false) }
     var showControl by rememberSaveable { mutableStateOf(false) }
     var controlExpanded by rememberSaveable { mutableStateOf(false) }
@@ -201,7 +201,9 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var focusTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioId by rememberSaveable { mutableStateOf<String?>(null) }
     var externalStudioNonce by rememberSaveable { mutableLongStateOf(0L) }
-    var guidedTourStepName by rememberSaveable { mutableStateOf<String?>(null) }
+    // The tour is voluntary and transient; never restore an old onboarding
+    // overlay automatically after process recreation or APK upgrade.
+    var guidedTourStepName by remember { mutableStateOf<String?>(null) }
     val guideTargets = remember { mutableStateMapOf<CreatorGuidedTourStep, Rect>() }
     var pendingReminderConfirmation by remember { mutableStateOf<V203PendingReminderConfirmation?>(null) }
     var savedReminderConfirmation by remember { mutableStateOf<String?>(null) }
