@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -39,7 +40,9 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
     val shouldShowIdent = remember(externalLaunch?.nonce) {
         V151LaunchPolicy.shouldShowCinematicIdent(externalLaunch = externalLaunch != null)
     }
-    var welcomeDone by remember(shouldShowIdent) { mutableStateOf(!shouldShowIdent) }
+    // Keep a finished welcome across Activity recreation; a genuine new
+    // normal launch still starts with the selected opening once.
+    var welcomeDone by rememberSaveable(shouldShowIdent) { mutableStateOf(!shouldShowIdent) }
 
     LaunchedEffect(externalLaunch?.nonce) {
         if (externalLaunch != null) welcomeDone = true
