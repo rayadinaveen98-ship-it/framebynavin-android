@@ -129,6 +129,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
     val v393FirstRunPrefs = remember(context) { V393FirstRunPrefs(context.applicationContext) }
+    // Only a genuine new account without a saved legacy choice sees focus selection.
+    var firstRunFocus by remember { mutableStateOf(v393FirstRunPrefs.selectedFocus()) }
     // Legacy first-run preferences are retained only to read/write older
     // compatibility markers; they no longer control Home navigation.
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
@@ -1399,7 +1401,25 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     // Recovery P0: only genuine first-account completion may block Home.
     // All other first-run experiences (Creator setup, guide and permissions)
     // are opt-in and never intercept an ordinary tab, reminder or Settings tap.
-    if (BacklotV1RecoveryRoutePolicy.needsAccountEntry(settings.accountOnboardingComplete)) {
+    // First-run choice is a one-time intentional decision, not a Creator setup
+    // requirement and never a side effect of Home/tab/reminder navigation.
+    if (!settings.accountOnboardingComplete &&
+        !settings.onboardingComplete &&
+        !settings.creatorProfile.isComplete &&
+        firstRunFocus == null &&
+        !v393FirstRunPrefs.unifiedEntryStarted() &&
+        externalLaunch == null
+    ) {
+        V393FirstRunFocusScreen(onChoose = { focus ->
+            runCatching { v393FirstRunPrefs.saveFocus(focus) }
+                .onSuccess { firstRunFocus = focus }
+                .onFailure {
+                    Toast.makeText(context,
+                        "Could not save your first-run choice. Please try again.",
+                        Toast.LENGTH_LONG).show()
+                }
+        })
+    } else if (BacklotV1RecoveryRoutePolicy.needsAccountEntry(settings.accountOnboardingComplete)) {
         V23AccountOnboarding(
             onComplete = { displayName ->
                 // Do not dismiss account entry until both the account flag and
