@@ -61,6 +61,7 @@ internal fun RX02ReminderAppearanceSettings() {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var preview by remember { mutableStateOf(false) }
+    var previewMode by remember { mutableStateOf(RX01ReminderIconKind.VOICE) }
     var showLegacy by rememberSaveable { mutableStateOf(false) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -285,16 +286,34 @@ internal fun RX02ReminderAppearanceSettings() {
                 )
                 RX01ReminderEntranceHero(
                     domain = currentDomain,
-                    mode = RX01ReminderIconKind.VOICE,
+                    mode = previewMode,
                     motionEnabled = true,
                     lowPower = false,
                 )
                 // Preview isn't a live alert and never registers a response.
-                TextButton(
-                    onClick = { preview = false },
-                    modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding()
-                        .padding(12.dp).testTag("rx02-close-preview"),
-                ) { Text("CLOSE PREVIEW", color = Color.White) }
+                Row(
+                    modifier = Modifier.align(Alignment.TopCenter)
+                        .fillMaxWidth().safeDrawingPadding().padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        FilterChip(
+                            selected = previewMode == RX01ReminderIconKind.VOICE,
+                            onClick = { previewMode = RX01ReminderIconKind.VOICE },
+                            label = { Text("Voice") },
+                        )
+                        FilterChip(
+                            selected = previewMode == RX01ReminderIconKind.ALARM,
+                            onClick = { previewMode = RX01ReminderIconKind.ALARM },
+                            label = { Text("Alarm") },
+                        )
+                    }
+                    TextButton(
+                        onClick = { preview = false },
+                        modifier = Modifier.testTag("rx02-close-preview"),
+                    ) { Text("CLOSE", color = Color.White) }
+                }
             }
         }
     }
