@@ -229,9 +229,11 @@ internal fun RX01ReminderExperienceGate(
                         }
                         .testTag("rx01-gate-entrance-visual"),
                 ) {
-                    RX01FluidReminderBackdrop(
+                    // RX02 swaps BACKGROUND ONLY. Original labels, verified
+                    // Voice/Alarm optic and double-tap interaction remain
+                    // entirely in RX01ReminderEntranceHero and this gate.
+                    RX02EntranceBackdrop(
                         domain = domain,
-                        phase = RX01SurfacePhase.ENTRANCE,
                         motionEnabled = motionEnabled,
                         lowPower = lowPower,
                     )
