@@ -51,15 +51,15 @@ jobs:
           run-id: ${{ env.STAGE_B_RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           name: Backlot-V1-RECOVERY-STAGE-B2-TEST-FIX-AND-LAB-APKS
-          path: downloaded-b2
+          path: .
       - name: Verify exactly Stage B binaries and SHA256, not an older APK
         shell: bash
         run: |
           set -euo pipefail
-          test "$(cat downloaded-b2/lab-stage-b/output/recovery-stage-b-android/HEAD.txt)" = "$STAGE_B_HEAD"
-          test -s downloaded-b2/lab-stage-b/app/build/outputs/apk/debug/app-debug.apk
-          test -s downloaded-b2/lab-stage-b/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-          (cd downloaded-b2/lab-stage-b && sha256sum -c output/recovery-stage-b-android/SHA256SUMS.txt) | tee output/recovery-stage-c/STAGE-B-SHA256-VERIFICATION.txt
+          test "$(cat lab-stage-b/output/recovery-stage-b-android/HEAD.txt)" = "$STAGE_B_HEAD"
+          test -s lab-stage-b/app/build/outputs/apk/debug/app-debug.apk
+          test -s lab-stage-b/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          (cd lab-stage-b && sha256sum -c output/recovery-stage-b-android/SHA256SUMS.txt) | tee output/recovery-stage-c/STAGE-B-SHA256-VERIFICATION.txt
       - name: Enable KVM and reject unsupported runner before emulator
         shell: bash
         run: |
