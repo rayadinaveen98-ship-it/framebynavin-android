@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun V23AccountOnboarding(
-    onComplete: (String) -> Unit,
+    onComplete: (String) -> Boolean,
     onContinueLocally: () -> Unit,
     onReturningAccount: () -> Unit = {},
 ) {
@@ -63,13 +63,22 @@ internal fun V23AccountOnboarding(
         val s = manager.localState().session
         val p = manager.cachedCreatorProfile()
         if (CloudCreatorAccountPolicy.route(s, p) != CloudCreatorAccountRoute.RETURNING_CREATOR) return false
-        onReturningAccount()
-        onComplete(p!!.displayName.ifBlank { s!!.displayName })
-        return true
+        val completed = onComplete(p!!.displayName.ifBlank { s!!.displayName })
+        if (completed) {
+            onReturningAccount()
+            error = null
+        } else {
+            error = "Backlot recognized your account, but could not finish saving your setup. Try again."
+        }
+        return completed
     }
 
     fun startGoogleSignIn() {
-        if (busy || CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) return
+        if (busy) return
+        if (CloudConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
+            error = "Google sign-in isn't configured for this build. You can continue locally."
+            return
+        }
         busy = true; error = null
         scope.launch {
             try {
@@ -84,7 +93,13 @@ internal fun V23AccountOnboarding(
                     is CloudOperationResult.Success -> {
                         reload()
                         if (!finishReturning()) {
-                            manager.refreshCreatorIdentity(); reload(); finishReturning()
+                            manager.refreshCreatorIdentity()
+                            reload()
+                            if (!finishReturning() &&
+                                CloudCreatorAccountPolicy.route(session, profile) ==
+                                    CloudCreatorAccountRoute.SIGN_IN_REQUIRED) {
+                                error = "Google connected, but Backlot couldn't load your account. Try again."
+                            }
                         }
                     }
                     is CloudOperationResult.Skipped -> error = op.message
@@ -101,12 +116,25 @@ internal fun V23AccountOnboarding(
 
     fun claim() {
         if (busy) return
-        busy = true; error = null
+        busy = true
+        error = null
         scope.launch {
-            when (val op = manager.claimUsername(username, displayName)) {
-                is CloudOperationResult.Success -> { reload(); busy = false; onComplete(displayName.ifBlank { session?.displayName.orEmpty() }) }
-                is CloudOperationResult.Skipped -> { busy = false; error = op.message }
-                is CloudOperationResult.Failure -> { busy = false; error = op.message }
+            try {
+                when (val op = manager.claimUsername(username, displayName)) {
+                    is CloudOperationResult.Success -> {
+                        reload()
+                        val done = onComplete(displayName.ifBlank { session?.displayName.orEmpty() })
+                        if (!done) {
+                            error = "Your Backlot profile was created, but local setup didn't save. Retry to finish."
+                        }
+                    }
+                    is CloudOperationResult.Skipped -> error = op.message
+                    is CloudOperationResult.Failure -> error = op.message
+                }
+            } catch (e: Exception) {
+                error = e.message ?: "Could not finish account setup. Please try again."
+            } finally {
+                busy = false
             }
         }
     }
@@ -151,6 +179,18 @@ internal fun V23AccountOnboarding(
             onCreateAccount = ::claim,
         )
         CloudCreatorAccountRoute.RETURNING_CREATOR ->
-            UX11PremiumAccountReturning(error)
+            UX11PremiumAccountReturning(
+                error = error,
+                onRetry = {
+                    if (!busy) {
+                        error = null
+                        if (!finishReturning()) {
+                            // Keep this route actionable when a local write
+                            // failed; do not silently claim entry succeeded.
+                            error = error ?: "Couldn't finish account setup. Please retry."
+                        }
+                    }
+                },
+            )
     }
 }
