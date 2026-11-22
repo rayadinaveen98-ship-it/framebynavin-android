@@ -1,0 +1,7 @@
+Founder-authorized Stage D focused reminder lifecycle + lint.
+Stage A: 45023567967 SUCCESS (app compile).
+Stage B1: focused JVM job 137220769856 SUCCESS in 45026564764.
+Stage B2: 45032575621 SUCCESS (repaired AndroidTest compile, same frozen production app).
+Stage C: 45034910254 SUCCESS; Android 15 emulator all seven UI tests PASS (4 account/retry, 2 appearance, 1 first-run tab navigation), immutable Lab artifact.
+Frozen production source: 8b771a5287b92d33cc8341907fc7747447cfd29a. The two androidTest files contain only four removed invalid imports.
+Run only seven targeted reminder policy/JVM classes and lint. Do not repeat the full JVM suite or rewrite owner app/stable/hosted data.
