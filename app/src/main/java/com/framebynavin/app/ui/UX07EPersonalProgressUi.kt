@@ -69,7 +69,7 @@ internal fun UX07EPersonalProgressOverview(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                 )
-                Text("Last 7 calendar days · based on saved records",
+                Text("Last 7 days · saved records",
                     color = MutedText, fontSize = 11.sp)
             }
             TextButton(
@@ -124,7 +124,7 @@ internal fun UX07EPersonalProgressOverview(
             }
         }
         Text(
-            "Personal Done uses when you confirmed it. Challenge counts use the chosen challenge dates, including explicitly confirmed catch-up days. Notes do not mark a day Done.",
+            "Personal Done uses confirmation time. Challenge totals use chosen dates, including catch-up days. Notes never mark a day Done.",
             color = MutedText,
             fontSize = 11.sp,
             modifier = Modifier.testTag("ux07e-progress-source-explanation"),
