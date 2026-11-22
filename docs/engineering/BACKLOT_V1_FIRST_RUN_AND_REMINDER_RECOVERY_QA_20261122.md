@@ -75,3 +75,37 @@ flowchart TD
 - P3 targeted JVM/UI regression test definitions: **SOURCE STAGED, not run.**
 - E2E Android sign-in, navigation screenshots and overnight reminders: **PENDING**.
 - APK: **NOT BUILT** on this recovery branch.
+
+## Additional source-hardening pass — follow-up "continue"
+
+Status: **SOURCE STAGED ONLY**. Founder asked to continue the approved recovery; no Gradle/CI/APK run.
+
+### Root-cause closure beyond the first stage
+- `CreatorOsSettingsStore.completeAccountEntry(connectedDisplayName)`: account-completion marker and previously missing local display name now commit in one SharedPreferences transaction. Existing explicit Creator display name is preserved; no Creator profile-mode, goal or platform values are rewritten. Failed commit keeps the account gate closed.
+- `FrameByNavinV101BApp.kt`: Google callback returns actual local-commit success to authentication; local continuation also checks the same durable write. Both display an explicit retry message rather than pretending an unsaved route completed.
+- `V23AccountOnboarding.kt`: returning-account success is dependent on the callback's Boolean result. In a local-save failure case, its error is preserved, and a retry action reattempts the local completion; blank Google Client ID is a visible configuration error rather than a silently ignored button. Usernames are still claimed through the existing backend and are never simulated.
+- `UX11PremiumAccountEntry.kt`: returning screen shows a recoverable error and **RETRY OPENING BACKLOT** instead of an unending spinner when local completion fails. Existing Google credential process and data remain untouched.
+- `BacklotV1RecoveryNavigationJourneyUiTest.kt`: staged a real MainActivity emulator-only test for Welcome → local account → every Creator navigation tab → explicitly requested Creator setup → Not now → Activity recreation → Home without replayed setup. Its runner MUST clear the disposable Lab package before the single test; never execute on an owner's production package.
+- `BacklotV1RecoveryAccountUiTest.kt`: staged synthetic isolated returning-profile retry/error and optional Creator setup cancel UI tests. No account/network/database calls.
+- All prior P1 legacy removal and P2 native entrance/main rendering stages remain in place.
+
+### Focused acceptance matrix to execute only at final gate
+| Case | Expected | Evidence needed |
+|---|---|---|
+| Local account first save | Account gate exits only after durable account commit | Android emulator UI journey + process recreation |
+| Returning Google existing account | No new mandatory Creator wizard or endless spinner | Disposable Google test identity, Cloud local cache & device test |
+| Google credential cancelled/network unavailable | Back/error works, no false completed session | Physical/controlled test account |
+| Missing Google client configuration | Explicit error and local continuation | Targeted UI/diagnostics |
+| Profile claim succeeded; local commit failed | Error and retry, never stuck on spinner | Fault-injection / isolated device test |
+| Home tabs | Every destination reachable without re-triggered setup | New Activity navigation test |
+| Home/Profile Creator setup | Explicit invocation only, NOT NOW leaves data unchanged | New UI tests, actual on-device state |
+| Saved account after process recreation | Remains signed-in or local as selected; no repeated wizard | Activity recreation/force-stop testing |
+| Legacy reminder scene preferences | Historical keys retained, but rejected UI unavailable | Settings UI test and upgraded-instance test |
+| 3 live reminder domains | Approved main scene + preserved action/occurrence state | Real emulator alerts/physical device, no fabricated receipt |
+| Overnight Personal Voice P0 | Genuine delivery/Snooze/auto retry after idle | Physical-device evidence (still OPEN) |
+
+### Gate policy
+- Older 1.0 APK's successful tests belong to its frozen source, **not** this repaired branch.
+- Stage all fixes and reviewed test cases before running CI. After explicit founder authorization, compile **once** on isolated Lab candidate, apply targeted fixes and rerun only invalidated checks, then perform final cumulative UX/device verification before any owner-preview APK.
+- Do not reset saved owner data to "fix" login. Cloud conflict resolution remains an explicit owner choice. Never merge stable, deploy hosted UX09 or change signing without separate approval.
+
