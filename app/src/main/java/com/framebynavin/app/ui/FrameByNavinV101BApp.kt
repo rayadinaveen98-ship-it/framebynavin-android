@@ -1256,36 +1256,62 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    if (!settings.accountOnboardingComplete && v393FirstRunFocus == null &&
+    // Legacy returning users who already finished Creator setup must never be
+    // forced through a fresh account choice because of an old/missing flag.
+    if (!settings.accountOnboardingComplete &&
+        settings.onboardingComplete && settings.creatorProfile.isComplete) {
+        LaunchedEffect(settings.accountOnboardingComplete) {
+            runCatching {
+                settingsStore.setAccountOnboardingComplete(true)
+                settings = settingsStore.snapshot()
+            }
+        }
+    } else if (P4AccountEntryPolicy.shouldShowChoice(
+        accountComplete = settings.accountOnboardingComplete,
+        setupComplete = settings.onboardingComplete,
+        creatorProfileComplete = settings.creatorProfile.isComplete,
+    )) {
+        // P4 one-time choice is after the signature welcome and BEFORE focus,
+        // guide choice or setup. Local continuation is available only here.
+        V23AccountOnboarding(
+            onComplete = { displayName ->
+                runCatching {
+                    if (displayName.isNotBlank()) {
+                        settingsStore.setCreatorProfile(
+                            settings.creatorProfile.copy(displayName = displayName))
+                    }
+                    settingsStore.setAccountOnboardingComplete(true)
+                    settings = settingsStore.snapshot()
+                }.onFailure {
+                    Toast.makeText(context,
+                        "Account saved, but app setup couldn't continue. Retry.",
+                        Toast.LENGTH_LONG).show()
+                }
+            },
+            onContinueLocally = {
+                runCatching {
+                    settingsStore.setAccountOnboardingComplete(true)
+                    settings = settingsStore.snapshot()
+                }.onFailure {
+                    Toast.makeText(context,
+                        "Could not save your local choice. Try again.",
+                        Toast.LENGTH_LONG).show()
+                }
+            },
+        )
+    } else if (v393FirstRunFocus == null &&
         !settings.onboardingComplete && !settings.creatorProfile.isComplete) {
         V393FirstRunFocusScreen { focus ->
             runCatching {
+                // Account entry has already completed before this focus gate.
                 v393FirstRunPrefs.saveFocus(focus)
-                // Explicit local-first continuation. Google connection remains
-                // available in Profile and never blocks a first useful action.
-                settingsStore.setAccountOnboardingComplete(true)
             }.onSuccess {
                 v393FirstRunFocus = focus
-                settings = settingsStore.snapshot()
             }.onFailure {
                 Toast.makeText(context, "Could not save setup choice. Try again.",
                     Toast.LENGTH_LONG).show()
             }
         }
-    } else if (!settings.accountOnboardingComplete) {
-        V23AccountOnboarding(
-            onComplete = { displayName ->
-                if (displayName.isNotBlank()) {
-                    settingsStore.setCreatorProfile(settings.creatorProfile.copy(displayName = displayName))
-                }
-                settingsStore.setAccountOnboardingComplete(true)
-                settings = settingsStore.snapshot()
-            },
-            onContinueLocally = {
-                settingsStore.setAccountOnboardingComplete(true)
-                settings = settingsStore.snapshot()
-            },
-        )
     } else if ((!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
         CloudSyncManager(context.applicationContext).localState().session?.let { session ->
             // Read revision so marking recovery reviewed causes this gate to be re-evaluated immediately.

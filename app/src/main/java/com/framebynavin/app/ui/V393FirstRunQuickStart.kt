@@ -82,7 +82,7 @@ internal class V393FirstRunPrefs(context: Context) {
 }
 
 /**
- * First real app decision: no forced account connection, notification permissions,
+ * Focus decision follows the one-time P4 account choice; no additional auth or permissions,
  * or arbitrary Creator goal assumptions. Existing completed accounts skip this gate.
  */
 @Composable
@@ -123,7 +123,7 @@ internal fun V393FirstRunFocusScreen(onChoose: (V393FirstRunFocus) -> Unit) {
                 }
             }
             Spacer(Modifier.height(4.dp))
-            Text("Next: choose Spark or Mira. You can start locally; account connection and reminder permissions come later.",
+            Text("Next: choose Spark or Mira. Your account choice is saved; reminder permissions can wait.",
                 color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
