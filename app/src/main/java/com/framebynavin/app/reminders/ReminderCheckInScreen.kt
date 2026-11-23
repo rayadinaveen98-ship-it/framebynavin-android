@@ -67,12 +67,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.framebynavin.app.data.ProjectAttentionPlan
-import com.framebynavin.app.ui.theme.look.hot
-import com.framebynavin.app.ui.theme.look.black
 import com.framebynavin.app.ui.theme.BacklotBorder
-import com.framebynavin.app.ui.theme.look.ivory
-import com.framebynavin.app.ui.theme.look.hot
-import com.framebynavin.app.ui.theme.look.muted
 import com.framebynavin.app.ui.theme.BacklotSuccess
 import java.time.Instant
 import java.time.ZoneId
