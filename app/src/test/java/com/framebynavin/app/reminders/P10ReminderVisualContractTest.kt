@@ -54,6 +54,33 @@ internal class P10ReminderVisualContractTest {
         assertEquals(0, still.activeMotes)
     }
 
+    @Test fun returningGalleryOwnersKeepTheirSelectedMediaOnUpgrade() {
+        assertEquals(P10ReminderBackgroundSource.GALLERY,
+            P10ReminderBackgroundPolicy.resolved(null, galleryAvailable = true))
+        assertEquals(P10ReminderBackgroundSource.BUILT_IN,
+            P10ReminderBackgroundPolicy.resolved(null, galleryAvailable = false))
+    }
+
+    @Test fun choosingBuiltInNeverImplicitlyErasesGalleryAndBrokenMediaFallsBack() {
+        assertEquals(P10ReminderBackgroundSource.BUILT_IN,
+            P10ReminderBackgroundPolicy.resolved("BUILT_IN", galleryAvailable = true))
+        assertEquals(P10ReminderBackgroundSource.BUILT_IN,
+            P10ReminderBackgroundPolicy.resolved("GALLERY", galleryAvailable = false))
+        assertEquals(P10ReminderBackgroundSource.GALLERY,
+            P10ReminderBackgroundPolicy.resolved("GALLERY", galleryAvailable = true))
+    }
+
+    @Test fun galleryDisplayRequiresActiveSelectionMediaAndUnlock() {
+        assertFalse(P10ReminderBackgroundPolicy.showGallery(
+            P10ReminderBackgroundSource.BUILT_IN, galleryAvailable = true, locked = false))
+        assertFalse(P10ReminderBackgroundPolicy.showGallery(
+            P10ReminderBackgroundSource.GALLERY, galleryAvailable = false, locked = false))
+        assertFalse(P10ReminderBackgroundPolicy.showGallery(
+            P10ReminderBackgroundSource.GALLERY, galleryAvailable = true, locked = true))
+        assertTrue(P10ReminderBackgroundPolicy.showGallery(
+            P10ReminderBackgroundSource.GALLERY, galleryAvailable = true, locked = false))
+    }
+
     @Test fun entrancePreservesPrivacyAndRequiresDeliberateOpen() {
         assertFalse(P10ReminderVisualPolicy.visibleMedia(locked = true, hasSelectedMedia = true))
         assertTrue(P10ReminderVisualPolicy.visibleMedia(locked = false, hasSelectedMedia = true))
