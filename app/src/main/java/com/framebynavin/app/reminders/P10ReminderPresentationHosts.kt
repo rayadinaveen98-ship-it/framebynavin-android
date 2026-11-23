@@ -74,7 +74,7 @@ internal fun P10ReminderEntranceStage(
             .background(family.pigments().dark)
             .testTag("p10-entrance-" + scope.name.lowercase())
             .pointerInput(occurrenceKey) {
-                detectTapGestures(onDoubleTap = { onOpen() })
+                detectTapGestures(onDoubleTap = { if (!locked) onOpen() })
             }
             .semantics {
                 role = Role.Button
@@ -83,8 +83,8 @@ internal fun P10ReminderEntranceStage(
                     else "Open " + domainName.lowercase()
                 onClick(label = "Open reminder") {
                     // Accessibility activation is an explicit single action.
-                    onOpen()
-                    true
+                    if (!locked) onOpen()
+                    !locked
                 }
             },
     ) {
