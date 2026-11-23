@@ -108,29 +108,33 @@ internal fun V144SettingsHub(
                 onOpen = { sectionName = it.name },
             )
 
-            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("APPEARANCE & SOUND", "Appearance & sound", ::navigateBack) {
-                V144CategoryCard("Appearance", "Theme, app icon and launch sound", Icons.Outlined.Palette, RecRed) {
+            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("YOUR BACKLOT", "Appearance & sound", ::navigateBack) {
+                // P9: one visual system for the app, one gallery for reminder
+                // backgrounds. Legacy Cinematic/Classic/Premiere selectors are
+                // not reachable. No hidden secondary scene picker.
+                V144CategoryCard("App appearance", "Director's Cut, light mode, app icon and launch sound",
+                    Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
                 }
-                V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
-                    onOpenHomeSlideshow()
-                }
-                V144CategoryCard("Reminder scenes", "Choose animated voice and alarm backgrounds", Icons.Outlined.Palette, MutedGold) {
-                    sectionName = V167SettingsSection.APPEARANCE.name
-                }
-                V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
+                P1GalleryBackgroundLaunchCard()
+                V144CategoryCard("Companion", "Spark or Mira and helpful suggestions",
+                    Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
-                V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
+                V144CategoryCard("Voice & music", "Reminder voice, music and previews",
+                    Icons.Outlined.RecordVoiceOver, RecRed) {
                     sectionName = V167SettingsSection.VOICE.name
                 }
-                // Ordinary app defaults are self-describing; no introduction card.
+                V144CategoryCard("Home photos", "Manage your Home slideshow",
+                    Icons.Outlined.Collections, MutedGold) {
+                    onOpenHomeSlideshow()
+                }
             }
 
-            V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
+            V167SettingsSection.APPEARANCE -> V144SettingsPage("APP APPEARANCE", "Your Backlot look", ::navigateBack) {
+                // Only Backlot app themes and app-level sound/icon. No old
+                // reminder-scene or Premiere gallery mounted on this screen.
                 V127AppearanceSettings(showGuidePicker = false)
-                Spacer(Modifier.height(22.dp))
-                com.framebynavin.app.reminders.V391ReminderSceneSettings()
             }
 
             V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {

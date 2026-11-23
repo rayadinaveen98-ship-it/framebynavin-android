@@ -30,14 +30,17 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
             Spacer(Modifier.height(18.dp))
         }
 
-        Text("APPEARANCE", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("APP APPEARANCE", color = RecRed, fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose your look", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text("One Backlot. Two appearances.", color = ProjectorIvory,
+            fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "Pick a theme. Your existing projects and recordings will not change.",
+            "Director's Cut is Backlot's original look. Light mode keeps the same " +
+                "layout. Your ideas, projects and reminders don't change.",
             color = MutedText,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
         )
         Spacer(Modifier.height(12.dp))
 
@@ -54,9 +57,6 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
 
         Spacer(Modifier.height(8.dp))
         V133AppIconPicker()
-
-        Spacer(Modifier.height(16.dp))
-        P1GalleryBackgroundLaunchCard()
 
         Spacer(Modifier.height(16.dp))
         Surface(
