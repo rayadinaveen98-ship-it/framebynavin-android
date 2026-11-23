@@ -90,9 +90,11 @@ internal fun P1ChallengeNotificationEntrance(
     if (challengeId.isNullOrBlank()) return
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    // P10C: a valid user-opened challenge notification gets the new built-in
+    // entrance even with no private gallery media selected.
     val media = remember(challengeId, launchNonce) {
         P1EntranceMediaStore.selected(context, P1ReminderScope.CHALLENGE_21)
-    } ?: return
+    }
 
     var unlocked by remember(challengeId, launchNonce) { mutableStateOf(false) }
     DisposableEffect(context, owner, challengeId, launchNonce) {
@@ -129,22 +131,24 @@ internal fun P1ChallengeNotificationEntrance(
     }
     if (revealed || !unlocked || validated == false) return
     if (validated == null) {
-        Box(modifier.fillMaxSize().background(Color(0xFF080408))
-            .testTag("p1-challenge-validating"))
+        Box(modifier.fillMaxSize().background(
+            P10ReminderFamilyStore.selected(context, P1ReminderScope.CHALLENGE_21).pigments().dark
+        ).testTag("p1-challenge-validating"))
         return
     }
     val active = candidate ?: return
-    P1GalleryEntranceVisual(
-        domain = P1ReminderScope.CHALLENGE_21,
+    P10ReminderEntranceStage(
+        scope = P1ReminderScope.CHALLENGE_21,
         title = active.activity,
         kind = if (active.alertKind == Phase1HabitAlertKind.VOICE)
             ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
         occurrenceKey = challengeId + ":" + launchNonce,
+        locked = false,
         media = media,
-        onDoubleTap = { revealed = true },
+        onOpen = { revealed = true },
         modifier = modifier,
     )
-}
+}}
 
 /** This surface has no Done/Snooze/Dismiss controls, receipts, service or alarm ownership. */
 @Composable
