@@ -24,3 +24,13 @@ Runner: `tools/qa/backlot_p10h_focused_android15.sh`.
 - P10H QA candidate removed only the two bad imports (assertion methods remain available on node interactions) and deleted the historical V202 UI test of the retired V195 renderer. The P10 replacement P10LivingReminderVisualUiTest remains; it covers five Creator/Personal/accessible-Open cases.
 - Strengthened the no-JVM preflight to inspect all unit/instrumentation test sources for retired V195/V202/V218 APIs and invalid assertion imports, stopping before expensive compilation.
 - **Evidence gate remains OPEN:** no claims of AndroidTest compilation success or emulator tests passing until a new GitHub run reports those results. No owner APK, merge or production service edits.
+
+## Android 15 emulator round — actual results (run 45163457237)
+
+- **Build successful:** `:app:assembleDebug` and `:app:assembleDebugAndroidTest` both finished successfully; no AndroidTest compile errors remained.
+- **Android emulator execution:** 5 tests ran, **4 passed, 1 failed**. Passed: Creator Voice, Creator Alarm, Personal Voice, Personal Alarm. Failed: `explicitAccessibleOpenRevealsWithoutLegacyOneTapParticleTarget`, assertion `OPENED` missing after `performClick()`.
+- **Root-cause diagnosis:** `performClick()` delivers a physical single-tap gesture, which the P10 entrance intentionally does not reveal on (double-tap gesture required). The accessible *semantic OnClick* action is the supported single activation for TalkBack. The test was exercising the wrong input method.
+- **Focused correction:** Test now uses `.performSemanticsAction(SemanticsActions.OnClick)`, checks initial closed state and waits for Compose idle. **Production screen not changed.**
+- **Avoid unnecessary reruns:** The Android CI workflow was separated into two jobs: (1) debug + instrumentation APK build and reusable artifacts; (2) Android 15 emulator running only the failed accessible-Open test (`OK (1 test)`). The four previously passed tests need not be reexecuted after a test-only fix. Emulator job can be rerun independently using unchanged APK artifacts if a transient emulator failure occurs.
+- **Verification state:** Subsequent CI run [45167860087](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/45167860087) started/pending when this entry was authored. No pass claimed yet.
+- **No owner APK / merge / production data modification.** This is still synthetic Android UI QA, not complete real-device acceptance.
