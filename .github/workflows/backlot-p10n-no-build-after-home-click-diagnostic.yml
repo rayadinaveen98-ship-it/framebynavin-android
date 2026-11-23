@@ -1,0 +1,65 @@
+name: Backlot P10N - Capture Reminder Hub After Home Click, No Build
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10n-tap-transition-diagnostic-20261123
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-p10n-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  screenshot:
+    name: Android 15 snapshot during actual Home card tap (reuse P10M)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify diagnostic runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s tools/qa/backlot_p10n_capture_after_home_click_android15.sh
+          test -s app/src/androidTest/java/com/framebynavin/app/ui/P10JRealFirstRunNavigationUiTest.kt
+          echo 'No JVM, no Gradle, no source build'
+      - name: Reuse exact Android debug and test APKs from P10M
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-P10M-Reusable-Debug-AndTest-APKs
+          run-id: 45202539065
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/p10n/apks
+      - name: Verify previously-compiled APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s output/p10n/apks/app-debug.apk
+          test -s output/p10n/apks/app-debug-androidTest.apk
+          sha256sum output/p10n/apks/*.apk
+      - name: Enable hardware acceleration
+        shell: bash
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Run unchanged P10M test and capture its live UI before teardown
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10n_capture_after_home_click_android15.sh
+      - name: Upload mid-test screenshots, hierarchy and logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10N-Live-Home-Click-Diagnostic-Evidence
+          path: output/p10n/android15/
+          if-no-files-found: warn
+          retention-days: 21
