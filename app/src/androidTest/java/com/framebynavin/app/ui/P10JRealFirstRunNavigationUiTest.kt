@@ -65,6 +65,30 @@ class P10JRealFirstRunNavigationUiTest {
         }
     }
 
+    /**
+     * P6 is composed above the Creator shell after a committed setup.
+     * The Home card can be readable in unmerged semantics while the short
+     * full-screen "Tap anywhere to continue" entrance still owns touch input.
+     * Dismissing it is a REAL supported on-screen action, not a route mock.
+     */
+    private fun finishCreatorEntryHandoff() {
+        rule.waitForIdle()
+        val entry = rule.onAllNodesWithTag(
+            "p6-creator-entry-transition", useUnmergedTree = true
+        )
+        if (entry.fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag(
+                "p6-creator-entry-transition", useUnmergedTree = true
+            ).performClick()
+        }
+        rule.waitUntil(12_000L) {
+            rule.onAllNodesWithTag(
+                "p6-creator-entry-transition", useUnmergedTree = true
+            ).fetchSemanticsNodes().isEmpty()
+        }
+        rule.waitForIdle()
+    }
+
     private fun noOnboardingLoop() {
         rule.onNodeWithTag("p4-account-entry").assertDoesNotExist()
         rule.onNodeWithTag("p5-first-run-companion-choice").assertDoesNotExist()
@@ -108,10 +132,12 @@ class P10JRealFirstRunNavigationUiTest {
 
         awaitHomeReminderHub()
         noOnboardingLoop()
-        // Click actual Home's reminder card; resolve merged-semantic tag
-        // instability without skipping or mocking the real navigation route.
+        // P6 sits above Home after setup; it can absorb the first Hub tap.
+        // Finish its real on-screen handoff before testing the Home card.
+        finishCreatorEntryHandoff()
         openHomeReminderHub()
-        awaitTag("v2232-open-personal")
+        awaitTag("v2232-reminders-space-switcher", timeoutMs = 20_000L)
+        awaitTag("v2232-open-personal", timeoutMs = 15_000L)
         noOnboardingLoop()
 
         rule.onNodeWithTag("v2232-open-personal").performClick()
