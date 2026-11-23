@@ -26,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -217,18 +218,19 @@ internal fun V144GuidePicker() {
         mutableStateOf(P5CompanionPose.WELCOME.name)
     }
     var error by androidx.compose.runtime.remember { mutableStateOf(false) }
+    var expressionsOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val candidate = P5CompanionSelectionPolicy.previewable(previewName)
     val pose = P5CompanionPose.valueOf(poseName)
     Column(Modifier.fillMaxWidth().testTag("p5-settings-companion"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("YOUR COMPANION", color = MutedGold, fontSize = 10.sp,
             letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold)
-        Text("Make Backlot yours.", color = ProjectorIvory, fontSize = 19.sp,
+        Text("Choose your companion", color = ProjectorIvory, fontSize = 19.sp,
             fontWeight = FontWeight.SemiBold)
-        Text("Preview Spark and Mira. Your current companion won't change " +
-            "until you confirm.", color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
+        Text("Preview Spark or Mira. Your saved choice only changes when you tap Use.",
+            color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
         P5CompanionPortraitStage(guide = candidate, pose = pose,
-            modifier = Modifier.fillMaxWidth().height(230.dp))
+            modifier = Modifier.fillMaxWidth().height(205.dp))
         Row(Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
@@ -242,7 +244,13 @@ internal fun V144GuidePicker() {
             poseName = P5CompanionPose.WELCOME.name
             error = false
         }, testPrefix = "v217-settings-")
-        P5PoseChoices(pose = pose, onChange = { poseName = it.name })
+        TextButton(
+            onClick = { expressionsOpen = !expressionsOpen },
+            modifier = Modifier.testTag("p9b-companion-expressions-toggle"),
+        ) { Text(if (expressionsOpen) "HIDE EXPRESSION PREVIEWS" else "PREVIEW EXPRESSIONS", color = MutedGold) }
+        if (expressionsOpen) {
+            P5PoseChoices(pose = pose, onChange = { poseName = it.name })
+        }
         Button(
             onClick = {
                 error = !V144GuidePrefs.select(candidate)
