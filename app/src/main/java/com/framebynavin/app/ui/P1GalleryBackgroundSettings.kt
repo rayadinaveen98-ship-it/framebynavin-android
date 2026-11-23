@@ -85,6 +85,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
     var feedback by remember { mutableStateOf<String?>(null) }
     var fullPreview by remember { mutableStateOf(false) }
     var showFraming by rememberSaveable { mutableStateOf(false) }
+    var showMediaDetails by rememberSaveable { mutableStateOf(false) }
     var mode by rememberSaveable { mutableStateOf(ReminderCheckInKind.VOICE) }
     val selectedMedia = remember(domain, revision) { P1EntranceMediaStore.selected(context, domain) }
     var frame by remember(domain, revision) { mutableStateOf(P1EntranceMediaStore.framing(context, domain)) }
@@ -267,10 +268,18 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                 color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
                 modifier = Modifier.testTag("p1-host-compatibility-note"))
         }
-        Text("Live Photos may import as still images; export their motion as a short video when needed. Installed third-party live wallpapers cannot be imported directly.",
+        Text("Gallery backgrounds stay on this device. Previewing does not send an alert.",
             color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
-        Text("Local media only. Personal gallery content is hidden while Android is locked. No cloud uploads or changes to reminder delivery.",
-            color = MutedText, fontSize = 10.sp, lineHeight = 15.sp)
+        TextButton(
+            onClick = { showMediaDetails = !showMediaDetails },
+            modifier = Modifier.testTag("p9b-gallery-media-help"),
+        ) { Text(if (showMediaDetails) "HIDE MEDIA DETAILS" else "MEDIA FORMATS & PRIVACY", color = MutedGold) }
+        if (showMediaDetails) {
+            Text("Photo, animated GIF/WebP or silent looping video (up to 15 seconds and 40 MB). Live Photos may import as still images; export motion to video when needed. Third-party live wallpapers cannot be imported directly.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+            Text("Local media only. Personal gallery content is hidden while Android is locked. No cloud uploads or changes to reminder delivery.",
+                color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+        }
         if (!feedback.isNullOrBlank())
             Text(feedback.orEmpty(), color = MutedGold, fontSize = 11.sp,
                 modifier = Modifier.testTag("p1-gallery-feedback"))
