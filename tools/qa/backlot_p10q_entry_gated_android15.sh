@@ -7,6 +7,8 @@ mkdir -p "$out"
 adb wait-for-device
 adb install -r output/p10q/apks/app-debug.apk
 adb install -r output/p10q/apks/app-debug-androidTest.apk
+# Avoid cold-boot Android Launcher/Quickstep ANR intercepting UI actions.
+sleep 18
 
 for repeat in 1 2; do
   adb shell am force-stop com.framebynavin.app || true
