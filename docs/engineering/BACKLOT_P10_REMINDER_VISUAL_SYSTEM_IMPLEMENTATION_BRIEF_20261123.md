@@ -3,7 +3,7 @@
 
 **Authorization:** The founder rejected every older/default reminder main-screen look and obsolete reminder-scene/voice/alarm/Premiere full-screen collection; approved preserving Living Bloom, Pulse Studio and Rise Core as the only three built-in entrance families, making them visibly more alive, redesigning mic/alarm iconography, redesigning the post-double-tap main screen, and enhancing gallery image/animated photo/video customization. Founder said “yeah ok bro continue” to the implementation-brief and isolated source-staging plan.
 
-**Status:** P10A–P10D family architecture, new native animation/icon source, three live reminder presentation paths and source/gallery Settings selection **SOURCE-STAGED** on the P10D descendant branch. All remain **UNCOMPILED / UNTESTED / UNVERIFIED ON DEVICE**. P10E old code/resource removal **NOT STARTED**; P10F consolidated QA and owner APK **DEFERRED**. Do not run Gradle, JVM, CI, emulator, device test, merge or APK until the founder explicitly opens the consolidated testing gate.
+**Status:** P10A–P10E now **SOURCE-STAGED** on the P10E descendant branch, including physical deletion of legacy V195/V336/V391/V394 reminder visuals and obsolete source-only proof paths. All remain **UNCOMPILED / UNTESTED / UNVERIFIED ON DEVICE**; P10F consolidated QA and signed owner APK **DEFERRED** until founder explicitly opens the gate. Source deletion does not establish a compiled or acceptable APK; do not run Gradle, JVM, CI, emulator, device test, merge or APK yet.
 
 ### Source of truth and non-negotiable boundaries
 
@@ -136,3 +136,15 @@ A rising luminous spine with layered atmospheric wisps and independent micro-rib
 - The old P1 neutral Original fallback is now a P10 living-family fallback. Media rendering is still local, muted, lifecycle-safe and subject to current limits. Live Photo movement is platform-dependent, not guaranteed.
 - Detailed stage record: `docs/engineering/BACKLOT_P10D_GALLERY_LIVING_BACKGROUNDS_SOURCE_STAGE_20261123.md`.
 - **P10E is next.** P10A/B/C/D remain repository source only until consolidated compile, QA, physical tests and aesthetic acceptance; do not claim the complete old visual system is physically removed before P10E.
+
+
+## P10E source-stage continuation — retired visuals physically removed on candidate branch
+- Branch: `feature/backlot-v337-point10e-legacy-reminder-cleanup-after-p10d-20261123`.
+- Deleted full legacy reminder presentation files `V391ReminderSceneEngine.kt`, `V394PremiereExperience.kt`, `V336DirectorReminderVisuals.kt`, `V195ReminderParticleScene.kt` plus associated obsolete V195/V197/V198/V202/V218 geometry/policies and their old-focused test assertions.
+- Replaced redundant P1 Personal gallery-only entrance and P1 Creator particle-underlay functions, but retained valid challenge notification host, locked gallery handling, P1 media import/rendering and existing alarm/action owners.
+- Original animator-off reveal behavior moved into P10 contract so deleting old V197 geometry cannot silently hide controls.
+- Removed stale old-look proof CI workflows and old V218 standalone offline renderer module; kept the Backlot app, V217 review and unrelated workflows untouched.
+- Added source-staged `P10LivingReminderVisualUiTest.kt` and unexecuted `tools/check_p10_retired_reminder_visuals.sh` to verify replacement semantics during founder-approved P10F QA.
+- Exact removals and risks recorded in `docs/engineering/BACKLOT_P10E_LEGACY_VISUAL_REMOVAL_SOURCE_STAGE_20261123.md`.
+- Earlier P10A/P10B statements in this evolving file describing visual components as "not yet mounted", and P10D statements describing P10E as "next", reflect their historical checkpoints. The latest P10E status supersedes them.
+- No broad repository-wide compile/linkage result yet. **Do not claim the app is already clean or that any APK contains the replacement.**
