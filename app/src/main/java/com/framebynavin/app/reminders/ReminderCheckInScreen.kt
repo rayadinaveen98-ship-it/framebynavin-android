@@ -1,6 +1,8 @@
 package com.framebynavin.app.reminders
 
 import android.animation.ValueAnimator
+import android.app.KeyguardManager
+import android.content.Context
 import android.os.PowerManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -61,13 +63,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.framebynavin.app.data.ProjectAttentionPlan
-import com.framebynavin.app.ui.theme.BacklotAccent
-import com.framebynavin.app.ui.theme.BacklotBackground
+import com.framebynavin.app.ui.theme.look.hot
+import com.framebynavin.app.ui.theme.look.black
 import com.framebynavin.app.ui.theme.BacklotBorder
-import com.framebynavin.app.ui.theme.BacklotPrimaryText
-import com.framebynavin.app.ui.theme.BacklotSecondaryAccent
-import com.framebynavin.app.ui.theme.BacklotSecondaryText
+import com.framebynavin.app.ui.theme.look.ivory
+import com.framebynavin.app.ui.theme.look.hot
+import com.framebynavin.app.ui.theme.look.muted
 import com.framebynavin.app.ui.theme.BacklotSuccess
 import java.time.Instant
 import java.time.ZoneId
@@ -97,7 +102,12 @@ internal fun ReminderCheckInScreen(
     attentionPlan: ProjectAttentionPlan = ProjectAttentionPlan.CUSTOM,
 ) {
     BackHandler(enabled = true) { }
-    val accent = V336DirectorPalette.hot
+    val context = LocalContext.current
+    val family = remember(context) {
+        P10ReminderFamilyStore.selected(context, P1ReminderScope.CREATOR)
+    }
+    val look = family.actionPalette()
+    val accent = look.hot
     val scroll = rememberScrollState()
     val clockLabel = remember { reminderClockLabel(System.currentTimeMillis()) }
     val contextLine = listOf(stageLabel.trim(), dueLabel.trim())
@@ -119,62 +129,76 @@ internal fun ReminderCheckInScreen(
 
     // Screen controls always work: animation scale zero means immediate reveal.
     // Battery saver reduces the number of dots rather than affecting actions.
-    val context = LocalContext.current
     val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
     val lowPower = remember(context) {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
-    // P9: Retire the old Premiere/Classic split in active Creator reminders.
-    // The original V337 notification, particle entrance and response actions
-    // remain authoritative. Gallery underlay remains the P1 extension.
-    // The user, not an intro timer, chooses when to reveal controls.
-    // When OS animations are disabled, accessible controls appear immediately.
-    var revealed by rememberSaveable(kind, title) {
+    // P10C: existing Creator response callbacks remain authoritative.
+    // Touch must double-tap to open Act II; TalkBack offers an explicit action.
+    // An over-keyguard surface never reveals private Creator details.
+    val owner = LocalLifecycleOwner.current
+    var keyguardLocked by remember { mutableStateOf(true) }
+    DisposableEffect(owner, context) {
+        val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        fun refresh() { keyguardLocked = keyguard?.isKeyguardLocked == true }
+        refresh()
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START, Lifecycle.Event.ON_RESUME -> refresh()
+                Lifecycle.Event.ON_STOP -> keyguardLocked = true
+                else -> Unit
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    val galleryMedia = remember(context) {
+        P1EntranceMediaStore.selected(context, P1ReminderScope.CREATOR)
+    }
+    var revealed by rememberSaveable(kind, title, dueLabel) {
         mutableStateOf(V197ReminderRevealPolicy.startRevealed(motionEnabled))
     }
-    LaunchedEffect(motionEnabled) {
-        if (!motionEnabled) revealed = true
+    LaunchedEffect(motionEnabled, keyguardLocked) {
+        if (!motionEnabled && !keyguardLocked) revealed = true
     }
+    val showMain = revealed && !keyguardLocked
     val revealAlpha by animateFloatAsState(
-        targetValue = if (revealed) 1f else 0f,
-        animationSpec = tween(durationMillis = 650),
-        label = "v195-reminder-controls",
+        targetValue = if (showMain) 1f else 0f,
+        animationSpec = tween(durationMillis = if (motionEnabled) 650 else 0),
+        label = "p10-reminder-controls",
     )
 
     Box(
         Modifier
             .fillMaxSize()
-            .background(BacklotBackground),
+            .background(look.black),
     ) {
-        // Intro is UNCHANGED: clock/mic silhouette still forms from real particles.
-        // After the user's tap, crossfade to diffuse moving color waves only;
-        // no particles remain behind action buttons.
+        // Visual continuity: both stages use the same saved P10 family.
         Crossfade(
-            targetState = revealed,
-            animationSpec = tween(durationMillis = if (motionEnabled) 480 else 0),
-            label = "v231-reminder-backdrop-transition",
+            targetState = showMain,
+            animationSpec = tween(durationMillis = if (motionEnabled) 500 else 0),
+            label = "p10-reminder-act-transition",
         ) { showingActions ->
             if (showingActions) {
-                // P9: one consistent Creator reminder surface.
-                // Legacy scene preferences are not read or rendered.
-                V336DirectorBackdrop(
-                    motionEnabled = motionEnabled,
-                    lowPower = lowPower,
+                P10ReminderMainAtmosphere(
+                    scope = P1ReminderScope.CREATOR,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                V195ReminderParticleScene(
+                P10ReminderEntranceStage(
+                    scope = P1ReminderScope.CREATOR,
                     kind = kind,
-                    revealed = false,
-                    lowPower = lowPower,
-                    onReveal = { revealed = true },
+                    title = title,
+                    occurrenceKey = title + ":" + dueLabel + ":" + stageLabel,
+                    locked = keyguardLocked,
+                    media = galleryMedia,
+                    onOpen = { if (!keyguardLocked) revealed = true },
                     modifier = Modifier.fillMaxSize(),
-                    motionEnabled = motionEnabled,
                 )
             }
         }
         // Only render actionable controls after manual reveal; no ghost actions under the intro.
-        if (revealed) Column(
+        if (showMain) Column(
             modifier = Modifier
                 .align(Alignment.Center)
                 .testTag("v200-reminder-controls")
@@ -195,42 +219,46 @@ internal fun ReminderCheckInScreen(
             ) {
                 Text(
                     "BACKLOT  /  CREATOR REMINDERS",
-                    color = V336DirectorPalette.ivory,
+                    color = look.ivory,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.5.sp,
                 )
                 Text(
-                    clockLabel, color = V336DirectorPalette.muted,
+                    clockLabel, color = look.muted,
                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                 )
             }
             Spacer(Modifier.height(8.dp))
             Text(
                 text = if (kind == ReminderCheckInKind.VOICE) "VOICE" else "ALARM",
-                color = V336DirectorPalette.gold, fontWeight = FontWeight.Bold,
+                color = look.gold, fontWeight = FontWeight.Bold,
                 fontSize = 10.sp, letterSpacing = 3.sp,
             )
-            // This is a Native Compose Canvas, not an HTML image or fake UI.
-            V336DirectorSignalArt(
-                kind = kind,
-                motionEnabled = motionEnabled,
-                lowPower = lowPower,
+            // P10: new authored Voice/Alarm mark, no old dotted signal artwork.
+            Box(
                 modifier = Modifier.fillMaxWidth()
                     .height(if (compact) 170.dp else 220.dp)
                     .testTag(if (kind == ReminderCheckInKind.VOICE)
                         "v195-voice-guide" else "v195-alarm-guide"),
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                P10ReminderIdentityEmblem(
+                    kind = kind,
+                    family = family,
+                    modifier = Modifier.size(if (compact) 162.dp else 196.dp),
+                )
+            }
             Spacer(Modifier.height(if (compact) 3.dp else 7.dp))
             Text(
                 if (stageCheckIn) "CREATOR STAGE CHECK-IN" else "CREATOR REMINDER",
-                color = V336DirectorPalette.hot, fontWeight = FontWeight.Bold,
+                color = look.hot, fontWeight = FontWeight.Bold,
                 fontSize = 10.sp, letterSpacing = 2.3.sp,
             )
             Spacer(Modifier.height(7.dp))
             Text(
                 text = title,
-                color = V336DirectorPalette.ivory,
+                color = look.ivory,
                 fontSize = if (compact) 22.sp else 26.sp,
                 lineHeight = if (compact) 28.sp else 34.sp,
                 fontWeight = FontWeight.Bold,
@@ -244,16 +272,16 @@ internal fun ReminderCheckInScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth()
                         .testTag("v336-creator-reminder-context"),
-                    color = V336DirectorPalette.panel,
+                    color = look.panel,
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                    border = BorderStroke(1.dp, look.line),
                 ) {
                     Column(Modifier.padding(horizontal = 17.dp, vertical = 14.dp)) {
-                        Text("SCHEDULED  /  STAGE", color = V336DirectorPalette.hot,
+                        Text("SCHEDULED  /  STAGE", color = look.hot,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold,
                             letterSpacing = 1.5.sp)
                         Spacer(Modifier.height(5.dp))
-                        Text(contextLine, color = V336DirectorPalette.ivory,
+                        Text(contextLine, color = look.ivory,
                             fontSize = 13.sp, lineHeight = 19.sp, maxLines = 3,
                             overflow = TextOverflow.Ellipsis)
                     }
@@ -264,16 +292,16 @@ internal fun ReminderCheckInScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth()
                         .testTag("v336-creator-reminder-next-step"),
-                    color = V336DirectorPalette.panel,
+                    color = look.panel,
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                    border = BorderStroke(1.dp, look.line),
                 ) {
                     Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
-                        Text("NEXT MOVE", color = V336DirectorPalette.hot,
+                        Text("NEXT MOVE", color = look.hot,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold,
                             letterSpacing = 1.5.sp)
                         Spacer(Modifier.height(5.dp))
-                        Text(nextAction, color = V336DirectorPalette.ivory,
+                        Text(nextAction, color = look.ivory,
                             fontSize = 13.sp, lineHeight = 19.sp, maxLines = 3,
                             overflow = TextOverflow.Ellipsis)
                     }
@@ -290,8 +318,8 @@ internal fun ReminderCheckInScreen(
                     .testTag("v200-primary-reminder-action"),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (stageCheckIn)
-                        V336DirectorPalette.gold else Color(0xFFE8B88E),
-                    contentColor = V336DirectorPalette.black,
+                        look.gold else Color(0xFFE8B88E),
+                    contentColor = look.black,
                 ),
                 shape = RoundedCornerShape(26.dp),
             ) {
@@ -319,7 +347,7 @@ internal fun ReminderCheckInScreen(
                 ) {
                     Icon(Icons.Outlined.Work, null, tint = accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("I'M WORKING", color = BacklotPrimaryText,
+                    Text("I'M WORKING", color = look.ivory,
                         fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
@@ -336,13 +364,13 @@ internal fun ReminderCheckInScreen(
                         interactionSource = snoozePress,
                         modifier = Modifier.weight(1f).height(50.dp)
                             .v201PressFeedback(snoozePress, motionEnabled),
-                        border = BorderStroke(1.dp, V336DirectorPalette.gold.copy(alpha = .64f)),
+                        border = BorderStroke(1.dp, look.gold.copy(alpha = .64f)),
                         shape = RoundedCornerShape(24.dp),
                     ) {
-                        Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
+                        Icon(Icons.Outlined.Snooze, null, tint = look.ivory,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(7.dp))
-                        Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                        Text("SNOOZE ${snoozeMinutes} MIN", color = look.ivory,
                             fontSize = 12.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
                     }
                     TextButton(
@@ -352,7 +380,7 @@ internal fun ReminderCheckInScreen(
                             .v201PressFeedback(morePress, motionEnabled),
                     ) {
                         Text(if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
-                            color = BacklotPrimaryText, fontSize = 11.sp,
+                            color = look.ivory, fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
                 }
@@ -362,13 +390,13 @@ internal fun ReminderCheckInScreen(
                     interactionSource = snoozePress,
                     modifier = Modifier.fillMaxWidth().height(50.dp)
                         .v201PressFeedback(snoozePress, motionEnabled),
-                    border = BorderStroke(1.dp, V336DirectorPalette.gold.copy(alpha = .64f)),
+                    border = BorderStroke(1.dp, look.gold.copy(alpha = .64f)),
                     shape = RoundedCornerShape(24.dp),
                 ) {
-                    Icon(Icons.Outlined.Snooze, null, tint = V336DirectorPalette.ivory,
+                    Icon(Icons.Outlined.Snooze, null, tint = look.ivory,
                         modifier = Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("SNOOZE ${snoozeMinutes} MIN", color = BacklotPrimaryText,
+                    Text("SNOOZE ${snoozeMinutes} MIN", color = look.ivory,
                         fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 TextButton(
@@ -378,7 +406,7 @@ internal fun ReminderCheckInScreen(
                         .v201PressFeedback(morePress, motionEnabled),
                 ) {
                     Text(if (moreOpen) "HIDE OPTIONS" else "MORE OPTIONS",
-                        color = BacklotPrimaryText, fontSize = 12.sp,
+                        color = look.ivory, fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold)
                 }
             }
@@ -399,8 +427,8 @@ internal fun ReminderCheckInScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth().testTag("v200-more-options"),
                     shape = RoundedCornerShape(18.dp),
-                    color = V336DirectorPalette.panel,
-                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                    color = look.panel,
+                    border = BorderStroke(1.dp, look.line),
                 ) {
                     Column(
                         Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
@@ -410,7 +438,7 @@ internal fun ReminderCheckInScreen(
                         if (notes.isNotBlank()) {
                             Text(
                                 text = notes,
-                                color = BacklotSecondaryText,
+                                color = look.muted,
                                 fontSize = 12.sp,
                                 lineHeight = 17.sp,
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -449,9 +477,9 @@ internal fun ReminderCheckInScreen(
                                 modifier = Modifier.fillMaxWidth().height(48.dp)
                                     .v201PressFeedback(replayPress, motionEnabled),
                             ) {
-                                Icon(Icons.Outlined.Replay, null, tint = BacklotSecondaryAccent)
+                                Icon(Icons.Outlined.Replay, null, tint = look.hot)
                                 Spacer(Modifier.size(8.dp))
-                                Text("REPLAY VOICE", color = BacklotSecondaryAccent,
+                                Text("REPLAY VOICE", color = look.hot,
                                     fontSize = 12.sp)
                             }
                         }
@@ -461,7 +489,7 @@ internal fun ReminderCheckInScreen(
                             modifier = Modifier.fillMaxWidth().height(48.dp)
                                 .v201PressFeedback(dismissPress, motionEnabled),
                         ) {
-                            Text("DISMISS FOR NOW", color = BacklotSecondaryText,
+                            Text("DISMISS FOR NOW", color = look.muted,
                                 fontSize = 12.sp)
                         }
                     }
