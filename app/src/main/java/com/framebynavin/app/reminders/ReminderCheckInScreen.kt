@@ -130,7 +130,8 @@ internal fun ReminderCheckInScreen(
     }
     // P10C: existing Creator response callbacks remain authoritative.
     // Touch must double-tap to open Act II; TalkBack offers an explicit action.
-    // An over-keyguard surface never reveals private Creator details.
+    // Preserve V337 Creator's over-keyguard response availability; custom
+    // gallery imagery remains locked behind the existing P1 privacy gate.
     val owner = LocalLifecycleOwner.current
     var keyguardLocked by remember { mutableStateOf(true) }
     DisposableEffect(owner, context) {
@@ -153,10 +154,10 @@ internal fun ReminderCheckInScreen(
     var revealed by rememberSaveable(kind, title, dueLabel) {
         mutableStateOf(V197ReminderRevealPolicy.startRevealed(motionEnabled))
     }
-    LaunchedEffect(motionEnabled, keyguardLocked) {
-        if (!motionEnabled && !keyguardLocked) revealed = true
+    LaunchedEffect(motionEnabled) {
+        if (!motionEnabled) revealed = true
     }
-    val showMain = revealed && !keyguardLocked
+    val showMain = revealed
     val revealAlpha by animateFloatAsState(
         targetValue = if (showMain) 1f else 0f,
         animationSpec = tween(durationMillis = if (motionEnabled) 650 else 0),
@@ -185,9 +186,11 @@ internal fun ReminderCheckInScreen(
                     kind = kind,
                     title = title,
                     occurrenceKey = title + ":" + dueLabel + ":" + stageLabel,
-                    locked = keyguardLocked,
-                    media = galleryMedia,
-                    onOpen = { if (!keyguardLocked) revealed = true },
+                    locked = false,
+                    // Creator's original over-keyguard title/actions survive;
+                    // no gallery asset may be shown until Android is unlocked.
+                    media = if (keyguardLocked) null else galleryMedia,
+                    onOpen = { revealed = true },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
