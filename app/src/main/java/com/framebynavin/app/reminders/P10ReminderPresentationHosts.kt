@@ -1,9 +1,5 @@
 package com.framebynavin.app.reminders
 
-import android.animation.ValueAnimator
-import android.app.ActivityManager
-import android.content.Context
-import android.os.PowerManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -41,8 +36,8 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Staged P10 presentation-only host: has no notification, alarm, TTS, routing,
- * receipt, completion, permission or service ownership. Live call sites are
- * unchanged until a separate gated cutover.
+ * receipt, completion, permission or service ownership. P10C mounted this
+ * on Creator/Personal and notification-opened 21-Day presentation routes.
  */
 @Composable
 internal fun P10ReminderEntranceStage(
@@ -59,13 +54,6 @@ internal fun P10ReminderEntranceStage(
     val context = LocalContext.current
     val currentOnOpen by rememberUpdatedState(onOpen)
     val family = remember(context, scope) { P10ReminderFamilyStore.selected(context, scope) }
-    val animationsAllowed = remember { ValueAnimator.areAnimatorsEnabled() }
-    val batterySaver = remember(context) {
-        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
-    }
-    val lowRam = remember(context) {
-        context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
-    }
     val source = remember(context, scope, media?.file?.absolutePath) {
         P10ReminderBackgroundStore.selected(context, scope, galleryAvailable = media != null)
     }
@@ -170,13 +158,6 @@ internal fun P10ReminderMainAtmosphere(
 ) {
     val context = LocalContext.current
     val family = remember(context, scope) { P10ReminderFamilyStore.selected(context, scope) }
-    val animationsAllowed = remember { ValueAnimator.areAnimatorsEnabled() }
-    val batterySaver = remember(context) {
-        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
-    }
-    val lowRam = remember(context) {
-        context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
-    }
     val media = remember(context, scope) { P1EntranceMediaStore.selected(context, scope) }
     val source = remember(context, scope, media?.file?.absolutePath) {
         P10ReminderBackgroundStore.selected(context, scope, galleryAvailable = media != null)
