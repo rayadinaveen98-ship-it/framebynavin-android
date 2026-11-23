@@ -1,5 +1,7 @@
 package com.framebynavin.app.reminders
 
+import android.app.KeyguardManager
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
