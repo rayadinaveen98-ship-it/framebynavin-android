@@ -5,12 +5,12 @@ package com.framebynavin.app.ui
  * Every former setting retains its existing storage and callback.
  */
 internal enum class V167SettingsSection {
-    HOME, PERSONALIZATION, APPEARANCE, GUIDE, VOICE, REMINDERS, PLANNING, DATA, ABOUT, PRIVACY, ADVANCED
+    HOME, PERSONALIZATION, APPEARANCE, GUIDE, VOICE, HOME_PHOTOS, REMINDERS, PLANNING, DATA, ABOUT, PRIVACY, ADVANCED
 }
 
 internal object V167SettingsNavigationPolicy {
     val homeSections = listOf(
-        "Account", "Appearance & sound", "Notifications & alarms",
+        "Account", "Personalization", "Notifications & alarms",
         "Planning & integrations",
         "Privacy & permissions", "Help & about", "Advanced",
     )
@@ -18,7 +18,8 @@ internal object V167SettingsNavigationPolicy {
     fun parent(section: V167SettingsSection): V167SettingsSection = when (section) {
         V167SettingsSection.APPEARANCE,
         V167SettingsSection.GUIDE,
-        V167SettingsSection.VOICE -> V167SettingsSection.PERSONALIZATION
+        V167SettingsSection.VOICE,
+        V167SettingsSection.HOME_PHOTOS -> V167SettingsSection.PERSONALIZATION
         else -> V167SettingsSection.HOME
     }
 
