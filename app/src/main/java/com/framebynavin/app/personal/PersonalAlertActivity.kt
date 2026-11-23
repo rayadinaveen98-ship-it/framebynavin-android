@@ -43,9 +43,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.framebynavin.app.ui.theme.FrameByNavinTheme
 import com.framebynavin.app.reminders.ReminderCheckInKind
-import com.framebynavin.app.reminders.V336DirectorBackdrop
-import com.framebynavin.app.reminders.V336DirectorSignalArt
-import com.framebynavin.app.reminders.V336DirectorPalette
+import com.framebynavin.app.reminders.P1ReminderScope
+import com.framebynavin.app.reminders.P10ReminderFamilyStore
+import com.framebynavin.app.reminders.P10ReminderIdentityEmblem
+import com.framebynavin.app.reminders.P10ReminderMainAtmosphere
+import com.framebynavin.app.reminders.P10PersonalReminderExperience
+import com.framebynavin.app.reminders.actionPalette
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -168,7 +171,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
                         }
                     }
                 }
-                com.framebynavin.app.reminders.P1PersonalGalleryEntrance(
+                P10PersonalReminderExperience(
                     occurrenceKey = id + ":" + token,
                     reminder = reminder,
                     invalid = invalid,
@@ -216,27 +219,24 @@ internal fun V2233PersonalAlertScreen(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
-    val lowPower = remember(context) {
-        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
+    val family = remember(context) {
+        P10ReminderFamilyStore.selected(context, P1ReminderScope.PERSONAL)
     }
+    val look = family.actionPalette()
     val compact = LocalConfiguration.current.screenHeightDp < 720
     val scheduledLabel = reminder?.pendingOccurrenceMillis?.takeIf { it > 0L }?.let {
         DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a", Locale.getDefault())
             .format(Instant.ofEpochMilli(it).atZone(reminder.zoneId))
     }
-    // P9: Ignore retired Premiere/Classic scene preferences. This retains
-    // the original privacy-first Personal alert, including lock state,
-    // invalid reminders, Done, Snooze, Dismiss and P1 photo entrance overlay.
+    // P10C: this main act uses the same living family as the new entrance.
+    // All lock privacy, invalid/posted occurrence and action callbacks remain intact.
     Box(
         modifier = Modifier.fillMaxSize()
-            .background(V336DirectorPalette.black)
+            .background(look.black)
             .testTag("v2233-personal-alert-screen"),
     ) {
-        // P9: original supported alert background, not an old scene choice.
-        V336DirectorBackdrop(
-            motionEnabled = motionEnabled,
-            lowPower = lowPower,
+        P10ReminderMainAtmosphere(
+            scope = P1ReminderScope.PERSONAL,
             modifier = Modifier.fillMaxSize(),
         )
         Column(
@@ -249,7 +249,7 @@ internal fun V2233PersonalAlertScreen(
         ) {
             Text(
                 "BACKLOT  /  PERSONAL REMINDERS",
-                color = V336DirectorPalette.ivory,
+                color = look.ivory,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.7.sp,
@@ -261,7 +261,7 @@ internal fun V2233PersonalAlertScreen(
                     PersonalAlert.ALARM -> "ALARM"
                     else -> "PERSONAL"
                 },
-                color = V336DirectorPalette.gold,
+                color = look.gold,
                 fontWeight = FontWeight.Bold,
                 fontSize = 10.sp,
                 letterSpacing = 3.sp,
@@ -270,10 +270,10 @@ internal fun V2233PersonalAlertScreen(
                 // Keep existing over-keyguard privacy: no title, notes or
                 // response actions until Android reports the keyguard unlocked.
                 V2233PersonalParticleWave(PersonalAlert.ALARM)
-                Text("PERSONAL ALARM", color = V336DirectorPalette.hot,
+                Text("PERSONAL ALARM", color = look.hot,
                     fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Text("Unlock your phone to view and respond to this reminder.",
-                    color = V336DirectorPalette.ivory, fontSize = 19.sp, lineHeight = 26.sp,
+                    color = look.ivory, fontSize = 19.sp, lineHeight = 26.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.testTag("v279-locked-generic-alarm"))
                 Spacer(Modifier.height(12.dp))
@@ -282,13 +282,13 @@ internal fun V2233PersonalAlertScreen(
             if (reminder == null) {
                 Spacer(Modifier.height(55.dp))
                 if (invalid) {
-                    Text("Reminder no longer active", color = V336DirectorPalette.ivory,
+                    Text("Reminder no longer active", color = look.ivory,
                         fontSize = 21.sp, fontWeight = FontWeight.Bold)
                     Text("It may have been completed, changed or paused.",
-                        color = V336DirectorPalette.muted, textAlign = TextAlign.Center)
+                        color = look.muted, textAlign = TextAlign.Center)
                     OutlinedButton(onClick = onClose) { Text("CLOSE") }
                 } else {
-                    CircularProgressIndicator(color = V336DirectorPalette.hot)
+                    CircularProgressIndicator(color = look.hot)
                 }
                 return@Column
             }
@@ -297,11 +297,11 @@ internal fun V2233PersonalAlertScreen(
             V2233PersonalParticleWave(reminder.alert)
             Text(
                 "PERSONAL REMINDER",
-                color = V336DirectorPalette.hot,
+                color = look.hot,
                 fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 2.4.sp,
             )
             Text(
-                reminder.title, color = V336DirectorPalette.ivory,
+                reminder.title, color = look.ivory,
                 fontSize = if (compact) 22.sp else 26.sp,
                 fontWeight = FontWeight.Bold, lineHeight = if (compact) 29.sp else 34.sp,
                 textAlign = TextAlign.Center,
@@ -310,24 +310,24 @@ internal fun V2233PersonalAlertScreen(
             if (scheduledLabel != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().testTag("v336-personal-schedule"),
-                    color = V336DirectorPalette.panel,
-                    border = BorderStroke(1.dp, V336DirectorPalette.line),
+                    color = look.panel,
+                    border = BorderStroke(1.dp, look.line),
                     shape = RoundedCornerShape(20.dp),
                 ) {
                     Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
-                        Text("SCHEDULED", color = V336DirectorPalette.hot,
+                        Text("SCHEDULED", color = look.hot,
                             fontSize = 10.sp, fontWeight = FontWeight.Bold,
                             letterSpacing = 1.5.sp)
                         Spacer(Modifier.height(5.dp))
-                        Text(scheduledLabel, color = V336DirectorPalette.ivory,
+                        Text(scheduledLabel, color = look.ivory,
                             fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
             Surface(
                 modifier = Modifier.fillMaxWidth().testTag("v336-personal-reminder-status"),
-                color = V336DirectorPalette.panel,
-                border = BorderStroke(1.dp, V336DirectorPalette.line),
+                color = look.panel,
+                border = BorderStroke(1.dp, look.line),
                 shape = RoundedCornerShape(20.dp),
             ) {
                 Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
@@ -335,7 +335,7 @@ internal fun V2233PersonalAlertScreen(
                         if (reminder.alert == PersonalAlert.ALARM) "ALARM"
                         else if (reminder.alert == PersonalAlert.VOICE) "ANNOUNCEMENT"
                         else "NOTIFICATION",
-                        color = V336DirectorPalette.hot,
+                        color = look.hot,
                         fontSize = 10.sp, fontWeight = FontWeight.Bold,
                         letterSpacing = 1.5.sp,
                     )
@@ -348,7 +348,7 @@ internal fun V2233PersonalAlertScreen(
                                 "Spoken ${reminder.voiceRepeatCount} ${if (reminder.voiceRepeatCount == 1) "time" else "times"} if on-device speech is available."
                             PersonalAlert.NOTIFICATION -> "Your personal reminder is ready."
                         },
-                        color = V336DirectorPalette.ivory, fontSize = 12.sp,
+                        color = look.ivory, fontSize = 12.sp,
                         lineHeight = 18.sp,
                     )
                     if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
@@ -356,7 +356,7 @@ internal fun V2233PersonalAlertScreen(
                     ) {
                         Spacer(Modifier.height(9.dp))
                         Text(
-                            reminder.notes, color = V336DirectorPalette.muted,
+                            reminder.notes, color = look.muted,
                             fontSize = 13.sp, lineHeight = 19.sp,
                             modifier = Modifier.testTag("v284-plan-alert-details"),
                         )
@@ -369,24 +369,24 @@ internal fun V2233PersonalAlertScreen(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
                     .testTag("v2233-personal-done"),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE8B88E),
-                    contentColor = V336DirectorPalette.black,
+                    containerColor = look.gold,
+                    contentColor = look.black,
                 ),
                 shape = RoundedCornerShape(26.dp),
             ) {
-                Text("DONE", color = V336DirectorPalette.black,
+                Text("DONE", color = look.black,
                     fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
             OutlinedButton(
                 onClick = onSnooze, enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
                     .testTag("v2233-personal-snooze"),
-                border = BorderStroke(1.dp, V336DirectorPalette.gold.copy(alpha = .72f)),
+                border = BorderStroke(1.dp, look.gold.copy(alpha = .72f)),
                 shape = RoundedCornerShape(26.dp),
             ) {
                 Text(
                     "SNOOZE ${reminder.snoozeMinutes} MINUTES",
-                    color = V336DirectorPalette.ivory,
+                    color = look.ivory,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -395,10 +395,10 @@ internal fun V2233PersonalAlertScreen(
                 modifier = Modifier.testTag("v2233-personal-dismiss"),
             ) {
                 Text("DISMISS WITHOUT COMPLETING",
-                    color = V336DirectorPalette.hot, fontSize = 12.sp)
+                    color = look.hot, fontSize = 12.sp)
             }
             if (error != null) {
-                Text(error, color = V336DirectorPalette.hot,
+                Text(error, color = look.hot,
                     textAlign = TextAlign.Center)
             }
             Spacer(Modifier.height(18.dp))
@@ -412,18 +412,24 @@ internal fun V2233PersonalAlertScreen(
  */
 @Composable
 internal fun V2233PersonalParticleWave(alert: PersonalAlert) {
-    val motionEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
+    // The original UI tag is retained for test compatibility; the rendered
+    // art is the new P10 optical-weight emblem, not the old V336 signal.
     val context = LocalContext.current
-    val lowPower = remember(context) {
-        context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
+    val family = remember(context) {
+        P10ReminderFamilyStore.selected(context, P1ReminderScope.PERSONAL)
     }
-    V336DirectorSignalArt(
-        kind = if (alert == PersonalAlert.VOICE) ReminderCheckInKind.VOICE
-            else ReminderCheckInKind.ALARM,
-        motionEnabled = motionEnabled,
-        lowPower = lowPower,
+    val compact = LocalConfiguration.current.screenHeightDp < 720
+    Box(
         modifier = Modifier.fillMaxWidth()
-            .height(if (LocalConfiguration.current.screenHeightDp < 720) 176.dp else 220.dp)
+            .height(if (compact) 176.dp else 220.dp)
             .testTag("v2233-particle-wave"),
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        P10ReminderIdentityEmblem(
+            kind = if (alert == PersonalAlert.VOICE)
+                ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
+            family = family,
+            modifier = Modifier.size(if (compact) 156.dp else 194.dp),
+        )
+    }
 }
