@@ -106,6 +106,9 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
           disable-animations: true
           emulator-boot-timeout: 900
           script: bash tools/qa/backlot_p10q_entry_gated_android15.sh
