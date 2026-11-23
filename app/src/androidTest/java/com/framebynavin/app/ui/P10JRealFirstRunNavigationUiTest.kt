@@ -2,6 +2,7 @@ package com.framebynavin.app.ui
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -28,7 +29,39 @@ class P10JRealFirstRunNavigationUiTest {
 
     private fun awaitTag(tag: String, timeoutMs: Long = 90_000L) {
         rule.waitUntil(timeoutMs) {
-            rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            // Compose Surface/onClick may merge test tags into a parent, so
+            // also inspect the unmerged semantics tree before timing out.
+            rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() ||
+                rule.onAllNodesWithTag(tag, useUnmergedTree = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun awaitHomeReminderHub() {
+        rule.waitUntil(60_000L) {
+            // The user-visible "REMINDER HUB" text is the product contract;
+            // the v219 test tag has intermittently vanished in merged semantics
+            // on Android 15 even when the actual Home card is visible.
+            rule.onAllNodesWithText(
+                "REMINDER HUB", useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty() ||
+                rule.onAllNodesWithTag(
+                    "v219-reminder-home-entry", useUnmergedTree = true
+                ).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun openHomeReminderHub() {
+        if (rule.onAllNodesWithTag(
+                "v219-reminder-home-entry", useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty()) {
+            rule.onNodeWithTag(
+                "v219-reminder-home-entry", useUnmergedTree = true
+            ).performScrollTo().performClick()
+        } else {
+            rule.onNodeWithText(
+                "REMINDER HUB", useUnmergedTree = true
+            ).performScrollTo().performClick()
         }
     }
 
@@ -73,10 +106,11 @@ class P10JRealFirstRunNavigationUiTest {
         // No OS permission is requested by the test; permission setup is optional.
         rule.onNodeWithTag("v197-onboarding-primary").performClick()
 
-        awaitTag("v219-reminder-home-entry")
+        awaitHomeReminderHub()
         noOnboardingLoop()
-        // The REAL Home card calls the app's existing showReminders route.
-        rule.onNodeWithTag("v219-reminder-home-entry").performScrollTo().performClick()
+        // Click actual Home's reminder card; resolve merged-semantic tag
+        // instability without skipping or mocking the real navigation route.
+        openHomeReminderHub()
         awaitTag("v2232-open-personal")
         noOnboardingLoop()
 
