@@ -91,3 +91,55 @@ internal object P10ReminderFamilyStore {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(scope.name, family.name).commit()
 }
+
+/**
+ * Selection of a built-in family and the saved private gallery are independent.
+ * The gallery remains on disk when the owner switches to a built-in family.
+ * A missing/corrupt gallery item always renders the selected P10 family.
+ */
+internal enum class P10ReminderBackgroundSource {
+    BUILT_IN, GALLERY,
+}
+
+internal object P10ReminderBackgroundPolicy {
+    fun resolved(
+        saved: String?,
+        galleryAvailable: Boolean,
+    ): P10ReminderBackgroundSource = when (saved) {
+        P10ReminderBackgroundSource.BUILT_IN.name -> P10ReminderBackgroundSource.BUILT_IN
+        P10ReminderBackgroundSource.GALLERY.name ->
+            if (galleryAvailable) P10ReminderBackgroundSource.GALLERY
+            else P10ReminderBackgroundSource.BUILT_IN
+        // Upgrade-safe: P1 gallery owners should not lose their existing selection.
+        else -> if (galleryAvailable) P10ReminderBackgroundSource.GALLERY
+            else P10ReminderBackgroundSource.BUILT_IN
+    }
+
+    fun showGallery(
+        source: P10ReminderBackgroundSource,
+        galleryAvailable: Boolean,
+        locked: Boolean,
+    ): Boolean = source == P10ReminderBackgroundSource.GALLERY &&
+        galleryAvailable && !locked
+}
+
+internal object P10ReminderBackgroundStore {
+    private const val PREFS = "backlot_p10_reminder_background_source_v1"
+
+    fun selected(
+        context: Context,
+        scope: P1ReminderScope,
+        galleryAvailable: Boolean,
+    ): P10ReminderBackgroundSource = P10ReminderBackgroundPolicy.resolved(
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(scope.name, null),
+        galleryAvailable,
+    )
+
+    fun select(
+        context: Context,
+        scope: P1ReminderScope,
+        source: P10ReminderBackgroundSource,
+    ): Boolean = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .edit().putString(scope.name, source.name).commit()
+}
