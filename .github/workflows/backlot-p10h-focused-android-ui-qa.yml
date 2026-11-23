@@ -39,8 +39,26 @@ jobs:
             echo "ERROR: invalid Compose assertion import" >&2
             exit 1
           fi
-          grep -Fq 'performSemanticsAction(SemanticsActions.OnClick)' \
-            app/src/androidTest/java/com/framebynavin/app/reminders/P10LivingReminderVisualUiTest.kt
+          testfile=app/src/androidTest/java/com/framebynavin/app/reminders/P10LivingReminderVisualUiTest.kt
+          grep -Fq 'performSemanticsAction(SemanticsActions.OnClick)' "$testfile"
+          # Previous P10H retry lost the performClick import even though the
+          # four already-green test cases still use that API. Stop early.
+          if grep -Fq '.performClick()' "$testfile"; then
+            grep -Fxq 'import androidx.compose.ui.test.performClick' "$testfile" || {
+              echo "ERROR: performClick used but Compose test import missing" >&2
+              exit 1
+            }
+          fi
+          if grep -Fq '.performSemanticsAction(' "$testfile"; then
+            grep -Fxq 'import androidx.compose.ui.test.performSemanticsAction' "$testfile" || {
+              echo "ERROR: semantic action used but Compose test import missing" >&2
+              exit 1
+            }
+            grep -Fxq 'import androidx.compose.ui.semantics.SemanticsActions' "$testfile" || {
+              echo "ERROR: SemanticsActions used but import missing" >&2
+              exit 1
+            }
+          fi
           bash tools/check_p10_retired_reminder_visuals.sh
           echo 'Fast source and test reference gate: passed'
       - uses: actions/setup-java@v5
