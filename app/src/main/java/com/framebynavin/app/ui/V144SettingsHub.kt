@@ -157,12 +157,6 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice and background music", ::navigateBack) {
-                val musicStore = remember(context) {
-                    com.framebynavin.app.reminders.CreatorMusicLocalStore(context)
-                }
-                val savedMusic = remember(musicStore) { musicStore.defaultChoice() }
-                var defaultMusicMode by remember { mutableStateOf(savedMusic.mode) }
-                var defaultMusicUri by remember { mutableStateOf(savedMusic.uri) }
                 V144SectionTitle("REMINDER VOICE", "Your default style for new Creator project reminders.")
                 Spacer(Modifier.height(8.dp))
                 V140VoiceStudioPicker(
