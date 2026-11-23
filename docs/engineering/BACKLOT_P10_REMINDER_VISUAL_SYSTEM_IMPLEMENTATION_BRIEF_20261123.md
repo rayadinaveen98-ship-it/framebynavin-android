@@ -3,7 +3,7 @@
 
 **Authorization:** The founder rejected every older/default reminder main-screen look and obsolete reminder-scene/voice/alarm/Premiere full-screen collection; approved preserving Living Bloom, Pulse Studio and Rise Core as the only three built-in entrance families, making them visibly more alive, redesigning mic/alarm iconography, redesigning the post-double-tap main screen, and enhancing gallery image/animated photo/video customization. Founder said “yeah ok bro continue” to the implementation-brief and isolated source-staging plan.
 
-**Status:** P10A source foundation IN PROGRESS on a separately isolated branch. This document describes the complete target, not functionality already delivered. No compile, Gradle, JVM, instrumented run, CI, emulator, device test, merge or APK is permitted until the founder later explicitly opens the consolidated testing gate.
+**Status:** P10A typed family/store/policy **SOURCE-STAGED**; early P10B native atmosphere, authored identity emblems and accessible entrance/main atmosphere hosts **SOURCE-STAGED BUT NOT WIRED TO LIVE ALERTS**. P10C live main-screen replacement, P10D gallery polish and P10E code deletion **NOT STARTED**. No compile, Gradle, JVM, instrumented run, CI, emulator, device test, merge or APK is permitted until the founder later explicitly opens the consolidated testing gate.
 
 ### Source of truth and non-negotiable boundaries
 
@@ -102,3 +102,15 @@ A rising luminous spine with layered atmospheric wisps and independent micro-rib
 - 320dp/360dp/420dp/large screen/tablet, font scale 1/1.5/2x, TalkBack, reduced motion, battery saver, lifecycle/rotation and process death; headless code review is not proof of any of these.
 
 **Important:** P10 cannot honestly be called "complete" until P10E deletion AND founder-accepted physical APK tests. A committed source stage is not an implemented or verified product.
+
+
+## P10A / early P10B implementation ledger (source only)
+
+- `P10ReminderVisualContract.kt`: three named families, independent per-scope local selection store, first-run suggested family and Act I/II tuning; retired identifiers never become selectable family IDs. Motion-off is static in the *new* system rather than an old-scene fallback.
+- `P10LivingReminderVisuals.kt`: three distinct native Canvas render paths (organic layered Bloom ribbons, asymmetric Studio arcs/frequency lanes, and vertically rising Core ribbons), separately bounded depth motes, main-act reading scrim, and authored capsule-voice/radial-alarm geometry. There is no actual microphone recording or fabricated VU-level response.
+- `P10ReminderPresentationHosts.kt`: staged domain-aware entrance with image/video underlay reuse, no media when locked, touch double tap and accessibility explicit open. All private title display is lock-gated. A phase-two atmosphere helper is available for *later* alert action-owner migration.
+- `P10ReminderVisualContractTest.kt`: staged unexecuted test source for family exclusivity, independent defaults, legacy suppression, animation-off, power reduction, lock privacy and deliberate open.
+- P10 source is **not yet mounted** in `ReminderCheckInScreen.kt`, `PersonalAlertActivity.kt` or `P1ChallengeNotificationEntrance`. The old active Creator/Personal UIs therefore still render on this branch. This is intended temporary source staging, not a completed release.
+- P10 gallery live-media decode fallback still needs P10D replacement. The old `V391/V394/V336/V195` source is not deleted yet. Never report it removed.
+- During source review a locked-entrance gesture issue was corrected: touch double-tap and TalkBack activation both refuse reveal while locked; `pointerInput` is keyed to current lock state and captures the newest open callback.
+- Source review is **not** Kotlin compilation, automated tests, a device screenshot, performance profiling or owner aesthetic acceptance. All remain deferred.
