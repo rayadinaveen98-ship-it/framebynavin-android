@@ -35,8 +35,8 @@ import kotlinx.coroutines.withContext
 /**
  * Founder-approved P1 gallery import and preview.
  * This page owns no alarm, navigation, auth, recording, playback-service, or cloud state.
- * V337 Personal and 21-day do not yet have a live double-tap entrance to attach; the
- * saved choices are staged independently and previews do not simulate delivery.
+ * P10D adds the three living built-in families beside existing private gallery media.
+ * The previews simulate composition only; they do not post reminders or receipts.
  */
 @Composable
 internal fun P1GalleryBackgroundLaunchCard() {
@@ -57,7 +57,7 @@ internal fun P1GalleryBackgroundLaunchCard() {
             Column(Modifier.weight(1f)) {
                 Text("Reminder backgrounds", color = ProjectorIvory,
                     fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("Personal, Creator and 21-day · local photo, GIF or video",
+                Text("Living Bloom, Pulse Studio, Rise Core · photos and videos",
                     color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
             }
             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MutedText)
@@ -86,8 +86,13 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
     var fullPreview by remember { mutableStateOf(false) }
     var showFraming by rememberSaveable { mutableStateOf(false) }
     var showMediaDetails by rememberSaveable { mutableStateOf(false) }
+    var confirmRemoveMedia by remember { mutableStateOf(false) }
     var mode by rememberSaveable { mutableStateOf(ReminderCheckInKind.VOICE) }
     val selectedMedia = remember(domain, revision) { P1EntranceMediaStore.selected(context, domain) }
+    val family = remember(domain, revision) { P10ReminderFamilyStore.selected(context, domain) }
+    val backgroundSource = remember(domain, revision, selectedMedia?.file?.absolutePath) {
+        P10ReminderBackgroundStore.selected(context, domain, selectedMedia != null)
+    }
     var frame by remember(domain, revision) { mutableStateOf(P1EntranceMediaStore.framing(context, domain)) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -100,28 +105,63 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                     P1EntranceMediaStore.importGallery(context, target, uri)
                 }
                 if (result.isSuccess) {
-                    withContext(Dispatchers.IO) {
+                    val activated = withContext(Dispatchers.IO) {
                         P1EntranceMediaStore.saveFraming(context, target, P1MediaFraming())
+                        P10ReminderBackgroundStore.select(
+                            context, target, P10ReminderBackgroundSource.GALLERY)
                     }
                     activeScope = target.name
                     revision++
-                    feedback = "Saved privately. Check the full-screen preview before using."
+                    feedback = if (activated) "Gallery background saved and selected for this reminder space."
+                        else "Gallery media saved, but activation could not be confirmed. Select it again."
                 } else feedback = result.exceptionOrNull()?.message
                     ?: "Could not import this gallery item."
                 importing = false
             }
         }
     }
-    fun reset() {
+    fun useFamily(choice: P10ReminderFamily) {
+        scope.launch {
+            importing = true
+            val changed = withContext(Dispatchers.IO) {
+                val savedFamily = P10ReminderFamilyStore.select(context, domain, choice)
+                val savedSource = P10ReminderBackgroundStore.select(
+                    context, domain, P10ReminderBackgroundSource.BUILT_IN)
+                savedFamily && savedSource
+            }
+            revision++
+            feedback = if (changed) "${choice.label} selected. Your gallery media is kept."
+                else "Could not fully save the new family choice. Try again."
+            importing = false
+        }
+    }
+    fun useGallery() {
+        if (selectedMedia == null) return
+        scope.launch {
+            importing = true
+            val changed = withContext(Dispatchers.IO) {
+                P10ReminderBackgroundStore.select(
+                    context, domain, P10ReminderBackgroundSource.GALLERY)
+            }
+            revision++
+            feedback = if (changed) "Your saved gallery background is active."
+                else "Could not activate gallery media."
+            importing = false
+        }
+    }
+    fun removeSavedGallery() {
         scope.launch {
             importing = true
             val removed = withContext(Dispatchers.IO) {
-                P1EntranceMediaStore.clear(context, domain)
+                val cleared = P1EntranceMediaStore.clear(context, domain)
+                if (cleared) P10ReminderBackgroundStore.select(
+                    context, domain, P10ReminderBackgroundSource.BUILT_IN)
+                cleared
             }
-            if (removed) {
-                revision++
-                feedback = "Backlot Original restored for this reminder space."
-            } else feedback = "Could not reset the background. Try again."
+            confirmRemoveMedia = false
+            revision++
+            feedback = if (removed) "Saved gallery background removed. ${family.label} stays selected."
+                else "Could not remove the saved gallery background."
             importing = false
         }
     }
