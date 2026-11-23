@@ -1,7 +1,7 @@
-name: Backlot P10L - No-build Real First-run Navigation Smoke
+name: Backlot P10L - No-build P10J First-run Repeatability
 
-# Run UI route via Android shell against P10J compiled APKs.
-# Does not certify the original JUnit locator; separate test correction required.
+# Reexecute the exact P10J JUnit first-run navigation twice against unchanged
+# previously compiled APKs. Previous shell runner raced with completed JUnit.
 on:
   pull_request:
     branches:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   shell-ui:
-    name: Android 15 actual Home > Reminder Hub > Personal > Creator
+    name: Android 15 original P10J real navigation x2, no rebuild
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -46,7 +46,7 @@ jobs:
         run: |
           test -e /dev/kvm
           sudo chmod 666 /dev/kvm
-      - name: Replay real first-run and navigate via Android UI, not Compose testTag
+      - name: Run original P10J test twice with fresh profiles and no external tap race
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -55,7 +55,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: bash tools/qa/backlot_p10l_no_build_navigation_android15.sh
-      - name: Capture real UI route evidence (screens + XML + OS logcat)
+      - name: Preserve two complete JUnit logs, fresh-profile evidence and OS logcat
         if: always()
         uses: actions/upload-artifact@v4
         with:
