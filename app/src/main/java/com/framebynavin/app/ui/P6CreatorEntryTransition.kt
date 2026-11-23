@@ -99,7 +99,13 @@ internal fun P6CreatorEntryTransition(onFinished: () -> Unit) {
 
     Surface(
         onClick = ::finishOnce,
-        modifier = Modifier.fillMaxSize().testTag("p6-creator-entry-transition"),
+        modifier = Modifier.fillMaxSize()
+            .graphicsLayer {
+                // Dissolve into the already-rendered Creator shell, not a blank frame.
+                alpha = if (reducedMotion) 1f else
+                    1f - P6CreatorEntryPolicy.smooth(
+                        elapsed, 2_080L, P6CreatorEntryPolicy.DURATION_MS)
+            }.testTag("p6-creator-entry-transition"),
         color = Color(0xFF0C0D11),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
