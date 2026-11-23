@@ -47,6 +47,11 @@ internal class P10ReminderVisualContractTest {
         assertTrue(saver.activeMotes < full.activeMotes)
     }
 
+    @Test fun disabledSystemAnimationsOpenControlsWithoutOldRevealEngine() {
+        assertTrue(P10ReminderVisualPolicy.startRevealed(false))
+        assertFalse(P10ReminderVisualPolicy.startRevealed(true))
+    }
+
     @Test fun systemAnimationOffNeverFallsBackToOldSceneOrBlocksControls() {
         val still = P10ReminderVisualPolicy.tuning(false, false, false, P10ReminderAct.MAIN)
         assertFalse(still.animated)
