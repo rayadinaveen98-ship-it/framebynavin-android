@@ -76,7 +76,6 @@ internal fun V144SettingsHub(
         sectionName = if (searchedDirectlyToDetail &&
             section in listOf(
                 V167SettingsSection.APPEARANCE,
-                V167SettingsSection.REMINDER_SCENES,
                 V167SettingsSection.GUIDE,
                 V167SettingsSection.VOICE,
             )
@@ -95,7 +94,7 @@ internal fun V144SettingsHub(
         when (destination) {
             V404SettingsDestination.ACCOUNT -> onProfile()
             V404SettingsDestination.APPEARANCE -> sectionName = V167SettingsSection.APPEARANCE.name
-            V404SettingsDestination.REMINDER_SCENES -> sectionName = V167SettingsSection.REMINDER_SCENES.name
+            V404SettingsDestination.REMINDER_SCENES -> sectionName = V167SettingsSection.PERSONALIZATION.name
             V404SettingsDestination.COMPANION -> sectionName = V167SettingsSection.GUIDE.name
             V404SettingsDestination.VOICE -> sectionName = V167SettingsSection.VOICE.name
             V404SettingsDestination.HOME_PHOTOS -> onOpenHomeSlideshow()
@@ -142,44 +141,45 @@ internal fun V144SettingsHub(
                 onSearchDestination = ::openSearchDestination,
             )
 
-            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("APPEARANCE & SOUND", "Appearance & sound", ::navigateBack) {
-                V144CategoryCard("Appearance", "Themes, icon, welcome animation and sound", Icons.Outlined.Palette, RecRed) {
+            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("YOUR BACKLOT", "Personalization", ::navigateBack) {
+                // P9: one visual system for the app, one gallery for reminder
+                // backgrounds. Legacy Cinematic/Classic/Premiere selectors are
+                // not reachable. No hidden secondary scene picker.
+                V144CategoryCard("App appearance", "Theme colors and the official Backlot icon",
+                    Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
                 }
-                V144CategoryCard("Home photos", "Manage slideshow photos", Icons.Outlined.Collections, MutedGold) {
-                    onOpenHomeSlideshow()
-                }
-                V144CategoryCard("Reminder scenes", "Choose animated voice and alarm backgrounds", Icons.Outlined.MovieFilter, MutedGold) {
-                    sectionName = V167SettingsSection.REMINDER_SCENES.name
-                }
-                V144CategoryCard("Companion", "Choose your guide and helpful suggestions", Icons.Outlined.Face, MutedGold) {
+                P1GalleryBackgroundLaunchCard()
+                V144CategoryCard("Companion", "Spark or Mira and helpful suggestions",
+                    Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
-                V144CategoryCard("Voice", "Reminder voice and previews", Icons.Outlined.RecordVoiceOver, RecRed) {
+                V144CategoryCard("Voice & sound", "Reminder voice, music, playback and app sound",
+                    Icons.Outlined.RecordVoiceOver, RecRed) {
                     sectionName = V167SettingsSection.VOICE.name
                 }
-                // Ordinary app defaults are self-describing; no introduction card.
+                V144CategoryCard("Home photos", "Manage your Creator Home slideshow",
+                    Icons.Outlined.Collections, MutedGold) {
+                    sectionName = V167SettingsSection.HOME_PHOTOS.name
+                }
             }
 
-            V167SettingsSection.APPEARANCE -> V144SettingsPage("APPEARANCE", "Your Backlot world", ::navigateBack) {
+            V167SettingsSection.APPEARANCE -> V144SettingsPage("APP APPEARANCE", "Your Backlot look", ::navigateBack) {
+                // Only Backlot app themes and app-level sound/icon. No old
+                // reminder-scene or Premiere gallery mounted on this screen.
                 V127AppearanceSettings(showGuidePicker = false)
             }
 
-            V167SettingsSection.REMINDER_SCENES -> V144SettingsPage(
-                "REMINDER SCENES", "Cinematic alert backgrounds", ::navigateBack,
-            ) {
-                V144SettingsNote(
-                    "Choose how Creator voice and alarm reminders look. " +
-                        "This changes visuals, not their timing, voice or delivery."
-                )
+            V167SettingsSection.HOME_PHOTOS -> V144SettingsPage("HOME PHOTOS", "Your Home slideshow", ::navigateBack) {
+                V144SettingsNote("The same slideshow editor used on Home. Manage photos here without leaving Settings.")
                 Spacer(Modifier.height(12.dp))
-                com.framebynavin.app.reminders.V391ReminderSceneSettings()
+                V18CinematicHomeHero(creatorName = "", autoPlay = false, settingsPhotoManager = true)
             }
 
             V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {
                 V144GuidePicker()
                 Spacer(Modifier.height(18.dp))
-                V144SectionTitle("HELPFUL SUGGESTIONS", "Optional, private guidance on Home.")
+                V144SectionTitle("COMPANION PRESENCE", "Control helpful suggestions without changing your character.")
                 Spacer(Modifier.height(8.dp))
                 V2215CompanionControls(
                     enabled = companionEnabled,
@@ -190,18 +190,23 @@ internal fun V144SettingsHub(
             }
 
             V167SettingsSection.VOICE -> V144SettingsPage("VOICE", "Default voice and background music", ::navigateBack) {
+                V144SectionTitle("REMINDER VOICE", "Your default style for new Creator project reminders.")
+                Spacer(Modifier.height(8.dp))
+                V140VoiceStudioPicker(
+                    selected = settings.defaultVoicePersona,
+                    onSelected = onVoice,
+                    onPreview = { V403VoicePreviewPlayer.play(context, it) },
+                    compact = true,
+                )
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("BACKGROUND MUSIC", "Choose and test your reminder soundtrack.")
+                Spacer(Modifier.height(8.dp))
                 val musicStore = remember(context) {
                     com.framebynavin.app.reminders.CreatorMusicLocalStore(context)
                 }
                 val savedMusic = remember(musicStore) { musicStore.defaultChoice() }
                 var defaultMusicMode by remember { mutableStateOf(savedMusic.mode) }
                 var defaultMusicUri by remember { mutableStateOf(savedMusic.uri) }
-                V140VoiceStudioPicker(
-                    selected = settings.defaultVoicePersona,
-                    onSelected = onVoice,
-                    onPreview = { V403VoicePreviewPlayer.play(context, it) },
-                )
-                Spacer(Modifier.height(16.dp))
                 V273ReminderMusicPicker(
                     mode = defaultMusicMode,
                     uri = defaultMusicUri,
@@ -209,11 +214,31 @@ internal fun V144SettingsHub(
                     modifier = Modifier.fillMaxWidth().testTag("v276-global-music-settings"),
                     allowSetCreatorDefault = true,
                 )
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("APP SOUND", "Not part of reminder playback.")
                 Spacer(Modifier.height(8.dp))
-                V144SettingsNote(
-                    "This voice is the default for new project reminders. Existing projects keep their own voice choice. " +
-                        "Preview uses your phone's text-to-speech options; results vary by device and installed languages."
-                )
+                Surface(
+                    shape = RoundedCornerShape(17.dp), color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Launch sound", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Play the opening sound when Backlot starts.", color = MutedText, fontSize = 11.sp)
+                        }
+                        Switch(
+                            checked = VisualExperiencePrefs.launchSoundEnabled,
+                            onCheckedChange = VisualExperiencePrefs::updateLaunchSound,
+                            modifier = Modifier.testTag("p9b-launch-sound"),
+                            colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("ADVANCED VOICE OPTIONS", "Optional offline speaker comparison.")
+                Spacer(Modifier.height(8.dp))
+                P2VoiceIdentityLab()
+                V144SettingsNote("Voice styles depend on installed text-to-speech voices. Changing the default style does not overwrite existing project voice choices. Applying music to all projects requires confirmation.")
             }
 
             V167SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V167SettingsSection.HOME.name }) {
@@ -567,22 +592,40 @@ private fun V144SettingsHome(
             .padding(horizontal = BacklotUX10Tokens.pageGutter).padding(bottom = 28.dp),
     ) {
         V144SettingsHeader("BACKLOT", "Settings", onClose)
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = searchText,
-            onValueChange = { searchText = it.take(80) },
-            modifier = Modifier.fillMaxWidth().testTag("v404-settings-search"),
-            label = { Text("Find a setting") },
-            placeholder = { Text("Voice, theme, reminders…") },
-            leadingIcon = {
-                Icon(Icons.Outlined.Search, contentDescription = null, tint = MutedGold)
-            },
-            trailingIcon = {
-                if (searchText.isNotEmpty()) {
-                    IconButton(onClick = { searchText = "" }) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Clear Settings search",
-                            tint = MutedText)
-                    }
+        Spacer(Modifier.height(18.dp))
+        // One calm, accessible list instead of eight competing feature cards.
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = CinemaSurface,
+            border = BorderStroke(1.dp, CinemaLine),
+        ) {
+            Column {
+                V294QuietSettingRow("Account", Icons.Outlined.Person, onClick = onProfile)
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Personalization", Icons.Outlined.Palette) {
+                    onOpen(V167SettingsSection.PERSONALIZATION)
+                }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow(
+                    title = "Notifications & alarms",
+                    icon = Icons.Outlined.NotificationsActive,
+                    support = if (reminderReady) null else "Permissions need attention",
+                    isWarning = !reminderReady,
+                ) { onOpen(V167SettingsSection.REMINDERS) }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow(
+                    title = "Planning & integrations",
+                    icon = Icons.Outlined.CalendarMonth,
+                    support = if (weeklyAutoPlanEnabled) "Weekly plan enabled" else null,
+                ) { onOpen(V167SettingsSection.PLANNING) }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Privacy & permissions", Icons.Outlined.Shield) {
+                    onOpen(V167SettingsSection.PRIVACY)
+                }
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Help & about", Icons.Outlined.Info) {
+                    onOpen(V167SettingsSection.ABOUT)
                 }
             },
             singleLine = true,
@@ -831,5 +874,19 @@ private fun V144SectionTitle(title: String, subtitle: String) {
 private fun V144SettingsNote(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
+    }
+}
+
+private fun v144PreviewVoice(context: android.content.Context, persona: VoicePersona) {
+    var tts: TextToSpeech? = null
+    tts = TextToSpeech(context.applicationContext) { status ->
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.language = Locale.getDefault()
+            tts?.let { VoicePersonaEngine.applyWithChosenOfflineSpeaker(it, persona, context.applicationContext) }
+            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "v144-${persona.name}")
+            Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
+        } else {
+            tts?.shutdown()
+        }
     }
 }

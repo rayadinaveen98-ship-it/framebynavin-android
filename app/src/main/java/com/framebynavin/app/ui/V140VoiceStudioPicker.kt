@@ -17,6 +17,11 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
@@ -39,11 +44,30 @@ internal fun V140VoiceStudioPicker(
     onSelected: (VoicePersona) -> Unit,
     onPreview: (VoicePersona) -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
-    DisposableEffect(Unit) {
-        onDispose { V403VoicePreviewPlayer.stop() }
-    }
+    var expanded by rememberSaveable { mutableStateOf(!compact) }
+    // Preserve the Lab TTS preview lifecycle while retaining P10Q compact picker.
+    DisposableEffect(Unit) { onDispose { V403VoicePreviewPlayer.stop() } }
     Column(modifier.fillMaxWidth()) {
+        if (compact) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Selected style", color = MutedGold, fontSize = 10.sp)
+                    Text(VoicePersonaEngine.label(selected), color = ProjectorIvory,
+                        fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "CLOSE VOICES" else "CHANGE VOICE")
+                }
+            }
+            if (!expanded) {
+                Spacer(Modifier.height(4.dp))
+                Text("Your voice choice is saved. Open styles to listen or change it.",
+                    color = MutedText, fontSize = 11.sp)
+            }
+        }
+        if (expanded) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("DEFAULT REMINDER VOICE", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
@@ -116,10 +140,11 @@ internal fun V140VoiceStudioPicker(
             Spacer(Modifier.height(8.dp))
         }
         Text(
-            "Eight Backlot delivery styles use voices installed on your device. Preview to hear how they sound here.",
+            "Voice options depend on your phone. Tap Preview to listen.",
             color = MutedText,
             fontSize = 11.sp,
             lineHeight = 16.sp,
         )
+        }
     }
 }
