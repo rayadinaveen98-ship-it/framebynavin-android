@@ -1,5 +1,8 @@
 package com.framebynavin.app.reminders
 
+import android.animation.ValueAnimator
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -58,21 +61,27 @@ internal fun P10PersonalReminderExperience(
             media = media, locked = locked,
             modifier = Modifier.fillMaxSize(),
         )
-        if (!revealed) {
-            P10ReminderEntranceStage(
-                scope = P1ReminderScope.PERSONAL,
-                kind = if (current.alert == PersonalAlert.VOICE)
-                    ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
-                title = current.title,
-                occurrenceKey = occurrenceKey,
-                locked = locked,
-                media = null,
-                onOpen = { if (!locked) revealed = true },
-                modifier = Modifier.fillMaxSize(),
-                renderBackground = false,
-            )
-        } else {
-            mainContent(true)
+        Crossfade(
+            targetState = revealed,
+            animationSpec = tween(durationMillis = if (ValueAnimator.areAnimatorsEnabled()) 450 else 0),
+            label = "p10-personal-entry-to-main",
+        ) { showingMain ->
+            if (!showingMain) {
+                P10ReminderEntranceStage(
+                    scope = P1ReminderScope.PERSONAL,
+                    kind = if (current.alert == PersonalAlert.VOICE)
+                        ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
+                    title = current.title,
+                    occurrenceKey = occurrenceKey,
+                    locked = locked,
+                    media = null,
+                    onOpen = { if (!locked) revealed = true },
+                    modifier = Modifier.fillMaxSize(),
+                    renderBackground = false,
+                )
+            } else {
+                mainContent(true)
+            }
         }
     }
 }
