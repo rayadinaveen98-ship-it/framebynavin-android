@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +44,7 @@ import com.framebynavin.app.voice.IdeaVoiceTranscriber
 import com.framebynavin.app.voice.IdeaVoiceTranscriberListener
 import kotlinx.coroutines.delay
 
-/** Two-step voice capture: open Frame Pulse first, tap the orb only when ready to listen. */
+/** P8B single-step dictate. The final transcript goes to the owner's ONE idea field. */
 @Composable
 internal fun V117VoiceIdeaInput(
     onTranscript: (String) -> Unit,
@@ -52,7 +53,6 @@ internal fun V117VoiceIdeaInput(
     val context = LocalContext.current
     val latestOnTranscript by rememberUpdatedState(onTranscript)
 
-    var dotFieldOpen by remember { mutableStateOf(false) }
     var language by remember { mutableStateOf(IdeaVoiceLanguage.AUTO) }
     var listening by remember { mutableStateOf(false) }
     var partial by remember { mutableStateOf("") }
@@ -60,20 +60,24 @@ internal fun V117VoiceIdeaInput(
     var error by remember { mutableStateOf<String?>(null) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var rmsDb by remember { mutableFloatStateOf(0f) }
+    var justAdded by remember { mutableStateOf(false) }
     var transcriber by remember { mutableStateOf<IdeaVoiceTranscriber?>(null) }
     var pendingPermissionStart by remember { mutableStateOf(false) }
     var microphoneGranted by remember {
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+        mutableStateOf(ContextCompat.checkSelfPermission(context,
+            Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
         microphoneGranted = granted
-        if (granted && pendingPermissionStart && dotFieldOpen) {
+        if (granted && pendingPermissionStart) {
             error = null
             partial = ""
             transcriber?.start(language)
         } else if (!granted) {
-            error = "Microphone access is needed only when you tap the dots to listen."
+            error = "Microphone access is needed to dictate an idea."
         }
         pendingPermissionStart = false
     }
@@ -86,18 +90,34 @@ internal fun V117VoiceIdeaInput(
                     listening = value
                     if (!value) rmsDb = 0f
                 }
-                override fun onPartialTranscript(text: String) { partial = text }
+                override fun onPartialTranscript(text: String) {
+                    partial = text
+                }
                 override fun onFinalTranscript(text: String, confidence: Float?) {
-                    if (text.isNotBlank()) latestOnTranscript(text)
+                    if (text.isNotBlank()) {
+                        latestOnTranscript(text)
+                        justAdded = true
+                    }
                     partial = ""
                 }
-                override fun onDetectedLanguage(languageTag: String?) { detectedLanguage = languageTag }
-                override fun onVoiceError(message: String) { error = message }
-                override fun onRmsChanged(rmsDbValue: Float) { rmsDb = rmsDbValue }
+                override fun onDetectedLanguage(languageTag: String?) {
+                    detectedLanguage = languageTag
+                }
+                override fun onVoiceError(message: String) {
+                    error = message
+                    justAdded = false
+                }
+                override fun onRmsChanged(rmsDbValue: Float) {
+                    rmsDb = rmsDbValue
+                }
             },
         )
         transcriber = engine
-        onDispose { engine.destroy(); transcriber = null }
+        onDispose {
+            pendingPermissionStart = false
+            engine.destroy()
+            transcriber = null
+        }
     }
 
     LaunchedEffect(listening) {
@@ -107,108 +127,112 @@ internal fun V117VoiceIdeaInput(
             elapsedSeconds += 1
         }
     }
+    LaunchedEffect(justAdded) {
+        if (justAdded) {
+            delay(1700L)
+            justAdded = false
+        }
+    }
 
-    fun startVoiceFromField() {
+    fun startVoiceFromOrb() {
         error = null
         partial = ""
+        justAdded = false
         detectedLanguage = null
         rmsDb = 0f
-        if (microphoneGranted) transcriber?.start(language)
-        else {
+        if (microphoneGranted) {
+            transcriber?.start(language)
+        } else {
             pendingPermissionStart = true
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
-    fun closeDotField() {
-        if (listening) transcriber?.stop()
-        pendingPermissionStart = false
-        dotFieldOpen = false
-        partial = ""
-        rmsDb = 0f
-    }
-
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.fillMaxWidth().testTag("p8b-dictation-panel"),
+        shape = RoundedCornerShape(19.dp),
         color = CinemaSurface,
-        border = BorderStroke(1.dp, if (listening) RecRed.copy(alpha = .52f) else CinemaLine),
+        border = BorderStroke(
+            1.dp, if (listening) RecRed.copy(alpha = .62f) else CinemaLine,
+        ),
     ) {
-        AnimatedContent(
-            targetState = dotFieldOpen,
-            transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(170)) },
-            label = "voiceDotFieldOpenState",
-        ) { opened ->
-            if (!opened) {
-                Column(Modifier.fillMaxWidth().padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilledIconButton(
-                            onClick = { dotFieldOpen = true; error = null },
-                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = RecRed.copy(alpha = .16f), contentColor = RecRed),
-                            modifier = Modifier.size(46.dp),
-                        ) { Icon(Icons.Outlined.Mic, "Open voice capture", modifier = Modifier.size(23.dp)) }
-                        Spacer(Modifier.width(11.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Voice capture", color = ProjectorIvory, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text("Open the dot field to dictate.", color = MutedText, fontSize = 8.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    Spacer(Modifier.height(5.dp))
-                    Text("Audio is never saved.", color = MutedText, fontSize = 7.7.sp)
-                }
-            } else {
-                Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("VOICE INPUT", color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-                            Text(if (listening) listeningSubtitle(language, detectedLanguage) else "Ready · tap the dots to listen", color = MutedText, fontSize = 8.5.sp)
-                        }
-                        Text(if (listening) formatVoiceTime(elapsedSeconds) else "READY", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(4.dp))
-                        IconButton(onClick = ::closeDotField, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Outlined.Close, "Close voice input", tint = MutedText, modifier = Modifier.size(17.dp))
-                        }
-                    }
-
-                    if (!listening) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            IdeaVoiceLanguage.entries.forEach { option ->
-                                FilterChip(
-                                    selected = language == option,
-                                    onClick = { language = option; error = null },
-                                    label = { Text(option.displayLabel, fontSize = 7.7.sp, fontWeight = FontWeight.Bold) },
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-                    FC13ReactiveDotField(
-                        active = listening,
-                        rmsDb = rmsDb,
-                        onTap = { if (listening) transcriber?.stop() else startVoiceFromField() },
-                        modifier = Modifier.size(166.dp),
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("SPEAK TO TEXT", color = RecRed, fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+                    Text(
+                        if (listening) listeningSubtitle(language, detectedLanguage)
+                        else "Your voice becomes the idea above.",
+                        color = MutedText, fontSize = 11.sp, lineHeight = 15.sp,
                     )
-                    Text(if (listening) "Listening" else "Tap to listen", color = ProjectorIvory, fontSize = 12.8.sp, fontWeight = FontWeight.Black)
-                    Text(if (listening) "Tap again to stop" else "Nothing is listening yet", color = MutedText, fontSize = 8.4.sp)
+                }
+                Text(if (listening) formatVoiceTime(elapsedSeconds) else "READY",
+                    color = ProjectorIvory, fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold)
+            }
 
-                    if (partial.isNotBlank()) {
-                        Spacer(Modifier.height(9.dp))
-                        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(13.dp), CinemaSurfaceRaised, border = BorderStroke(1.dp, CinemaLine)) {
-                            Text(partial, Modifier.padding(11.dp), color = ProjectorIvory.copy(alpha=.90f), fontSize = 10.2.sp, lineHeight = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                        }
+            if (!listening) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    IdeaVoiceLanguage.entries.forEach { option ->
+                        FilterChip(
+                            selected = language == option,
+                            onClick = { language = option; error = null },
+                            modifier = Modifier.padding(end = 6.dp),
+                            label = {
+                                Text(option.displayLabel, fontSize = 11.sp)
+                            },
+                        )
                     }
-                    error?.let { message ->
-                        Spacer(Modifier.height(7.dp))
-                        Text(message, color = RecRed, fontSize = 8.5.sp, lineHeight = 12.sp, textAlign = TextAlign.Center)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text("Your words become text. No audio recording is saved.", color = MutedText, fontSize = 7.6.sp)
                 }
             }
+            P8BLivingVoiceOrb(
+                listening = listening,
+                rmsDb = rmsDb,
+                onTap = {
+                    if (listening) transcriber?.stop()
+                    else if (!pendingPermissionStart) startVoiceFromOrb()
+                },
+                modifier = Modifier.size(196.dp).testTag("p8b-living-voice-orb"),
+            )
+            Text(
+                when {
+                    error != null -> "Voice needs attention"
+                    listening -> "Listening · tap the orb to stop"
+                    justAdded -> "Added to your idea"
+                    pendingPermissionStart -> "Waiting for microphone permission"
+                    else -> "Tap the breathing orb to speak"
+                },
+                color = if (error == null) ProjectorIvory else RecRed,
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            )
+
+            // No second editable or bordered transcript box. The partial
+            // text is a small non-editable listening hint; final words flow
+            // through onTranscript into the parent field only.
+            if (partial.isNotBlank()) {
+                Text("Hearing: " + partial, color = MutedText,
+                    fontSize = 11.sp, lineHeight = 15.sp, maxLines = 2,
+                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("p8b-live-words-hint"))
+            }
+            error?.let { message ->
+                Text(message, color = RecRed, fontSize = 11.sp,
+                    lineHeight = 16.sp, textAlign = TextAlign.Center)
+            }
+            Text(
+                "Dictation writes text into your idea. It does not save audio.",
+                color = MutedText, fontSize = 10.sp, lineHeight = 14.sp,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
