@@ -3,7 +3,7 @@
 
 **Authorization:** The founder rejected every older/default reminder main-screen look and obsolete reminder-scene/voice/alarm/Premiere full-screen collection; approved preserving Living Bloom, Pulse Studio and Rise Core as the only three built-in entrance families, making them visibly more alive, redesigning mic/alarm iconography, redesigning the post-double-tap main screen, and enhancing gallery image/animated photo/video customization. Founder said “yeah ok bro continue” to the implementation-brief and isolated source-staging plan.
 
-**Status:** P10A/P10B foundation **SOURCE-STAGED**; P10C Creator, Personal and valid notification-opened 21-Day entrance/main visual cutover **SOURCE-STAGED BUT UNCOMPILED AND UNTESTED** on a new descendant branch. P10D gallery and built-in picker polish plus media/main continuity, and P10E old code/resource removal **NOT STARTED**. No compile, Gradle, JVM, instrumented run, CI, emulator, device test, merge or APK is permitted until the founder later explicitly opens the consolidated testing gate.
+**Status:** P10A–P10D family architecture, new native animation/icon source, three live reminder presentation paths and source/gallery Settings selection **SOURCE-STAGED** on the P10D descendant branch. All remain **UNCOMPILED / UNTESTED / UNVERIFIED ON DEVICE**. P10E old code/resource removal **NOT STARTED**; P10F consolidated QA and owner APK **DEFERRED**. Do not run Gradle, JVM, CI, emulator, device test, merge or APK until the founder explicitly opens the consolidated testing gate.
 
 ### Source of truth and non-negotiable boundaries
 
@@ -125,3 +125,14 @@ A rising luminous spine with layered atmospheric wisps and independent micro-rib
 - Creator lock-screen response availability is explicitly preserved from V337; only private gallery imagery is hidden until unlocked. Personal remains stricter.
 - Stage record and exact unfinished items: `docs/engineering/BACKLOT_P10C_LIVE_REMINDER_VISUAL_CUTOVER_SOURCE_STAGE_20261123.md`.
 - P10D/E remain pending, especially P1 old gallery fallback, family selector UI and physically deleting retired styles. The historical statement above that P10 source was 'not mounted' describes the earlier P10A checkpoint and is superseded by this P10C section.
+
+
+## P10D source-stage continuation — family/gallery and main-act continuity
+- Descendant branch: `feature/backlot-v337-point10d-gallery-visuals-after-p10c-20261123`, from the cumulative P10C branch.
+- Native `P10ReminderSceneBackground.kt` compositor is now reused in entrance, post-open main and Settings preview, with the existing private P1 media decoder and active family selected per reminder space.
+- `P10ReminderBackgroundSource` and source store keep the three built-in families independent from gallery data; existing saved P1 media defaults to gallery on first upgrade, selecting built-in retains that media, and missing media resolves to built-in.
+- Settings offers exactly Living Bloom, Pulse Studio, Rise Core and My Gallery, with image/GIF/video import, crop, restore-by-switch and explicit confirmed private-media deletion. Preview now shows new P10 artwork, not V336.
+- Creator and valid Personal use a single persistent media composable between entrance and main screen; private media is gated by keyguard and exact occurrence checks still belong to existing owners.
+- The old P1 neutral Original fallback is now a P10 living-family fallback. Media rendering is still local, muted, lifecycle-safe and subject to current limits. Live Photo movement is platform-dependent, not guaranteed.
+- Detailed stage record: `docs/engineering/BACKLOT_P10D_GALLERY_LIVING_BACKGROUNDS_SOURCE_STAGE_20261123.md`.
+- **P10E is next.** P10A/B/C/D remain repository source only until consolidated compile, QA, physical tests and aesthetic acceptance; do not claim the complete old visual system is physically removed before P10E.
