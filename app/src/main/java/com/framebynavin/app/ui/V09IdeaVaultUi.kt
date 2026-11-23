@@ -530,8 +530,9 @@ internal fun V09NewIdeaCleanEditor(
     var reminderAtMillis by rememberSaveable { mutableLongStateOf(0L) }
     var reminderCadence by rememberSaveable { mutableStateOf(IdeaReminderCadence.ONCE) }
     var voiceRecording by remember { mutableStateOf<VoiceIdeaRecording?>(null) }
-    var showRecorder by rememberSaveable { mutableStateOf(false) }
-    var showDictation by rememberSaveable { mutableStateOf(false) }
+    var voiceMode by rememberSaveable { mutableStateOf(P8BVoiceMode.OFF) }
+    var recordingActive by remember { mutableStateOf(false) }
+    var captureNotice by remember { mutableStateOf<String?>(null) }
     var showNotes by rememberSaveable { mutableStateOf(false) }
     var showReminder by rememberSaveable { mutableStateOf(false) }
     var showOrganize by rememberSaveable { mutableStateOf(false) }
@@ -550,6 +551,10 @@ internal fun V09NewIdeaCleanEditor(
     }
 
     fun dismiss() {
+        if (recordingActive) {
+            captureNotice = "Stop and keep your recording before closing."
+            return
+        }
         discardRecording()
         onDismiss()
     }
@@ -611,34 +616,36 @@ internal fun V09NewIdeaCleanEditor(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Surface(
-                        Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(22.dp),
-                        color = CinemaSurfaceRaised,
-                        border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text(writingPrompt.helper.uppercase(),
-                                color = RecRed, fontSize = 10.sp,
-                                fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                            Spacer(Modifier.height(9.dp))
-                            OutlinedTextField(
-                                title,
-                                { title = it },
-                                modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-title"),
-                                placeholder = {
-                                    Text(writingPrompt.placeholder, fontSize = 14.sp,
-                                        lineHeight = 20.sp)
-                                },
-                                minLines = 4,
-                                maxLines = 7,
-                                shape = RoundedCornerShape(16.dp),
+                    // One main idea field. No extra enclosing text card or
+                    // separate dictated transcript editor. Final speech edits
+                    // this same durable title string.
+                    Text(
+                        writingPrompt.helper.uppercase(),
+                        color = RecRed, fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = .7.sp,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                    )
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("v2203-new-idea-title"),
+                        placeholder = {
+                            Text(writingPrompt.placeholder,
+                                fontSize = 14.sp, lineHeight = 20.sp)
+                        },
+                        minLines = 4,
+                        maxLines = 7,
+                        shape = RoundedCornerShape(17.dp),
+                    )
+                    IdeaVaultGuidance.similarTitles(title, existingIdeas)
+                        .firstOrNull()?.let { duplicate ->
+                            Text(
+                                "Similar saved idea: " + duplicate.title +
+                                    ". You can still save this.",
+                                color = MutedGold, fontSize = 11.sp,
                             )
-                            IdeaVaultGuidance.similarTitles(title, existingIdeas).firstOrNull()?.let { duplicate ->
-                                Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
-                            }
                         }
-                    }
 
                     Text(
                         "These prompts are writing guides. Your exact words are saved.",
@@ -646,66 +653,49 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.padding(start = 3.dp, top = 8.dp),
                     )
                     Spacer(Modifier.height(13.dp))
-                    Text("OR CAPTURE YOUR VOICE", color = MutedText,
-                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    Text("VOICE CAPTURE · OPTIONAL", color = MutedText,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 3.dp, bottom = 6.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Surface(
-                            onClick = { showRecorder = !showRecorder; if (showRecorder) showDictation = false },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(17.dp),
-                            color = if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .13f) else CinemaSurface,
-                            border = BorderStroke(1.dp, if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .5f) else CinemaLine),
-                        ) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Mic, null, tint = RecRed, modifier = Modifier.size(19.dp))
-                                Spacer(Modifier.width(7.dp))
-                                Column {
-                                    Text("RECORD", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                    Text(if (voiceRecording != null) "Recording ready" else "Original audio", color = MutedText, fontSize = 7.8.sp)
-                                }
-                            }
-                        }
-                        Surface(
-                            onClick = { showDictation = !showDictation; if (showDictation) showRecorder = false },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(17.dp),
-                            color = if (showDictation) MutedGold.copy(alpha = .10f) else CinemaSurface,
-                            border = BorderStroke(1.dp, if (showDictation) MutedGold.copy(alpha = .45f) else CinemaLine),
-                        ) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Mic, null, tint = MutedGold, modifier = Modifier.size(19.dp))
-                                Spacer(Modifier.width(7.dp))
-                                Column {
-                                    Text("DICTATE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                    Text("Speak to write an idea", color = MutedText, fontSize = 7.8.sp)
-                                }
-                            }
-                        }
+                    P8BVoiceModeSwitch(
+                        mode = voiceMode,
+                        recordingActive = recordingActive,
+                        hasSavedRecording = voiceRecording != null,
+                        onModeChange = { voiceMode = it; captureNotice = null },
+                        dictateTag = "p8b-new-idea-dictate",
+                        recordTag = "p8b-new-idea-record",
+                    )
+                    captureNotice?.let {
+                        Text(it, color = RecRed, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 6.dp))
                     }
-
-                    AnimatedVisibility(showRecorder) {
+                    AnimatedVisibility(voiceMode == P8BVoiceMode.RECORD) {
                         Column {
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(10.dp))
                             VoiceIdeaRecorderInput(
                                 recording = voiceRecording,
                                 onRecordingChanged = { voiceRecording = it },
+                                onActiveChanged = { recordingActive = it },
                             )
                         }
                     }
-
-                    AnimatedVisibility(showDictation) {
+                    AnimatedVisibility(voiceMode == P8BVoiceMode.DICTATE) {
                         Column {
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(10.dp))
                             V117VoiceIdeaInput(
                                 onTranscript = { transcript ->
                                     val clean = transcript.trim()
                                     if (clean.isNotBlank()) {
-                                        title = if (title.isBlank()) clean else title.trimEnd() + " " + clean
+                                        title = if (title.isBlank()) clean
+                                            else title.trimEnd() + " " + clean
                                     }
                                 },
                             )
                         }
+                    }
+                    if (voiceRecording != null && voiceMode != P8BVoiceMode.RECORD) {
+                        Text("Your original audio is kept with this idea.",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 6.dp))
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -721,8 +711,11 @@ internal fun V09NewIdeaCleanEditor(
                             Icon(Icons.Outlined.Notes, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("NOTES", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
-                                Text(if (notes.isBlank()) "Optional context, references or details" else "Notes added", color = MutedText, fontSize = 7.8.sp)
+                                Text(if (showNotes) "HIDE MORE NOTES" else "ADD MORE NOTES",
+                                    color = ProjectorIvory, fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text(if (notes.isBlank()) "Optional context and references" else "Notes saved in this draft",
+                                    color = MutedText, fontSize = 10.sp)
                             }
                             Icon(if (showNotes) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -869,7 +862,8 @@ internal fun V09NewIdeaCleanEditor(
                             )
                             if (accepted) voiceRecording = null
                         },
-                        enabled = title.isNotBlank() || voiceRecording != null,
+                        enabled = (title.isNotBlank() || voiceRecording != null) &&
+                            !recordingActive,
                         modifier = Modifier.fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 10.dp)
                             .heightIn(min = 52.dp)
