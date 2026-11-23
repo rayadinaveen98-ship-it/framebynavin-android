@@ -104,14 +104,22 @@ internal fun V09IdeaVaultScreen(
     }
 
     val opportunityReport = YouTubeAnalyticsStore.latest24HourReport
-    val opportunityAlerts by remember(opportunityReport) {
-        derivedStateOf { YouTubeOpportunityEngine.build(opportunityReport, ideas) }
+    // Idea lists are replaced after saves. Key the match/sort snapshots to the
+    // actual lists rather than capturing a first-render list in remember(Unit).
+    val opportunityAlerts = remember(opportunityReport, ideas) {
+        YouTubeOpportunityEngine.build(opportunityReport, ideas)
     }
-    val opportunityIdeaIds by remember { derivedStateOf { opportunityAlerts.mapNotNull { it.ideaId }.toSet() } }
-    val opportunityMatch by remember { derivedStateOf { opportunityAlerts.firstOrNull { it.ideaId != null } } }
+    val opportunityIdeaIds = remember(opportunityAlerts) {
+        opportunityAlerts.mapNotNull { it.ideaId }.toSet()
+    }
+    val opportunityMatch = remember(opportunityAlerts) {
+        opportunityAlerts.firstOrNull { it.ideaId != null }
+    }
     val vaultSummary = remember(ideas) { P8IdeaVaultSummary.from(ideas) }
     val readyCount = vaultSummary.ready
-    val voiceCount by remember { derivedStateOf { ideas.count { it.captureType == IdeaCaptureType.VOICE } } }
+    val voiceCount = remember(ideas) {
+        ideas.count { it.captureType == IdeaCaptureType.VOICE }
+    }
     val activeFilterCount by remember {
         derivedStateOf {
             listOfNotNull(
@@ -122,7 +130,7 @@ internal fun V09IdeaVaultScreen(
         }
     }
 
-    val filtered by remember {
+    val filtered by remember(ideas, deletedIdeas, opportunityIdeaIds) {
         derivedStateOf {
             (if (showDeleted) deletedIdeas else ideas).filter { idea ->
                 val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes, idea.transcript)
@@ -409,7 +417,7 @@ private fun V09IdeaCard(
                 }
                 Text(IdeaVaultLabels.status(idea.status).uppercase(),
                     color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.align(Alignment.CenterVertically))
+                    modifier = Modifier.padding(vertical = 5.dp))
                 if (idea.captureType == IdeaCaptureType.VOICE) {
                     Surface(shape = RoundedCornerShape(100.dp),
                         color = RecRed.copy(alpha = .12f)) {

@@ -26,8 +26,9 @@
 4. Fix the deleted-view search edge case: deleted items that exist but don't match search show "no results" instead of falsely "no deleted ideas".
 5. Keep category, status, capture-type and opportunity labels, now wrapping via a FlowRow on compact devices instead of squeezing a single Row. Opportunity match label is only shown for already matched IDs from the existing engine.
 6. Idea title and topic preserve the FULL text in TalkBack semantics even if visually truncated. Platform/format metadata has a separate line so project-conversion and archive actions no longer compete for horizontal space. Actions keep the same callbacks and item IDs.
-7. Existing lazy list, filter behavior, active/deleted states, add/editor, voice recording, project conversion, source records, analytics, archives and recovery remain unchanged.
-8. P8IdeaVaultPresentationTest.kt source staged for the later consolidated QA campaign; no execution.
+7. Fix existing Compose snapshot invalidation for updated idea lists: derive opportunity matches, status/voice counts and filtered/sorted list with the updated `ideas` and `deletedIdeas` as dependencies. The match engine, sorting priorities and persistent records are unchanged; no duplicate opportunity ideas are created.
+8. Existing keyed lazy list, filter behavior, active/deleted states, add/editor, voice recording, project conversion, source records, analytics, archives and recovery remain unchanged.
+9. P8IdeaVaultPresentationTest.kt source staged for the later consolidated QA campaign; no execution.
 
 ## Deferred QA / regression acceptance
 - Kotlin/Compose compilation and FlowRow/semantics API compatibility; stage does not claim compile readiness.
