@@ -93,7 +93,7 @@ internal object BacklotAppIconManager {
 @Composable
 internal fun V133AppIconPicker() {
     Column(Modifier.fillMaxWidth()) {
-        Text("APP ICON", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("OFFICIAL APP ICON", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(8.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
