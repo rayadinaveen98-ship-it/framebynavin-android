@@ -26,9 +26,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,11 +97,15 @@ object V144GuidePrefs {
         }
     }
 
-    fun select(guide: V144GuideIdentity) {
-        val supported = guide.takeIf { it in V145SelectableGuides } ?: V144GuideIdentity.FUNNY
+    /** Commit selection before publishing UI state; prevents a relaunch loop on failure. */
+    fun select(guide: V144GuideIdentity): Boolean {
+        val supported = guide.takeIf { it in V145SelectableGuides } ?: return false
+        val context = appContext ?: return false
+        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_CHARACTER, supported.name).commit()
+        if (!saved) return false
         selectedGuide = supported
-        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            ?.edit()?.putString(KEY_CHARACTER, supported.name)?.apply()
+        return true
     }
 }
 
@@ -117,175 +123,234 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
         return
     }
 
-    V217GuideChoiceContent(onSelect = { guide -> V144GuidePrefs.select(guide) })
+    var saveError by remember { mutableStateOf(false) }
+    V217GuideChoiceContent(
+        onSelect = { guide -> saveError = !V144GuidePrefs.select(guide) },
+        saveError = saveError,
+    )
 }
 
-/** Reused production first-run companion UI, independently testable without clearing saved setup. */
+/** Founder-approved P5: one featured companion, authentic pose art, deliberate confirmation. */
 @Composable
-internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
-    Surface(Modifier.fillMaxSize(), color = CinemaBlack) {
-        Column(
-            Modifier.fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text("BACKLOT", color = MutedGold, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 2.4.sp)
-            Spacer(Modifier.height(7.dp))
-            Text("Choose your companion", color = ProjectorIvory, fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(5.dp))
-            Text(
-                "Spark or Mira will accompany you across Backlot. Choose who feels right for you; change anytime in Settings.",
-                color = MutedText,
-                fontSize = 10.sp,
-                lineHeight = 15.sp,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(18.dp))
-
-            V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
-                // Measure the tallest card once per row; shorter descriptions
-                // must not leave one SELECT button floating above its neighbor.
-                Row(
-                    Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    guides.forEach { guide ->
-                        V144GuideChoiceCard(
-                            guide = guide,
-                            onSelect = { onSelect(guide) },
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                        )
-                    }
-                    // Both companions share consistent card height, spacing and actions.
-                }
-                if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(10.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun V144GuideChoiceCard(
-    guide: V144GuideIdentity,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier,
+internal fun V217GuideChoiceContent(
+    onSelect: (V144GuideIdentity) -> Unit,
+    saveError: Boolean = false,
 ) {
-    val identity = v144GuideIdentityColor(guide)
-    Surface(
-        modifier = modifier.testTag("v217-choice-${guide.name}"),
-        shape = RoundedCornerShape(20.dp),
-        color = CinemaSurface,
-        border = BorderStroke(1.2.dp, identity.copy(alpha = .76f)),
-    ) {
+    var previewName by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf(V145SelectableGuides.first().name)
+    }
+    var poseName by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf(P5CompanionPose.WELCOME.name)
+    }
+    val candidate = P5CompanionSelectionPolicy.previewable(previewName)
+    val pose = P5CompanionPose.valueOf(poseName)
+
+    Surface(Modifier.fillMaxSize().testTag("p5-first-run-companion-choice"), color = CinemaBlack) {
         Column(
-            Modifier.fillMaxHeight().padding(9.dp),
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 22.dp, vertical = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().height(174.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = V144GuideStage,
-                border = BorderStroke(1.dp, identity.copy(alpha = .25f)),
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    V144GuideCharacter(
-                        guide = guide,
-                        state = CinePulseState.WAVE,
-                        modifier = Modifier.size(144.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(7.dp))
-            Text(guide.displayName, color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(2.dp))
-            Text(
-                guide.description,
-                color = MutedText,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
-                textAlign = TextAlign.Center,
-                minLines = 2,
+            Text("BACKLOT / YOUR COMPANION", color = MutedGold, fontSize = 10.sp,
+                letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            Text("Meet your companion.", color = ProjectorIvory,
+                fontSize = 28.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center)
+            Text("Choose the character who feels right for you. " +
+                "Change your choice anytime in Settings.",
+                color = MutedText, fontSize = 12.sp, lineHeight = 18.sp,
+                textAlign = TextAlign.Center)
+            Spacer(Modifier.height(5.dp))
+            P5CompanionPortraitStage(
+                guide = candidate, pose = pose,
+                modifier = Modifier.fillMaxWidth().height(265.dp),
             )
-            // Fill only the difference in row content height, pinning both
-            // actions to one baseline on 1.0x and 1.5x system font sizes.
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.height(7.dp))
+            Text(candidate.displayName, color = ProjectorIvory,
+                fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
+            Text(candidate.description, color = MutedText,
+                fontSize = 12.sp, lineHeight = 17.sp, textAlign = TextAlign.Center)
+            P5CompanionChoices(
+                active = candidate,
+                onPreview = { next ->
+                    previewName = next.name
+                    poseName = P5CompanionPose.WELCOME.name
+                },
+                testPrefix = "v217-choice-",
+            )
+            P5PoseChoices(pose = pose, onChange = { poseName = it.name })
+            Spacer(Modifier.height(8.dp))
             Button(
-                onClick = onSelect,
-                modifier = Modifier.fillMaxWidth().height(48.dp)
-                    .testTag("v217-choose-button-${guide.name}")
-                    .semantics { contentDescription = "Select ${guide.displayName}" },
-                // All four accent surfaces have >= 5.6:1 contrast with dark ink,
-                // while white labels ranged 1.5:1 to 3.7:1 (below AA).
-                colors = ButtonDefaults.buttonColors(containerColor = identity, contentColor = CinemaBlack),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
+                onClick = { onSelect(candidate) },
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+                    .testTag("v217-choose-button-" + candidate.name),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ProjectorIvory, contentColor = CinemaBlack),
+                shape = RoundedCornerShape(14.dp),
             ) {
-                // One clear action word: labels such as USE SPARK/USE FRAME
-                // were visibly cut in half on compact screens with 1.5x fonts.
-                // The card title and full accessibility label identify the guide.
-                Text("SELECT", fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
+                Text("CONTINUE WITH " + candidate.displayName.uppercase(),
+                    fontWeight = FontWeight.SemiBold)
             }
+            if (saveError) {
+                Text("Couldn't save this companion. Please try again.",
+                    color = ProjectorIvory, fontSize = 12.sp,
+                    textAlign = TextAlign.Center)
+            }
+            Text("Your companion does not send messages or change reminders " +
+                "without your action.", color = MutedText, fontSize = 10.sp,
+                lineHeight = 14.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
+/** The Settings picker uses the same hero assets; preview never persists a choice. */
 @Composable
 internal fun V144GuidePicker() {
     val context = LocalContext.current
     V144GuidePrefs.initialize(context)
-    val selected = V144GuidePrefs.currentGuide
+    val saved = V144GuidePrefs.currentGuide
+    var previewName by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf(saved.name)
+    }
+    var poseName by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf(P5CompanionPose.WELCOME.name)
+    }
+    var error by androidx.compose.runtime.remember { mutableStateOf(false) }
+    var expressionsOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val candidate = P5CompanionSelectionPolicy.previewable(previewName)
+    val pose = P5CompanionPose.valueOf(poseName)
+    Column(Modifier.fillMaxWidth().testTag("p5-settings-companion"),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("YOUR COMPANION", color = MutedGold, fontSize = 10.sp,
+            letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold)
+        Text("Choose your companion", color = ProjectorIvory, fontSize = 19.sp,
+            fontWeight = FontWeight.SemiBold)
+        Text("Preview Spark or Mira. Your saved choice only changes when you tap Use.",
+            color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
+        P5CompanionPortraitStage(guide = candidate, pose = pose,
+            modifier = Modifier.fillMaxWidth().height(205.dp))
+        Row(Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(candidate.displayName, color = ProjectorIvory,
+                fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text(if (candidate == saved) "CURRENT COMPANION" else "PREVIEW ONLY",
+                color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+        }
+        P5CompanionChoices(active = candidate, onPreview = {
+            previewName = it.name
+            poseName = P5CompanionPose.WELCOME.name
+            error = false
+        }, testPrefix = "v217-settings-")
+        TextButton(
+            onClick = { expressionsOpen = !expressionsOpen },
+            modifier = Modifier.testTag("p9b-companion-expressions-toggle"),
+        ) { Text(if (expressionsOpen) "HIDE EXPRESSION PREVIEWS" else "PREVIEW EXPRESSIONS", color = MutedGold) }
+        if (expressionsOpen) {
+            P5PoseChoices(pose = pose, onChange = { poseName = it.name })
+        }
+        Button(
+            onClick = {
+                error = !V144GuidePrefs.select(candidate)
+            },
+            enabled = candidate != saved,
+            modifier = Modifier.fillMaxWidth().height(50.dp)
+                .testTag("p5-confirm-selected-companion"),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ProjectorIvory, contentColor = CinemaBlack),
+        ) { Text(if (candidate == saved) "CURRENTLY SELECTED" else
+            "USE " + candidate.displayName.uppercase(), fontWeight = FontWeight.SemiBold) }
+        if (error) Text("Couldn't save your companion. Try again.",
+            color = ProjectorIvory, fontSize = 12.sp)
+    }
+}
 
-    Column(Modifier.fillMaxWidth()) {
-        Text("YOUR COMPANION", color = MutedGold, fontSize = 8.6.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
-        Spacer(Modifier.height(4.dp))
-        Text("Your creative companion", color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("Choose Spark or Mira. Your choice stays with you throughout Backlot.", color = MutedText, fontSize = 9.sp, lineHeight = 13.sp)
-        Spacer(Modifier.height(10.dp))
-
-        V145SelectableGuides.chunked(2).forEachIndexed { index, guides ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                guides.forEach { guide ->
-                    val active = guide == selected
-                    val identity = v144GuideIdentityColor(guide)
-                    Surface(
-                        modifier = Modifier.weight(1f).clickable { V144GuidePrefs.select(guide) }
-                            .testTag("v217-settings-${guide.name}"),
-                        shape = RoundedCornerShape(18.dp),
-                        color = if (active) CinemaSurfaceRaised else CinemaSurface,
-                        border = BorderStroke(1.2.dp, if (active) identity else CinemaLine),
-                    ) {
-                        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Surface(
-                                modifier = Modifier.height(138.dp).fillMaxWidth(),
-                                color = V144GuideStage,
-                                shape = RoundedCornerShape(14.dp),
-                            ) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    V144GuideCharacter(
-                                        guide = guide,
-                                        state = CinePulseState.IDLE,
-                                        modifier = Modifier.size(123.dp),
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.height(5.dp))
-                            Text(guide.displayName, color = ProjectorIvory, fontSize = 10.2.sp, fontWeight = FontWeight.Black)
-                            Text(
-                                if (active) "SELECTED" else "TAP TO USE",
-                                color = if (active) identity else MutedText,
-                                fontSize = 6.8.sp,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                }
-                // Both companions share consistent card height, spacing and actions.
+/** Reuses original Spark/Mira sprites in exactly the existing aspect ratio. */
+@Composable
+private fun P5CompanionPortraitStage(
+    guide: V144GuideIdentity,
+    pose: P5CompanionPose,
+    modifier: Modifier,
+) {
+    androidx.compose.animation.Crossfade(
+        targetState = guide to pose,
+        modifier = modifier.testTag("p5-character-stage"),
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "p5CompanionFocus",
+    ) { (character, characterPose) ->
+        Surface(Modifier.fillMaxSize(),
+            color = CinemaSurfaceRaised,
+            shape = RoundedCornerShape(18.dp),
+            border = BorderStroke(1.dp, CinemaLine)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                V144GuideCharacter(
+                    guide = character,
+                    state = P5CompanionSelectionPolicy.characterState(characterPose),
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                )
             }
-            if (index < V145SelectableGuides.chunked(2).lastIndex) Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+/** Preview selection only; never mutate V144GuidePrefs from a tab tap. */
+@Composable
+private fun P5CompanionChoices(
+    active: V144GuideIdentity,
+    onPreview: (V144GuideIdentity) -> Unit,
+    testPrefix: String,
+) {
+    Row(Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        V145SelectableGuides.forEach { guide ->
+            val focused = guide == active
+            Surface(
+                onClick = { onPreview(guide) },
+                modifier = Modifier.weight(1f).height(54.dp)
+                    .testTag(testPrefix + guide.name)
+                    .semantics { contentDescription =
+                        "Preview " + guide.displayName },
+                shape = RoundedCornerShape(14.dp),
+                color = if (focused) CinemaSurfaceRaised else CinemaSurface,
+                border = BorderStroke(1.5.dp,
+                    if (focused) v144GuideIdentityColor(guide) else CinemaLine),
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(guide.displayName, color = ProjectorIvory,
+                        fontSize = 13.sp, fontWeight = if (focused)
+                            FontWeight.SemiBold else FontWeight.Normal)
+                }
+            }
+        }
+    }
+}
+
+/** The gesture makes one expressive pose visible at a time, without fake lip-sync. */
+@Composable
+private fun P5PoseChoices(
+    pose: P5CompanionPose,
+    onChange: (P5CompanionPose) -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        P5CompanionPose.entries.forEach { option ->
+            Surface(
+                onClick = { onChange(option) },
+                modifier = Modifier.weight(1f).height(38.dp)
+                    .testTag("p5-pose-" + option.name),
+                shape = RoundedCornerShape(11.dp),
+                color = if (pose == option) CinemaSurfaceRaised else CinemaSurface,
+                border = BorderStroke(1.dp,
+                    if (pose == option) MutedGold else CinemaLine),
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(option.label, color =
+                        if (pose == option) ProjectorIvory else MutedText,
+                        fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                }
+            }
         }
     }
 }

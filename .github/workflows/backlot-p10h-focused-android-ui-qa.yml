@@ -1,0 +1,145 @@
+name: Backlot P10H - Focused Android 15 UI Gate
+
+# Two jobs permit rerunning ONLY emulator UI tests if app/test code is unchanged.
+# One case on this retry: accessible Open; four other P10 cases already passed.
+# Build debug/test APKs solely for emulator verification, never an owner APK.
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10h-focused-android-ui-qa-20261123
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p10h-focused-android15
+  cancel-in-progress: true
+
+jobs:
+  instrumentation-build:
+    name: "01 - Build debug and test APKs (no unit tests / release)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fast source and test reference fence (no JVM)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/androidTest/java/com/framebynavin/app/reminders/P10LivingReminderVisualUiTest.kt
+          grep -Fq 'class P10LivingReminderVisualUiTest' app/src/androidTest/java/com/framebynavin/app/reminders/P10LivingReminderVisualUiTest.kt
+          test ! -f app/src/main/java/com/framebynavin/app/personal/V2272PersonalParticleWave.kt
+          if grep -RInE 'V195ReminderParticleScene|V195ParticleGeometry|V195ReminderGlyph|V202PremiumParticleGeometry|V218UnifiedWavePolicy|V2272PersonalParticleWave' \
+              app/src/test app/src/androidTest --include='*.kt'; then
+            echo "ERROR: tests reference deleted visual engine" >&2
+            exit 1
+          fi
+          if grep -RInF -e 'import androidx.compose.ui.test.assertExists' -e 'import androidx.compose.ui.test.assertDoesNotExist' \
+              app/src/androidTest --include='*.kt'; then
+            echo "ERROR: invalid Compose assertion import" >&2
+            exit 1
+          fi
+          testfile=app/src/androidTest/java/com/framebynavin/app/reminders/P10LivingReminderVisualUiTest.kt
+          grep -Fq 'performSemanticsAction(SemanticsActions.OnClick)' "$testfile"
+          # Previous P10H retry lost the performClick import even though the
+          # four already-green test cases still use that API. Stop early.
+          if grep -Fq '.performClick()' "$testfile"; then
+            grep -Fxq 'import androidx.compose.ui.test.performClick' "$testfile" || {
+              echo "ERROR: performClick used but Compose test import missing" >&2
+              exit 1
+            }
+          fi
+          if grep -Fq '.performSemanticsAction(' "$testfile"; then
+            grep -Fxq 'import androidx.compose.ui.test.performSemanticsAction' "$testfile" || {
+              echo "ERROR: semantic action used but Compose test import missing" >&2
+              exit 1
+            }
+            grep -Fxq 'import androidx.compose.ui.semantics.SemanticsActions' "$testfile" || {
+              echo "ERROR: SemanticsActions used but import missing" >&2
+              exit 1
+            }
+          fi
+          bash tools/check_p10_retired_reminder_visuals.sh
+          echo 'Fast source and test reference gate: passed'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build debug app and instrumentation APKs only (no clean, full test or owner APK)
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/p10h/build output/p10h/apks
+          git rev-parse HEAD > output/p10h/build/source-sha.txt
+          free -h
+          timeout --signal=TERM --kill-after=20s 6000s \
+            gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/p10h/build/instrumentation-build.log
+      - name: Stage reusable test-only APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/debug/app-debug.apk output/p10h/apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/p10h/apks/
+          sha256sum output/p10h/apks/*.apk | tee output/p10h/build/apk-checksums.txt
+      - name: Preserve test-only APKs for isolated emulator job retries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10H-Reusable-Debug-Instrumentation-APKs
+          path: output/p10h/apks/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Save focused instrumentation build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10H-Focused-Build-Logs
+          path: output/p10h/build/
+          if-no-files-found: warn
+          retention-days: 21
+
+  emulator-android15:
+    name: "02 - Android 15: accessible-Open test only"
+    needs: [instrumentation-build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified matching debug and instrumentation APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-P10H-Reusable-Debug-Instrumentation-APKs
+          path: output/p10h/apks
+      - name: Verify instrumentation APK inputs (no build, no Gradle)
+        shell: bash
+        run: |
+          test -s output/p10h/apks/app-debug.apk
+          test -s output/p10h/apks/app-debug-androidTest.apk
+      - name: Enable local emulator acceleration
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Run ONLY previously failed accessible-Open P10 test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10h_focused_android15.sh
+      - name: Preserve single-case UI evidence and logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10H-Accessible-Open-Emulator-Log
+          path: output/p10h/android15/
+          if-no-files-found: warn
+          retention-days: 21

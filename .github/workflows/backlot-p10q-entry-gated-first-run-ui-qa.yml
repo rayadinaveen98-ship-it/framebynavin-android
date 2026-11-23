@@ -1,0 +1,122 @@
+name: Backlot P10Q - First-Run Entry Handoff QA
+
+# Focused AndroidTest gate: real P6 Creator entry must close before Hub tap.
+# No full unit suite, no release build, no production data or signed owner APK.
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10q-entry-gated-navigation-test-20261123
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p10q-first-run-semantic-ui
+  cancel-in-progress: true
+
+jobs:
+  instrumentation-build:
+    name: "01 - Compile debug and AndroidTest APKs for corrected test only"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - name: No-JVM test-source and retired-visual preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          testfile=app/src/androidTest/java/com/framebynavin/app/ui/P10JRealFirstRunNavigationUiTest.kt
+          test -s "$testfile"
+          grep -Fq 'awaitHomeReminderHub()' "$testfile"
+          grep -Fq 'openHomeReminderHub()' "$testfile"
+          grep -Fq 'finishCreatorEntryHandoff()' "$testfile"
+          grep -Fq 'p6-creator-entry-transition' "$testfile"
+          grep -Fq 'useUnmergedTree = true' "$testfile"
+          grep -Fxq 'import androidx.compose.ui.test.onAllNodesWithText' "$testfile"
+          grep -Fxq 'import androidx.compose.ui.test.performClick' "$testfile"
+          grep -Fxq 'import androidx.compose.ui.test.performScrollTo' "$testfile"
+          test -s tools/qa/backlot_p10q_entry_gated_android15.sh
+          bash tools/check_p10_retired_reminder_visuals.sh
+          echo 'PASS: one corrected AndroidTest source and retained P10 visual source gate'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Rebuild only changed debug Android instrumentation prerequisites
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/p10q/build output/p10q/apks
+          git rev-parse HEAD > output/p10q/build/source-sha.txt
+          timeout --signal=TERM --kill-after=20s 6000s \
+            gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/p10q/build/p10q-compile.log
+      - name: Preserve exact matching disposable debug + test APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/debug/app-debug.apk output/p10q/apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/p10q/apks/
+          sha256sum output/p10q/apks/*.apk | tee output/p10q/build/apk-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10Q-Reusable-Debug-AndTest-APKs
+          path: output/p10q/apks/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve compile evidence even if compilation fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10Q-Compilation-Logs
+          path: output/p10q/build/
+          if-no-files-found: warn
+          retention-days: 21
+
+  emulator-repeatability:
+    name: "02 - Android 15 real first-run navigation, two fresh profiles"
+    needs: [instrumentation-build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download same run compiled test APKs (no Gradle)
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-P10Q-Reusable-Debug-AndTest-APKs
+          path: output/p10q/apks
+      - name: Verify APK input without rebuilding
+        run: |
+          test -s output/p10q/apks/app-debug.apk
+          test -s output/p10q/apks/app-debug-androidTest.apk
+      - name: Enable emulator acceleration
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Run only corrected real first-run test twice on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10q_entry_gated_android15.sh
+      - name: Preserve exact twice-repeated Android UI results and OS logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10Q-First-Run-UI-Repeatability-Evidence
+          path: output/p10q/android15/
+          if-no-files-found: warn
+          retention-days: 21

@@ -69,8 +69,10 @@ internal fun V14QuickCaptureDialog(
     var confirmClose by remember { mutableStateOf(false) }
     var recorderActive by remember { mutableStateOf(false) }
     var checkingRecovery by remember { mutableStateOf(recovered != null) }
-    var showDictation by rememberSaveable { mutableStateOf(false) }
-    var showRecording by rememberSaveable { mutableStateOf(recovered?.recording != null) }
+    var voiceMode by rememberSaveable {
+        mutableStateOf(if (recovered?.recording != null) P8BVoiceMode.RECORD
+            else P8BVoiceMode.OFF)
+    }
     var showNotes by rememberSaveable { mutableStateOf(recovered?.notes?.isNotBlank() == true) }
     var showSuggestion by rememberSaveable { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
@@ -156,30 +158,20 @@ internal fun V14QuickCaptureDialog(
                         color = MutedText, fontSize = 12.sp, lineHeight = 17.sp)
                     Spacer(Modifier.height(15.dp))
 
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { showDictation = !showDictation },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("quick-capture-speak"),
-                            border = BorderStroke(1.dp, if (showDictation) MutedGold else CinemaLine),
-                        ) {
-                            Icon(Icons.Outlined.RecordVoiceOver, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("Speak text", fontSize = 11.sp)
-                        }
-                        OutlinedButton(
-                            onClick = { showRecording = !showRecording },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("quick-capture-record"),
-                            border = BorderStroke(1.dp, if (showRecording || voiceRecording != null) MutedGold else CinemaLine),
-                        ) {
-                            Icon(Icons.Outlined.Mic, null, modifier = Modifier.size(17.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("Record voice", fontSize = 11.sp)
-                        }
-                    }
-                    AnimatedVisibility(showDictation) {
+                    Text("VOICE CAPTURE · OPTIONAL", color = MutedText,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 6.dp))
+                    P8BVoiceModeSwitch(
+                        mode = voiceMode,
+                        recordingActive = recorderActive || submitting || checkingRecovery,
+                        hasSavedRecording = voiceRecording != null,
+                        onModeChange = { voiceMode = it },
+                        dictateTag = "quick-capture-speak",
+                        recordTag = "quick-capture-record",
+                    )
+                    AnimatedVisibility(voiceMode == P8BVoiceMode.DICTATE) {
                         Column {
                             Spacer(Modifier.height(10.dp))
-                            Text("Speak and turn your words into text", color = MutedGold, fontSize = 12.sp)
                             V117VoiceIdeaInput(
                                 onTranscript = { spoken ->
                                     title = VoiceIdeaText.append(title, spoken)
@@ -189,11 +181,9 @@ internal fun V14QuickCaptureDialog(
                             )
                         }
                     }
-                    AnimatedVisibility(showRecording || voiceRecording != null) {
+                    AnimatedVisibility(voiceMode == P8BVoiceMode.RECORD) {
                         Column {
                             Spacer(Modifier.height(10.dp))
-                            Text("Keep an original audio note with your idea",
-                                color = MutedGold, fontSize = 12.sp)
                             VoiceIdeaRecorderInput(
                                 recording = voiceRecording,
                                 onRecordingChanged = ::updateRecording,
@@ -202,6 +192,12 @@ internal fun V14QuickCaptureDialog(
                             )
                         }
                     }
+                    if (voiceRecording != null && voiceMode != P8BVoiceMode.RECORD) {
+                        Text("Your original recording is kept with this idea.",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 6.dp))
+                    }
+
                     Spacer(Modifier.height(14.dp))
 
                     Surface(

@@ -1,0 +1,82 @@
+name: Backlot P10I - Targeted First-Run and Navigation Policy QA
+
+# Ten selected policy classes. No full JVM suite, emulator, owner APK or release.
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10i-crossflow-policy-qa-20261123
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p10i-crossflow-policy-qa
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Ten selected first-run / Creator-Personal policy classes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify selected test sources exist, without Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+          for classname in \
+            P3SignatureTimelineTest \
+            P4AccountEntryPolicyTest \
+            P5CompanionSelectionPolicyTest \
+            P6CreatorEntryPolicyTest \
+            P6aUnifiedFirstRunPolicyTest \
+            P7PersonalHomePolicyTest \
+            P8BLivingVoiceOrbPolicyTest \
+            P8IdeaVaultPresentationTest \
+            P9AppearanceScopePolicyTest; do
+            test -s "app/src/test/java/com/framebynavin/app/ui/$classname.kt"
+          done
+          test -s app/src/test/java/com/framebynavin/app/reminders/P1ReminderEntranceCompatibilityPolicyTest.kt
+          bash tools/check_p10_retired_reminder_visuals.sh
+          echo 'PASS: ten selected test classes and P10 source fence'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Execute ten selected first-run / routing / reminder / orb policy classes
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/p10i
+          git rev-parse HEAD > output/p10i/SOURCE-SHA.txt
+          free -h
+          timeout --signal=TERM --kill-after=20s 5400s \
+            gradle :app:testDebugUnitTest \
+              --tests com.framebynavin.app.ui.P3SignatureTimelineTest \
+              --tests com.framebynavin.app.ui.P4AccountEntryPolicyTest \
+              --tests com.framebynavin.app.ui.P5CompanionSelectionPolicyTest \
+              --tests com.framebynavin.app.ui.P6CreatorEntryPolicyTest \
+              --tests com.framebynavin.app.ui.P6aUnifiedFirstRunPolicyTest \
+              --tests com.framebynavin.app.ui.P7PersonalHomePolicyTest \
+              --tests com.framebynavin.app.ui.P8BLivingVoiceOrbPolicyTest \
+              --tests com.framebynavin.app.ui.P8IdeaVaultPresentationTest \
+              --tests com.framebynavin.app.ui.P9AppearanceScopePolicyTest \
+              --tests com.framebynavin.app.reminders.P1ReminderEntranceCompatibilityPolicyTest \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/p10i/crossflow-unit.log
+      - name: Preserve selected JUnit results and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10I-Selected-Crossflow-Policy-Results
+          path: |
+            output/p10i/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+          retention-days: 21

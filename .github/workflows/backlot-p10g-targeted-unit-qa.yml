@@ -1,0 +1,58 @@
+name: Backlot P10G - Focused Unit Test Gate
+
+# Separate source-only QA branch, descended from verified P10F Kotlin compile.
+# No PR targeting P10E; avoids triggering P10F's already-passed compile workflow.
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10g-targeted-unit-qa-20261123
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-p10g-targeted-unit
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Targeted P10 policy test only, no APK / full test suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fast preflight for removed Kotlin APIs (no JVM)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # P10F's compiler passed against this ancestor. Ensure no surviving
+          # test code imports or invokes removed visual engines.
+          if grep -RInF -e 'import com.framebynavin.app.reminders.V195ParticleGeometry' -e 'import com.framebynavin.app.reminders.V195ReminderGlyph' -e 'import com.framebynavin.app.reminders.V202InfiniteBounce' -e 'import com.framebynavin.app.reminders.V202PremiumParticleGeometry' -e 'import com.framebynavin.app.reminders.V218UnifiedWavePolicy' -e 'V2272PersonalParticleWave(' app/src/test app/src/androidTest --include='*.kt'; then
+            echo "Removed visual engine API referenced by staged tests; stop before Gradle" >&2
+            exit 1
+          fi
+          echo "P10G fast test reference fence passed"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Run only P10ReminderVisualContractTest
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/p10g
+          free -h
+          timeout --signal=TERM --kill-after=20s 5700s             gradle :app:testDebugUnitTest               --tests com.framebynavin.app.reminders.P10ReminderVisualContractTest               --no-daemon --max-workers=1 --console=plain               '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8'               '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC'               '-Porg.gradle.parallel=false'               2>&1 | tee output/p10g/p10-focused-unit.log
+      - name: Save focused diagnostics and JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10G-Targeted-Unit-Log
+          path: |
+            output/p10g/p10-focused-unit.log
+            app/build/test-results/testDebugUnitTest/**/*.xml
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Extracted without modifying the approved V198 vector geometry or gradients. -->
+<!-- Lavender middle card, intentionally shorter than the upper and lower cards. -->
+    <path android:pathData="M27,49 C27,45 30,43 34,43 H55 C60,43 63,46 63,51 V61 C63,65 60,67 56,67 H34 C30,67 27,65 27,61 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="26" android:startY="45"
+                android:endX="63" android:endY="65">
+                <item android:offset="0.0" android:color="#DDC7FF"/>
+                <item android:offset="0.52" android:color="#BD91FF"/>
+                <item android:offset="1.0" android:color="#9475FF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

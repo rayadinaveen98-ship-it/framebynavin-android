@@ -46,10 +46,10 @@ internal enum class BacklotAppIcon(
     @DrawableRes val previewRes: Int,
     val aliasSuffix: String,
 ) {
-    CINEMATIC("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotCinematicAlias"),
-    MINIMAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotMinimalAlias"),
-    LIGHT("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotLightAlias"),
-    HORIZONTAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_approved_icon, "BacklotHorizontalAlias"),
+    CINEMATIC("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_brand_mark, "BacklotCinematicAlias"),
+    MINIMAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_brand_mark, "BacklotMinimalAlias"),
+    LIGHT("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_brand_mark, "BacklotLightAlias"),
+    HORIZONTAL("Backlot", "The approved Backlot creator emblem.", R.drawable.backlot_v198_brand_mark, "BacklotHorizontalAlias"),
     ;
 
     fun componentName(packageName: String): String = "$packageName.launcher.$aliasSuffix"
@@ -93,7 +93,7 @@ internal object BacklotAppIconManager {
 @Composable
 internal fun V133AppIconPicker() {
     Column(Modifier.fillMaxWidth()) {
-        Text("APP ICON", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("OFFICIAL APP ICON", color = MutedGold, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(8.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -103,7 +103,7 @@ internal fun V133AppIconPicker() {
         ) {
             Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                 Image(
-                    painter = painterResource(R.drawable.backlot_v198_approved_icon),
+                    painter = painterResource(R.drawable.backlot_v198_brand_mark),
                     contentDescription = "Backlot app icon",
                     modifier = Modifier.size(62.dp).clip(RoundedCornerShape(16.dp)),
                 )

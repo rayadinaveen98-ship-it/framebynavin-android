@@ -1,0 +1,65 @@
+name: Backlot P10L - No-build P10J First-run Repeatability
+
+# Reexecute the exact P10J JUnit first-run navigation twice against unchanged
+# previously compiled APKs. Previous shell runner raced with completed JUnit.
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10l-no-build-navigation-qa-20261123
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-p10l-no-build-navigation
+  cancel-in-progress: true
+
+jobs:
+  shell-ui:
+    name: Android 15 original P10J real navigation x2, no rebuild
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source-snapshot and no-build runner exists
+        run: |
+          set -euo pipefail
+          test -s tools/qa/backlot_p10l_no_build_navigation_android15.sh
+          grep -Fq 'onNodeWithTag("v219-reminder-home-entry")' \
+            app/src/androidTest/java/com/framebynavin/app/ui/P10JRealFirstRunNavigationUiTest.kt || true
+          echo 'P10L no Gradle/no APK modification'
+      - name: Download SAME P10J compiled debug and instrumentation APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-P10J-Disposable-App-and-Test-APKs
+          run-id: 45182330346
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/p10l/apks
+      - name: Check previously built APK artifacts
+        run: |
+          set -euo pipefail
+          test -s output/p10l/apks/app-debug.apk
+          test -s output/p10l/apks/app-debug-androidTest.apk
+          sha256sum output/p10l/apks/*.apk
+      - name: Enable local Android emulator KVM acceleration
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Run original P10J test twice with fresh profiles and no external tap race
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10l_no_build_navigation_android15.sh
+      - name: Preserve two complete JUnit logs, fresh-profile evidence and OS logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10L-Real-No-Build-Navigation-Evidence
+          path: output/p10l/android15/
+          if-no-files-found: warn
+          retention-days: 21

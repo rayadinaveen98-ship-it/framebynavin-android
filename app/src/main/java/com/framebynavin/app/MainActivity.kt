@@ -61,7 +61,19 @@ class MainActivity : ComponentActivity() {
         setContent {
             FrameByNavinTheme {
                 when {
-                    startupReady -> V131LaunchGate(externalLaunch = externalLaunch)
+                    startupReady -> Box(Modifier.fillMaxSize()) {
+                        V131LaunchGate(externalLaunch = externalLaunch)
+                        // The notification still opens its original Personal workspace.
+                        // The selected gallery is only an overlay, never a delivery target.
+                        com.framebynavin.app.reminders.P1ChallengeNotificationEntrance(
+                            challengeId = externalLaunch
+                                ?.takeIf { it.action ==
+                                    com.framebynavin.app.personal.PersonalDeliveryContract.ACTION_OPEN_PERSONAL }
+                                ?.taskId?.takeIf { it.startsWith("challenge:") }
+                                ?.removePrefix("challenge:"),
+                            launchNonce = externalLaunch?.nonce ?: 0L,
+                        )
+                    }
                     startupError != null -> Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
                         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
                             Text("Recovery needs attention", color = MaterialTheme.colorScheme.onSurface, fontSize = 24.sp)

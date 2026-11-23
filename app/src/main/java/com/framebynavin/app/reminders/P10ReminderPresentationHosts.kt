@@ -1,0 +1,170 @@
+package com.framebynavin.app.reminders
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+/**
+ * Staged P10 presentation-only host: has no notification, alarm, TTS, routing,
+ * receipt, completion, permission or service ownership. P10C mounted this
+ * on Creator/Personal and notification-opened 21-Day presentation routes.
+ */
+@Composable
+internal fun P10ReminderEntranceStage(
+    scope: P1ReminderScope,
+    kind: ReminderCheckInKind,
+    title: String,
+    occurrenceKey: String,
+    locked: Boolean,
+    media: P1Media?,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+    renderBackground: Boolean = true,
+) {
+    val context = LocalContext.current
+    val currentOnOpen by rememberUpdatedState(onOpen)
+    val family = remember(context, scope) { P10ReminderFamilyStore.selected(context, scope) }
+    val source = remember(context, scope, media?.file?.absolutePath) {
+        P10ReminderBackgroundStore.selected(context, scope, galleryAvailable = media != null)
+    }
+    val domainName = when (scope) {
+        P1ReminderScope.CREATOR -> "CREATOR REMINDER"
+        P1ReminderScope.PERSONAL -> "PERSONAL REMINDER"
+        P1ReminderScope.CHALLENGE_21 -> "21-DAY CHALLENGE"
+    }
+    Box(
+        modifier.fillMaxSize()
+            .background(if (renderBackground) family.pigments().dark else Color.Transparent)
+            .testTag("p10-entrance-" + scope.name.lowercase())
+            .pointerInput(occurrenceKey, locked) {
+                detectTapGestures(onDoubleTap = {
+                    if (P10ReminderVisualPolicy.shouldReveal(true, false, !locked)) currentOnOpen()
+                })
+            }
+            .semantics {
+                role = Role.Button
+                contentDescription = if (locked)
+                    "Backlot reminder. Unlock to view details."
+                    else "Open " + domainName.lowercase()
+                onClick(label = "Open reminder") {
+                    // Accessibility activation is an explicit single action.
+                    val allowed = P10ReminderVisualPolicy.shouldReveal(false, true, !locked)
+                    if (allowed) currentOnOpen()
+                    allowed
+                }
+            },
+    ) {
+        if (renderBackground) {
+            P10ReminderSceneBackground(
+                scope = scope, family = family, source = source,
+                act = P10ReminderAct.ENTRANCE,
+                media = media, locked = locked,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        Column(
+            modifier = Modifier.fillMaxSize().systemBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                "BACKLOT / " + domainName,
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.2.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                P10ReminderIdentityEmblem(
+                    kind = kind, family = family,
+                    modifier = Modifier.size(206.dp),
+                )
+                Text(
+                    if (locked) "Unlock to open your reminder" else title,
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    lineHeight = 30.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (locked) "YOUR REMINDER IS READY"
+                    else if (kind == ReminderCheckInKind.VOICE) "VOICE REMINDER" else "ALARM REMINDER",
+                    color = family.pigments().warm,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.7.sp,
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    if (locked) "UNLOCK TO CONTINUE" else "DOUBLE TAP TO OPEN",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.7.sp,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The action owners will place their existing, unchanged responsive controls on
+ * top of this phase-two atmosphere during P10C cutover.
+ */
+@Composable
+internal fun P10ReminderMainAtmosphere(
+    scope: P1ReminderScope,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val family = remember(context, scope) { P10ReminderFamilyStore.selected(context, scope) }
+    val media = remember(context, scope) { P1EntranceMediaStore.selected(context, scope) }
+    val source = remember(context, scope, media?.file?.absolutePath) {
+        P10ReminderBackgroundStore.selected(context, scope, galleryAvailable = media != null)
+    }
+    P10ReminderSceneBackground(
+        scope = scope, family = family, source = source,
+        act = P10ReminderAct.MAIN, media = media,
+        modifier = modifier,
+    )
+}
