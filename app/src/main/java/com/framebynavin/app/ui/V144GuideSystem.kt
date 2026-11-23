@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -121,12 +122,19 @@ internal fun V144GuideChoiceGate(content: @Composable () -> Unit) {
         return
     }
 
-    V217GuideChoiceContent(onSelect = { guide -> V144GuidePrefs.select(guide) })
+    var saveError by remember { mutableStateOf(false) }
+    V217GuideChoiceContent(
+        onSelect = { guide -> saveError = !V144GuidePrefs.select(guide) },
+        saveError = saveError,
+    )
 }
 
 /** Founder-approved P5: one featured companion, authentic pose art, deliberate confirmation. */
 @Composable
-internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
+internal fun V217GuideChoiceContent(
+    onSelect: (V144GuideIdentity) -> Unit,
+    saveError: Boolean = false,
+) {
     var previewName by androidx.compose.runtime.saveable.rememberSaveable {
         mutableStateOf(V145SelectableGuides.first().name)
     }
@@ -183,6 +191,11 @@ internal fun V217GuideChoiceContent(onSelect: (V144GuideIdentity) -> Unit) {
             ) {
                 Text("CONTINUE WITH " + candidate.displayName.uppercase(),
                     fontWeight = FontWeight.SemiBold)
+            }
+            if (saveError) {
+                Text("Couldn't save this companion. Please try again.",
+                    color = ProjectorIvory, fontSize = 12.sp,
+                    textAlign = TextAlign.Center)
             }
             Text("Your companion does not send messages or change reminders " +
                 "without your action.", color = MutedText, fontSize = 10.sp,

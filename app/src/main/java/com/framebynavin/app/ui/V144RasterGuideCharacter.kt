@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
+import android.provider.Settings
 import com.framebynavin.app.R
 
 /**
@@ -27,6 +29,13 @@ internal fun V144RasterGuideCharacter(
     modifier: Modifier = Modifier,
     pointRight: Boolean = true,
 ) {
+    val context = LocalContext.current
+    val reducedMotion = androidx.compose.runtime.remember(context) {
+        runCatching {
+            Settings.Global.getFloat(context.contentResolver,
+                Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        }.getOrDefault(false)
+    }
     val motion = rememberInfiniteTransition(label = "v144RasterGuideMotion")
     val breathe by motion.animateFloat(
         initialValue = .992f,
@@ -54,9 +63,9 @@ internal fun V144RasterGuideCharacter(
         contentScale = ContentScale.Fit,
         modifier = modifier.graphicsLayer {
             val direction = if (pointRight) 1f else -1f
-            scaleX = direction * breathe
-            scaleY = breathe
-            rotationZ = when (state) {
+            scaleX = direction * if (reducedMotion) 1f else breathe
+            scaleY = if (reducedMotion) 1f else breathe
+            rotationZ = if (reducedMotion) 0f else when (state) {
                 CinePulseState.WALK -> sway
                 CinePulseState.CELEBRATE, CinePulseState.SUCCESS -> sway * .45f
                 else -> 0f
