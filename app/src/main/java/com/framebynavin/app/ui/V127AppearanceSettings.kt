@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,18 +28,13 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
             Spacer(Modifier.height(18.dp))
         }
 
-        Text("APP APPEARANCE", color = RecRed, fontSize = 11.sp,
+        Text("CHOOSE YOUR THEME", color = RecRed, fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("One Backlot. Two appearances.", color = ProjectorIvory,
+        Text("Same Backlot, two looks.", color = ProjectorIvory,
             fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        Text(
-            "Director's Cut is Backlot's original look. Light mode keeps the same " +
-                "layout. Your ideas, projects and reminders don't change.",
-            color = MutedText,
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
-        )
+        Text("Change colors without changing your work, reminders or navigation.",
+            color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
         Spacer(Modifier.height(12.dp))
 
         V137ThemeOrder.forEach { theme ->
@@ -58,31 +51,7 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
         Spacer(Modifier.height(8.dp))
         V133AppIconPicker()
 
-        Spacer(Modifier.height(16.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(BacklotCardRadius),
-            color = CinemaSurface,
-            border = BorderStroke(BacklotBorderWidth, CinemaLine),
-        ) {
-            Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(Modifier.size(34.dp), RoundedCornerShape(BacklotSmallRadius), RecRed.copy(alpha = .12f)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.GraphicEq, null, tint = RecRed, modifier = Modifier.size(18.dp))
-                    }
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Launch sound", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Play the opening sound when Backlot starts.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
-                }
-                Switch(
-                    checked = VisualExperiencePrefs.launchSoundEnabled,
-                    onCheckedChange = VisualExperiencePrefs::updateLaunchSound,
-                    colors = SwitchDefaults.colors(checkedThumbColor = ProjectorIvory, checkedTrackColor = RecRed),
-                )
-            }
-        }
+
     }
 }
 
