@@ -29,6 +29,69 @@ jobs:
           test -f app/src/androidTest/java/com/framebynavin/app/reminders/P10LivingReminderVisualUiTest.kt
           grep -Fq 'class P10LivingReminderVisualUiTest' app/src/androidTest/java/com/framebynavin/app/reminders/P10LivingReminderVisualUiTest.kt
           test ! -f app/src/main/java/com/framebynavin/app/personal/V2272PersonalParticleWave.kt
+          # Catch dead source dependencies across ALL instrumentation/test sources
+          # before a 20-minute Gradle compile. The legacy V202 UI test was
+          # retired after the first P10H compile failed on V195.
+          if grep -RInE 'V195ReminderParticleScene|V195ParticleGeometry|V195ReminderGlyph|V202PremiumParticleGeometry|V218UnifiedWavePolicy|V2272PersonalParticleWave' \
+              app/src/test app/src/androidTest --include='*.kt'; then
+            echo "ERROR: test source still references deleted reminder visual engine" >&2
+            exit 1
+          fi
+          # Compose SemanticsNodeInteraction.assertExists/DoesNotExist are
+          # methods, NOT directly importable extension functions.
+          if grep -RInE '^import androidx[.]compose[.]ui[.]test[.](assertExists|assertDoesNotExist)
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build debug and AndroidTest APKs solely for targeted instrumentation
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/p10h/build
+          git rev-parse HEAD > output/p10h/build/source-sha.txt
+          free -h
+          # Gradle's task graph builds only instrumentation prerequisites;
+          # NO clean, testDebugUnitTest, lint, personalStable or production APK.
+          timeout --signal=TERM --kill-after=20s 6000s \
+            gradle :app:assembleDebug :app:assembleDebugAndroidTest \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/p10h/build/instrumentation-build.log
+      - name: Enable local emulator acceleration
+        shell: bash
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Run ONLY five P10 presentation test cases (Android 15)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10h_focused_android15.sh
+      - name: Preserve targeted logs, XML and emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10H-Focused-Android15-Logs
+          path: |
+            output/p10h/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: warn
+          retention-days: 21
+ \
+              app/src/androidTest --include='*.kt'; then
+            echo "ERROR: non-existent Compose UI assertion import" >&2
+            exit 1
+          fi
           bash tools/check_p10_retired_reminder_visuals.sh
           echo "P10H fast source fence: pass"
       - uses: actions/setup-java@v5
