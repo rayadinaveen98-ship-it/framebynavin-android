@@ -419,7 +419,7 @@ internal fun V2233PersonalAlertScreen(
             }
             Text(
                 "Done records an explicit completion. Dismiss does not.",
-                color = V336DirectorPalette.muted,
+                color = look.muted,
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
