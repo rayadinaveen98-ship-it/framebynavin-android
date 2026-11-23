@@ -77,7 +77,7 @@ internal fun P1GalleryBackgroundLaunchCard() {
 private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var activeScope by rememberSaveable { mutableStateOf(P1ReminderScope.PERSONAL.name) }
+    var activeScope by rememberSaveable { mutableStateOf(P1ReminderScope.CREATOR.name) }
     val domain = P1ReminderScope.valueOf(activeScope)
     var importFor by remember { mutableStateOf(P1ReminderScope.PERSONAL) }
     var revision by remember { mutableIntStateOf(0) }
@@ -154,8 +154,8 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(
-                P1ReminderScope.PERSONAL to "Personal",
                 P1ReminderScope.CREATOR to "Creator",
+                P1ReminderScope.PERSONAL to "Personal",
                 P1ReminderScope.CHALLENGE_21 to "21-Day",
             ).forEach { (option, title) ->
                 FilterChip(
@@ -179,12 +179,12 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("VOICE / ALARM PREVIEW", color = MutedText, fontSize = 10.sp)
+            Text("PREVIEW TYPE", color = MutedText, fontSize = 10.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 listOf(ReminderCheckInKind.VOICE, ReminderCheckInKind.ALARM).forEach { option ->
                     FilterChip(
                         selected = mode == option, onClick = { mode = option },
-                        label = { Text(if (option == ReminderCheckInKind.VOICE) "Mic" else "Clock", fontSize = 10.sp) }
+                        label = { Text(if (option == ReminderCheckInKind.VOICE) "Voice" else "Alarm", fontSize = 10.sp) }
                     )
                 }
             }
@@ -197,35 +197,21 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("FULL-SCREEN PREVIEW")
         }
-        Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface) {
-            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Backlot Original", color = ProjectorIvory,
-                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(if (selectedMedia == null) "Selected" else "Restore the original animated background",
-                    color = MutedText, fontSize = 11.sp)
-                if (selectedMedia != null) TextButton(
-                    onClick = ::reset, enabled = !importing,
-                    modifier = Modifier.testTag("p1-restore-original"),
-                ) { Text("RESET TO ORIGINAL", color = RecRed) }
-            }
-        }
+        // P9B: one background source panel, not parallel "Original" and "Gallery" cards.
         Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("My Gallery", color = ProjectorIvory, fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold)
-                Text("Photo, animated GIF/WebP or silent looping video up to 15 seconds and 40 MB.",
-                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
-                if (selectedMedia != null) {
-                    Text(
-                        when (selectedMedia.kind) {
-                            P1MediaKind.IMAGE -> "Saved photo"
-                            P1MediaKind.ANIMATED -> "Saved animated image"
-                            P1MediaKind.VIDEO -> "Saved video · plays silently"
-                        },
-                        color = MutedGold, fontSize = 11.sp,
-                        modifier = Modifier.testTag("p1-saved-media"),
-                    )
-                }
+                Text("BACKGROUND SOURCE", color = MutedGold, fontSize = 10.sp, letterSpacing = 1.sp)
+                Text(if (selectedMedia == null) "Backlot Original" else "My Gallery",
+                    color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (selectedMedia == null) "Original Backlot background is selected for this space."
+                    else when (selectedMedia.kind) {
+                        P1MediaKind.IMAGE -> "Your saved photo"
+                        P1MediaKind.ANIMATED -> "Your saved animated image"
+                        P1MediaKind.VIDEO -> "Your saved silent video"
+                    },
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
+                )
                 Button(
                     onClick = {
                         importFor = domain
@@ -233,8 +219,8 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                             ActivityResultContracts.PickVisualMedia.ImageAndVideo
                         ))
                     },
-                    enabled = !importing, modifier = Modifier.fillMaxWidth()
-                        .testTag("p1-choose-gallery"),
+                    enabled = !importing,
+                    modifier = Modifier.fillMaxWidth().testTag("p1-choose-gallery"),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                 ) {
                     Icon(Icons.Outlined.PhotoLibrary, contentDescription = null, Modifier.size(18.dp))
@@ -243,6 +229,10 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                         if (selectedMedia == null) "CHOOSE FROM GALLERY" else "REPLACE BACKGROUND")
                 }
                 if (selectedMedia != null) {
+                    TextButton(
+                        onClick = ::reset, enabled = !importing,
+                        modifier = Modifier.testTag("p1-restore-original"),
+                    ) { Text("USE BACKLOT ORIGINAL", color = RecRed) }
                     OutlinedButton(
                         onClick = { showFraming = !showFraming },
                         modifier = Modifier.fillMaxWidth().testTag("p1-adjust-crop"),
@@ -263,7 +253,8 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                         )
                         Text("Vertical position", color = ProjectorIvory, fontSize = 11.sp)
                         Slider(
-                            value = frame.vertical, onValueChange = { frame = frame.copy(vertical = it) },
+                            value = frame.vertical,
+                            onValueChange = { frame = frame.copy(vertical = it) },
                             onValueChangeFinished = ::persistFraming, valueRange = -1f..1f,
                             modifier = Modifier.testTag("p1-crop-y"),
                         )
@@ -272,14 +263,9 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             }
         }
         if (domain != P1ReminderScope.CREATOR) {
-            Text(
-                if (domain == P1ReminderScope.PERSONAL)
-                    "Source-stage notice: the accepted V337 Personal alert has no separate double-tap entrance. This choice is stored and previewable; live attachment is not yet approved."
-                else
-                    "Source-stage notice: accepted V337 opens 21-day alerts from a notification. This background is stored and previewable without altering challenge delivery.",
+            Text("Saved and previewable here. The new full-screen visual attachment for this reminder type is pending integration.",
                 color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
-                modifier = Modifier.testTag("p1-host-compatibility-note"),
-            )
+                modifier = Modifier.testTag("p1-host-compatibility-note"))
         }
         Text("Live Photos may import as still images; export their motion as a short video when needed. Installed third-party live wallpapers cannot be imported directly.",
             color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
