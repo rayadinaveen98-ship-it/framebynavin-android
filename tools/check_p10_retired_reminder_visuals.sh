@@ -23,9 +23,14 @@ for obsolete in \
   }
 done
 
+test ! -e "$root/personal/V2272PersonalParticleWave.kt" || {
+  echo 'Retired Personal particle source still present' >&2
+  exit 1
+}
+
 # Source-level ban on production imports/calls; historical Markdown and old
 # release notes are intentionally excluded from executable app checks.
-if grep -RInE 'V391Reminder(Scene|Backdrop|Prefs|SceneSettings)|V394Premiere|V336Director(Backdrop|SignalArt|Palette)|V195ReminderParticleScene|V231CinematicWaveBackdrop|P1PersonalGalleryEntrance|P1CreatorEntranceUnderlay' "$root" --include='*.kt'; then
+if grep -RInE 'V391Reminder(Scene|Backdrop|Prefs|SceneSettings)|V394Premiere|V336Director(Backdrop|SignalArt|Palette)|V195ReminderParticleScene|V231CinematicWaveBackdrop|V2272PersonalParticleWave|V2272PersonalWavePolicy|P1PersonalGalleryEntrance|P1CreatorEntranceUnderlay' "$root" --include='*.kt'; then
   echo 'Retired reminder visuals are still referenced by active Android Kotlin source' >&2
   exit 1
 fi
