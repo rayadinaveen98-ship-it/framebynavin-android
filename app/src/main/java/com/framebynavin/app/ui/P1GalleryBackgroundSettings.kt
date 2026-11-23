@@ -212,7 +212,9 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                 )
             }
         }
-        P1EntrancePreview(
+        // Do not keep a second gallery video decoder running underneath the
+        // full-screen preview dialog. The one visible preview owns the player.
+        if (!fullPreview) P1EntrancePreview(
             domain = domain, family = family, source = backgroundSource,
             media = selectedMedia, frame = frame, kind = mode,
             modifier = Modifier.fillMaxWidth().height(230.dp),
