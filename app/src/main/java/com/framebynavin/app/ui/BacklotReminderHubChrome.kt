@@ -80,18 +80,21 @@ internal fun BacklotReminderHubWorkspaceTabs(
         horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BacklotReminderHubTab(
-            title = "Personal",
-            selected = selected == BacklotReminderWorkspace.PERSONAL,
-            onClick = onOpenPersonal,
-            tag = "v2232-open-personal",
-            modifier = Modifier.weight(1f),
-        )
+        // Creator OS is the primary Reminder Hub; its first tab matches
+        // the existing Creator-default entry. Personal is the second,
+        // always-accessible well-being space. No callback or state change.
         BacklotReminderHubTab(
             title = "Creator",
             selected = selected == BacklotReminderWorkspace.CREATOR,
             onClick = onOpenCreator,
             tag = "v2232-open-creator",
+            modifier = Modifier.weight(1f),
+        )
+        BacklotReminderHubTab(
+            title = "Personal",
+            selected = selected == BacklotReminderWorkspace.PERSONAL,
+            onClick = onOpenPersonal,
+            tag = "v2232-open-personal",
             modifier = Modifier.weight(1f),
         )
     }
