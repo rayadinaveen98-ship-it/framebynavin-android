@@ -148,7 +148,7 @@ internal fun P1ChallengeNotificationEntrance(
         onOpen = { revealed = true },
         modifier = modifier,
     )
-}}
+}
 
 /** This surface has no Done/Snooze/Dismiss controls, receipts, service or alarm ownership. */
 @Composable
