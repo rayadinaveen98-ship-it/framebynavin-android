@@ -307,59 +307,58 @@ internal fun V2233PersonalAlertScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().testTag("v2233-personal-alert-title"),
             )
-            if (scheduledLabel != null) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().testTag("v336-personal-schedule"),
-                    color = look.panel,
-                    border = BorderStroke(1.dp, look.line),
-                    shape = RoundedCornerShape(20.dp),
-                ) {
-                    Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
-                        Text("SCHEDULED", color = look.hot,
-                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(scheduledLabel, color = look.ivory,
-                            fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
+            // P10C: one calm information stage; no two competing legacy cards.
             Surface(
-                modifier = Modifier.fillMaxWidth().testTag("v336-personal-reminder-status"),
+                modifier = Modifier.fillMaxWidth().testTag("p10-personal-info-stage"),
                 color = look.panel,
                 border = BorderStroke(1.dp, look.line),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(24.dp),
             ) {
-                Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
-                    Text(
-                        if (reminder.alert == PersonalAlert.ALARM) "ALARM"
-                        else if (reminder.alert == PersonalAlert.VOICE) "ANNOUNCEMENT"
-                        else "NOTIFICATION",
-                        color = look.hot,
-                        fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp,
-                    )
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        when (reminder.alert) {
-                            PersonalAlert.ALARM ->
-                                "Ringing stops after ${reminder.alarmDurationSeconds} seconds. Your response remains available."
-                            PersonalAlert.VOICE ->
-                                "Spoken ${reminder.voiceRepeatCount} ${if (reminder.voiceRepeatCount == 1) "time" else "times"} if on-device speech is available."
-                            PersonalAlert.NOTIFICATION -> "Your personal reminder is ready."
-                        },
-                        color = look.ivory, fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                    )
-                    if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
-                        reminder.notes.isNotBlank()
-                    ) {
-                        Spacer(Modifier.height(9.dp))
+                Column(Modifier.padding(horizontal = 19.dp, vertical = 16.dp)) {
+                    if (scheduledLabel != null) {
+                        Column(Modifier.testTag("v336-personal-schedule")) {
+                            Text("SCHEDULED", color = look.hot,
+                                fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp)
+                            Spacer(Modifier.height(6.dp))
+                            Text(scheduledLabel, color = look.ivory,
+                                fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.height(13.dp))
+                        Box(Modifier.fillMaxWidth().height(1.dp)
+                            .background(look.line.copy(alpha = .55f)))
+                        Spacer(Modifier.height(13.dp))
+                    }
+                    Column(Modifier.testTag("v336-personal-reminder-status")) {
                         Text(
-                            reminder.notes, color = look.muted,
-                            fontSize = 13.sp, lineHeight = 19.sp,
-                            modifier = Modifier.testTag("v284-plan-alert-details"),
+                            when (reminder.alert) {
+                                PersonalAlert.ALARM -> "ALARM"
+                                PersonalAlert.VOICE -> "ANNOUNCEMENT"
+                                PersonalAlert.NOTIFICATION -> "NOTIFICATION"
+                            },
+                            color = look.hot,
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.5.sp,
                         )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            when (reminder.alert) {
+                                PersonalAlert.ALARM ->
+                                    "Ringing stops after ${reminder.alarmDurationSeconds} seconds. Your response remains available."
+                                PersonalAlert.VOICE ->
+                                    "Spoken ${reminder.voiceRepeatCount} ${if (reminder.voiceRepeatCount == 1) "time" else "times"} if on-device speech is available."
+                                PersonalAlert.NOTIFICATION -> "Your personal reminder is ready."
+                            },
+                            color = look.ivory, fontSize = 12.sp, lineHeight = 18.sp,
+                        )
+                        if (reminder.id.startsWith(PersonalDietFitnessPlanV1.ID_PREFIX) &&
+                            reminder.notes.isNotBlank()
+                        ) {
+                            Spacer(Modifier.height(9.dp))
+                            Text(reminder.notes, color = look.muted,
+                                fontSize = 13.sp, lineHeight = 19.sp,
+                                modifier = Modifier.testTag("v284-plan-alert-details"))
+                        }
                     }
                 }
             }
