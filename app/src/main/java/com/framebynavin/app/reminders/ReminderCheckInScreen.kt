@@ -265,43 +265,44 @@ internal fun ReminderCheckInScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth().testTag("v200-reminder-title"),
             )
-            if (contextLine.isNotBlank()) {
+            if (contextLine.isNotBlank() || nextAction != null) {
                 Spacer(Modifier.height(12.dp))
+                // One editorial stage panel instead of two stacked V336-era cards.
                 Surface(
-                    modifier = Modifier.fillMaxWidth()
-                        .testTag("v336-creator-reminder-context"),
+                    modifier = Modifier.fillMaxWidth().testTag("p10-creator-context-stage"),
                     color = look.panel,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     border = BorderStroke(1.dp, look.line),
                 ) {
-                    Column(Modifier.padding(horizontal = 17.dp, vertical = 14.dp)) {
-                        Text("SCHEDULED  /  STAGE", color = look.hot,
-                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(contextLine, color = look.ivory,
-                            fontSize = 13.sp, lineHeight = 19.sp, maxLines = 3,
-                            overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-            if (nextAction != null) {
-                Spacer(Modifier.height(9.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth()
-                        .testTag("v336-creator-reminder-next-step"),
-                    color = look.panel,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, look.line),
-                ) {
-                    Column(Modifier.padding(horizontal = 17.dp, vertical = 13.dp)) {
-                        Text("NEXT MOVE", color = look.hot,
-                            fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(nextAction, color = look.ivory,
-                            fontSize = 13.sp, lineHeight = 19.sp, maxLines = 3,
-                            overflow = TextOverflow.Ellipsis)
+                    Column(Modifier.padding(horizontal = 19.dp, vertical = 16.dp)) {
+                        if (contextLine.isNotBlank()) {
+                            Column(Modifier.testTag("v336-creator-reminder-context")) {
+                                Text("ON YOUR SCHEDULE", color = look.hot,
+                                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.5.sp)
+                                Spacer(Modifier.height(6.dp))
+                                Text(contextLine, color = look.ivory,
+                                    fontSize = 13.sp, lineHeight = 19.sp,
+                                    maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        if (nextAction != null) {
+                            if (contextLine.isNotBlank()) {
+                                Spacer(Modifier.height(13.dp))
+                                Box(Modifier.fillMaxWidth().height(1.dp)
+                                    .background(look.line.copy(alpha = .55f)))
+                                Spacer(Modifier.height(13.dp))
+                            }
+                            Column(Modifier.testTag("v336-creator-reminder-next-step")) {
+                                Text("NEXT MOVE", color = look.hot,
+                                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.5.sp)
+                                Spacer(Modifier.height(6.dp))
+                                Text(nextAction, color = look.ivory,
+                                    fontSize = 13.sp, lineHeight = 19.sp,
+                                    maxLines = 4, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
             }
