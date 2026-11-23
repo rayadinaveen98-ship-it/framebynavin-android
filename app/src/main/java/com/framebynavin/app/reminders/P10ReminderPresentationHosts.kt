@@ -54,6 +54,7 @@ internal fun P10ReminderEntranceStage(
     media: P1Media?,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    renderBackground: Boolean = true,
 ) {
     val context = LocalContext.current
     val currentOnOpen by rememberUpdatedState(onOpen)
@@ -75,7 +76,7 @@ internal fun P10ReminderEntranceStage(
     }
     Box(
         modifier.fillMaxSize()
-            .background(family.pigments().dark)
+            .background(if (renderBackground) family.pigments().dark else Color.Transparent)
             .testTag("p10-entrance-" + scope.name.lowercase())
             .pointerInput(occurrenceKey, locked) {
                 detectTapGestures(onDoubleTap = {
@@ -95,12 +96,14 @@ internal fun P10ReminderEntranceStage(
                 }
             },
     ) {
-        P10ReminderSceneBackground(
-            scope = scope, family = family, source = source,
-            act = P10ReminderAct.ENTRANCE,
-            media = media, locked = locked,
-            modifier = Modifier.fillMaxSize(),
-        )
+        if (renderBackground) {
+            P10ReminderSceneBackground(
+                scope = scope, family = family, source = source,
+                act = P10ReminderAct.ENTRANCE,
+                media = media, locked = locked,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         Column(
             modifier = Modifier.fillMaxSize().systemBarsPadding()
