@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           R2=1577669bc328153a365661a7f3d36fb1558e891c
           git cat-file -e "$R2^{commit}"
-          test "$(git rev-parse "$R2:app")" = "$(git rev-parse HEAD:app")"
+          test "$(git rev-parse "$R2:app")" = "$(git rev-parse HEAD:app)"
           git merge-base --is-ancestor "$R2" HEAD
           echo "PASS: QA candidate has byte-identical app subtree to founder-reviewed R2"
       - name: Run R2 source-contract checks
