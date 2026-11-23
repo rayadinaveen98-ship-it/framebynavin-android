@@ -468,6 +468,7 @@ internal fun V18CinematicHomeHero(
     onEditorRequestHandled: () -> Unit = {},
     companionAvatar: @Composable () -> Unit = {},
     galleryInOverflow: Boolean = false,
+    settingsPhotoManager: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -615,6 +616,51 @@ internal fun V18CinematicHomeHero(
         decoded.keys.toList().filterNot { it in wanted }.forEach { decoded.remove(it) }
     }
 
+    if (settingsPhotoManager) {
+        // P9B: reuse the Home slideshow owners and existing editor dialogs in Settings.
+        // No parallel gallery store or second photo-editing pipeline.
+        Column(
+            modifier = Modifier.fillMaxWidth().testTag("p9b-home-photos-manager"),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                if (frames.isEmpty()) "No Home photos added yet."
+                else "${frames.size} of ${V18HomeHeroStore.MAX_FRAMES} Home photos",
+                color = ProjectorIvory, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            )
+            Text("These photos appear in your Creator Home slideshow. They stay in the existing Backlot gallery.",
+                color = MutedText, fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton(
+                    onClick = { if (frames.isEmpty()) chooseReplaceFrames() else showPhotoEditor = true },
+                    enabled = !importing && !editingPhotos,
+                    modifier = Modifier.testTag("p9b-manage-home-photos"),
+                ) { Text(if (frames.isEmpty()) "ADD PHOTOS" else "MANAGE PHOTOS", color = ProjectorIvory) }
+                if (frames.isNotEmpty()) TextButton(
+                    onClick = chooseReplaceFrames,
+                    enabled = !importing && !editingPhotos,
+                    modifier = Modifier.testTag("p9b-replace-home-photos"),
+                ) { Text("REPLACE ALL", color = ProjectorIvory) }
+            }
+            if (frames.size > 1) TextButton(
+                onClick = {
+                    try {
+                        val next = !userPaused
+                        V18HomeHeroStore.savePaused(context, next)
+                        userPaused = next
+                    } catch (_: Exception) {
+                        photoEditError = "Could not save slideshow playback preference."
+                    }
+                },
+                modifier = Modifier.testTag("p9b-home-slideshow-playback"),
+            ) { Text(if (userPaused) "PLAY SLIDESHOW" else "PAUSE SLIDESHOW", color = ProjectorIvory) }
+            if (frames.isNotEmpty()) TextButton(
+                onClick = { confirmRemove = true },
+                enabled = !importing && !editingPhotos,
+                modifier = Modifier.testTag("p9b-remove-home-photos"),
+            ) { Text("REMOVE ALL HOME PHOTOS", color = RecRed) }
+        }
+    } else {
     Column(Modifier.fillMaxWidth()) {
         V18HeroGreetingBar(
             greeting = greeting,
@@ -716,6 +762,7 @@ internal fun V18CinematicHomeHero(
                 }
             }
         }
+    }
     }
 
     if (showPhotoEditor) {
