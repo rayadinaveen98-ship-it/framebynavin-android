@@ -31,6 +31,9 @@ internal object P10ReminderVisualPolicy {
         P10ReminderFamily.entries.firstOrNull { it.name == savedName }
             ?: suggestedFamily(scope)
 
+    /** Existing accessibility contract: with Android animations disabled, controls appear immediately. */
+    fun startRevealed(animationsAllowed: Boolean): Boolean = !animationsAllowed
+
     /** Motion does not affect scheduling, notification delivery or response gates. */
     fun tuning(
         animationsAllowed: Boolean,
