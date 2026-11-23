@@ -64,6 +64,7 @@ internal fun P1EntranceBackdrop(
     modifier: Modifier = Modifier,
     overrideMedia: P1Media? = null,
     overrideFraming: P1MediaFraming? = null,
+    fallbackAct: P10ReminderAct = P10ReminderAct.ENTRANCE,
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
@@ -81,7 +82,7 @@ internal fun P1EntranceBackdrop(
     }
     val media = overrideMedia ?: remember(domain) { P1EntranceMediaStore.selected(context, domain) }
     if (locked || media == null) {
-        P1OriginalBackdrop(motionEnabled, lowPower, modifier)
+        P1FamilyFallback(domain, fallbackAct, motionEnabled, lowPower, modifier)
         return
     }
 
@@ -93,9 +94,9 @@ internal fun P1EntranceBackdrop(
         translationY = framing.vertical * size.height * (framing.zoom - 1f) * 0.5f
     }
     Box(modifier.fillMaxSize().clipToBounds().testTag("p1-custom-entrance-" + domain.name.lowercase())) {
-        // Failed image/video decode must show the trustworthy original scene,
-        // not a blank or inaccessible alert. No additional interactive foreground layer.
-        P1OriginalBackdrop(false, true, Modifier.fillMaxSize())
+        // Broken private media always falls back to a new P10 family scene.
+        // Do not reintroduce the retired Director or Premiere visual.
+        P1FamilyFallback(domain, fallbackAct, false, true, Modifier.fillMaxSize())
         when (media.kind) {
             P1MediaKind.IMAGE -> P1StillImage(media.file, mediaLayer)
             P1MediaKind.ANIMATED -> {
@@ -110,26 +111,36 @@ internal fun P1EntranceBackdrop(
                 } else {
                     if (media.poster != null)
                         P1StillImage(media.poster, mediaLayer)
-                    else P1OriginalBackdrop(false, true, Modifier.fillMaxSize())
+                    else P1FamilyFallback(domain, fallbackAct, false, true, Modifier.fillMaxSize())
                 }
             }
         }
-        // Light custom content must not wash out the original white/gold
-        // microphone, alarm glyph, domain label and double-tap prompt.
+        // Ensure text contrast without hiding the user's gallery media.
+        // P10 applies a second lightweight family-colored vignette.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-            0f to Color.Black.copy(alpha = .62f),
-            .42f to Color.Black.copy(alpha = .65f),
-            1f to Color.Black.copy(alpha = .78f),
+            0f to Color.Black.copy(alpha = .36f),
+            .45f to Color.Black.copy(alpha = .12f),
+            1f to Color.Black.copy(alpha = .58f),
         )))
     }
 }
 
-/** Neutral fallback behind any media and when a media decoder cannot open it. */
+/** P10 family fallback, preserving media/privacy gates and renderer ownership. */
 @Composable
-private fun P1OriginalBackdrop(motionEnabled: Boolean, lowPower: Boolean, modifier: Modifier) {
-    Box(modifier.background(Brush.verticalGradient(
-        listOf(Color(0xFF080408), Color(0xFF25070F), Color(0xFF10050A))
-    )))
+private fun P1FamilyFallback(
+    domain: P1ReminderScope,
+    act: P10ReminderAct,
+    motionEnabled: Boolean,
+    lowPower: Boolean,
+    modifier: Modifier,
+) {
+    val context = LocalContext.current
+    val family = remember(context, domain) { P10ReminderFamilyStore.selected(context, domain) }
+    P10LivingReminderBackdrop(
+        family = family, act = act,
+        animationsAllowed = motionEnabled, batterySaver = lowPower, lowRam = false,
+        modifier = modifier,
+    )
 }
 
 @Composable
