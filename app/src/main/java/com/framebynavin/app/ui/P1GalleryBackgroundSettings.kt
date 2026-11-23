@@ -57,8 +57,8 @@ internal fun P1GalleryBackgroundLaunchCard() {
             Column(Modifier.weight(1f)) {
                 Text("Reminder backgrounds", color = ProjectorIvory,
                     fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("Personal, Creator and 21-day gallery backgrounds",
-                    color = MutedText, fontSize = 11.sp)
+                Text("Personal, Creator and 21-day · local photo, GIF or video",
+                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
             }
             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MutedText)
         }
