@@ -1220,7 +1220,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
 
     // One unified Creator OS. Personal OS is a feature, never a separate mode.
-    // Retired V393 focus/quick setup preferences remain on disk for compatibility
+    // Retired focus/quick setup preferences remain on disk for compatibility
     // but are no longer read, written or used to influence screen navigation.
     val gate = P6aUnifiedFirstRunPolicy.route(
         accountComplete = settings.accountOnboardingComplete,
