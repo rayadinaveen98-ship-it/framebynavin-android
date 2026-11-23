@@ -18,3 +18,9 @@
 
 Workflow: `.github/workflows/backlot-p10h-focused-android-ui-qa.yml`.
 Runner: `tools/qa/backlot_p10h_focused_android15.sh`.
+
+## P10H compilation result and focused repair
+- First P10H run [45159452197](https://github.com/rayadinaveen98-ship-it/framebynavin-android/actions/runs/45159452197) **FAILED** at `:app:compileDebugAndroidTestKotlin` (NOT emulator). The `:app:assembleDebug` task completed in that run. Compiler reported exactly three errors: two non-existent Compose `assertDoesNotExist` / `assertExists` import statements in `P10LivingReminderVisualUiTest.kt` and one obsolete `V202PremiumParticlesUiTest.kt` call to deleted `V195ReminderParticleScene`. D8 printed nonfatal stack-map warnings on preexisting Google Play Services Auth 21.5.0.
+- P10H QA candidate removed only the two bad imports (assertion methods remain available on node interactions) and deleted the historical V202 UI test of the retired V195 renderer. The P10 replacement P10LivingReminderVisualUiTest remains; it covers five Creator/Personal/accessible-Open cases.
+- Strengthened the no-JVM preflight to inspect all unit/instrumentation test sources for retired V195/V202/V218 APIs and invalid assertion imports, stopping before expensive compilation.
+- **Evidence gate remains OPEN:** no claims of AndroidTest compilation success or emulator tests passing until a new GitHub run reports those results. No owner APK, merge or production service edits.
