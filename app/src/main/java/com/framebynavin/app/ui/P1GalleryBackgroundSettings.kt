@@ -79,7 +79,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     var activeScope by rememberSaveable { mutableStateOf(P1ReminderScope.CREATOR.name) }
     val domain = P1ReminderScope.valueOf(activeScope)
-    var importFor by remember { mutableStateOf(P1ReminderScope.PERSONAL) }
+    var importFor by remember { mutableStateOf(P1ReminderScope.CREATOR) }
     var revision by remember { mutableIntStateOf(0) }
     var importing by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf<String?>(null) }
@@ -201,6 +201,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             ).forEach { (option, title) ->
                 FilterChip(
                     selected = option == domain,
+                    enabled = !importing,
                     onClick = {
                         activeScope = option.name
                         feedback = null
@@ -374,7 +375,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
         title = { Text("Remove saved gallery background?") },
         text = { Text("Only this reminder space's imported media will be removed. Your original phone gallery is not changed.") },
         confirmButton = {
-            TextButton(onClick = ::removeSavedGallery) {
+            TextButton(onClick = ::removeSavedGallery, enabled = !importing) {
                 Text("REMOVE BACKGROUND", color = RecRed)
             }
         },
@@ -412,7 +413,6 @@ private fun P10FamilyChoiceCard(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val ink = family.pigments()
     Surface(
         onClick = onClick,
         enabled = enabled,
