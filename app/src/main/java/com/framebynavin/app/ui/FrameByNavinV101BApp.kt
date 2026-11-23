@@ -128,9 +128,6 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val settingsStore = remember { CreatorOsSettingsStore(context.applicationContext) }
-    val v393FirstRunPrefs = remember(context) { V393FirstRunPrefs(context.applicationContext) }
-    var v393FirstRunFocus by remember { mutableStateOf(v393FirstRunPrefs.selectedFocus()) }
-    var v402PermissionGuideComplete by remember { mutableStateOf(v393FirstRunPrefs.permissionGuideComplete()) }
     val driveVaultLocalStore = remember { DriveVaultLocalStore(context.applicationContext) }
     // The Activity owns the preference so the REAL Settings screen can silence
     // a still-composed Home card in the very same frame after a successful save.
@@ -159,27 +156,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var homeSpaceFocusId by rememberSaveable { mutableStateOf<String?>(null) }
     var homeSpacesRevision by remember { mutableIntStateOf(0) }
     // V223.2 remembers the chosen Reminders space; never translates Personal into CreatorTask.
-    var personalReminderSpace by rememberSaveable { mutableStateOf(false) }
-    // A Personal-first user reaches the existing Personal hub, not a fake
-    // Creator profile or new scheduler. The one-time route is persisted.
-    LaunchedEffect(v393FirstRunFocus, V144GuidePrefs.selectedGuide,
-        settings.onboardingComplete, v402PermissionGuideComplete) {
-        if (v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
-            !settings.onboardingComplete && V144GuidePrefs.hasSelection &&
-            v402PermissionGuideComplete && !v393FirstRunPrefs.startedUx02Journey() &&
-            !v393FirstRunPrefs.personalFirstEntryShown() && externalLaunch == null
-        ) {
-            runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
-                .onSuccess {
-                    personalReminderSpace = true
-                    showReminders = true
-                }
-        }
-    }
+    var personalReminderSpace by rememberSaveable { mutableStateOf(true) }
     var showQuickCapture by rememberSaveable { mutableStateOf(false) }
     var showNewIdeaEditor by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
+    // A one-time visual handoff only after a durable Creator setup commit.
+    // Not saveable: interrupted process restarts go directly to the saved app.
+    var creatorEntryDestination by remember {
+        mutableStateOf<P6CreatorEntryDestination?>(null)
+    }
     var quickCreateRequested by rememberSaveable { mutableStateOf(false) }
     var composerSession by rememberSaveable { mutableIntStateOf(0) }
     var composerDismissRequest by rememberSaveable { mutableIntStateOf(0) }
@@ -638,39 +624,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    LaunchedEffect(
-        settings.accountOnboardingComplete,
-        settings.onboardingComplete,
-        settings.creatorProfile.isComplete,
-        settings.guidedTourVersion,
-        v393FirstRunFocus,
-        v402PermissionGuideComplete,
-        externalLaunch?.nonce,
-    ) {
-        if (
-            guidedTourStepName == null &&
-            // New Creator/Both accounts see the six-step guided tour once after
-            // optional permission guidance. Existing completed accounts remain exempt.
-            (v393FirstRunFocus == null ||
-                (v393FirstRunPrefs.startedUx02Journey() &&
-                    v393FirstRunFocus != V393FirstRunFocus.PERSONAL &&
-                    v402PermissionGuideComplete)) &&
-            CreatorGuidedTourPolicy.shouldStart(
-                accountOnboardingComplete = settings.accountOnboardingComplete,
-                creatorSetupComplete = settings.onboardingComplete,
-                profileComplete = settings.creatorProfile.isComplete,
-                completedVersion = settings.guidedTourVersion,
-                externalLaunch = externalLaunch != null,
-            )
-        ) {
-            overlay = POverlay.NONE
-            showControl = false
-            showReminders = false
-            externalStudioId = null
-            tab = PTab.TODAY
-            guidedTourStepName = CreatorGuidedTourStep.TODAY.name
-        }
-    }
+    // Guided lessons no longer auto-restart after setup or any Home tap.
+    // The approved guided tour remains explicitly replayable from Settings.
 
     val guidedTourStep = guidedTourStepName?.let { saved ->
         CreatorGuidedTourStep.entries.firstOrNull { it.name == saved }
@@ -1385,46 +1340,55 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
         }
     }
 
-    if (!settings.accountOnboardingComplete && v393FirstRunFocus == null &&
-        !settings.onboardingComplete && !settings.creatorProfile.isComplete) {
-        V393FirstRunFocusScreen { focus ->
+    // One unified Creator OS. Personal OS is a feature, never a separate mode.
+    // Retired focus/quick setup preferences remain on disk for compatibility
+    // but are no longer read, written or used to influence screen navigation.
+    val gate = P6aUnifiedFirstRunPolicy.route(
+        accountComplete = settings.accountOnboardingComplete,
+        setupComplete = settings.onboardingComplete,
+        profileComplete = settings.creatorProfile.isComplete,
+        companionSelected = V144GuidePrefs.hasSelection,
+    )
+    // Legacy returning users who already finished Creator setup must never be
+    // forced through a fresh account choice because of an old/missing flag.
+    if (!settings.accountOnboardingComplete &&
+        settings.onboardingComplete && settings.creatorProfile.isComplete) {
+        LaunchedEffect(settings.accountOnboardingComplete) {
             runCatching {
-                v393FirstRunPrefs.saveFocus(focus)
-                // Do not skip the next Google-or-local choice. Focus is not
-                // evidence of account creation or authentication.
-            }.onSuccess {
-                v393FirstRunFocus = focus
-                v402PermissionGuideComplete = false
+                settingsStore.setAccountOnboardingComplete(true)
                 settings = settingsStore.snapshot()
-            }.onFailure {
-                Toast.makeText(context, "Could not save setup choice. Try again.",
-                    Toast.LENGTH_LONG).show()
             }
         }
-    } else if (!settings.accountOnboardingComplete) {
+    } else if (gate == P6aUnifiedFirstRunGate.ACCOUNT_CHOICE) {
+        // P4 one-time choice follows P3 welcome and precedes companion
+        // selection and the original five-page Creator setup.
         V23AccountOnboarding(
             onComplete = { displayName ->
-                if (displayName.isNotBlank()) {
-                    settingsStore.setCreatorProfile(settings.creatorProfile.copy(displayName = displayName))
+                runCatching {
+                    if (displayName.isNotBlank()) {
+                        settingsStore.setCreatorProfile(
+                            settings.creatorProfile.copy(displayName = displayName))
+                    }
+                    settingsStore.setAccountOnboardingComplete(true)
+                    settings = settingsStore.snapshot()
+                }.onFailure {
+                    Toast.makeText(context,
+                        "Account saved, but app setup couldn't continue. Retry.",
+                        Toast.LENGTH_LONG).show()
                 }
-                settingsStore.setAccountOnboardingComplete(true)
-                settings = settingsStore.snapshot()
             },
             onContinueLocally = {
-                settingsStore.setAccountOnboardingComplete(true)
-                settings = settingsStore.snapshot()
-            },
-            onReturningAccount = {
-                runCatching { v393FirstRunPrefs.markReturningAccount() }
-                    .onSuccess { v402PermissionGuideComplete = true }
-                    .onFailure {
-                        Toast.makeText(context,
-                            "Could not save returning-account status. Please retry.",
-                            Toast.LENGTH_LONG).show()
-                    }
+                runCatching {
+                    settingsStore.setAccountOnboardingComplete(true)
+                    settings = settingsStore.snapshot()
+                }.onFailure {
+                    Toast.makeText(context,
+                        "Could not save your local choice. Try again.",
+                        Toast.LENGTH_LONG).show()
+                }
             },
         )
-    } else if ((!settings.onboardingComplete || !settings.creatorProfile.isComplete) &&
+    } else if (gate != P6aUnifiedFirstRunGate.READY &&
         CloudSyncManager(context.applicationContext).localState().session?.let { session ->
             // Read revision so marking recovery reviewed causes this gate to be re-evaluated immediately.
             driveRecoveryRevision
@@ -1443,62 +1407,15 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 settings = settingsStore.snapshot()
             },
         )
-    } else if (V151SetupPolicy.needsCreatorSetup(
-        onboardingComplete = settings.onboardingComplete,
-        profileComplete = settings.creatorProfile.isComplete,
-    ) && !V144GuidePrefs.hasSelection) {
+    } else if (gate == P6aUnifiedFirstRunGate.COMPANION) {
         // New creators choose the companion before the restored five-page setup.
         // Do NOT show this gate to existing users whose setup is complete.
         V144GuideChoiceGate()
-    } else if (V151SetupPolicy.needsCreatorSetup(
-        onboardingComplete = settings.onboardingComplete,
-        profileComplete = settings.creatorProfile.isComplete,
-    ) && (v393FirstRunFocus != V393FirstRunFocus.PERSONAL ||
-        tab != PTab.TODAY || showComposer || showQuickCapture)) {
-        if (v393FirstRunFocus != null) {
-            V393QuickCreatorSetup(
-                existing = settings.creatorProfile,
-                onFinish = { profile ->
-                    val saved = settingsStore.completeCreatorSetup(profile)
-                    settings = settingsStore.snapshot()
-                    if (saved && settings.onboardingComplete &&
-                        settings.creatorProfile.isComplete
-                    ) {
-                        overlay = POverlay.NONE
-                        tab = PTab.TODAY
-                        // Optional permissions, then the six-step first-run guide.
-                        // Project creation stays available from Home and +.
-                        true
-                    } else false
-                },
-            )
-        } else {
-            // Existing partially configured users keep the original five-page
-            // setup; no mandatory migration or preference overwrite.
-            V18CreatorOnboarding(
-                profile = settings.creatorProfile,
-                notificationsReady = permissions.notifications,
-                preciseTimingReady = permissions.preciseTiming,
-                fullScreenReady = permissions.fullScreen,
-                batteryReady = permissions.batteryAccess,
-                onNotifications = ::requestNotifications,
-                onPreciseTiming = ::requestPreciseTiming,
-                onFullScreen = ::requestFullScreen,
-                onBattery = ::openBatterySettings,
-                onFinish = { profile ->
-                    val saved = settingsStore.completeCreatorSetup(profile)
-                    settings = settingsStore.snapshot()
-                    saved && settings.onboardingComplete && settings.creatorProfile.isComplete
-                },
-            )
-        }
-    } else if (v393FirstRunFocus != null &&
-        settings.accountOnboardingComplete && V144GuidePrefs.hasSelection &&
-        !v402PermissionGuideComplete &&
-        (v393FirstRunFocus == V393FirstRunFocus.PERSONAL ||
-            (settings.onboardingComplete && settings.creatorProfile.isComplete))
-    ) {
-        V402FirstRunPermissionGuide(
+    } else if (gate == P6aUnifiedFirstRunGate.FIVE_PAGE_SETUP) {
+        // The ORIGINAL five-page Creator onboarding is the sole new-user
+        // setup for all. It is independent of tab, Personal OS or old focus.
+        V18CreatorOnboarding(
+            profile = settings.creatorProfile,
             notificationsReady = permissions.notifications,
             preciseTimingReady = permissions.preciseTiming,
             fullScreenReady = permissions.fullScreen,
@@ -1507,35 +1424,28 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             onPreciseTiming = ::requestPreciseTiming,
             onFullScreen = ::requestFullScreen,
             onBattery = ::openBatterySettings,
-            onContinue = {
-                runCatching { v393FirstRunPrefs.markPermissionGuideComplete() }
-                    .onSuccess { v402PermissionGuideComplete = true }
-                    .onFailure {
-                        Toast.makeText(context, "Could not save setup. Please retry.",
-                            Toast.LENGTH_LONG).show()
+            onFinish = { profile ->
+                val saved = settingsStore.completeCreatorSetup(profile)
+                settings = settingsStore.snapshot()
+                val completed = saved && settings.onboardingComplete &&
+                    settings.creatorProfile.isComplete
+                if (completed) {
+                    overlay = POverlay.NONE
+                    // Keep targeted external/widget route intact; for a normal
+                    // first launch the destination is the unified Creator Home.
+                    if (externalLaunch == null) {
+                        tab = PTab.TODAY
+                        showReminders = false
+                        showControl = false
                     }
-            },
-        )
-    } else if (
-        v393FirstRunFocus == V393FirstRunFocus.PERSONAL &&
-        v393FirstRunPrefs.startedUx02Journey() &&
-        settings.accountOnboardingComplete && !settings.onboardingComplete &&
-        V144GuidePrefs.hasSelection && v402PermissionGuideComplete &&
-        !v393FirstRunPrefs.personalFirstEntryShown() &&
-        externalLaunch == null
-    ) {
-        V402PersonalFirstRunGuide(
-            onFinish = {
-                runCatching { v393FirstRunPrefs.markPersonalFirstEntryShown() }
-                    .onSuccess {
-                        personalReminderSpace = true
-                        activityCenterOpen = false
-                        showReminders = true
-                    }
-                    .onFailure {
-                        Toast.makeText(context, "Could not save Personal setup. Try again.",
-                            Toast.LENGTH_LONG).show()
-                    }
+                    if (P6CreatorEntryPolicy.eligible(
+                            saveSucceeded = saved,
+                            setupComplete = settings.onboardingComplete,
+                            profileComplete = settings.creatorProfile.isComplete,
+                            hasExternalLaunch = externalLaunch != null,
+                        )) creatorEntryDestination = P6CreatorEntryDestination.TODAY
+                }
+                completed
             },
         )
     }
@@ -1617,6 +1527,16 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 guidedTourStepName = null
             },
         )
+    }
+
+    // Compose the entry LAST, above the shell and all first-run panels.
+    // Its completion only removes this visual layer; no setup/account flags
+    // are rewritten and no guided onboarding is started here.
+    val entryToFinish = creatorEntryDestination
+    if (entryToFinish != null) {
+        P6CreatorEntryTransition(onFinished = {
+            creatorEntryDestination = null
+        })
     }
 }
 
