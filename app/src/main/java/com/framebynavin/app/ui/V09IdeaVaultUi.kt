@@ -18,8 +18,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Notes
@@ -54,6 +54,8 @@ import java.util.UUID
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 internal fun V09IdeaVaultScreen(
@@ -73,7 +75,7 @@ internal fun V09IdeaVaultScreen(
     // Root route owns New Idea, above bottom nav; standalone previews can
     // still use the same Activity-owned overlay locally.
     onCreateIdeaRequested: (() -> Unit)? = null,
-    /** UX05G: open the canonical linked project, never repeat idea conversion. */
+    // Lab UX05G: keep a stable route to the project's canonical record.
     onOpenLinkedProject: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -105,13 +107,22 @@ internal fun V09IdeaVaultScreen(
     }
 
     val opportunityReport = YouTubeAnalyticsStore.latest24HourReport
-    val opportunityAlerts by remember(opportunityReport) {
-        derivedStateOf { YouTubeOpportunityEngine.build(opportunityReport, ideas) }
+    // Idea lists are replaced after saves. Key the match/sort snapshots to the
+    // actual lists rather than capturing a first-render list in remember(Unit).
+    val opportunityAlerts = remember(opportunityReport, ideas) {
+        YouTubeOpportunityEngine.build(opportunityReport, ideas)
     }
-    val opportunityIdeaIds by remember { derivedStateOf { opportunityAlerts.mapNotNull { it.ideaId }.toSet() } }
-    val opportunityMatch by remember { derivedStateOf { opportunityAlerts.firstOrNull { it.ideaId != null } } }
-    val readyCount by remember { derivedStateOf { ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE } } }
-    val voiceCount by remember { derivedStateOf { ideas.count { it.captureType == IdeaCaptureType.VOICE } } }
+    val opportunityIdeaIds = remember(opportunityAlerts) {
+        opportunityAlerts.mapNotNull { it.ideaId }.toSet()
+    }
+    val opportunityMatch = remember(opportunityAlerts) {
+        opportunityAlerts.firstOrNull { it.ideaId != null }
+    }
+    val vaultSummary = remember(ideas) { P8IdeaVaultSummary.from(ideas) }
+    val readyCount = vaultSummary.ready
+    val voiceCount = remember(ideas) {
+        ideas.count { it.captureType == IdeaCaptureType.VOICE }
+    }
     val activeFilterCount by remember {
         derivedStateOf {
             listOfNotNull(
@@ -122,7 +133,7 @@ internal fun V09IdeaVaultScreen(
         }
     }
 
-    val filtered by remember {
+    val filtered by remember(ideas, deletedIdeas, opportunityIdeaIds) {
         derivedStateOf {
             (if (showDeleted) deletedIdeas else ideas).filter { idea ->
                 val textMatch = query.isBlank() || listOf(idea.title, idea.topic, idea.notes, idea.transcript)
@@ -149,7 +160,7 @@ internal fun V09IdeaVaultScreen(
             ) {
                 if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.ArrowBack, "Back", tint = ProjectorIvory) }
                 Column(Modifier.weight(1f)) {
-                    Text("Ideas", color = ProjectorIvory, fontSize = BacklotUX10Tokens.pageTitle, fontWeight = FontWeight.Bold)
+                    Text("Ideas", color = ProjectorIvory, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = {
                     showDeleted = !showDeleted
@@ -167,18 +178,18 @@ internal fun V09IdeaVaultScreen(
                 }
             }
 
-            opportunityMatch?.let { match ->
+            if (!showDeleted) opportunityMatch?.let { match ->
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(14.dp),
                     color = MutedGold.copy(alpha = .055f),
-                    border = BacklotUX10Tokens.quietBorder(MutedGold, alpha = 0.38f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .24f)),
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("⚡", fontSize = 14.sp)
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("RELATED TO YOUR CHANNEL", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                            Text("RELATED TO YOUR CHANNEL", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
                             Text(match.ideaTitle ?: match.title, color = ProjectorIvory, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -186,10 +197,16 @@ internal fun V09IdeaVaultScreen(
                 Spacer(Modifier.height(4.dp))
             }
 
+            if (!showDeleted && ideas.isNotEmpty() && query.isBlank() &&
+                statusFilter == null && categoryFilter == null && captureFilter == null) {
+                P8IdeaVaultOverview(vaultSummary)
+                Spacer(Modifier.height(10.dp))
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                    .testTag("p8-vault-search"),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 placeholder = { Text("Search your ideas…") },
@@ -197,7 +214,7 @@ internal fun V09IdeaVaultScreen(
 
             Spacer(Modifier.height(9.dp))
             Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = BacklotUX10Tokens.pageGutter),
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 FilterChip(selected = !showDeleted && statusFilter == null, onClick = { showDeleted = false; statusFilter = null }, label = { Text("All", fontSize = 10.sp) })
@@ -213,30 +230,45 @@ internal fun V09IdeaVaultScreen(
             }
 
             Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth().padding(horizontal = BacklotUX10Tokens.pageGutter), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${filtered.size} ideas", color = MutedText, fontSize = 12.sp)
                 Spacer(Modifier.weight(1f))
                 if (!showDeleted && readyCount > 0) Text("$readyCount ready", color = MutedGold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
 
             if (filtered.isEmpty()) {
-                Column(
-                    Modifier.fillMaxWidth().weight(1f).padding(34.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Lightbulb, null, tint = MutedGold, modifier = Modifier.size(34.dp))
-                    Spacer(Modifier.height(9.dp))
-                    Text(if (showDeleted) "No deleted ideas" else if (ideas.isEmpty()) "No ideas yet" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    if (!showDeleted && ideas.isEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ADD IDEA") }
-                    }
+                    P8IdeaVaultEmptyState(
+                        mode = P8IdeaVaultEmptyPolicy.mode(
+                            showingDeleted = showDeleted,
+                            allIdeasEmpty = ideas.isEmpty(),
+                            deletedIdeasEmpty = deletedIdeas.isEmpty(),
+                        ),
+                        onNewIdea = {
+                            onCreateIdeaRequested?.invoke() ?: run { creating = true }
+                        },
+                        onClearFilters = {
+                            query = ""
+                            statusFilter = null
+                            categoryFilter = null
+                            captureFilter = null
+                        },
+                        onShowIdeas = {
+                            showDeleted = false
+                            query = ""
+                            statusFilter = null
+                            categoryFilter = null
+                            captureFilter = null
+                        },
+                    )
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(start = BacklotUX10Tokens.pageGutter, end = BacklotUX10Tokens.pageGutter, top = 8.dp, bottom = bottomNavigationClearance),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = bottomNavigationClearance),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(filtered, key = { it.id }) { idea ->
@@ -249,8 +281,7 @@ internal fun V09IdeaVaultScreen(
                             onConvert = { converting = idea },
                             onArchive = { onArchive(idea.id) },
                             onOpenLinkedProject = if (idea.projectTaskId.isNotBlank() &&
-                                onOpenLinkedProject != null
-                            ) {
+                                onOpenLinkedProject != null) {
                                 { onOpenLinkedProject?.invoke(idea.projectTaskId) }
                             } else null,
                         )
@@ -338,7 +369,7 @@ private fun V162DeletedIdeaCard(idea: CreatorIdea, onRestore: () -> Unit) {
     Surface(
         color = CinemaSurfaceRaised,
         shape = RoundedCornerShape(16.dp),
-        border = BacklotUX10Tokens.quietBorder(CinemaLine),
+        border = BorderStroke(1.dp, CinemaLine),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -370,150 +401,107 @@ private fun V09IdeaCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
-        shape = RoundedCornerShape(BacklotUX10Tokens.cardRadius),
-        color = if (isOpportunity) MutedGold.copy(alpha = .07f)
-            else CinemaSurfaceRaised,
-        // Opportunity is a meaningful state, not a heavy border on every row.
-        border = if (isOpportunity)
-            BacklotUX10Tokens.activeBorder(MutedGold)
-        else BacklotUX10Tokens.quietBorder(CinemaLine),
+        shape = RoundedCornerShape(17.dp),
+        color = if (isOpportunity) MutedGold.copy(alpha = .07f) else CinemaSurfaceRaised,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isOpportunity) MutedGold.copy(alpha = .62f) else CinemaLine),
     ) {
-        Column(
-            Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // FlowRow is essential when a Voice or Momentum idea has multiple
-            // state badges and the device uses a 200% font scale.
+        Column(Modifier.padding(14.dp)) {
+            // Wrap category, status, voice and matched-opportunity labels
+            // rather than squeeze or clip on narrow phones or large font scale.
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Surface(
                     shape = RoundedCornerShape(100.dp),
                     color = MutedGold.copy(alpha = .08f),
-                    border = BacklotUX10Tokens.quietBorder(MutedGold),
+                    border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
                 ) {
-                    Text(
-                        IdeaVaultLabels.category(idea.category),
-                        color = MutedGold,
-                        fontSize = BacklotUX10Tokens.eyebrow,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                    )
+                    Text(IdeaVaultLabels.category(idea.category),
+                        color = MutedGold, fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                 }
-                Text(
-                    IdeaVaultLabels.status(idea.status).uppercase(),
-                    color = MutedText,
-                    fontSize = BacklotUX10Tokens.eyebrow,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(vertical = 5.dp),
-                )
+                Text(IdeaVaultLabels.status(idea.status).uppercase(),
+                    color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(vertical = 5.dp))
                 if (idea.captureType == IdeaCaptureType.VOICE) {
-                    Surface(
-                        shape = RoundedCornerShape(100.dp),
-                        color = RecRed.copy(alpha = .12f),
-                    ) {
-                        Text(
-                            "VOICE", color = RecRed,
-                            fontSize = BacklotUX10Tokens.eyebrow,
-                            fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                        )
+                    Surface(shape = RoundedCornerShape(100.dp),
+                        color = RecRed.copy(alpha = .12f)) {
+                        Text("VOICE", color = RecRed, fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
                 }
                 if (isOpportunity) {
-                    Surface(
-                        shape = RoundedCornerShape(100.dp),
-                        color = MutedGold.copy(alpha = .12f),
-                    ) {
-                        Text(
-                            "⚡ MOMENTUM", color = MutedGold,
-                            fontSize = BacklotUX10Tokens.eyebrow,
-                            fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                        )
+                    Surface(shape = RoundedCornerShape(100.dp),
+                        color = MutedGold.copy(alpha = .12f)) {
+                        Text("OPPORTUNITY MATCH", color = MutedGold, fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
                 }
             }
+            Spacer(Modifier.height(8.dp))
             Text(
-                idea.title,
-                color = ProjectorIvory,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 3,
+                idea.title, color = ProjectorIvory, fontSize = 16.sp,
+                fontWeight = FontWeight.Bold, maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                // TalkBack speaks the complete name even when ellipsized.
+                modifier = Modifier.semantics {
+                    contentDescription = "Idea: " + idea.title
+                },
             )
             if (idea.topic.isNotBlank()) {
-                Text(
-                    idea.topic, color = MutedGold,
-                    fontSize = BacklotUX10Tokens.supporting,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Text(idea.topic, color = MutedGold, fontSize = 11.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Topic: " + idea.topic
+                    })
             }
-            Text(
-                "${idea.platformHint} · ${idea.formatHint}",
-                color = MutedText,
-                fontSize = BacklotUX10Tokens.supporting,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            val destination = listOf(idea.platformHint, idea.formatHint)
+                .filter { it.isNotBlank() }.joinToString(" · ")
+            if (destination.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(destination, color = MutedText, fontSize = 11.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (idea.projectTaskId.isNotBlank() && onOpenLinkedProject != null) {
                     TextButton(
                         onClick = onOpenLinkedProject,
-                        modifier = Modifier
-                            .heightIn(min = BacklotUX10Tokens.minimumTouchTarget)
+                        modifier = Modifier.heightIn(min = 48.dp)
                             .testTag("ux05-open-linked-project"),
                     ) {
-                        Icon(
-                            Icons.Outlined.FolderOpen, null, tint = RecRed,
-                            modifier = Modifier.size(16.dp),
-                        )
+                        Icon(Icons.Outlined.FolderOpen, null, tint = RecRed,
+                            modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(
-                            "OPEN PROJECT", color = RecRed,
-                            fontSize = BacklotUX10Tokens.supporting,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        Text("OPEN PROJECT", color = RecRed, fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold)
                     }
                 }
                 if (idea.status != IdeaStatus.CONVERTED &&
-                    idea.status != IdeaStatus.ARCHIVED
-                ) {
+                    idea.status != IdeaStatus.ARCHIVED) {
                     TextButton(
                         onClick = onConvert,
-                        modifier = Modifier.heightIn(
-                            min = BacklotUX10Tokens.minimumTouchTarget
-                        ),
+                        modifier = Modifier.heightIn(min = 48.dp),
                     ) {
-                        Icon(
-                            Icons.Outlined.RocketLaunch, null, tint = RecRed,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "MAKE A PROJECT", color = RecRed,
-                            fontSize = BacklotUX10Tokens.supporting,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed,
+                            modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("MAKE A PROJECT", color = RecRed, fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold)
                     }
                 }
                 if (idea.status != IdeaStatus.ARCHIVED) {
-                    IconButton(
-                        onClick = onArchive,
-                        modifier = Modifier.size(
-                            BacklotUX10Tokens.minimumTouchTarget
-                        ),
-                    ) {
-                        Icon(
-                            Icons.Outlined.Archive, "Archive idea",
-                            tint = MutedText, modifier = Modifier.size(20.dp),
-                        )
+                    IconButton(onClick = onArchive, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.Archive, "Archive " + idea.title,
+                            tint = MutedText, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -563,8 +551,9 @@ internal fun V09NewIdeaCleanEditor(
     var reminderAtMillis by rememberSaveable { mutableLongStateOf(0L) }
     var reminderCadence by rememberSaveable { mutableStateOf(IdeaReminderCadence.ONCE) }
     var voiceRecording by remember { mutableStateOf<VoiceIdeaRecording?>(null) }
-    var showRecorder by rememberSaveable { mutableStateOf(false) }
-    var showDictation by rememberSaveable { mutableStateOf(false) }
+    var voiceMode by rememberSaveable { mutableStateOf(P8BVoiceMode.OFF) }
+    var recordingActive by remember { mutableStateOf(false) }
+    var captureNotice by remember { mutableStateOf<String?>(null) }
     var showNotes by rememberSaveable { mutableStateOf(false) }
     var showReminder by rememberSaveable { mutableStateOf(false) }
     var showOrganize by rememberSaveable { mutableStateOf(false) }
@@ -583,6 +572,10 @@ internal fun V09NewIdeaCleanEditor(
     }
 
     fun dismiss() {
+        if (recordingActive) {
+            captureNotice = "Stop and keep your recording before closing."
+            return
+        }
         discardRecording()
         onDismiss()
     }
@@ -644,34 +637,36 @@ internal fun V09NewIdeaCleanEditor(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Surface(
-                        Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(22.dp),
-                        color = CinemaSurfaceRaised,
-                        border = BorderStroke(1.dp, RecRed.copy(alpha = .45f)),
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Text(writingPrompt.helper.uppercase(),
-                                color = RecRed, fontSize = 10.sp,
-                                fontWeight = FontWeight.Black, letterSpacing = .7.sp)
-                            Spacer(Modifier.height(9.dp))
-                            OutlinedTextField(
-                                title,
-                                { title = it },
-                                modifier = Modifier.fillMaxWidth().testTag("v2203-new-idea-title"),
-                                placeholder = {
-                                    Text(writingPrompt.placeholder, fontSize = 14.sp,
-                                        lineHeight = 20.sp)
-                                },
-                                minLines = 4,
-                                maxLines = 7,
-                                shape = RoundedCornerShape(16.dp),
+                    // One main idea field. No extra enclosing text card or
+                    // separate dictated transcript editor. Final speech edits
+                    // this same durable title string.
+                    Text(
+                        writingPrompt.helper.uppercase(),
+                        color = RecRed, fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold, letterSpacing = .7.sp,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                    )
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("v2203-new-idea-title"),
+                        placeholder = {
+                            Text(writingPrompt.placeholder,
+                                fontSize = 14.sp, lineHeight = 20.sp)
+                        },
+                        minLines = 4,
+                        maxLines = 7,
+                        shape = RoundedCornerShape(17.dp),
+                    )
+                    IdeaVaultGuidance.similarTitles(title, existingIdeas)
+                        .firstOrNull()?.let { duplicate ->
+                            Text(
+                                "Similar saved idea: " + duplicate.title +
+                                    ". You can still save this.",
+                                color = MutedGold, fontSize = 11.sp,
                             )
-                            IdeaVaultGuidance.similarTitles(title, existingIdeas).firstOrNull()?.let { duplicate ->
-                                Text("Similar saved idea: ${duplicate.title}. You can still save this.", color = MutedGold, fontSize = 11.sp)
-                            }
                         }
-                    }
 
                     Text(
                         "These prompts are writing guides. Your exact words are saved.",
@@ -679,66 +674,49 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.padding(start = 3.dp, top = 8.dp),
                     )
                     Spacer(Modifier.height(13.dp))
-                    Text("OR CAPTURE YOUR VOICE", color = MutedText,
-                        fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    Text("VOICE CAPTURE · OPTIONAL", color = MutedText,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 3.dp, bottom = 6.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Surface(
-                            onClick = { showRecorder = !showRecorder; if (showRecorder) showDictation = false },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(17.dp),
-                            color = if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .13f) else CinemaSurface,
-                            border = BorderStroke(1.dp, if (showRecorder || voiceRecording != null) RecRed.copy(alpha = .5f) else CinemaLine),
-                        ) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Mic, null, tint = RecRed, modifier = Modifier.size(19.dp))
-                                Spacer(Modifier.width(7.dp))
-                                Column {
-                                    Text("RECORD", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
-                                    Text(if (voiceRecording != null) "Recording ready" else "Original audio", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
-                                }
-                            }
-                        }
-                        Surface(
-                            onClick = { showDictation = !showDictation; if (showDictation) showRecorder = false },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(17.dp),
-                            color = if (showDictation) MutedGold.copy(alpha = .10f) else CinemaSurface,
-                            border = BorderStroke(1.dp, if (showDictation) MutedGold.copy(alpha = .45f) else CinemaLine),
-                        ) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Mic, null, tint = MutedGold, modifier = Modifier.size(19.dp))
-                                Spacer(Modifier.width(7.dp))
-                                Column {
-                                    Text("DICTATE", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
-                                    Text("Speak to write an idea", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
-                                }
-                            }
-                        }
+                    P8BVoiceModeSwitch(
+                        mode = voiceMode,
+                        recordingActive = recordingActive,
+                        hasSavedRecording = voiceRecording != null,
+                        onModeChange = { voiceMode = it; captureNotice = null },
+                        dictateTag = "p8b-new-idea-dictate",
+                        recordTag = "p8b-new-idea-record",
+                    )
+                    captureNotice?.let {
+                        Text(it, color = RecRed, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 6.dp))
                     }
-
-                    AnimatedVisibility(showRecorder) {
+                    AnimatedVisibility(voiceMode == P8BVoiceMode.RECORD) {
                         Column {
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(10.dp))
                             VoiceIdeaRecorderInput(
                                 recording = voiceRecording,
                                 onRecordingChanged = { voiceRecording = it },
+                                onActiveChanged = { recordingActive = it },
                             )
                         }
                     }
-
-                    AnimatedVisibility(showDictation) {
+                    AnimatedVisibility(voiceMode == P8BVoiceMode.DICTATE) {
                         Column {
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(10.dp))
                             V117VoiceIdeaInput(
                                 onTranscript = { transcript ->
                                     val clean = transcript.trim()
                                     if (clean.isNotBlank()) {
-                                        title = if (title.isBlank()) clean else title.trimEnd() + " " + clean
+                                        title = if (title.isBlank()) clean
+                                            else title.trimEnd() + " " + clean
                                     }
                                 },
                             )
                         }
+                    }
+                    if (voiceRecording != null && voiceMode != P8BVoiceMode.RECORD) {
+                        Text("Your original audio is kept with this idea.",
+                            color = MutedText, fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 6.dp))
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -748,14 +726,17 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
-                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                        border = BorderStroke(1.dp, CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Notes, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("NOTES", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
-                                Text(if (notes.isBlank()) "Optional context, references or details" else "Notes added", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                                Text(if (showNotes) "HIDE MORE NOTES" else "ADD MORE NOTES",
+                                    color = ProjectorIvory, fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold)
+                                Text(if (notes.isBlank()) "Optional context and references" else "Notes saved in this draft",
+                                    color = MutedText, fontSize = 10.sp)
                             }
                             Icon(if (showNotes) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -779,14 +760,14 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
-                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                        border = BorderStroke(1.dp, CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Alarm, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("REMINDER", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
-                                Text(if (reminderAtMillis > 0L) "Reminder configured" else "Optional — decide later when to revisit", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                                Text("REMINDER", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text(if (reminderAtMillis > 0L) "Reminder configured" else "Optional — decide later when to revisit", color = MutedText, fontSize = 7.8.sp)
                             }
                             Icon(if (showReminder) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -812,14 +793,14 @@ internal fun V09NewIdeaCleanEditor(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = CinemaSurface,
-                        border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                        border = BorderStroke(1.dp, CinemaLine),
                     ) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Tune, null, tint = MutedGold, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("ORGANIZE", color = ProjectorIvory, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black)
-                                Text("Topic, status and where to post", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                                Text("ORGANIZE", color = ProjectorIvory, fontSize = 9.5.sp, fontWeight = FontWeight.Black)
+                                Text("Topic, status and where to post", color = MutedText, fontSize = 7.8.sp)
                             }
                             Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedText)
                         }
@@ -832,32 +813,32 @@ internal fun V09NewIdeaCleanEditor(
                             V09VaultLabel("CATEGORY")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 visibleCategories.forEach { value ->
-                                    FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = BacklotUX10Tokens.eyebrow) })
+                                    FilterChip(category == value, { category = value }, { Text(IdeaVaultLabels.category(value), fontSize = 9.sp) })
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("STATUS")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 listOf(IdeaStatus.INBOX, IdeaStatus.WORTH_EXPLORING, IdeaStatus.RESEARCHING, IdeaStatus.READY_TO_PRODUCE, IdeaStatus.ARCHIVED).forEach { value ->
-                                    FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = BacklotUX10Tokens.eyebrow) })
+                                    FilterChip(status == value, { status = value }, { Text(IdeaVaultLabels.status(value), fontSize = 9.sp) })
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("POTENTIAL")
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 IdeaPotential.entries.forEach { value ->
-                                    FilterChip(potential == value, { potential = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = BacklotUX10Tokens.eyebrow) })
+                                    FilterChip(potential == value, { potential = value }, { Text(value.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 9.sp) })
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("LIKELY PLATFORM")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = BacklotUX10Tokens.eyebrow) }) }
+                                platformOptions.forEach { value -> FilterChip(platform == value, { platform = value }, { Text(value, fontSize = 9.sp) }) }
                             }
                             Spacer(Modifier.height(10.dp))
                             V09VaultLabel("LIKELY FORMAT")
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = BacklotUX10Tokens.eyebrow) }) }
+                                formats.forEach { value -> FilterChip(format == value, { format = value }, { Text(value, fontSize = 9.sp) }) }
                             }
                         }
                     }
@@ -902,7 +883,8 @@ internal fun V09NewIdeaCleanEditor(
                             )
                             if (accepted) voiceRecording = null
                         },
-                        enabled = title.isNotBlank() || voiceRecording != null,
+                        enabled = (title.isNotBlank() || voiceRecording != null) &&
+                            !recordingActive,
                         modifier = Modifier.fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 10.dp)
                             .heightIn(min = 52.dp)
@@ -953,6 +935,11 @@ private fun V09IdeaEditor(
         CreatorPlatformRegistry.orderedSelected(creatorProfile, include = if (idea.id.isBlank()) null else idea.platformHint)
     }
     var notes by remember(idea.id) { mutableStateOf(idea.notes) }
+    // Already-saved notes stay visible. Empty notes remain optional and folded.
+    var showEditNotes by rememberSaveable(idea.id) {
+        mutableStateOf(idea.notes.isNotBlank())
+    }
+    var showEditDictation by rememberSaveable(idea.id) { mutableStateOf(false) }
     var reminderAtMillis by remember(idea.id) { mutableLongStateOf(idea.reminderAtMillis) }
     var reminderCadence by remember(idea.id) { mutableStateOf(idea.reminderCadence) }
     var showOrganize by rememberSaveable(idea.id) { mutableStateOf(false) }
@@ -1019,16 +1006,48 @@ private fun V09IdeaEditor(
                 }
 
                 Spacer(Modifier.height(9.dp))
-                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp).testTag("v216-edit-notes"), label = { Text("Notes · optional") })
-                Spacer(Modifier.height(8.dp))
-                V117VoiceIdeaInput(
-                    onTranscript = { transcript ->
-                        val clean = transcript.trim()
-                        if (clean.isNotBlank()) {
-                            notes = if (notes.isBlank()) clean else notes.trimEnd() + System.lineSeparator() + clean
-                        }
-                    },
-                )
+                // One primary idea text field remains on screen; additional
+                // saved context can be expanded without forcing a second box.
+                TextButton(
+                    onClick = { showEditNotes = !showEditNotes },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("p8b-edit-notes-toggle"),
+                ) {
+                    Text(
+                        if (showEditNotes) "Hide more notes"
+                        else if (notes.isNotBlank()) "Show saved notes"
+                        else "Add more notes · optional",
+                        color = ProjectorIvory,
+                    )
+                }
+                AnimatedVisibility(showEditNotes) {
+                    OutlinedTextField(
+                        notes, { notes = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp)
+                            .testTag("v216-edit-notes"),
+                        label = { Text("Notes · optional") },
+                    )
+                }
+                TextButton(
+                    onClick = { showEditDictation = !showEditDictation },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("p8b-edit-dictate-toggle"),
+                ) {
+                    Text(if (showEditDictation) "Close voice input"
+                        else "Speak to add notes", color = RecRed)
+                }
+                AnimatedVisibility(showEditDictation) {
+                    V117VoiceIdeaInput(
+                        onTranscript = { transcript ->
+                            val clean = transcript.trim()
+                            if (clean.isNotBlank()) {
+                                notes = if (notes.isBlank()) clean
+                                    else notes.trimEnd() + System.lineSeparator() + clean
+                                showEditNotes = true
+                            }
+                        },
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 V144IdeaReminderPicker(
                     reminderAtMillis = reminderAtMillis,
@@ -1045,12 +1064,12 @@ private fun V09IdeaEditor(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     color = CinemaSurface,
-                    border = BacklotUX10Tokens.quietBorder(CinemaLine),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaLine),
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("ORGANIZE IDEA · OPTIONAL", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                            Text("Topic, status and publishing hints", color = MutedText, fontSize = BacklotUX10Tokens.eyebrow)
+                            Text("ORGANIZE IDEA · OPTIONAL", color = MutedGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                            Text("Topic, status and publishing hints", color = MutedText, fontSize = 8.5.sp)
                         }
                         Icon(if (showOrganize) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = MutedGold)
                     }
@@ -1261,7 +1280,7 @@ internal fun V09ConvertIdeaDialog(
 
 @Composable
 private fun V09VaultLabel(text: String) {
-    Text(text, color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
+    Text(text, color = MutedGold, fontSize = 8.2.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 5.dp))
 }
 
 private fun v09DefaultVoiceIdeaTitle(): String =
