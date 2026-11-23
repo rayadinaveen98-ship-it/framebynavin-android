@@ -124,31 +124,9 @@ internal fun ReminderCheckInScreen(
     val lowPower = remember(context) {
         context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true
     }
-    // V394 is an opt-in complete presentation. Existing reminder delivery,
-    // callbacks, saved V391 backgrounds and classic particle intro stay intact.
-    V394PremierePrefs.initialize(context)
-    if (V394PremierePresentationPolicy.creator(V394PremierePrefs.enabled(kind))) {
-        V394PremiereReminderScreen(
-            mode = V394PremiereMode.CREATOR,
-            kind = kind,
-            title = title,
-            timeLabel = clockLabel,
-            contextLabel = contextLine,
-            supportingText = listOfNotNull(
-                nextAction, notes.takeIf { it.isNotBlank() }
-            ).joinToString(" · "),
-            primaryLabel = if (stageCheckIn) "STEP DONE" else "I'M WORKING",
-            snoozeLabel = "SNOOZE " + snoozeMinutes + " MIN",
-            onPrimary = if (stageCheckIn) onStageDone else onWorking,
-            onSnooze = onSnooze,
-            onDismiss = onDismiss,
-            onWorking = if (stageCheckIn) onWorking else null,
-            onPause = if (stageCheckIn) onPause else null,
-            onReschedule = onReschedule,
-            onReplay = onReplay,
-        )
-        return
-    }
+    // P9: Retire the old Premiere/Classic split in active Creator reminders.
+    // The original V337 notification, particle entrance and response actions
+    // remain authoritative. Gallery underlay remains the P1 extension.
     // The user, not an intro timer, chooses when to reveal controls.
     // When OS animations are disabled, accessible controls appear immediately.
     var revealed by rememberSaveable(kind, title) {
@@ -177,10 +155,11 @@ internal fun ReminderCheckInScreen(
             label = "v231-reminder-backdrop-transition",
         ) { showingActions ->
             if (showingActions) {
-                V391ReminderBackdrop(
-                    kind = kind,
-                    lowPower = lowPower,
+                // P9: one consistent Creator reminder surface.
+                // Legacy scene preferences are not read or rendered.
+                V336DirectorBackdrop(
                     motionEnabled = motionEnabled,
+                    lowPower = lowPower,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {

@@ -225,51 +225,18 @@ internal fun V2233PersonalAlertScreen(
         DateTimeFormatter.ofPattern("EEE, d MMM · h:mm a", Locale.getDefault())
             .format(Instant.ofEpochMilli(it).atZone(reminder.zoneId))
     }
-    // The existing locked/invalid/loading presentation is always retained.
-    // Never expose Personal titles or actions over keyguard, including in V394.
-    val premiereKind = if (reminder?.alert == PersonalAlert.VOICE)
-        ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM
-    com.framebynavin.app.reminders.V394PremierePrefs.initialize(context)
-    val premiereEligible = reminder?.alert == PersonalAlert.VOICE ||
-        reminder?.alert == PersonalAlert.ALARM
-    if (com.framebynavin.app.reminders.V394PremierePresentationPolicy.personal(
-            enabled = com.framebynavin.app.reminders.V394PremierePrefs.enabled(premiereKind),
-            locked = locked,
-            validReminder = reminder != null && !invalid && premiereEligible,
-        )
-    ) {
-        val active = requireNotNull(reminder)
-        com.framebynavin.app.reminders.V394PremiereReminderScreen(
-            mode = com.framebynavin.app.reminders.V394PremiereMode.PERSONAL,
-            kind = premiereKind,
-            title = active.title,
-            timeLabel = scheduledLabel.orEmpty(),
-            contextLabel = if (scheduledLabel != null)
-                "SCHEDULED  /  " + scheduledLabel else "PERSONAL REMINDER",
-            supportingText = when (active.alert) {
-                PersonalAlert.ALARM -> "Alarm · " + active.alarmDurationSeconds + " seconds"
-                PersonalAlert.VOICE -> "Voice · " + active.voiceRepeatCount + " announcements"
-                PersonalAlert.NOTIFICATION -> "Personal notification"
-            },
-            primaryLabel = "DONE",
-            snoozeLabel = "SNOOZE " + active.snoozeMinutes + " MIN",
-            onPrimary = onDone,
-            onSnooze = onSnooze,
-            onDismiss = onDismiss,
-            error = error,
-            busy = busy,
-        )
-        return
-    }
+    // P9: Ignore retired Premiere/Classic scene preferences. This retains
+    // the original privacy-first Personal alert, including lock state,
+    // invalid reminders, Done, Snooze, Dismiss and P1 photo entrance overlay.
     Box(
         modifier = Modifier.fillMaxSize()
             .background(V336DirectorPalette.black)
             .testTag("v2233-personal-alert-screen"),
     ) {
-        com.framebynavin.app.reminders.V391ReminderBackdrop(
-            kind = if (reminder?.alert == PersonalAlert.VOICE)
-                ReminderCheckInKind.VOICE else ReminderCheckInKind.ALARM,
-            motionEnabled = motionEnabled, lowPower = lowPower,
+        // P9: original supported alert background, not an old scene choice.
+        V336DirectorBackdrop(
+            motionEnabled = motionEnabled,
+            lowPower = lowPower,
             modifier = Modifier.fillMaxSize(),
         )
         Column(
