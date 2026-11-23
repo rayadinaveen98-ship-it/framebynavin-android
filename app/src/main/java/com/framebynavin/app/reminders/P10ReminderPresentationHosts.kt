@@ -65,7 +65,9 @@ internal fun P10ReminderEntranceStage(
     val lowRam = remember(context) {
         context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
     }
-    val mediaVisible = P10ReminderVisualPolicy.visibleMedia(locked, media != null)
+    val source = remember(context, scope, media?.file?.absolutePath) {
+        P10ReminderBackgroundStore.selected(context, scope, galleryAvailable = media != null)
+    }
     val domainName = when (scope) {
         P1ReminderScope.CREATOR -> "CREATOR REMINDER"
         P1ReminderScope.PERSONAL -> "PERSONAL REMINDER"
@@ -93,35 +95,12 @@ internal fun P10ReminderEntranceStage(
                 }
             },
     ) {
-        if (mediaVisible) {
-            P1EntranceBackdrop(
-                domain = scope,
-                motionEnabled = animationsAllowed,
-                lowPower = batterySaver || lowRam,
-                modifier = Modifier.fillMaxSize(),
-                overrideMedia = requireNotNull(media),
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = .32f),
-                            family.pigments().dark.copy(alpha = .26f),
-                            Color.Black.copy(alpha = .78f),
-                        ),
-                    ),
-                ),
-            )
-        } else {
-            P10LivingReminderBackdrop(
-                family = family,
-                act = P10ReminderAct.ENTRANCE,
-                animationsAllowed = animationsAllowed,
-                batterySaver = batterySaver,
-                lowRam = lowRam,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        P10ReminderSceneBackground(
+            scope = scope, family = family, source = source,
+            act = P10ReminderAct.ENTRANCE,
+            media = media, locked = locked,
+            modifier = Modifier.fillMaxSize(),
+        )
 
         Column(
             modifier = Modifier.fillMaxSize().systemBarsPadding()
@@ -195,12 +174,13 @@ internal fun P10ReminderMainAtmosphere(
     val lowRam = remember(context) {
         context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
     }
-    P10LivingReminderBackdrop(
-        family = family,
-        act = P10ReminderAct.MAIN,
-        animationsAllowed = animationsAllowed,
-        batterySaver = batterySaver,
-        lowRam = lowRam,
-        modifier = modifier.fillMaxSize(),
+    val media = remember(context, scope) { P1EntranceMediaStore.selected(context, scope) }
+    val source = remember(context, scope, media?.file?.absolutePath) {
+        P10ReminderBackgroundStore.selected(context, scope, galleryAvailable = media != null)
+    }
+    P10ReminderSceneBackground(
+        scope = scope, family = family, source = source,
+        act = P10ReminderAct.MAIN, media = media,
+        modifier = modifier,
     )
 }
