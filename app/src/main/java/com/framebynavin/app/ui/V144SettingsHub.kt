@@ -108,11 +108,11 @@ internal fun V144SettingsHub(
                 onOpen = { sectionName = it.name },
             )
 
-            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("YOUR BACKLOT", "Appearance & sound", ::navigateBack) {
+            V167SettingsSection.PERSONALIZATION -> V144SettingsPage("YOUR BACKLOT", "Personalization", ::navigateBack) {
                 // P9: one visual system for the app, one gallery for reminder
                 // backgrounds. Legacy Cinematic/Classic/Premiere selectors are
                 // not reachable. No hidden secondary scene picker.
-                V144CategoryCard("App appearance", "Director's Cut, light mode, app icon and launch sound",
+                V144CategoryCard("App appearance", "Theme colors and the official Backlot icon",
                     Icons.Outlined.Palette, RecRed) {
                     sectionName = V167SettingsSection.APPEARANCE.name
                 }
@@ -121,13 +121,13 @@ internal fun V144SettingsHub(
                     Icons.Outlined.Face, MutedGold) {
                     sectionName = V167SettingsSection.GUIDE.name
                 }
-                V144CategoryCard("Voice & music", "Reminder voice, music and previews",
+                V144CategoryCard("Voice & sound", "Reminder voice, music, playback and app sound",
                     Icons.Outlined.RecordVoiceOver, RecRed) {
                     sectionName = V167SettingsSection.VOICE.name
                 }
-                V144CategoryCard("Home photos", "Manage your Home slideshow",
+                V144CategoryCard("Home photos", "Manage your Creator Home slideshow",
                     Icons.Outlined.Collections, MutedGold) {
-                    onOpenHomeSlideshow()
+                    sectionName = V167SettingsSection.HOME_PHOTOS.name
                 }
             }
 
@@ -137,10 +137,16 @@ internal fun V144SettingsHub(
                 V127AppearanceSettings(showGuidePicker = false)
             }
 
+            V167SettingsSection.HOME_PHOTOS -> V144SettingsPage("HOME PHOTOS", "Your Home slideshow", ::navigateBack) {
+                V144SettingsNote("The same slideshow editor used on Home. Manage photos here without leaving Settings.")
+                Spacer(Modifier.height(12.dp))
+                V18CinematicHomeHero(creatorName = "", autoPlay = false, settingsPhotoManager = true)
+            }
+
             V167SettingsSection.GUIDE -> V144SettingsPage("COMPANION", "Your creative companion", ::navigateBack) {
                 V144GuidePicker()
                 Spacer(Modifier.height(18.dp))
-                V144SectionTitle("HELPFUL SUGGESTIONS", "Optional, private guidance on Home.")
+                V144SectionTitle("COMPANION PRESENCE", "Control helpful suggestions without changing your character.")
                 Spacer(Modifier.height(8.dp))
                 V2215CompanionControls(
                     enabled = companionEnabled,
@@ -157,14 +163,23 @@ internal fun V144SettingsHub(
                 val savedMusic = remember(musicStore) { musicStore.defaultChoice() }
                 var defaultMusicMode by remember { mutableStateOf(savedMusic.mode) }
                 var defaultMusicUri by remember { mutableStateOf(savedMusic.uri) }
+                V144SectionTitle("REMINDER VOICE", "Your default style for new Creator project reminders.")
+                Spacer(Modifier.height(8.dp))
                 V140VoiceStudioPicker(
                     selected = settings.defaultVoicePersona,
                     onSelected = onVoice,
                     onPreview = { v144PreviewVoice(context, it) },
+                    compact = true,
                 )
-                Spacer(Modifier.height(12.dp))
-                P2VoiceIdentityLab()
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("BACKGROUND MUSIC", "Choose and test your reminder soundtrack.")
+                Spacer(Modifier.height(8.dp))
+                val musicStore = remember(context) {
+                    com.framebynavin.app.reminders.CreatorMusicLocalStore(context)
+                }
+                val savedMusic = remember(musicStore) { musicStore.defaultChoice() }
+                var defaultMusicMode by remember { mutableStateOf(savedMusic.mode) }
+                var defaultMusicUri by remember { mutableStateOf(savedMusic.uri) }
                 V273ReminderMusicPicker(
                     mode = defaultMusicMode,
                     uri = defaultMusicUri,
@@ -172,11 +187,31 @@ internal fun V144SettingsHub(
                     modifier = Modifier.fillMaxWidth().testTag("v276-global-music-settings"),
                     allowSetCreatorDefault = true,
                 )
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("APP SOUND", "Not part of reminder playback.")
                 Spacer(Modifier.height(8.dp))
-                V144SettingsNote(
-                    "This voice is the default for new project reminders. Existing projects keep their own voice choice. " +
-                        "Preview uses your phone's text-to-speech options; results vary by device and installed languages."
-                )
+                Surface(
+                    shape = RoundedCornerShape(17.dp), color = CinemaSurface,
+                    border = BorderStroke(1.dp, CinemaLine),
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Launch sound", color = ProjectorIvory, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Play the opening sound when Backlot starts.", color = MutedText, fontSize = 11.sp)
+                        }
+                        Switch(
+                            checked = VisualExperiencePrefs.launchSoundEnabled,
+                            onCheckedChange = VisualExperiencePrefs::updateLaunchSound,
+                            modifier = Modifier.testTag("p9b-launch-sound"),
+                            colors = SwitchDefaults.colors(checkedTrackColor = RecRed),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                V144SectionTitle("ADVANCED VOICE OPTIONS", "Optional offline speaker comparison.")
+                Spacer(Modifier.height(8.dp))
+                P2VoiceIdentityLab()
+                V144SettingsNote("Voice styles depend on installed text-to-speech voices. Changing the default style does not overwrite existing project voice choices. Applying music to all projects requires confirmation.")
             }
 
             V167SettingsSection.REMINDERS -> V144SettingsPage("NOTIFICATIONS & REMINDERS", "Timing, permissions and defaults", { sectionName = V167SettingsSection.HOME.name }) {
@@ -515,7 +550,7 @@ private fun V144SettingsHome(
             Column {
                 V294QuietSettingRow("Account", Icons.Outlined.Person, onClick = onProfile)
                 V294QuietSettingsDivider()
-                V294QuietSettingRow("Appearance & sound", Icons.Outlined.Palette) {
+                V294QuietSettingRow("Personalization", Icons.Outlined.Palette) {
                     onOpen(V167SettingsSection.PERSONALIZATION)
                 }
                 V294QuietSettingsDivider()
