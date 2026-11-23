@@ -1,0 +1,69 @@
+name: Backlot P10O - Stabilized Android 15 Real Navigation (No Build)
+
+# P10M compiled test APKs reused byte-for-byte. Infrastructure stabilization
+# only: 4 emulator cores, 4096 MB RAM, warmup, launcher ANR classification.
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10o-stabilized-emulator-qa-20261123
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-p10o-stabilized-emulator
+  cancel-in-progress: true
+
+jobs:
+  stabilized-emulator:
+    name: Android 15 real first-run/Personal-Creator x2 (no build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: No-JVM exact artifact and infrastructure-only source fence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s tools/qa/backlot_p10o_stable_android15_replay.sh
+          test -s app/src/androidTest/java/com/framebynavin/app/ui/P10JRealFirstRunNavigationUiTest.kt
+          echo "P10O: no app/test code compilation, no production or test source edits"
+      - name: Reuse original P10M compiled debug & AndroidTest APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-P10M-Reusable-Debug-AndTest-APKs
+          run-id: 45202539065
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/p10o/apks
+      - name: Verify exact existing APK inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s output/p10o/apks/app-debug.apk
+          test -s output/p10o/apks/app-debug-androidTest.apk
+          sha256sum output/p10o/apks/*.apk
+      - name: Enable KVM for Android emulator
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Reexecute unchanged real first-run test on stabilized Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10o_stable_android15_replay.sh
+      - name: Preserve JUnit results, Quickstep diagnostics and failure screens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10O-No-Build-Android15-First-Run-Evidence
+          path: output/p10o/android15/
+          if-no-files-found: warn
+          retention-days: 21
