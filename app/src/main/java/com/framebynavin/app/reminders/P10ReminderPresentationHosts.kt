@@ -16,10 +16,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -55,6 +56,7 @@ internal fun P10ReminderEntranceStage(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val currentOnOpen by rememberUpdatedState(onOpen)
     val family = remember(context, scope) { P10ReminderFamilyStore.selected(context, scope) }
     val animationsAllowed = remember { ValueAnimator.areAnimatorsEnabled() }
     val batterySaver = remember(context) {
@@ -73,8 +75,10 @@ internal fun P10ReminderEntranceStage(
         modifier.fillMaxSize()
             .background(family.pigments().dark)
             .testTag("p10-entrance-" + scope.name.lowercase())
-            .pointerInput(occurrenceKey) {
-                detectTapGestures(onDoubleTap = { if (!locked) onOpen() })
+            .pointerInput(occurrenceKey, locked) {
+                detectTapGestures(onDoubleTap = {
+                    if (P10ReminderVisualPolicy.shouldReveal(true, false, !locked)) currentOnOpen()
+                })
             }
             .semantics {
                 role = Role.Button
@@ -83,8 +87,9 @@ internal fun P10ReminderEntranceStage(
                     else "Open " + domainName.lowercase()
                 onClick(label = "Open reminder") {
                     // Accessibility activation is an explicit single action.
-                    if (!locked) onOpen()
-                    !locked
+                    val allowed = P10ReminderVisualPolicy.shouldReveal(false, true, !locked)
+                    if (allowed) currentOnOpen()
+                    allowed
                 }
             },
     ) {
@@ -166,13 +171,6 @@ internal fun P10ReminderEntranceStage(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.7.sp,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Or activate Open reminder with accessibility controls",
-                    color = Color.White.copy(alpha = .70f),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center,
                 )
             }
         }
