@@ -18,13 +18,13 @@
 ### 1. App Appearance
 - `V127AppearanceSettings.kt`: tighten theme copy and retain only existing supported Director's Cut / Backlot Light; remove launch sound from appearance.
 - `V133AppIconPicker`: retain the single approved brand icon display and legacy alias compatibility. Do not invent fake alternate icons or alter launcher selection keys.
-- Source-level theme previews remain stylized rather than actual rendered Home screenshots; device acceptance still required.
+- Both theme cards now show simplified recognizable Creator Home mini-previews (Backlot, Today, Up next) instead of only abstract lines. These are illustrative compositions, not Android screenshots; device acceptance is still required.
 
 ### 2. Reminder Backgrounds
 - `P1GalleryBackgroundSettings.kt`: reorder source tabs to Creator first, Personal second, 21-Day third; Creator is the default view.
 - Replace competing separate Original / Gallery cards with one clear Background Source panel.
 - Preserve one chooser, custom media type detail, full-screen voice/alarm preview, per-scope private media, reset, contextual crop/zoom/position, and existing test tags.
-- Rename ambiguous Mic / Clock to Voice / Alarm, remove developer-facing "Source-stage notice" wording.
+- Rename ambiguous Mic / Clock to Voice / Alarm, remove developer-facing "Source-stage notice" wording, and fold detailed media-format/privacy guidance behind a clearly labeled disclosure while keeping local-only status visible.
 - For non-Creator flows, explicitly disclose that new full-screen visual attachment is pending integration; do NOT represent the preview as a delivered reminder.
 - P10 built-in immersive replacement backgrounds are not included.
 
