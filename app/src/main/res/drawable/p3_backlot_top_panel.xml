@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Extracted without modifying the approved V198 vector geometry or gradients. -->
+<!-- Rounded electric-blue to violet top panel. -->
+    <path android:pathData="M27,21 C27,16 31,15 37,15 H70 C77,15 81,19 81,25 V40 C81,44 78,47 74,47 H37 C31,47 27,44 27,39 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="27" android:startY="16"
+                android:endX="83" android:endY="46">
+                <item android:offset="0.0" android:color="#26ACFF"/>
+                <item android:offset="0.52" android:color="#527DFF"/>
+                <item android:offset="1.0" android:color="#9266FF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
