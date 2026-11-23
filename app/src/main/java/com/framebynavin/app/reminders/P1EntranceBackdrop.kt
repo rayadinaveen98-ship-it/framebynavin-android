@@ -48,9 +48,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * P1: render-only BACKGROUND. V337 Creator has a particle entrance; no new double-tap host is imported.
+ * Shared private gallery renderer retained under P10D entrance, main and preview.
  * No pointer handling, audio, alarm scheduling, notification permissions,
- * service ownership, completion, response or MAIN-phase rendering.
+ * service ownership, completion or response; no retired visual fallback.
  *
  * All user gallery assets remain private on-device. When Android is locked,
  * return the original neutral fluid backdrop; never render personal gallery
