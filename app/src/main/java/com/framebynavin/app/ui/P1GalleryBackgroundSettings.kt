@@ -212,7 +212,8 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             }
         }
         P1EntrancePreview(
-            domain = domain, media = selectedMedia, frame = frame, kind = mode,
+            domain = domain, family = family, source = backgroundSource,
+            media = selectedMedia, frame = frame, kind = mode,
             motion = true, modifier = Modifier.fillMaxWidth().height(230.dp),
         )
         Row(
@@ -238,73 +239,116 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Text("FULL-SCREEN PREVIEW")
         }
-        // P9B: one background source panel, not parallel "Original" and "Gallery" cards.
-        Surface(shape = RoundedCornerShape(16.dp), color = CinemaSurface) {
-            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("BACKGROUND SOURCE", color = MutedGold, fontSize = 10.sp, letterSpacing = 1.sp)
-                Text(if (selectedMedia == null) "Backlot Original" else "My Gallery",
-                    color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    if (selectedMedia == null) "Original Backlot background is selected for this space."
-                    else when (selectedMedia.kind) {
-                        P1MediaKind.IMAGE -> "Your saved photo"
-                        P1MediaKind.ANIMATED -> "Your saved animated image"
-                        P1MediaKind.VIDEO -> "Your saved silent video"
-                    },
-                    color = MutedText, fontSize = 11.sp, lineHeight = 16.sp,
-                )
+        Text("LIVING BACKGROUNDS", color = MutedGold, fontSize = 11.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+        Text("Choose one of three living styles. Your saved gallery stays available if you switch.",
+            color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+        P10ReminderFamily.entries.forEach { choice ->
+            P10FamilyChoiceCard(
+                family = choice,
+                selected = backgroundSource == P10ReminderBackgroundSource.BUILT_IN && family == choice,
+                enabled = !importing,
+                onClick = { useFamily(choice) },
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = CinemaSurface,
+            border = BorderStroke(
+                if (backgroundSource == P10ReminderBackgroundSource.GALLERY) 2.dp else 1.dp,
+                if (backgroundSource == P10ReminderBackgroundSource.GALLERY) RecRed else CinemaLine,
+            ),
+            modifier = Modifier.fillMaxWidth().testTag("p10-gallery-background-card"),
+        ) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Outlined.PhotoLibrary, contentDescription = null,
+                        tint = MutedGold, modifier = Modifier.size(24.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("My Gallery", color = ProjectorIvory, fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold)
+                        Text(
+                            if (selectedMedia == null) "Photo, animated image or silent short video"
+                            else when (selectedMedia.kind) {
+                                P1MediaKind.IMAGE -> "Saved private photo"
+                                P1MediaKind.ANIMATED -> "Saved animated image"
+                                P1MediaKind.VIDEO -> "Saved silent video"
+                            },
+                            color = MutedText, fontSize = 11.sp,
+                        )
+                    }
+                    if (backgroundSource == P10ReminderBackgroundSource.GALLERY) {
+                        Icon(Icons.Outlined.CheckCircle, "Selected", tint = RecRed)
+                    }
+                }
+                if (selectedMedia != null &&
+                    backgroundSource != P10ReminderBackgroundSource.GALLERY
+                ) {
+                    OutlinedButton(
+                        onClick = ::useGallery,
+                        enabled = !importing,
+                        modifier = Modifier.fillMaxWidth().testTag("p10-use-saved-gallery"),
+                    ) { Text("USE SAVED GALLERY BACKGROUND") }
+                }
                 Button(
                     onClick = {
                         importFor = domain
                         picker.launch(PickVisualMediaRequest(
-                            ActivityResultContracts.PickVisualMedia.ImageAndVideo
-                        ))
+                            ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                     },
                     enabled = !importing,
                     modifier = Modifier.fillMaxWidth().testTag("p1-choose-gallery"),
                     colors = ButtonDefaults.buttonColors(containerColor = RecRed),
                 ) {
-                    Icon(Icons.Outlined.PhotoLibrary, contentDescription = null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(7.dp))
-                    Text(if (importing) "IMPORTING…" else
-                        if (selectedMedia == null) "CHOOSE FROM GALLERY" else "REPLACE BACKGROUND")
+                    Icon(Icons.Outlined.PhotoLibrary, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (importing) "SAVING…" else
+                        if (selectedMedia == null) "CHOOSE FROM GALLERY" else "CHANGE GALLERY BACKGROUND")
                 }
                 if (selectedMedia != null) {
-                    TextButton(
-                        onClick = ::reset, enabled = !importing,
-                        modifier = Modifier.testTag("p1-restore-original"),
-                    ) { Text("USE BACKLOT ORIGINAL", color = RecRed) }
                     OutlinedButton(
                         onClick = { showFraming = !showFraming },
+                        enabled = !importing,
                         modifier = Modifier.fillMaxWidth().testTag("p1-adjust-crop"),
-                    ) { Text(if (showFraming) "HIDE CROP CONTROLS" else "ADJUST CROP / POSITION") }
+                    ) {
+                        Text(if (showFraming) "HIDE CROP CONTROLS" else "ADJUST CROP / POSITION")
+                    }
                     if (showFraming) {
                         Text("Zoom", color = ProjectorIvory, fontSize = 11.sp)
                         Slider(
                             value = frame.zoom, onValueChange = { frame = frame.copy(zoom = it) },
                             onValueChangeFinished = ::persistFraming, valueRange = 1f..2.5f,
-                            modifier = Modifier.testTag("p1-crop-zoom"),
-                        )
+                            modifier = Modifier.testTag("p1-crop-zoom"))
                         Text("Horizontal position", color = ProjectorIvory, fontSize = 11.sp)
                         Slider(
                             value = frame.horizontal,
                             onValueChange = { frame = frame.copy(horizontal = it) },
                             onValueChangeFinished = ::persistFraming, valueRange = -1f..1f,
-                            modifier = Modifier.testTag("p1-crop-x"),
-                        )
+                            modifier = Modifier.testTag("p1-crop-x"))
                         Text("Vertical position", color = ProjectorIvory, fontSize = 11.sp)
                         Slider(
                             value = frame.vertical,
                             onValueChange = { frame = frame.copy(vertical = it) },
                             onValueChangeFinished = ::persistFraming, valueRange = -1f..1f,
-                            modifier = Modifier.testTag("p1-crop-y"),
-                        )
+                            modifier = Modifier.testTag("p1-crop-y"))
                     }
+                    TextButton(
+                        onClick = { useFamily(family) },
+                        enabled = !importing &&
+                            backgroundSource == P10ReminderBackgroundSource.GALLERY,
+                        modifier = Modifier.testTag("p1-restore-original"),
+                    ) { Text("USE ${family.label.uppercase()} INSTEAD", color = MutedGold) }
+                    TextButton(
+                        onClick = { confirmRemoveMedia = true },
+                        enabled = !importing,
+                        modifier = Modifier.testTag("p10-remove-gallery-media"),
+                    ) { Text("REMOVE SAVED GALLERY MEDIA", color = RecRed) }
                 }
             }
         }
-        if (domain != P1ReminderScope.CREATOR) {
-            Text("Saved and previewable here. The new full-screen visual attachment for this reminder type is pending integration.",
+        if (domain == P1ReminderScope.CHALLENGE_21) {
+            Text("21-Day visuals appear when a valid challenge notification opens Backlot; no new automatic full-screen alarm is added.",
                 color = MutedGold, fontSize = 11.sp, lineHeight = 16.sp,
                 modifier = Modifier.testTag("p1-host-compatibility-note"))
         }
@@ -325,13 +369,27 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                 modifier = Modifier.testTag("p1-gallery-feedback"))
         Spacer(Modifier.height(12.dp))
     }
+    if (confirmRemoveMedia) AlertDialog(
+        onDismissRequest = { confirmRemoveMedia = false },
+        title = { Text("Remove saved gallery background?") },
+        text = { Text("Only this reminder space's imported media will be removed. Your original phone gallery is not changed.") },
+        confirmButton = {
+            TextButton(onClick = ::removeSavedGallery) {
+                Text("REMOVE BACKGROUND", color = RecRed)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { confirmRemoveMedia = false }) { Text("KEEP MEDIA") }
+        },
+    )
     if (fullPreview) Dialog(
         onDismissRequest = { fullPreview = false },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(Modifier.fillMaxSize().background(CinemaBlack)) {
             P1EntrancePreview(
-                domain, selectedMedia, frame, mode, motion = true,
+                domain = domain, family = family, source = backgroundSource,
+                media = selectedMedia, frame = frame, kind = mode, motion = true,
                 modifier = Modifier.fillMaxSize().testTag("p1-full-preview"),
             )
             IconButton(onClick = { fullPreview = false },
