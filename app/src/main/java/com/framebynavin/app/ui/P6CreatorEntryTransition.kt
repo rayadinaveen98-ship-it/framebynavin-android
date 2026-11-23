@@ -28,7 +28,6 @@ import kotlinx.coroutines.delay
  */
 internal enum class P6CreatorEntryDestination {
     TODAY,
-    QUICK_PROJECT,
 }
 
 internal object P6CreatorEntryPolicy {
