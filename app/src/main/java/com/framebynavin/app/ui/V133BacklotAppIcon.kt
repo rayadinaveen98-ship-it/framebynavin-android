@@ -103,7 +103,7 @@ internal fun V133AppIconPicker() {
         ) {
             Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                 Image(
-                    painter = painterResource(R.drawable.backlot_v198_approved_icon),
+                    painter = painterResource(R.drawable.backlot_v198_brand_mark),
                     contentDescription = "Backlot app icon",
                     modifier = Modifier.size(62.dp).clip(RoundedCornerShape(16.dp)),
                 )
