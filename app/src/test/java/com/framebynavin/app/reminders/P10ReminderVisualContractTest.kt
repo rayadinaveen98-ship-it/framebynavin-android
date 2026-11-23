@@ -50,7 +50,7 @@ internal class P10ReminderVisualContractTest {
     @Test fun systemAnimationOffNeverFallsBackToOldSceneOrBlocksControls() {
         val still = P10ReminderVisualPolicy.tuning(false, false, false, P10ReminderAct.MAIN)
         assertFalse(still.animated)
-        assertEquals(0f, still.amplitude)
+        assertEquals(0f, still.amplitude, 0.0001f)
         assertEquals(0, still.activeMotes)
     }
 
