@@ -214,7 +214,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
         P1EntrancePreview(
             domain = domain, family = family, source = backgroundSource,
             media = selectedMedia, frame = frame, kind = mode,
-            motion = true, modifier = Modifier.fillMaxWidth().height(230.dp),
+            modifier = Modifier.fillMaxWidth().height(230.dp),
         )
         Row(
             Modifier.fillMaxWidth(),
@@ -389,7 +389,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
         Box(Modifier.fillMaxSize().background(CinemaBlack)) {
             P1EntrancePreview(
                 domain = domain, family = family, source = backgroundSource,
-                media = selectedMedia, frame = frame, kind = mode, motion = true,
+                media = selectedMedia, frame = frame, kind = mode,
                 modifier = Modifier.fillMaxSize().testTag("p1-full-preview"),
             )
             IconButton(onClick = { fullPreview = false },
@@ -404,21 +404,83 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
     }
 }
 
+/** One static mini-stage per family. No triple animation loops in Settings list. */
+@Composable
+private fun P10FamilyChoiceCard(
+    family: P10ReminderFamily,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val ink = family.pigments()
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+            .heightIn(min = 72.dp).testTag("p10-family-" + family.name),
+        shape = RoundedCornerShape(18.dp),
+        color = CinemaSurface,
+        border = BorderStroke(if (selected) 2.dp else 1.dp,
+            if (selected) RecRed else CinemaLine),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            Box(
+                Modifier.size(58.dp).clip(RoundedCornerShape(13.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                P10LivingReminderBackdrop(
+                    family = family, act = P10ReminderAct.ENTRANCE,
+                    animationsAllowed = false, batterySaver = false, lowRam = false,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                P10ReminderIdentityEmblem(
+                    kind = ReminderCheckInKind.VOICE,
+                    family = family, modifier = Modifier.size(36.dp),
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(family.label, color = ProjectorIvory, fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold)
+                Text(when (family) {
+                    P10ReminderFamily.LIVING_BLOOM -> "Organic light · breathing petals"
+                    P10ReminderFamily.PULSE_STUDIO -> "Rhythmic studio · kinetic arcs"
+                    P10ReminderFamily.RISE_CORE -> "Rising energy · luminous depth"
+                }, color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
+            }
+            Icon(
+                if (selected) Icons.Outlined.CheckCircle else Icons.Outlined.ChevronRight,
+                if (selected) "Selected" else null,
+                tint = if (selected) RecRed else MutedGold,
+                modifier = Modifier.size(21.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Appearance preview only: the very same P10 compositor + custom mark as live
+ * entrance. Nothing here posts a reminder or launches an Android alarm.
+ */
 @Composable
 private fun P1EntrancePreview(
     domain: P1ReminderScope,
+    family: P10ReminderFamily,
+    source: P10ReminderBackgroundSource,
     media: P1Media?,
     frame: P1MediaFraming,
     kind: ReminderCheckInKind,
-    motion: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.clip(RoundedCornerShape(16.dp))
-        .background(Color(0xFF120910)).testTag("p1-entrance-preview")) {
-        P1EntranceBackdrop(
-            domain = domain, motionEnabled = motion, lowPower = false,
-            modifier = Modifier.fillMaxSize(), overrideMedia = media,
-            overrideFraming = frame,
+        .background(family.pigments().dark).testTag("p1-entrance-preview")) {
+        P10ReminderSceneBackground(
+            scope = domain, family = family, source = source,
+            act = P10ReminderAct.ENTRANCE, media = media, framing = frame,
+            modifier = Modifier.fillMaxSize(),
         )
         Column(
             Modifier.fillMaxSize().padding(12.dp),
@@ -431,9 +493,9 @@ private fun P1EntrancePreview(
                 P1ReminderScope.CHALLENGE_21 -> "21-DAY"
             }, fontSize = 10.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold,
                 color = Color.White, textAlign = TextAlign.Center)
-            V336DirectorSignalArt(
-                kind = kind, motionEnabled = motion, lowPower = false,
-                modifier = Modifier.size(width = 195.dp, height = 135.dp),
+            P10ReminderIdentityEmblem(
+                kind = kind, family = family,
+                modifier = Modifier.size(width = 170.dp, height = 135.dp),
             )
             Text("DOUBLE TAP TO OPEN", fontSize = 12.sp,
                 letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold,
