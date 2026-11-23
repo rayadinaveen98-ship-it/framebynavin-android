@@ -8,3 +8,6 @@
 - If any gate fails, review its precise log and fix only the faulty test/source dependency, avoiding broad retests.
 - No merge, release, database migration, hosted service changes or production data mutation authorized.
 - Stage status at entry: **P10G targeted test REQUESTED, result unverified**.
+
+## Activation evidence
+The draft QA-only pull request is #463. The new workflow is attached to the P10G base branch. Unit-test success must be established from a GitHub run; PR creation alone is not test evidence.
