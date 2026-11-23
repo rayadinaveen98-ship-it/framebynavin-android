@@ -1,0 +1,60 @@
+name: Backlot P10P - First-Run Handoff Screenshot, No Build
+
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10p-first-run-transition-diagnostic-20261123
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-p10p-entry-handoff
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Capture real P6 entry transition and Home tap mid-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact diagnostic runner (no JVM)
+        run: |
+          set -euo pipefail
+          test -s tools/qa/backlot_p10p_capture_entry_handoff_android15.sh
+          echo "P10P no Gradle, no source mutation"
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-P10M-Reusable-Debug-AndTest-APKs
+          run-id: 45202539065
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/p10p/apks
+      - name: Verify reused APK inputs
+        run: |
+          test -s output/p10p/apks/app-debug.apk
+          test -s output/p10p/apks/app-debug-androidTest.apk
+      - name: Enable KVM
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10p_capture_entry_handoff_android15.sh
+      - name: Preserve real-time Home / Hub transition snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10P-Entry-Transition-Diagnostic-Evidence
+          path: output/p10p/android15/
+          if-no-files-found: warn
+          retention-days: 21
