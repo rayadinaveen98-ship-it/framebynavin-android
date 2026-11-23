@@ -151,6 +151,10 @@ internal fun ReminderCheckInScreen(
     val galleryMedia = remember(context) {
         P1EntranceMediaStore.selected(context, P1ReminderScope.CREATOR)
     }
+    val backgroundSource = remember(context, galleryMedia?.file?.absolutePath) {
+        P10ReminderBackgroundStore.selected(context, P1ReminderScope.CREATOR,
+            galleryAvailable = galleryMedia != null)
+    }
     var revealed by rememberSaveable(kind, title, dueLabel) {
         mutableStateOf(V197ReminderRevealPolicy.startRevealed(motionEnabled))
     }
@@ -169,28 +173,32 @@ internal fun ReminderCheckInScreen(
             .fillMaxSize()
             .background(look.black),
     ) {
-        // Visual continuity: both stages use the same saved P10 family.
+        // P10D: one living/gallery compositor persists across both acts.
+        // A single Media3 player survives the entrance -> main crossfade.
+        P10ReminderSceneBackground(
+            scope = P1ReminderScope.CREATOR,
+            family = family, source = backgroundSource,
+            act = if (showMain) P10ReminderAct.MAIN else P10ReminderAct.ENTRANCE,
+            media = galleryMedia, locked = keyguardLocked,
+            modifier = Modifier.fillMaxSize(),
+        )
         Crossfade(
             targetState = showMain,
             animationSpec = tween(durationMillis = if (motionEnabled) 500 else 0),
             label = "p10-reminder-act-transition",
         ) { showingActions ->
-            if (showingActions) {
-                P10ReminderMainAtmosphere(
-                    scope = P1ReminderScope.CREATOR,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
+            if (!showingActions) {
                 P10ReminderEntranceStage(
                     scope = P1ReminderScope.CREATOR,
                     kind = kind,
                     title = title,
                     occurrenceKey = title + ":" + dueLabel + ":" + stageLabel,
+                    // Preserve V337 Creator response access over keyguard.
+                    // Parent media compositor separately withholds private gallery media.
                     locked = false,
-                    // Creator's original over-keyguard title/actions survive;
-                    // no gallery asset may be shown until Android is unlocked.
-                    media = if (keyguardLocked) null else galleryMedia,
+                    media = null,
                     onOpen = { revealed = true },
+                    renderBackground = false,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
