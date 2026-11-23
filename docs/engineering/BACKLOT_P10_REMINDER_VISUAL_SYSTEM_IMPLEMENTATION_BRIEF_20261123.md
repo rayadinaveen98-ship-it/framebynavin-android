@@ -3,7 +3,7 @@
 
 **Authorization:** The founder rejected every older/default reminder main-screen look and obsolete reminder-scene/voice/alarm/Premiere full-screen collection; approved preserving Living Bloom, Pulse Studio and Rise Core as the only three built-in entrance families, making them visibly more alive, redesigning mic/alarm iconography, redesigning the post-double-tap main screen, and enhancing gallery image/animated photo/video customization. Founder said “yeah ok bro continue” to the implementation-brief and isolated source-staging plan.
 
-**Status:** P10A typed family/store/policy **SOURCE-STAGED**; early P10B native atmosphere, authored identity emblems and accessible entrance/main atmosphere hosts **SOURCE-STAGED BUT NOT WIRED TO LIVE ALERTS**. P10C live main-screen replacement, P10D gallery polish and P10E code deletion **NOT STARTED**. No compile, Gradle, JVM, instrumented run, CI, emulator, device test, merge or APK is permitted until the founder later explicitly opens the consolidated testing gate.
+**Status:** P10A/P10B foundation **SOURCE-STAGED**; P10C Creator, Personal and valid notification-opened 21-Day entrance/main visual cutover **SOURCE-STAGED BUT UNCOMPILED AND UNTESTED** on a new descendant branch. P10D gallery and built-in picker polish plus media/main continuity, and P10E old code/resource removal **NOT STARTED**. No compile, Gradle, JVM, instrumented run, CI, emulator, device test, merge or APK is permitted until the founder later explicitly opens the consolidated testing gate.
 
 ### Source of truth and non-negotiable boundaries
 
@@ -114,3 +114,14 @@ A rising luminous spine with layered atmospheric wisps and independent micro-rib
 - P10 gallery live-media decode fallback still needs P10D replacement. The old `V391/V394/V336/V195` source is not deleted yet. Never report it removed.
 - During source review a locked-entrance gesture issue was corrected: touch double-tap and TalkBack activation both refuse reveal while locked; `pointerInput` is keyed to current lock state and captures the newest open callback.
 - Source review is **not** Kotlin compilation, automated tests, a device screenshot, performance profiling or owner aesthetic acceptance. All remain deferred.
+
+
+## P10C source-stage continuation (same founder-approved scope)
+- P10C descendant branch: `feature/backlot-v337-point10c-live-screen-source-after-p10b-20261123`.
+- Added `P10ReminderActionPalette.kt` and `P10PersonalReminderExperience.kt`.
+- `ReminderCheckInScreen.kt` Creator's active entrance/main switched from old V195/V336 renderers to P10 family, with touch double tap and accessible open; stage and response callbacks unchanged. A single editorial context stage replaces two old stacked panels.
+- `PersonalAlertActivity.kt` now uses P10 double-tap entry for validated Personal reminders and the new main backdrop/icon/palette plus one information stage; its action owner and lock privacy policy are unchanged.
+- `P1ChallengeNotificationEntrance` now shows the P10 entrance after an existing **user-opened valid challenge notification**, with or without gallery media; it does not schedule automatic full-screen challenge alerts. Opening returns to the existing challenge destination.
+- Creator lock-screen response availability is explicitly preserved from V337; only private gallery imagery is hidden until unlocked. Personal remains stricter.
+- Stage record and exact unfinished items: `docs/engineering/BACKLOT_P10C_LIVE_REMINDER_VISUAL_CUTOVER_SOURCE_STAGE_20261123.md`.
+- P10D/E remain pending, especially P1 old gallery fallback, family selector UI and physically deleting retired styles. The historical statement above that P10 source was 'not mounted' describes the earlier P10A checkpoint and is superseded by this P10C section.
