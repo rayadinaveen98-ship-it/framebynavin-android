@@ -63,6 +63,9 @@ internal fun V23AccountOnboarding(
     var busy by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var screenName by rememberSaveable { mutableStateOf(P4AccountEntryStep.CHOICE.name) }
+    var creatorIdBackStep by rememberSaveable {
+        mutableStateOf(P4AccountEntryStep.SIGN_UP.name)
+    }
     var displayName by rememberSaveable {
         mutableStateOf(profile?.displayName.orEmpty().ifBlank { session?.displayName.orEmpty() })
     }
@@ -138,7 +141,12 @@ internal fun V23AccountOnboarding(
                                     if (destination == null) {
                                         // The real RETURNING_CREATOR path above owns completion.
                                         error = "Couldn't finish checking your account. Retry."
-                                    } else enter(destination)
+                                    } else {
+                                        if (destination == P4AccountEntryStep.CREATOR_ID) {
+                                            creatorIdBackStep = P4AccountEntryStep.SIGN_UP.name
+                                        }
+                                        enter(destination)
+                                    }
                                 }
                             }
                         }
@@ -207,7 +215,9 @@ internal fun V23AccountOnboarding(
     }
 
     BackHandler(enabled = screen != P4AccountEntryStep.CHOICE && !busy) {
-        enter(P4AccountEntryPolicy.backFrom(screen))
+        enter(if (screen == P4AccountEntryStep.CREATOR_ID)
+            P4AccountEntryStep.valueOf(creatorIdBackStep)
+        else P4AccountEntryPolicy.backFrom(screen))
     }
 
     Surface(Modifier.fillMaxSize().testTag("p4-account-entry"), color = CinemaBlack) {
@@ -227,7 +237,11 @@ internal fun V23AccountOnboarding(
             } else {
                 if (screen != P4AccountEntryStep.CHOICE) {
                     TextButton(
-                        onClick = { enter(P4AccountEntryPolicy.backFrom(screen)) },
+                        onClick = {
+                            enter(if (screen == P4AccountEntryStep.CREATOR_ID)
+                                P4AccountEntryStep.valueOf(creatorIdBackStep)
+                            else P4AccountEntryPolicy.backFrom(screen))
+                        },
                         enabled = !busy,
                         modifier = Modifier.testTag("p4-back"),
                     ) {
@@ -246,6 +260,9 @@ internal fun V23AccountOnboarding(
                         contentDescription = "Backlot logo",
                         modifier = Modifier.size(80.dp).testTag("p4-brand-mark"),
                     )
+                    Text("Backlot", color = ProjectorIvory,
+                        fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+
                     Spacer(Modifier.height(28.dp))
                     Text("Your creative space awaits.", color = ProjectorIvory,
                         fontSize = 29.sp, lineHeight = 35.sp,
@@ -323,7 +340,10 @@ internal fun V23AccountOnboarding(
                         color = MutedText, fontSize = 13.sp, lineHeight = 20.sp)
                     Spacer(Modifier.height(20.dp))
                     Button(
-                        onClick = { enter(P4AccountEntryStep.CREATOR_ID) },
+                        onClick = {
+                            creatorIdBackStep = P4AccountEntryStep.ACCOUNT_REVIEW.name
+                            enter(P4AccountEntryStep.CREATOR_ID)
+                        },
                         modifier = Modifier.fillMaxWidth().height(54.dp)
                             .testTag("p4-review-create-account"),
                         colors = ButtonDefaults.buttonColors(
