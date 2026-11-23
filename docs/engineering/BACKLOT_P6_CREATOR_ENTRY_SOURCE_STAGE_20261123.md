@@ -39,3 +39,7 @@
 - Only approved consolidated QA and owner physical acceptance can authorize build, merge, release.
 
 **Point 7 not started.**
+
+## Superseded by founder-approved P6a unified first run (2026-11-23)
+
+Point 6's original QUICK_PROJECT quick-setup destination is retired by P6a. The five-page V18CreatorOnboarding is now the single wizard for new users. After the P6 creator transition, return to Creator Home; the original guided tour is manually replayable from Settings only. Preserve the rest of the P6 code and its one-shot timing. See BACKLOT_P6A_UNIFIED_CREATOR_FIRST_SOURCE_STAGE_20261123.md.

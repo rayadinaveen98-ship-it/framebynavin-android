@@ -42,3 +42,7 @@
 - QA6: owner-approved consolidated QA, signed APK and physical acceptance. Not executed at source stage.
 
 **No CI, JVM tests, device tests, APK builds, merge or release performed by Point 4 staging.**
+
+## Superseded navigation note (P6a, 2026-11-23)
+
+P4 account choice still appears after the P3 welcome, but no longer leads to V393FirstRunFocusScreen. P6a removed that screen and the V393 three-question shortcut entirely. Account choice now leads to P5 companion selection and the original V18 five-page Creator Setup. The P4 authentication and session protections remain unchanged.

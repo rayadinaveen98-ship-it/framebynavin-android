@@ -1239,8 +1239,8 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
             }
         }
     } else if (gate == P6aUnifiedFirstRunGate.ACCOUNT_CHOICE) {
-        // P4 one-time choice is after the signature welcome and BEFORE focus,
-        // guide choice or setup. Local continuation is available only here.
+        // P4 one-time choice follows P3 welcome and precedes companion
+        // selection and the original five-page Creator setup.
         V23AccountOnboarding(
             onComplete = { displayName ->
                 runCatching {
