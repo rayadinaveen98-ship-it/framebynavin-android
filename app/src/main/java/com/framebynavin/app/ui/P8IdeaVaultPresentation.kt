@@ -60,9 +60,10 @@ internal object P8IdeaVaultEmptyPolicy {
     fun mode(
         showingDeleted: Boolean,
         allIdeasEmpty: Boolean,
+        deletedIdeasEmpty: Boolean,
     ): P8IdeaVaultEmptyMode = when {
-        showingDeleted -> P8IdeaVaultEmptyMode.RECENTLY_DELETED_EMPTY
-        allIdeasEmpty -> P8IdeaVaultEmptyMode.EMPTY_VAULT
+        showingDeleted && deletedIdeasEmpty -> P8IdeaVaultEmptyMode.RECENTLY_DELETED_EMPTY
+        !showingDeleted && allIdeasEmpty -> P8IdeaVaultEmptyMode.EMPTY_VAULT
         else -> P8IdeaVaultEmptyMode.NO_RESULTS
     }
 }

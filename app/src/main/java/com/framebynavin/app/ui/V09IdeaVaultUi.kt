@@ -53,6 +53,8 @@ import java.util.UUID
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 internal fun V09IdeaVaultScreen(
@@ -107,7 +109,8 @@ internal fun V09IdeaVaultScreen(
     }
     val opportunityIdeaIds by remember { derivedStateOf { opportunityAlerts.mapNotNull { it.ideaId }.toSet() } }
     val opportunityMatch by remember { derivedStateOf { opportunityAlerts.firstOrNull { it.ideaId != null } } }
-    val readyCount by remember { derivedStateOf { ideas.count { it.status == IdeaStatus.READY_TO_PRODUCE } } }
+    val vaultSummary = remember(ideas) { P8IdeaVaultSummary.from(ideas) }
+    val readyCount = vaultSummary.ready
     val voiceCount by remember { derivedStateOf { ideas.count { it.captureType == IdeaCaptureType.VOICE } } }
     val activeFilterCount by remember {
         derivedStateOf {
@@ -164,7 +167,7 @@ internal fun V09IdeaVaultScreen(
                 }
             }
 
-            opportunityMatch?.let { match ->
+            if (!showDeleted) opportunityMatch?.let { match ->
                 Surface(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(14.dp),
@@ -183,10 +186,16 @@ internal fun V09IdeaVaultScreen(
                 Spacer(Modifier.height(4.dp))
             }
 
+            if (!showDeleted && ideas.isNotEmpty() && query.isBlank() &&
+                statusFilter == null && categoryFilter == null && captureFilter == null) {
+                P8IdeaVaultOverview(vaultSummary)
+                Spacer(Modifier.height(10.dp))
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                    .testTag("p8-vault-search"),
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 placeholder = { Text("Search your ideas…") },
@@ -217,18 +226,33 @@ internal fun V09IdeaVaultScreen(
             }
 
             if (filtered.isEmpty()) {
-                Column(
-                    Modifier.fillMaxWidth().weight(1f).padding(34.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Lightbulb, null, tint = MutedGold, modifier = Modifier.size(34.dp))
-                    Spacer(Modifier.height(9.dp))
-                    Text(if (showDeleted) "No deleted ideas" else if (ideas.isEmpty()) "No ideas yet" else "No ideas match this filter", color = ProjectorIvory, fontWeight = FontWeight.Bold)
-                    if (!showDeleted && ideas.isEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = { onCreateIdeaRequested?.invoke() ?: run { creating = true } }, colors = ButtonDefaults.buttonColors(containerColor = RecRed)) { Text("ADD IDEA") }
-                    }
+                    P8IdeaVaultEmptyState(
+                        mode = P8IdeaVaultEmptyPolicy.mode(
+                            showingDeleted = showDeleted,
+                            allIdeasEmpty = ideas.isEmpty(),
+                            deletedIdeasEmpty = deletedIdeas.isEmpty(),
+                        ),
+                        onNewIdea = {
+                            onCreateIdeaRequested?.invoke() ?: run { creating = true }
+                        },
+                        onClearFilters = {
+                            query = ""
+                            statusFilter = null
+                            categoryFilter = null
+                            captureFilter = null
+                        },
+                        onShowIdeas = {
+                            showDeleted = false
+                            query = ""
+                            statusFilter = null
+                            categoryFilter = null
+                            captureFilter = null
+                        },
+                    )
                 }
             } else {
                 LazyColumn(
@@ -366,41 +390,90 @@ private fun V09IdeaCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, if (isOpportunity) MutedGold.copy(alpha = .62f) else CinemaLine),
     ) {
         Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .08f), border = androidx.compose.foundation.BorderStroke(1.dp, MutedGold.copy(alpha = .22f))) {
-                    Text(IdeaVaultLabels.category(idea.category), color = MutedGold, fontSize = 7.8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+            // Wrap category, status, voice and matched-opportunity labels
+            // rather than squeeze or clip on narrow phones or large font scale.
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(100.dp),
+                    color = MutedGold.copy(alpha = .08f),
+                    border = BorderStroke(1.dp, MutedGold.copy(alpha = .22f)),
+                ) {
+                    Text(IdeaVaultLabels.category(idea.category),
+                        color = MutedGold, fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                 }
-                Spacer(Modifier.width(6.dp))
-                Text(IdeaVaultLabels.status(idea.status).uppercase(), color = MutedText, fontSize = 7.8.sp, fontWeight = FontWeight.Bold)
+                Text(IdeaVaultLabels.status(idea.status).uppercase(),
+                    color = MutedText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.CenterVertically))
                 if (idea.captureType == IdeaCaptureType.VOICE) {
-                    Spacer(Modifier.width(6.dp))
-                    Surface(shape = RoundedCornerShape(100.dp), color = RecRed.copy(alpha = .12f)) {
-                        Text("VOICE", color = RecRed, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    Surface(shape = RoundedCornerShape(100.dp),
+                        color = RecRed.copy(alpha = .12f)) {
+                        Text("VOICE", color = RecRed, fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
                 }
-                Spacer(Modifier.weight(1f))
                 if (isOpportunity) {
-                    Surface(shape = RoundedCornerShape(100.dp), color = MutedGold.copy(alpha = .12f)) {
-                        Text("⚡ MOMENTUM", color = MutedGold, fontSize = 7.2.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                    Surface(shape = RoundedCornerShape(100.dp),
+                        color = MutedGold.copy(alpha = .12f)) {
+                        Text("OPPORTUNITY MATCH", color = MutedGold, fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text(idea.title, color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (idea.topic.isNotBlank()) Text(idea.topic, color = MutedGold, fontSize = 9.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(9.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${idea.platformHint} · ${idea.formatHint}", color = MutedText, fontSize = 8.8.sp)
-                Spacer(Modifier.weight(1f))
-                if (idea.status != IdeaStatus.CONVERTED && idea.status != IdeaStatus.ARCHIVED) {
-                    TextButton(onClick = onConvert) {
-                        Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("MAKE A PROJECT", color = RecRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(
+                idea.title, color = ProjectorIvory, fontSize = 16.sp,
+                fontWeight = FontWeight.Bold, maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                // TalkBack speaks the complete name even when ellipsized.
+                modifier = Modifier.semantics {
+                    contentDescription = "Idea: " + idea.title
+                },
+            )
+            if (idea.topic.isNotBlank()) {
+                Text(idea.topic, color = MutedGold, fontSize = 11.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Topic: " + idea.topic
+                    })
+            }
+            val destination = listOf(idea.platformHint, idea.formatHint)
+                .filter { it.isNotBlank() }.joinToString(" · ")
+            if (destination.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(destination, color = MutedText, fontSize = 11.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (idea.status != IdeaStatus.CONVERTED &&
+                    idea.status != IdeaStatus.ARCHIVED) {
+                    TextButton(
+                        onClick = onConvert,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) {
+                        Icon(Icons.Outlined.RocketLaunch, null, tint = RecRed,
+                            modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("MAKE A PROJECT", color = RecRed, fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold)
                     }
                 }
                 if (idea.status != IdeaStatus.ARCHIVED) {
-                    IconButton(onClick = onArchive, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Archive, "Archive idea", tint = MutedText, modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = onArchive, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.Archive, "Archive " + idea.title,
+                            tint = MutedText, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
