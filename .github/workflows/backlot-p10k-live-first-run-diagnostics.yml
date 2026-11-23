@@ -1,0 +1,65 @@
+name: Backlot P10K - Live First-Run Evidence Without Rebuild
+
+# Diagnostic replay only, not certification; no Gradle, APK build or live account.
+on:
+  pull_request:
+    branches:
+      - feature/backlot-v337-point10k-first-run-visual-diagnostics-20261123
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-p10k-visual-diagnostics
+  cancel-in-progress: true
+
+jobs:
+  live-diagnostics:
+    name: Android 15 live on-screen replay with P10J compiled APKs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm original P10J runner and no compiled-source changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s tools/qa/backlot_p10k_capture_live_first_run_android15.sh
+          test -s app/src/androidTest/java/com/framebynavin/app/ui/P10JRealFirstRunNavigationUiTest.kt
+          echo 'Diagnostic only: no new Android build or test-source changes'
+      - name: Download P10J APK artifacts from existing successful build
+        uses: actions/download-artifact@v4
+        with:
+          name: Backlot-P10J-Disposable-App-and-Test-APKs
+          run-id: 45182330346
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/p10k/apks
+      - name: Check reusable prior-run APKs; no Gradle invocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s output/p10k/apks/app-debug.apk
+          test -s output/p10k/apks/app-debug-androidTest.apk
+          sha256sum output/p10k/apks/*.apk
+      - name: Enable local emulator acceleration
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Replay unchanged first-run test; screenshot stalled UI before teardown
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_p10k_capture_live_first_run_android15.sh
+      - name: Preserve actual live screenshots, UI hierarchy and logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-P10K-Live-First-Run-Diagnostic-Evidence
+          path: output/p10k/android15/
+          if-no-files-found: warn
+          retention-days: 21
