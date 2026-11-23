@@ -3,7 +3,7 @@ name: Backlot P10G - Focused Unit Test Gate
 # Separate source-only QA branch, descended from verified P10F Kotlin compile.
 # No PR targeting P10E; avoids triggering P10F's already-passed compile workflow.
 on:
-  push:
+  pull_request:
     branches:
       - feature/backlot-v337-point10g-targeted-unit-qa-20261123
 
@@ -27,7 +27,7 @@ jobs:
           set -euo pipefail
           # P10F's compiler passed against this ancestor. Ensure no surviving
           # test code imports or invokes removed visual engines.
-          if grep -RInE 'import com\\.framebynavin\\.app\\.reminders\\.(V195ParticleGeometry|V195ReminderGlyph|V202InfiniteBounce|V202PremiumParticleGeometry|V218UnifiedWavePolicy)|V2272PersonalParticleWave\\('             app/src/test app/src/androidTest --include='*.kt'; then
+          if grep -RInF -e 'import com.framebynavin.app.reminders.V195ParticleGeometry' -e 'import com.framebynavin.app.reminders.V195ReminderGlyph' -e 'import com.framebynavin.app.reminders.V202InfiniteBounce' -e 'import com.framebynavin.app.reminders.V202PremiumParticleGeometry' -e 'import com.framebynavin.app.reminders.V218UnifiedWavePolicy' -e 'V2272PersonalParticleWave(' app/src/test app/src/androidTest --include='*.kt'; then
             echo "Removed visual engine API referenced by staged tests; stop before Gradle" >&2
             exit 1
           fi
