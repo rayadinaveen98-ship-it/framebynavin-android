@@ -136,6 +136,12 @@ class P10JRealFirstRunNavigationUiTest {
         // Finish its real on-screen handoff before testing the Home card.
         finishCreatorEntryHandoff()
         openHomeReminderHub()
+        // Approved product default: Reminder Hub enters Personal first, even
+        // though Backlot's main product identity/navigation is Creator OS.
+        awaitTag("v2232-personal-space-switcher", timeoutMs = 20_000L)
+        noOnboardingLoop()
+
+        rule.onNodeWithTag("v2232-open-creator").performClick()
         awaitTag("v2232-reminders-space-switcher", timeoutMs = 20_000L)
         awaitTag("v2232-open-personal", timeoutMs = 15_000L)
         noOnboardingLoop()
