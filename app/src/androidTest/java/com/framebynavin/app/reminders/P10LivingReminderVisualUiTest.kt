@@ -8,14 +8,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import com.framebynavin.app.data.HardeningTestEnvironment
 import com.framebynavin.app.personal.PersonalAlert
 import com.framebynavin.app.personal.PersonalReminder
@@ -66,7 +66,12 @@ class P10LivingReminderVisualUiTest {
                 }
             }
         }
-        rule.onNodeWithContentDescription("Open creator reminder").performClick()
+        // TalkBack activation invokes the semantic OnClick directly. A normal
+        // physical single tap is intentionally NOT the double-tap reveal gesture.
+        rule.onNodeWithText("OPENED").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Open creator reminder")
+            .performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
         rule.onNodeWithText("OPENED").assertExists()
         rule.onNodeWithTag("p10-entrance-creator").assertDoesNotExist()
     }
