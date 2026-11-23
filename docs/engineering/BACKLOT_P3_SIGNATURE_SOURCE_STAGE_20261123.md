@@ -43,3 +43,7 @@
 - Source is not compiled yet; no claim of APK readiness or test pass is made.
 
 **State:** SOURCE-STAGED candidate / UNCOMPILED / UNTESTED.
+
+## Icon metadata consistency — source review
+
+All four historical BacklotAppIcon aliases retain their existing identity, component suffix and state handling. The enum artwork references now point at the same original vector master used by the new launcher, native splash and Settings preview. No alias names or user preferences were migrated or changed. Final icon masking and appearance remain device-QA tasks.
