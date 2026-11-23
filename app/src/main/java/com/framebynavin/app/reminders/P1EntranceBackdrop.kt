@@ -1,7 +1,5 @@
 package com.framebynavin.app.reminders
 
-import android.app.KeyguardManager
-import android.content.Context
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
@@ -272,49 +270,5 @@ private fun P1MutedVideo(media: P1Media, modifier: Modifier) {
             update = { it.player = player },
             modifier = modifier,
         )
-    }
-}
-
-/**
- * P1-only overlay for the existing V337 Creator particle entrance.
- * No touch handlers, new navigation, reminder receipts, sound or action callbacks.
- * The V337 one-tap reveal stays unchanged; gallery media never displays while locked.
- */
-@Composable
-internal fun P1CreatorEntranceUnderlay(
-    modifier: Modifier = Modifier,
-    motionEnabled: Boolean,
-    lowPower: Boolean,
-    content: @Composable (Boolean) -> Unit,
-) {
-    val context = LocalContext.current
-    val owner = LocalLifecycleOwner.current
-    val media = remember(context) {
-        P1EntranceMediaStore.selected(context, P1ReminderScope.CREATOR)
-    }
-    var unlocked by remember { mutableStateOf(false) }
-    DisposableEffect(owner, context) {
-        val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        val refresh = { unlocked = keyguard?.isKeyguardLocked == false }
-        refresh()
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START || event == Lifecycle.Event.ON_RESUME) refresh()
-            if (event == Lifecycle.Event.ON_STOP) unlocked = false
-        }
-        owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer) }
-    }
-    val custom = unlocked && media != null
-    Box(modifier.fillMaxSize()) {
-        if (custom) {
-            P1EntranceBackdrop(
-                domain = P1ReminderScope.CREATOR,
-                motionEnabled = motionEnabled,
-                lowPower = lowPower,
-                modifier = Modifier.fillMaxSize(),
-                overrideMedia = media,
-            )
-        }
-        content(custom)
     }
 }
