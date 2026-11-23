@@ -156,7 +156,7 @@ internal fun ReminderCheckInScreen(
             galleryAvailable = galleryMedia != null)
     }
     var revealed by rememberSaveable(kind, title, dueLabel) {
-        mutableStateOf(V197ReminderRevealPolicy.startRevealed(motionEnabled))
+        mutableStateOf(P10ReminderVisualPolicy.startRevealed(motionEnabled))
     }
     LaunchedEffect(motionEnabled) {
         if (!motionEnabled) revealed = true
