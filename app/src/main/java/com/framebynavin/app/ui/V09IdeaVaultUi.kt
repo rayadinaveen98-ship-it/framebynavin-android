@@ -914,6 +914,11 @@ private fun V09IdeaEditor(
         CreatorPlatformRegistry.orderedSelected(creatorProfile, include = if (idea.id.isBlank()) null else idea.platformHint)
     }
     var notes by remember(idea.id) { mutableStateOf(idea.notes) }
+    // Already-saved notes stay visible. Empty notes remain optional and folded.
+    var showEditNotes by rememberSaveable(idea.id) {
+        mutableStateOf(idea.notes.isNotBlank())
+    }
+    var showEditDictation by rememberSaveable(idea.id) { mutableStateOf(false) }
     var reminderAtMillis by remember(idea.id) { mutableLongStateOf(idea.reminderAtMillis) }
     var reminderCadence by remember(idea.id) { mutableStateOf(idea.reminderCadence) }
     var showOrganize by rememberSaveable(idea.id) { mutableStateOf(false) }
@@ -980,16 +985,48 @@ private fun V09IdeaEditor(
                 }
 
                 Spacer(Modifier.height(9.dp))
-                OutlinedTextField(notes, { notes = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp).testTag("v216-edit-notes"), label = { Text("Notes · optional") })
-                Spacer(Modifier.height(8.dp))
-                V117VoiceIdeaInput(
-                    onTranscript = { transcript ->
-                        val clean = transcript.trim()
-                        if (clean.isNotBlank()) {
-                            notes = if (notes.isBlank()) clean else notes.trimEnd() + System.lineSeparator() + clean
-                        }
-                    },
-                )
+                // One primary idea text field remains on screen; additional
+                // saved context can be expanded without forcing a second box.
+                TextButton(
+                    onClick = { showEditNotes = !showEditNotes },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("p8b-edit-notes-toggle"),
+                ) {
+                    Text(
+                        if (showEditNotes) "Hide more notes"
+                        else if (notes.isNotBlank()) "Show saved notes"
+                        else "Add more notes · optional",
+                        color = ProjectorIvory,
+                    )
+                }
+                AnimatedVisibility(showEditNotes) {
+                    OutlinedTextField(
+                        notes, { notes = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 95.dp)
+                            .testTag("v216-edit-notes"),
+                        label = { Text("Notes · optional") },
+                    )
+                }
+                TextButton(
+                    onClick = { showEditDictation = !showEditDictation },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("p8b-edit-dictate-toggle"),
+                ) {
+                    Text(if (showEditDictation) "Close voice input"
+                        else "Speak to add notes", color = RecRed)
+                }
+                AnimatedVisibility(showEditDictation) {
+                    V117VoiceIdeaInput(
+                        onTranscript = { transcript ->
+                            val clean = transcript.trim()
+                            if (clean.isNotBlank()) {
+                                notes = if (notes.isBlank()) clean
+                                    else notes.trimEnd() + System.lineSeparator() + clean
+                                showEditNotes = true
+                            }
+                        },
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 V144IdeaReminderPicker(
                     reminderAtMillis = reminderAtMillis,
