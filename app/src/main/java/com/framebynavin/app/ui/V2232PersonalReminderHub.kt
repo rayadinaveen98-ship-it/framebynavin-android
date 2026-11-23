@@ -516,6 +516,26 @@ internal fun V2232PersonalReminderHub(
                 modifier = Modifier.testTag("v2232-personal-fallback-notice"))
 
             } else {
+                // P7 Personal Home has one compact, warm header with real
+                // routes. All original data, reminders and alert actions stay
+                // in the unmodified Today list immediately below it.
+                val p7Actions = P7PersonalHomePolicy.available(
+                    remindersLoaded = loaded,
+                    reminderReadError = loadError != null,
+                    challengesLoaded = challengesLoaded,
+                    challengeReadError = challengeLoadError != null,
+                    reminderWriteBusy = busy,
+                )
+                P7PersonalHomeIntro(
+                    actions = p7Actions,
+                    onCreateReminder = { editing = null; editorOpen = true },
+                    onOpenSpaces = { spacesOpen = true },
+                    onOpenChallenges = {
+                        challengeFocusId = null
+                        challengesOpen = true
+                    },
+                    onOpenGroups = { reminderGroupsOpen = true },
+                )
                 if (loaded && loadError == null) {
                     val summary = remember(reminders, completionEvents, agendaNowMillis) {
                         V288PersonalTodayPolicy.snapshot(

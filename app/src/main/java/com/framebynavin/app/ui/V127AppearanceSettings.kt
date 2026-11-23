@@ -1,20 +1,15 @@
 package com.framebynavin.app.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,15 +25,13 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
             Spacer(Modifier.height(18.dp))
         }
 
-        Text("APPEARANCE", color = MutedGold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.05.sp)
+        Text("CHOOSE YOUR THEME", color = RecRed, fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold, letterSpacing = 1.05.sp)
         Spacer(Modifier.height(4.dp))
-        Text("Choose your look", color = ProjectorIvory, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text(
-            "Pick a theme. Your existing projects and recordings will not change.",
-            color = MutedText,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
-        )
+        Text("Same Backlot, two looks.", color = ProjectorIvory,
+            fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text("Change colors without changing your work, reminders or navigation.",
+            color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
         Spacer(Modifier.height(12.dp))
 
         V137ThemeOrder.forEach { theme ->
@@ -55,34 +48,7 @@ internal fun V127AppearanceSettings(showGuidePicker: Boolean = true) {
         Spacer(Modifier.height(8.dp))
         V133AppIconPicker()
 
-        Spacer(Modifier.height(20.dp))
-        V401WelcomePicker()
 
-        Spacer(Modifier.height(16.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(BacklotCardRadius),
-            color = CinemaSurface,
-            border = BacklotUX10Tokens.quietBorder(CinemaLine),
-        ) {
-            Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(Modifier.size(34.dp), RoundedCornerShape(BacklotSmallRadius), RecRed.copy(alpha = .12f)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.GraphicEq, null, tint = RecRed, modifier = Modifier.size(18.dp))
-                    }
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Launch sound", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Play the opening sound when Backlot starts.", color = MutedText, fontSize = 11.sp, lineHeight = 15.sp)
-                }
-                Switch(
-                    checked = VisualExperiencePrefs.launchSoundEnabled,
-                    onCheckedChange = VisualExperiencePrefs::updateLaunchSound,
-                    colors = SwitchDefaults.colors(checkedThumbColor = ProjectorIvory, checkedTrackColor = RecRed),
-                )
-            }
-        }
     }
 }
 
@@ -92,8 +58,6 @@ private fun V148AppearanceCard(
     active: Boolean,
     onSelect: () -> Unit,
 ) {
-    val palette = theme.palette
-    val profile = theme.profile
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onSelect),
         shape = RoundedCornerShape(BacklotCardRadius),
@@ -127,6 +91,8 @@ private fun V148AppearanceCard(
 
 @Composable
 private fun V148AppearancePreview(theme: FrameTheme, modifier: Modifier = Modifier) {
+    // P9B: a small recognizable Creator Home composition rather than abstract lines.
+    // This is a theme preview, not a screenshot of a running Home screen.
     val p = theme.palette
     val profile = theme.profile
     Surface(
@@ -135,43 +101,34 @@ private fun V148AppearancePreview(theme: FrameTheme, modifier: Modifier = Modifi
         color = p.background,
         border = BorderStroke(1.dp, p.line),
     ) {
-        Box(Modifier.fillMaxSize()) {
-            Canvas(Modifier.matchParentSize()) {
-                val w = size.width
-                val h = size.height
-                drawRect(p.primary.copy(alpha = if (p.isLight) .05f else .08f), Offset(w * .055f, 0f), Size(w * .012f, h))
-                drawLine(p.primary.copy(alpha = .55f), Offset(w * .055f, h * .15f), Offset(w * .055f, h * .54f), 2.2f)
-                drawLine(p.secondary.copy(alpha = .55f), Offset(w * .70f, h * .16f), Offset(w * .92f, h * .16f), 1.5f)
-                drawLine(p.primary.copy(alpha = .18f), Offset(w * .12f, h * .88f), Offset(w * .88f, h * .70f), 1.1f)
-            }
-
-            Column(Modifier.fillMaxSize().padding(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).background(p.primary, CircleShape))
-                    Spacer(Modifier.width(6.dp))
-                    Box(Modifier.width(52.dp).height(4.dp).background(p.foreground.copy(alpha = .78f), RoundedCornerShape(99.dp)))
-                    Spacer(Modifier.weight(1f))
-                    Box(Modifier.width(28.dp).height(4.dp).background(p.secondary.copy(alpha = .72f), RoundedCornerShape(99.dp)))
-                }
+        Column(Modifier.fillMaxSize().padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(7.dp).background(p.primary, CircleShape))
+                Spacer(Modifier.width(6.dp))
+                Text("BACKLOT", color = p.foreground, fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Surface(
-                        modifier = Modifier.width(116.dp).height(42.dp),
-                        shape = RoundedCornerShape(profile.cardRadius),
-                        color = p.surfaceRaised,
-                        border = BorderStroke(1.dp, p.line),
-                    ) {
-                        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                            Box(Modifier.width(67.dp).height(4.dp).background(p.foreground.copy(alpha = .68f), RoundedCornerShape(99.dp)))
-                            Spacer(Modifier.height(7.dp))
-                            Box(Modifier.width(88.dp).height(3.dp).background(p.muted.copy(alpha = .55f), RoundedCornerShape(99.dp)))
-                        }
+                Text("TODAY", color = p.muted, fontSize = 8.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth().height(53.dp),
+                shape = RoundedCornerShape(profile.cardRadius),
+                color = p.surfaceRaised,
+                border = BorderStroke(1.dp, p.line),
+            ) {
+                Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(3.dp).height(28.dp)
+                        .background(p.primary, RoundedCornerShape(99.dp)))
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Up next", color = p.foreground, fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Projects · Ideas · Reminders", color = p.muted, fontSize = 8.sp)
                     }
-                    Spacer(Modifier.weight(1f))
-                    Box(
-                        Modifier.width(54.dp).height(28.dp)
-                            .background(p.primary, RoundedCornerShape(profile.buttonRadius)),
-                    )
+                    Box(Modifier.size(21.dp).background(p.primary,
+                        RoundedCornerShape(profile.buttonRadius)))
                 }
             }
         }

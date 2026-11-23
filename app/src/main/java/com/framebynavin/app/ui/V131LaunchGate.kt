@@ -15,7 +15,7 @@ import com.framebynavin.app.ui.theme.BacklotBackground
 import com.framebynavin.app.widget.CreatorWidgetLaunch
 
 internal object V151LaunchPolicy {
-    /** Normal launches show the selected 3-second ident; widget/deep-link launches stay instant. */
+    /** Normal launches show the minimal 3-panel signature; widget/deep-link launches remain instant. */
     fun shouldShowCinematicIdent(externalLaunch: Boolean): Boolean = !externalLaunch
 }
 
@@ -28,7 +28,7 @@ internal object V151SetupPolicy {
 }
 
 /**
- * The selected three-second Backlot ident is part of every normal launch. Widget/deep-link launches
+ * The P3 vector signature plays for normal Backlot launches. Widget/deep-link launches
  * stay instant so a targeted action is never blocked by branding.
  *
  * Guide identity is intentionally handled separately by V144GuideChoiceGate.
@@ -49,15 +49,14 @@ fun V131LaunchGate(externalLaunch: CreatorWidgetLaunch?) {
         AnimatedContent(
             targetState = welcomeDone,
             transitionSpec = {
-                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                fadeIn(tween(240)) togetherWith fadeOut(tween(180))
             },
             label = "launchGate",
         ) { ready ->
             if (ready) {
                 FrameByNavinV101BApp(externalLaunch = externalLaunch)
             } else {
-                V401WelcomeExperience(
-                    style = com.framebynavin.app.ui.theme.VisualExperiencePrefs.welcomeStyle,
+                P3BacklotSignatureWelcome(
                     onFinished = { welcomeDone = true },
                 )
             }
