@@ -176,7 +176,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
                     reminder = reminder,
                     invalid = invalid,
                     locked = keyguardShowing,
-                ) {
+                ) { backgroundProvided ->
                 V2233PersonalAlertScreen(
                     reminder = reminder,
                     invalid = invalid,
@@ -187,6 +187,7 @@ internal class PersonalAlertActivity : ComponentActivity() {
                     onSnooze = { respond(PersonalDeliveryContract.ACTION_SNOOZE) },
                     onDismiss = { respond(PersonalDeliveryContract.ACTION_DISMISS) },
                     onClose = { finish() },
+                    renderBackdrop = !backgroundProvided,
                 )
                 }
             }
@@ -217,6 +218,7 @@ internal fun V2233PersonalAlertScreen(
     onSnooze: () -> Unit,
     onDismiss: () -> Unit,
     onClose: () -> Unit,
+    renderBackdrop: Boolean = true,
 ) {
     val context = LocalContext.current
     val family = remember(context) {
@@ -232,10 +234,10 @@ internal fun V2233PersonalAlertScreen(
     // All lock privacy, invalid/posted occurrence and action callbacks remain intact.
     Box(
         modifier = Modifier.fillMaxSize()
-            .background(look.black)
+            .background(if (renderBackdrop) look.black else Color.Transparent)
             .testTag("v2233-personal-alert-screen"),
     ) {
-        P10ReminderMainAtmosphere(
+        if (renderBackdrop) P10ReminderMainAtmosphere(
             scope = P1ReminderScope.PERSONAL,
             modifier = Modifier.fillMaxSize(),
         )
