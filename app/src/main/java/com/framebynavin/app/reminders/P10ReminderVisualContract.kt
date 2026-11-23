@@ -60,8 +60,8 @@ internal object P10ReminderVisualPolicy {
         !locked && hasSelectedMedia
 
     /** Accessible explicit activation is also permitted; never require touch double-tap from TalkBack. */
-    fun shouldReveal(doubleTapped: Boolean, accessibleOpen: Boolean): Boolean =
-        doubleTapped || accessibleOpen
+    fun shouldReveal(doubleTapped: Boolean, accessibleOpen: Boolean, unlocked: Boolean): Boolean =
+        unlocked && (doubleTapped || accessibleOpen)
 }
 
 internal data class P10MotionTuning(
