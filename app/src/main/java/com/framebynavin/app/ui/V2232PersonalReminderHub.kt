@@ -344,25 +344,6 @@ internal fun V2232PersonalReminderHub(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 5.dp)
                 .testTag("v2232-personal-space-switcher"),
         )
-        if (personalPageName == "TODAY") {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    onClick = { spacesOpen = true },
-                    enabled = loaded && loadError == null,
-                    modifier = Modifier.testTag("v289-open-spaces"),
-                ) {
-                    Icon(Icons.Outlined.AutoAwesome, null,
-                        tint = RecRed, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text("My Spaces", color = RecRed, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(personalPageScroll)
                 .padding(horizontal = 18.dp, vertical = 10.dp)
@@ -471,6 +452,26 @@ internal fun V2232PersonalReminderHub(
                 modifier = Modifier.testTag("v2232-personal-fallback-notice"))
 
             } else {
+                // P7 Personal Home has one compact, warm header with real
+                // routes. All original data, reminders and alert actions stay
+                // in the unmodified Today list immediately below it.
+                val p7Actions = P7PersonalHomePolicy.available(
+                    remindersLoaded = loaded,
+                    reminderReadError = loadError != null,
+                    challengesLoaded = challengesLoaded,
+                    challengeReadError = challengeLoadError != null,
+                    reminderWriteBusy = busy,
+                )
+                P7PersonalHomeIntro(
+                    actions = p7Actions,
+                    onCreateReminder = { editing = null; editorOpen = true },
+                    onOpenSpaces = { spacesOpen = true },
+                    onOpenChallenges = {
+                        challengeFocusId = null
+                        challengesOpen = true
+                    },
+                    onOpenGroups = { reminderGroupsOpen = true },
+                )
                 if (loaded && loadError == null) {
                     val summary = remember(reminders, completionEvents, agendaNowMillis) {
                         V288PersonalTodayPolicy.snapshot(
