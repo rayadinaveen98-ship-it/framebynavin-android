@@ -170,6 +170,11 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     var showNewIdeaEditor by rememberSaveable { mutableStateOf(false) }
     var editTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
+    // A one-time visual handoff only after a durable Creator setup commit.
+    // Not saveable: interrupted process restarts go directly to the saved app.
+    var creatorEntryDestination by remember {
+        mutableStateOf<P6CreatorEntryDestination?>(null)
+    }
     var quickCreateRequested by rememberSaveable { mutableStateOf(false) }
     var composerSession by rememberSaveable { mutableIntStateOf(0) }
     var composerDismissRequest by rememberSaveable { mutableIntStateOf(0) }
@@ -1354,7 +1359,18 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                     ) {
                         overlay = POverlay.NONE
                         tab = PTab.CREATE
-                        openComposer(quick = true)
+                        // Preserve the first-project composer intent, but wait
+                        // until the branded OS transition has finished.
+                        if (P6CreatorEntryPolicy.eligible(
+                                saveSucceeded = saved,
+                                setupComplete = settings.onboardingComplete,
+                                profileComplete = settings.creatorProfile.isComplete,
+                                hasExternalLaunch = externalLaunch != null,
+                            )) {
+                            creatorEntryDestination = P6CreatorEntryDestination.QUICK_PROJECT
+                        } else {
+                            openComposer(quick = true)
+                        }
                         true
                     } else false
                 },
@@ -1375,7 +1391,20 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onFinish = { profile ->
                     val saved = settingsStore.completeCreatorSetup(profile)
                     settings = settingsStore.snapshot()
-                    saved && settings.onboardingComplete && settings.creatorProfile.isComplete
+                    val completed = saved && settings.onboardingComplete &&
+                        settings.creatorProfile.isComplete
+                    // The older five-page setup has the same transition after
+                    // a verified save. Never replay merely on recomposition.
+                    if (P6CreatorEntryPolicy.eligible(
+                            saveSucceeded = saved,
+                            setupComplete = settings.onboardingComplete,
+                            profileComplete = settings.creatorProfile.isComplete,
+                            hasExternalLaunch = externalLaunch != null,
+                        )) {
+                        overlay = POverlay.NONE
+                        creatorEntryDestination = P6CreatorEntryDestination.TODAY
+                    }
+                    completed
                 },
             )
         }
@@ -1445,6 +1474,19 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 guidedTourStepName = null
             },
         )
+    }
+
+    // Compose the entry LAST, above the shell and all first-run panels.
+    // Its completion only removes this visual layer; no setup/account flags
+    // are rewritten and no guided onboarding is started here.
+    val entryToFinish = creatorEntryDestination
+    if (entryToFinish != null) {
+        P6CreatorEntryTransition(onFinished = {
+            creatorEntryDestination = null
+            if (entryToFinish == P6CreatorEntryDestination.QUICK_PROJECT) {
+                openComposer(quick = true)
+            }
+        })
     }
 }
 
