@@ -1,0 +1,6 @@
+# Backlot Lab R2 S6 — no-build public signer fingerprint diagnosis
+Date 2026-11-24. User explicitly requested why the owner-preview did not pass verification.
+Verified completed full-Lint owner-preview attempt: run 45352849659, Stage A separate Kotlin daemon compilation SUCCESS, Stage B personalStable build including lintVital SUCCESS, final package/manifest checks passed, certificate digest comparison FAILED with "STOP: incompatible preview signer" before verified owner artifact upload.
+No owner-preview artifact exists from that failed workflow; only diagnostics were uploaded.
+The app Gradle config pins both debug and personalStable to the same public prototype keystore alias. To differentiate actual signing incompatibility versus verifier parsing, inspect the already-built Android15-tested Stage5 Lab debug APK in artifact 14897628762 (run 45343275501) against that keystore on a disposable runner. This must NOT invoke Gradle, build a new APK, alter app source or imply that testing debug cert proves the unpublished personalStable cert.
+Preserve public certificate fingerprints and a comparison report. If comparison matches, S6 requires an exact verifier-script investigation; if not, investigate baseline signing identity before ever installing over owner's current Lab app.
