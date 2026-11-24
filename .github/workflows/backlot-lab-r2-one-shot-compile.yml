@@ -40,7 +40,7 @@ jobs:
             printf 'STOP: unexpected application diff.\nExpected:\n%s\nActual:\n%s\n' "$expected" "$changed" >&2
             exit 1
           fi
-          test "$(git rev-parse "$R2:app/src/main/java/com/framebynavin/app/cloud")" = "$(git rev-parse HEAD:app/src/main/java/com/framebynavin/app/cloud")"
+          git diff --quiet "$R2" HEAD -- app/src/main/java/com/framebynavin/app/cloud
           grep -Fq 'testTag("v404-settings-search")' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
           ! grep -Fq 'V336DirectorPalette' app/src/main/java/com/framebynavin/app/reminders/V407ReminderAlertReadiness.kt
           echo "PASS: frozen R2 baseline plus exactly two isolated Kotlin repair paths"
