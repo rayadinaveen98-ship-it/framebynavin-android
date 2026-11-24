@@ -1,0 +1,80 @@
+name: Backlot Lab S5 - One-File Kotlin Repair Verify
+
+# One on-demand repair QA pass, not a build on every source edit.
+on:
+  push:
+    branches:
+      - qa/backlot-lab-r2-stabilization-s5-kotlin-repair-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S5_KOTLIN_REPAIR_REQUEST_20261124.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-lab-r2-s5-kotlin-one-file-repair
+  cancel-in-progress: false
+
+jobs:
+  exact-repair-fence:
+    name: '01 - Confirm only broken icon function was repaired (no JVM)'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check frozen source and exactly one repair path
+        shell: bash
+        run: |
+          set -euo pipefail
+          BAD=b69df0db7f0b24ca9c4b504179693a628f22acf6
+          FIXED=379a3412ca84bf4fe70671fe14cec0bb56b0d316
+          PATH_FIXED=app/src/main/java/com/framebynavin/app/reminders/P10LivingReminderVisuals.kt
+          git cat-file -e "$BAD^{commit}"
+          git cat-file -e "$FIXED^{commit}"
+          git merge-base --is-ancestor "$BAD" HEAD
+          git merge-base --is-ancestor "$FIXED" HEAD
+          test "$(git rev-parse "$FIXED:app")" = "$(git rev-parse 'HEAD:app')"
+          test "$(git diff --name-only "$BAD" "$FIXED" -- app)" = "$PATH_FIXED"
+          test "$(git diff --numstat "$BAD" "$FIXED" -- "$PATH_FIXED" | awk '{print $1, $2}')" = "5 1"
+          grep -Fq 'drawCircle(color.copy(alpha = .54f), radius = r, center = Offset(x, y))' "$PATH_FIXED"
+          grep -Fq 'internal fun P10ReminderIdentityEmblem(' "$PATH_FIXED"
+          ! grep -Fq 'alpha = .5/**' "$PATH_FIXED"
+          echo 'PASS: only the missing motes statement/braces repaired; app tree exactly frozen'
+
+  compile-kotlin:
+    name: '02 - Targeted Lab Kotlin compile (no APK/test suite)'
+    needs: [exact-repair-fence]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile Lab Kotlin only
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/backlot-r2/stabilization-s5-repair
+          git rev-parse HEAD > output/backlot-r2/stabilization-s5-repair/qa-source-sha.txt
+          timeout --signal=TERM --kill-after=20s 5400s \
+            gradle :app:compileDebugKotlin -PbacklotLab=true \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-r2/stabilization-s5-repair/targeted-kotlin.log
+      - name: Preserve exact compiler outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S5-Single-File-Kotlin-Repair-Compile
+          path: output/backlot-r2/stabilization-s5-repair/
+          if-no-files-found: warn
+          retention-days: 14
