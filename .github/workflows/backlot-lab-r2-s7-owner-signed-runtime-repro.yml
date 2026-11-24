@@ -1,0 +1,110 @@
+name: Backlot Lab R2 S7 - Exact Owner APK Crash Reproduction
+
+# Founder reported signed personalStable APK crashes on opening.
+# No source changes, APK builds, cloud mutations or owner device data clears.
+on:
+  push:
+    branches:
+      - qa/backlot-lab-r2-s7-owner-apk-crash-repro-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S7_SIGNED_APK_CRASH_REPRO_REQUEST_20261124.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-lab-r2-s7-exact-signed-apk-runtime
+  cancel-in-progress: false
+
+jobs:
+  signed-asset-fence:
+    name: 01 - Preserve tested app source and verify EXACT signed owner artifact without Gradle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Forbid application changes; enforce original signed owner artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=379a3412ca84bf4fe70671fe14cec0bb56b0d316
+          git merge-base --is-ancestor "$base" HEAD
+          test "$(git rev-parse "$base:app")" = "$(git rev-parse HEAD:app)"
+          grep -Fq "pkg=com.framebynavin.app.lab" tools/qa/backlot_lab_r2_owner_crash_repro.sh
+          ! grep -Fq 'gradle ' tools/qa/backlot_lab_r2_owner_crash_repro.sh
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 45359117194
+          repository: rayadinaveen98-ship-it/framebynavin-android
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-Lab-R2-S6-Signer-Verified-Owner-Preview-APK
+          path: output/backlot-s7/owner-apk
+      - name: Cryptographic hash, package and existing preview signer check
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=output/backlot-s7/owner-apk/Backlot-Lab-R2-Stabilization-S6-Owner-Preview.apk
+          test -s "$apk"
+          echo '9f819619b88dc8eea44e38eb839302cd85d1a68a45257f4785a80c3d52f964b6  output/backlot-s7/owner-apk/Backlot-Lab-R2-Stabilization-S6-Owner-Preview.apk' | sha256sum -c -
+          aapt="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          signer="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$aapt"; test -x "$signer"
+          "$aapt" dump badging "$apk" | grep -F "package: name='com.framebynavin.app.lab' versionCode='337'"
+          "$signer" verify --verbose --print-certs "$apk" | tee output/backlot-s7/owner-apk/s7-signer.txt
+          grep -Fq 'V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0' output/backlot-s7/owner-apk/s7-signer.txt
+          echo 'PASS: exact signed personalStable owner APK, unchanged from founder crash report'
+
+  disposable-emulator:
+    name: 02 - Fresh and guest-state upgrade crash reproduction of exact owner APK
+    needs: [signed-asset-fence]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 45359117194
+          repository: rayadinaveen98-ship-it/framebynavin-android
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-Lab-R2-S6-Signer-Verified-Owner-Preview-APK
+          path: output/backlot-s7/owner-apk
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 45343275501
+          repository: rayadinaveen98-ship-it/framebynavin-android
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-Lab-S5-Repaired-Android15-Disposable-QA-APK-Pair
+          path: output/backlot-s7/previous-debug
+      - name: Verify signed file hash and that no original Backlot APK is installed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          sha256sum output/backlot-s7/owner-apk/*.apk
+          echo '9f819619b88dc8eea44e38eb839302cd85d1a68a45257f4785a80c3d52f964b6  output/backlot-s7/owner-apk/Backlot-Lab-R2-Stabilization-S6-Owner-Preview.apk' | sha256sum -c -
+          test -s output/backlot-s7/previous-debug/app-debug.apk
+          test -s output/backlot-s7/previous-debug/app-debug-androidTest.apk
+      - name: Reproduce actual signed APK launch (NO GRADLE)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_lab_r2_owner_crash_repro.sh
+      - name: Preserve fatal stack traces and actual device screen regardless of outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Exact-Signed-APK-Startup-Crash-Logs
+          path: output/backlot-s7/owner-apk-repro/
+          if-no-files-found: warn
+          retention-days: 21
