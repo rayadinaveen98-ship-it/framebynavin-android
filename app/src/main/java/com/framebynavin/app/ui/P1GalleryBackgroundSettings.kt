@@ -90,6 +90,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
     var mode by rememberSaveable { mutableStateOf(ReminderCheckInKind.VOICE) }
     val selectedMedia = remember(domain, revision) { P1EntranceMediaStore.selected(context, domain) }
     val family = remember(domain, revision) { P10ReminderFamilyStore.selected(context, domain) }
+    val iconStyle = remember(revision) { P10ReminderIconStyleStore.selected(context) }
     val backgroundSource = remember(domain, revision, selectedMedia?.file?.absolutePath) {
         P10ReminderBackgroundStore.selected(context, domain, selectedMedia != null)
     }
@@ -135,6 +136,13 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
             importing = false
         }
     }
+    fun useIconStyle(choice: P10ReminderIconStyle) {
+        val saved = P10ReminderIconStyleStore.select(context, choice)
+        if (saved) revision++
+        feedback = if (saved) "${choice.label} selected for all reminder spaces."
+            else "Could not save the reminder icon style. Try again."
+    }
+
     fun useGallery() {
         if (selectedMedia == null) return
         scope.launch {
@@ -216,7 +224,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
         // full-screen preview dialog. The one visible preview owns the player.
         if (!fullPreview) P1EntrancePreview(
             domain = domain, family = family, source = backgroundSource,
-            media = selectedMedia, frame = frame, kind = mode,
+            media = selectedMedia, frame = frame, kind = mode, iconStyle = iconStyle,
             modifier = Modifier.fillMaxWidth().height(230.dp),
         )
         Row(
@@ -233,6 +241,20 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                     )
                 }
             }
+        }
+        Text("REMINDER ICON STYLE", color = MutedGold, fontSize = 11.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+        Text("Choose one signature icon for Creator, Personal and 21-day Voice/Alarm. " +
+            "Changing icons never changes your background or gallery.",
+            color = MutedText, fontSize = 12.sp, lineHeight = 18.sp)
+        P10ReminderIconStyle.entries.forEach { choice ->
+            P10IconStyleChoiceCard(
+                choice = choice,
+                family = family,
+                selected = iconStyle == choice,
+                enabled = !importing,
+                onSelect = { useIconStyle(choice) },
+            )
         }
         OutlinedButton(
             onClick = { fullPreview = true }, modifier = Modifier.fillMaxWidth()
@@ -392,7 +414,7 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
         Box(Modifier.fillMaxSize().background(CinemaBlack)) {
             P1EntrancePreview(
                 domain = domain, family = family, source = backgroundSource,
-                media = selectedMedia, frame = frame, kind = mode,
+                media = selectedMedia, frame = frame, kind = mode, iconStyle = iconStyle,
                 modifier = Modifier.fillMaxSize().testTag("p1-full-preview"),
             )
             IconButton(onClick = { fullPreview = false },
@@ -403,6 +425,62 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                 color = Color.White, fontSize = 11.sp,
                 modifier = Modifier.align(Alignment.BottomCenter)
                     .navigationBarsPadding().padding(22.dp))
+        }
+    }
+}
+
+/**
+ * One global icon-style preference. The preview shows BOTH symbols, with no
+ * extra media decoders or looping animation per card.
+ */
+@Composable
+private fun P10IconStyleChoiceCard(
+    choice: P10ReminderIconStyle,
+    family: P10ReminderFamily,
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+) {
+    Surface(
+        onClick = onSelect,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 78.dp)
+            .testTag("p10-icon-style-" + choice.name),
+        shape = RoundedCornerShape(18.dp),
+        color = CinemaSurface,
+        border = BorderStroke(if (selected) 2.dp else 1.dp,
+            if (selected) RecRed else CinemaLine),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                P10PremiumReminderIcon(
+                    kind = ReminderCheckInKind.VOICE, family = family,
+                    style = choice, animated = false,
+                    modifier = Modifier.size(42.dp),
+                )
+                P10PremiumReminderIcon(
+                    kind = ReminderCheckInKind.ALARM, family = family,
+                    style = choice, animated = false,
+                    modifier = Modifier.size(42.dp),
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(choice.label, color = ProjectorIvory,
+                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(choice.description, color = MutedText,
+                    fontSize = 11.sp, lineHeight = 15.sp)
+            }
+            Icon(
+                if (selected) Icons.Outlined.CheckCircle else Icons.Outlined.ChevronRight,
+                if (selected) "Selected icon style" else null,
+                tint = if (selected) RecRed else MutedGold,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
@@ -442,6 +520,7 @@ private fun P10FamilyChoiceCard(
                 P10ReminderIdentityEmblem(
                     kind = ReminderCheckInKind.VOICE,
                     family = family, modifier = Modifier.size(36.dp),
+                    animate = false,
                 )
             }
             Column(Modifier.weight(1f)) {
@@ -475,6 +554,7 @@ private fun P1EntrancePreview(
     media: P1Media?,
     frame: P1MediaFraming,
     kind: ReminderCheckInKind,
+    iconStyle: P10ReminderIconStyle,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.clip(RoundedCornerShape(16.dp))
@@ -496,8 +576,9 @@ private fun P1EntrancePreview(
             }, fontSize = 10.sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold,
                 color = Color.White, textAlign = TextAlign.Center)
             P10ReminderIdentityEmblem(
-                kind = kind, family = family,
+                kind = kind, family = family, style = iconStyle,
                 modifier = Modifier.size(width = 170.dp, height = 135.dp),
+                animate = false,
             )
             Text("DOUBLE TAP TO OPEN", fontSize = 12.sp,
                 letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold,
