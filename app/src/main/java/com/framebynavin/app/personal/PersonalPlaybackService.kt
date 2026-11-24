@@ -23,6 +23,8 @@ import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.framebynavin.app.R
+import com.framebynavin.app.reminders.ReminderAlarmGainEnvelope
+import com.framebynavin.app.reminders.ReminderAlarmMixPolicy
 import com.framebynavin.app.reminders.ReminderBackingMusic
 import com.framebynavin.app.reminders.ReminderMusicChoice
 import java.lang.ref.WeakReference
@@ -46,6 +48,7 @@ internal class PersonalPlaybackService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
+    private val alarmGain = ReminderAlarmGainEnvelope { player }
     private val music = ReminderBackingMusic(this)
     private var tts: TextToSpeech? = null
     private var vibrator: Vibrator? = null
@@ -114,6 +117,16 @@ internal class PersonalPlaybackService : Service() {
             val verified = reminder ?: return@launch
             val maxDuration = PersonalPlaybackPolicy.maximumPlaybackMillis(verified)
             acquireShortWakeLock(maxDuration)
+            if (verified.alert == PersonalAlert.ALARM) {
+                // Begin a natural fade INSIDE the existing timeout, never
+                // delaying durable reminder actions or the retry decision.
+                handler.postDelayed({
+                    if (generation == admittedGeneration &&
+                        runCatching { player?.isPlaying == true }.getOrDefault(false)
+                    ) alarmGain.beginNaturalTimeoutFade()
+                }, (maxDuration - ReminderAlarmMixPolicy.NATURAL_TIMEOUT_FADE_MILLIS)
+                    .coerceAtLeast(0L))
+            }
             handler.postDelayed({
                 if (generation == admittedGeneration) {
                     val normalAlarmTimeout = verified.alert == PersonalAlert.ALARM &&
@@ -166,6 +179,7 @@ internal class PersonalPlaybackService : Service() {
         if (alarm == null) { endPlayback(); return }
         val media = MediaPlayer()
         player = media
+        alarmGain.resetForNewAlarm()
         try {
             media.setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
@@ -317,6 +331,7 @@ internal class PersonalPlaybackService : Service() {
 
     private fun stopHardware() {
         handler.removeCallbacksAndMessages(null)
+        alarmGain.stop() // Immediate Done/Snooze/replacement, no fade delay.
         music.stop()
         runCatching { player?.stop() }
         runCatching { player?.release() }
