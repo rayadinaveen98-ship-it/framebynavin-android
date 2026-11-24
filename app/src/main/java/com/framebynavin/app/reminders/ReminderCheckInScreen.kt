@@ -140,10 +140,15 @@ internal fun ReminderCheckInScreen(
     // Preserve V337 Creator's over-keyguard response availability; custom
     // gallery imagery remains locked behind the existing P1 privacy gate.
     val owner = LocalLifecycleOwner.current
-    var keyguardLocked by remember { mutableStateOf(true) }
+    // Resolve initial keyguard state synchronously before first composition,
+    // avoiding an unnecessary gallery -> fallback -> gallery flash while unlocked.
+    var keyguardLocked by remember(context) {
+        val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        mutableStateOf(keyguard?.isKeyguardLocked != false)
+    }
     DisposableEffect(owner, context) {
         val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        fun refresh() { keyguardLocked = keyguard?.isKeyguardLocked == true }
+        fun refresh() { keyguardLocked = keyguard?.isKeyguardLocked != false }
         refresh()
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
