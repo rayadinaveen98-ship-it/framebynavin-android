@@ -613,9 +613,10 @@ private fun V144SettingsHome(
                         )
                     }
                 }
-            }
-            }
-        }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+        )
         Spacer(Modifier.height(14.dp))
         // One calm, accessible list instead of eight competing feature cards.
         if (searchText.isBlank()) {
@@ -652,10 +653,13 @@ private fun V144SettingsHome(
                 V294QuietSettingRow("Help & about", Icons.Outlined.Info) {
                     onOpen(V167SettingsSection.ABOUT)
                 }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-        )
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Advanced", Icons.Outlined.Tune) {
+                    onOpen(V167SettingsSection.ADVANCED)
+                }
+            }
+        }
+        }
         Spacer(Modifier.height(14.dp))
 
         if (searchText.isNotBlank()) {
