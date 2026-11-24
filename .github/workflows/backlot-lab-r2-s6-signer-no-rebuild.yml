@@ -1,0 +1,63 @@
+name: Backlot Lab R2 S6 - Certificate Compare Without Rebuild
+
+# Explicit diagnostic; prebuilt verified Stage5 artifact, no Kotlin/Gradle.
+on:
+  push:
+    branches:
+      - qa/backlot-lab-r2-s6-signer-diagnostic-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S6_SIGNER_DIAGNOSTIC_TRIGGER_20261124.md
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect-established-signer:
+    name: 'Compare artifact signer and prototype keystore (no Gradle)'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download existing Android15-tested Lab debug APK (no build)
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 45343275501
+          repository: rayadinaveen98-ship-it/framebynavin-android
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-Lab-S5-Repaired-Android15-Disposable-QA-APK-Pair
+          path: output/backlot-signer/existing-apks
+      - name: Inspect public certificate fingerprints and APK package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/backlot-signer/diagnostics
+          apk=output/backlot-signer/existing-apks/app-debug.apk
+          test -s "$apk"
+          test -s dev-signing/framebynavin-public-debug.jks
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          aapt="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$apksigner"; test -x "$aapt"
+          "$apksigner" verify --verbose --print-certs "$apk" | tee output/backlot-signer/diagnostics/apksigner.txt
+          "$aapt" dump badging "$apk" | head -n 6 | tee output/backlot-signer/diagnostics/identity.txt
+          grep -Fq "package: name='com.framebynavin.app.lab' versionCode='337'" output/backlot-signer/diagnostics/identity.txt
+          expected="$(keytool -exportcert -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev 2>/dev/null | sha256sum | awk '{print $1}')"
+          actual="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' output/backlot-signer/diagnostics/apksigner.txt | head -1)"
+          echo "Expected certificate SHA256 (public): $expected" | tee output/backlot-signer/diagnostics/comparison.txt
+          echo "Actual signed APK certificate SHA256 (public): $actual" | tee -a output/backlot-signer/diagnostics/comparison.txt
+          if [[ -z "$actual" ]]; then
+            echo 'DIAGNOSIS: Signer digest parser did not find expected text; inspect apksigner.txt' | tee -a output/backlot-signer/diagnostics/comparison.txt
+          elif [[ "$expected" != "$actual" ]]; then
+            echo 'DIAGNOSIS: Existing signed Stage5 Lab debug APK certificate differs from configured public prototype keystore' | tee -a output/backlot-signer/diagnostics/comparison.txt
+          else
+            echo 'PASS: Existing signed Stage5 Lab APK matches configured public prototype keystore; S6-specific verifier/package needs independent inspection' | tee -a output/backlot-signer/diagnostics/comparison.txt
+          fi
+          sha256sum "$apk" | tee output/backlot-signer/diagnostics/existing-apk-hash.txt
+      - name: Preserve comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S6-Existing-APK-Signer-Diagnostics-No-Rebuild
+          path: output/backlot-signer/diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
