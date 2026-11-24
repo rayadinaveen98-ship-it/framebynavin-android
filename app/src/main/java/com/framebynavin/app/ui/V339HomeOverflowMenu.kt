@@ -4,10 +4,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Close
@@ -118,12 +121,34 @@ internal fun V339HomeOverflowMenu(
             border = BacklotUX10Tokens.quietBorder(CinemaLine),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Image(
-                    painter = painterResource(v144GuideDrawable(selectedGuide, CinePulseState.WAVE)),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(40.dp),
-                )
+                // Existing full-body companion artwork, viewed through a
+                // non-distorting FACE crop. The 48dp menu target, badge and
+                // every pre-existing dropdown action remain untouched.
+                val framing = when (selectedGuide) {
+                    V144GuideIdentity.MIRA -> 2.32f to .46f
+                    V144GuideIdentity.FUNNY -> 2.36f to .48f
+                    else -> 2.25f to .44f
+                }
+                Box(
+                    modifier = Modifier.size(43.dp).clip(CircleShape)
+                        .testTag("p10q-home-face-portrait"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(
+                            v144GuideDrawable(selectedGuide, CinePulseState.WAVE)),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().graphicsLayer {
+                            // Uniform scale: never stretch the companion's face.
+                            // Favor the upper portion of the original full-body
+                            // art while clipping the lower body to the circle.
+                            scaleX = framing.first
+                            scaleY = framing.first
+                            translationY = size.height * framing.second
+                        },
+                    )
+                }
                 if (!expanded && collapsedIndicator != null) {
                     Box(
                         Modifier.align(Alignment.TopEnd)
