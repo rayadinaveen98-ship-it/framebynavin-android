@@ -103,7 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           line='V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
-          got="$(printf '%s\\n' "$line" | sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\\2/p')"
+          got="$(printf '%s\n' "$line" | sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\2/p')"
           test "$got" = f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
           echo 'PASS: signer parser accepts proven Android v2 tool output'
       - name: Verify non-debuggable Lab package, established preview signer and hash
@@ -131,7 +131,7 @@ jobs:
           # apksigner v35/v36 writes "V2 Signer: certificate SHA-256 digest:"
           # rather than the old "Signer #1 certificate SHA-256 digest:".
           # Parse BOTH documented output families and REQUIRE a full 64-hex value.
-          actual="$(sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\\2/p' "$out/signer.txt" | head -1)"
+          actual="$(sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\2/p' "$out/signer.txt" | head -1)"
           test -n "$expected"
           if [[ ! "$actual" =~ ^[a-fA-F0-9]{64}$ ]]; then
             echo 'STOP: could not parse an APK certificate SHA-256 digest' >&2
