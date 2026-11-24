@@ -46,6 +46,7 @@ class AlarmRingingService : Service() {
     private val alarmGain = ReminderAlarmGainEnvelope { player }
     private var vibrator: Vibrator? = null
     private var tts: TextToSpeech? = null
+    private var voiceEpoch = 0
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private var currentTask: CreatorTask? = null
@@ -277,6 +278,7 @@ class AlarmRingingService : Service() {
 
     private fun startVoice(task: CreatorTask) {
         val token = currentToken
+        val voiceVersion = ++voiceEpoch
         val creatorName = VoiceCreatorNameResolver.resolve(applicationContext)
         val urgency = when (task.priority) {
             TaskPriority.NORMAL -> "reminder"
@@ -294,35 +296,39 @@ class AlarmRingingService : Service() {
         val speechText = VoiceGreetingBuilder.spokenReminder(creatorName, reminderBody)
         tts?.shutdown()
         tts = TextToSpeech(this) { status ->
-            if (!isCurrent(task.id, token)) return@TextToSpeech
-            if (status == TextToSpeech.SUCCESS) {
-                val engine = tts ?: return@TextToSpeech
+            // TTS initialization can complete off-main and AFTER a new alarm
+            // has replaced this one. Keep MediaPlayer and its gain on main.
+            handler.post {
+                if (!isCurrent(task.id, token) || voiceVersion != voiceEpoch) return@post
+                if (status != TextToSpeech.SUCCESS) return@post
+                val engine = tts ?: return@post
                 engine.language = Locale.getDefault()
                 VoicePersonaEngine.apply(engine, task.voicePersona)
-                val utteranceId = "framebynavin-${task.id}-${token.hashCode()}"
+                val utteranceId = "framebynavin-${task.id}-${token.hashCode()}-$voiceVersion"
                 engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(id: String?) = Unit
                     override fun onDone(id: String?) {
                         if (id != utteranceId) return
                         handler.post {
-                            if (isCurrent(task.id, token)) alarmGain.setSpeechActive(false)
+                            if (isCurrent(task.id, token) && voiceVersion == voiceEpoch)
+                                alarmGain.setSpeechActive(false)
                         }
                     }
                     @Deprecated("Required for Android TextToSpeech callbacks")
                     override fun onError(id: String?) {
                         if (id != utteranceId) return
                         handler.post {
-                            if (isCurrent(task.id, token)) alarmGain.setSpeechActive(false)
+                            if (isCurrent(task.id, token) && voiceVersion == voiceEpoch)
+                                alarmGain.setSpeechActive(false)
                         }
                     }
                 })
-                // Duck the in-app alarm tone before TTS. Never change the
-                // device's system alarm/media stream volume or vibration.
+                // Speech begins with the alarm already ducked. No change to
+                // system STREAM_ALARM, vibrator, or any scheduled occurrence.
                 alarmGain.setSpeechActive(true)
-                val spoken = engine.speak(
-                    speechText, TextToSpeech.QUEUE_FLUSH, null, utteranceId,
-                )
-                if (spoken != TextToSpeech.SUCCESS)
+                val result = engine.speak(
+                    speechText, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+                if (result != TextToSpeech.SUCCESS)
                     alarmGain.setSpeechActive(false)
             }
         }
@@ -337,6 +343,7 @@ class AlarmRingingService : Service() {
     }
 
     private fun stopAlertHardware() {
+        ++voiceEpoch
         alarmGain.stop() // cancels fades immediately for Done/Snooze/replacement
         runCatching { player?.stop() }
         player?.release()
