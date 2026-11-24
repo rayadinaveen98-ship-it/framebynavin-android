@@ -22,6 +22,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.core.app.NotificationCompat
 import com.framebynavin.app.ui.V390CompanionNotificationArt
 import androidx.core.content.ContextCompat
@@ -42,6 +43,7 @@ import java.util.Locale
 
 class AlarmRingingService : Service() {
     private var player: MediaPlayer? = null
+    private val alarmGain = ReminderAlarmGainEnvelope { player }
     private var vibrator: Vibrator? = null
     private var tts: TextToSpeech? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -97,6 +99,13 @@ class AlarmRingingService : Service() {
         runCatching { ReminderAcknowledgementStore(applicationContext).markAlarmActive(task.id, token) }
 
         val timeoutMillis = V178PlaybackLifecyclePolicy.alarmDurationMillis(task)
+        // Use the final part of the EXISTING duration for a natural fade.
+        // Never extend sound, vibration or the user's response/action time.
+        handler.postDelayed({
+            if (isCurrent(task.id, token))
+                alarmGain.beginNaturalTimeoutFade()
+        }, (timeoutMillis - ReminderAlarmMixPolicy.NATURAL_TIMEOUT_FADE_MILLIS)
+            .coerceAtLeast(0L))
         handler.postDelayed({
             if (!isCurrent(task.id, token)) return@postDelayed
             val endingTask = currentTask
@@ -229,6 +238,7 @@ class AlarmRingingService : Service() {
         val chosen = task.alarmSoundUri.takeIf { it.isNotBlank() }?.let { runCatching { Uri.parse(it) }.getOrNull() }
         val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         player = createLoopingPlayer(chosen ?: defaultUri) ?: createLoopingPlayer(defaultUri)
+        alarmGain.resetForNewAlarm()
         player?.start()
     }
 
@@ -289,12 +299,31 @@ class AlarmRingingService : Service() {
                 val engine = tts ?: return@TextToSpeech
                 engine.language = Locale.getDefault()
                 VoicePersonaEngine.apply(engine, task.voicePersona)
-                engine.speak(
-                    speechText,
-                    TextToSpeech.QUEUE_FLUSH,
-                    null,
-                    "framebynavin-${task.id}-${token.hashCode()}",
+                val utteranceId = "framebynavin-${task.id}-${token.hashCode()}"
+                engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(id: String?) = Unit
+                    override fun onDone(id: String?) {
+                        if (id != utteranceId) return
+                        handler.post {
+                            if (isCurrent(task.id, token)) alarmGain.setSpeechActive(false)
+                        }
+                    }
+                    @Deprecated("Required for Android TextToSpeech callbacks")
+                    override fun onError(id: String?) {
+                        if (id != utteranceId) return
+                        handler.post {
+                            if (isCurrent(task.id, token)) alarmGain.setSpeechActive(false)
+                        }
+                    }
+                })
+                // Duck the in-app alarm tone before TTS. Never change the
+                // device's system alarm/media stream volume or vibration.
+                alarmGain.setSpeechActive(true)
+                val spoken = engine.speak(
+                    speechText, TextToSpeech.QUEUE_FLUSH, null, utteranceId,
                 )
+                if (spoken != TextToSpeech.SUCCESS)
+                    alarmGain.setSpeechActive(false)
             }
         }
     }
@@ -308,6 +337,7 @@ class AlarmRingingService : Service() {
     }
 
     private fun stopAlertHardware() {
+        alarmGain.stop() // cancels fades immediately for Done/Snooze/replacement
         runCatching { player?.stop() }
         player?.release()
         player = null
