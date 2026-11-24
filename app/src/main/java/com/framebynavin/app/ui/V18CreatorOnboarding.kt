@@ -1,6 +1,7 @@
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 package com.framebynavin.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,8 +46,12 @@ internal fun V18CreatorOnboarding(
     onFullScreen: () -> Unit,
     onBattery: () -> Unit,
     onFinish: (CreatorProfile) -> Boolean,
+    onClose: (() -> Unit)? = null, // Only non-destructive returning-user setup review
 ) {
     var page by rememberSaveable { mutableIntStateOf(0) }
+    // A deliberate returning-user review can be cancelled without saving or
+    // clearing onboarding/account flags. New-user setup cannot be dismissed.
+    if (onClose != null) BackHandler { if (page > 0) page-- else onClose() }
     var isSaving by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
     var primaryMode by rememberSaveable(profile.resolvedPrimaryCreatorMode) {
@@ -96,6 +102,15 @@ internal fun V18CreatorOnboarding(
                 Column(Modifier.weight(1f)) {
                     Text("Backlot · Built for Creators", color = MutedGold, fontSize = BacklotUX10Tokens.eyebrow, letterSpacing = .5.sp, fontWeight = FontWeight.Bold)
                     Text("Tell us what you make", color = ProjectorIvory, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+                if (onClose != null) {
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier.size(48.dp).testTag("p10q-close-creator-setup-review"),
+                    ) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Close creator setup review",
+                            tint = ProjectorIvory)
+                    }
                 }
                 Text("${page + 1}/5", color = MutedText, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
