@@ -259,7 +259,11 @@ private fun DrawScope.drawP10DepthMotes(t: Float, tuning: P10MotionTuning, p: P1
         val color = if (i % 3 == 0) p.warm else p.secondary
         val r = (1.4f + (i % 4) * .62f) * density
         drawCircle(color.copy(alpha = .13f), radius = r * 3.6f, center = Offset(x, y))
-        drawCircle(color.copy(alpha = .5/**
+        drawCircle(color.copy(alpha = .54f), radius = r, center = Offset(x, y))
+    }
+}
+
+/**
  * Shared live icon entrance point for all three reminder domains.
  * This is presentation only; the selected visual cannot affect delivery.
  * Preview callers may specify a style and disable animation.
