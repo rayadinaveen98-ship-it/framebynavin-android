@@ -122,8 +122,12 @@ internal object P10ReminderBackgroundPolicy {
         source: P10ReminderBackgroundSource,
         galleryAvailable: Boolean,
         locked: Boolean,
+        scope: P1ReminderScope = P1ReminderScope.PERSONAL,
+        creatorLockScreenOptIn: Boolean = false,
     ): Boolean = source == P10ReminderBackgroundSource.GALLERY &&
-        galleryAvailable && !locked
+        galleryAvailable && P10CreatorLockScreenMediaPolicy.allowed(
+            scope = scope, locked = locked, ownerOptedIn = creatorLockScreenOptIn,
+        )
 }
 
 internal object P10ReminderBackgroundStore {
