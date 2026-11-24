@@ -34,10 +34,10 @@ jobs:
           git cat-file -e "$R2^{commit}"
           git merge-base --is-ancestor "$R2" HEAD
           # Exactly two diagnosed compiler repairs; no other R2 application changes.
-          expected=$(printf '%s\\n' 'app/src/main/java/com/framebynavin/app/reminders/V407ReminderAlertReadiness.kt' 'app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt' | sort)
+          expected=$(printf '%s\n' 'app/src/main/java/com/framebynavin/app/reminders/V407ReminderAlertReadiness.kt' 'app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt' | sort)
           changed=$(git diff --name-only "$R2" HEAD -- app | sort)
           if test "$changed" != "$expected"; then
-            printf 'STOP: unexpected application diff.\\nExpected:\\n%s\\nActual:\\n%s\\n' "$expected" "$changed" >&2
+            printf 'STOP: unexpected application diff.\nExpected:\n%s\nActual:\n%s\n' "$expected" "$changed" >&2
             exit 1
           fi
           test "$(git rev-parse "$R2:app/src/main/java/com/framebynavin/app/cloud")" = "$(git rev-parse HEAD:app/src/main/java/com/framebynavin/app/cloud")"
