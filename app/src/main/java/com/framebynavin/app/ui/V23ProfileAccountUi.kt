@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,7 +32,7 @@ import java.util.Locale
 internal fun V23ProfileAccountScreen(
     creatorProfile: CreatorProfile,
     onClose: () -> Unit,
-    onEditCreatorSetup: () -> Unit, // retained only for older call-site compatibility
+    onEditCreatorSetup: () -> Unit, // deliberate original five-page setup review
     onOpenYouTube: () -> Unit,
     onSaveCreatorProfile: (CreatorProfile) -> Boolean = { false },
 ) {
@@ -149,6 +150,27 @@ internal fun V23ProfileAccountScreen(
                 Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("EDIT CREATOR DETAILS", color = ProjectorIvory, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(10.dp))
+            // The same original five steps are available for a voluntary
+            // review. The account choice, companion gate and onboarding flags
+            // are NOT reset, and existing project/reminder data is untouched.
+            OutlinedButton(
+                onClick = onEditCreatorSetup,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                    .testTag("p10q-review-five-page-creator-setup"),
+                shape = RoundedCornerShape(15.dp),
+                border = BorderStroke(1.dp, MutedGold.copy(alpha = .48f)),
+            ) {
+                Icon(Icons.Outlined.AutoAwesome, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("REVISIT 5-PAGE CREATOR SETUP", color = ProjectorIvory,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Review your answers; only Finish saves changes",
+                        color = MutedText, fontSize = 10.sp)
+                }
+                Icon(Icons.Outlined.ChevronRight, null, modifier = Modifier.size(19.dp))
             }
 
             Spacer(Modifier.height(24.dp))
