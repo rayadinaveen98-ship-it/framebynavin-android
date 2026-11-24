@@ -96,7 +96,7 @@ import java.util.Calendar
 import java.util.Locale
 
 internal enum class PTab { TODAY, IDEAS, CREATE, CALENDAR, INSIGHTS }
-private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_PROGRESS, PROGRESS_JOURNEY }
+private enum class POverlay { NONE, WEEK, RELEASE, DAILY_BRIEF, CALENDAR, AUTOMATION, SETTINGS, PROFILE, CREATOR_SETUP, CREATOR_PROGRESS, PROGRESS_JOURNEY }
 
 /** In-memory only: a restored Activity cannot auto-confirm an earlier stage. */
 private data class CW5PendingStageApproval(
@@ -221,6 +221,7 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
     }
     fun leaveOverlay() {
         when (overlay) {
+            POverlay.CREATOR_SETUP -> overlay = POverlay.PROFILE
             POverlay.PROFILE -> overlay = if (v402ProfileFromHome) POverlay.NONE else POverlay.SETTINGS
             POverlay.SETTINGS -> {
                 overlay = POverlay.NONE
@@ -919,11 +920,40 @@ fun FrameByNavinV101BApp(vm: CreatorViewModel = viewModel(), externalLaunch: Cre
                 onClose = {
                     overlay = if (v402ProfileFromHome) POverlay.NONE else POverlay.SETTINGS
                 },
-                onEditCreatorSetup = {}, // profile changes no longer re-enter onboarding
+                onEditCreatorSetup = {
+                    // Only a deliberate Profile action opens a REVIEW copy of
+                    // the original five-page setup. First-run flags are untouched.
+                    if (settings.onboardingComplete && settings.creatorProfile.isComplete) {
+                        overlay = POverlay.CREATOR_SETUP
+                    }
+                },
                 onOpenYouTube = { overlay = POverlay.NONE; tab = PTab.INSIGHTS },
                 onSaveCreatorProfile = { revised ->
                     val saved = settingsStore.saveCreatorProfileEdits(revised)
                     if (saved) settings = settingsStore.snapshot()
+                    saved
+                },
+            )
+            POverlay.CREATOR_SETUP -> V18CreatorOnboarding(
+                profile = settings.creatorProfile,
+                notificationsReady = permissions.notifications,
+                preciseTimingReady = permissions.preciseTiming,
+                fullScreenReady = permissions.fullScreen,
+                batteryReady = permissions.batteryAccess,
+                onNotifications = ::requestNotifications,
+                onPreciseTiming = ::requestPreciseTiming,
+                onFullScreen = ::requestFullScreen,
+                onBattery = ::openBatterySettings,
+                onClose = { overlay = POverlay.PROFILE },
+                onFinish = { revised ->
+                    // This is NOT first-run onboarding. Save only updated
+                    // Creator profile fields. No account/setup flags, welcome
+                    // transition, project/reminder migration or cloud action.
+                    val saved = settingsStore.saveCreatorProfileEdits(revised)
+                    if (saved) {
+                        settings = settingsStore.snapshot()
+                        overlay = POverlay.PROFILE
+                    }
                     saved
                 },
             )
