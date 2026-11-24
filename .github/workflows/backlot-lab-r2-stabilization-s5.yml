@@ -33,7 +33,7 @@ jobs:
           git cat-file -e "$FROZEN^{commit}"
           git merge-base --is-ancestor "$BASE" HEAD
           git merge-base --is-ancestor "$FROZEN" HEAD
-          test "$(git rev-parse "$FROZEN^{tree}:app")" = "$(git rev-parse 'HEAD^{tree}:app')"
+          test "$(git rev-parse "$FROZEN:app")" = "$(git rev-parse 'HEAD:app')"
           test "$(git diff --name-only "$FROZEN" HEAD -- app | wc -l | tr -d ' ')" = 0
           test -z "$(git diff --name-only "$BASE" "$FROZEN" -- app/src/main/java/com/framebynavin/app/cloud app/src/main/java/com/framebynavin/app/data app/src/main/AndroidManifest.xml app/build.gradle.kts)"
           for f in \
