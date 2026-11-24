@@ -16,6 +16,11 @@ import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
  */
 object CreatorAppCheck {
     fun install(context: Context) {
+        // The Lab package deliberately has no Firebase google-services.json;
+        // it authenticates through isolated Supabase, not Firebase App Check.
+        // Match the already-tested debug source-set behavior exactly.
+        if (BuildConfig.BACKLOT_LAB) return
+
         FirebaseApp.initializeApp(context.applicationContext)
         FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
             DebugAppCheckProviderFactory.getInstance(),
