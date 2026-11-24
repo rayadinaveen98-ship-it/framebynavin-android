@@ -1,0 +1,170 @@
+name: Backlot Lab R2 S6 - Corrected Signer Verified Owner Preview
+
+# Deliberate one-marker QA preview. NEVER an automatic release/promotion.
+on:
+  push:
+    branches:
+      - qa/backlot-lab-r2-s6-signer-parser-repair-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S6_SIGNER_PARSER_REPAIR_REQUEST_20261124.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-r2-s6-signer-parser-repair
+  cancel-in-progress: false
+
+jobs:
+  fixed-source-and-lab-identity:
+    name: '01 - Exact repaired/Android15-tested Lab source fence (no JVM)'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify tested application source, privacy and Lab signer contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          FIXED=379a3412ca84bf4fe70671fe14cec0bb56b0d316
+          ORIGINAL=64ced7c21f0de30c82926505985d81ddcaf5a5f3
+          git cat-file -e "$FIXED^{commit}"
+          git merge-base --is-ancestor "$ORIGINAL" HEAD
+          git merge-base --is-ancestor "$FIXED" HEAD
+          test "$(git rev-parse "$FIXED:app")" = "$(git rev-parse 'HEAD:app')"
+          test -z "$(git diff --name-only "$ORIGINAL" "$FIXED" -- app/src/main/java/com/framebynavin/app/cloud app/src/main/AndroidManifest.xml app/build.gradle.kts)"
+          grep -Fq 'applicationId = if (backlotLabMode) "com.framebynavin.app.lab"' app/build.gradle.kts
+          grep -Fq 'versionCode = 337' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          grep -Fq 'isDebuggable = false' app/build.gradle.kts
+          grep -Fq 'signingConfig = signingConfigs.getByName("prototypeStable")' app/build.gradle.kts
+          test -s dev-signing/framebynavin-public-debug.jks
+          test -s tools/qa/backlot_lab_r2_android15_navigation.sh
+          grep -Fq 'BuildConfig.BACKLOT_LAB' app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt
+          echo "PASS: byte-identical Android15-tested repaired Lab application tree and preview signer contract"
+
+  verified-owner-preview:
+    name: '02 - One non-debuggable Lab personalStable APK with FULL Lint enabled'
+    needs: [fixed-source-and-lab-identity]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 135
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Print available runner memory without disclosing secrets
+        shell: bash
+        run: |
+          free -h
+          echo "Source application SHA: 379a3412ca84bf4fe70671fe14cec0bb56b0d316"
+      - name: Stage A - Compile ONLY personalStable Kotlin with proven separate daemon
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/backlot-s6/owner-preview
+          git rev-parse HEAD > output/backlot-s6/owner-preview/qa-source-sha.txt
+          printf '%s\n' 379a3412ca84bf4fe70671fe14cec0bb56b0d316 > output/backlot-s6/owner-preview/app-source-sha.txt
+          # The first S6 experiment forced Kotlin in-process and exhausted its
+          # Gradle heap. Restore the previously successful separate Kotlin JVM.
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:compilePersonalStableKotlin -PbacklotLab=true \
+              '-Pkotlin.compiler.execution.strategy=daemon' \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-s6/owner-preview/compile-personalStable-separate-daemon.log
+      - name: Stage B - Reuse compilation, finish personalStable with vital Lint ON
+        shell: bash
+        env:
+          LINT_PRINT_STACKTRACE: 'true'
+        run: |
+          set -o pipefail
+          # Kotlin compilation artifacts and Gradle task history are preserved
+          # on this SAME worker. Gradle will naturally skip up-to-date sources.
+          # Keep Lint enabled; its previously failing Gradle heap is now 6 GiB.
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:assemblePersonalStable -PbacklotLab=true \
+              '-Pkotlin.compiler.execution.strategy=daemon' \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-s6/owner-preview/build-with-lint.log
+      - name: Validate robust signer parser against previously observed apksigner output
+        shell: bash
+        run: |
+          set -euo pipefail
+          line='V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
+          got="$(printf '%s\\n' "$line" | sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\\2/p')"
+          test "$got" = f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
+          echo 'PASS: signer parser accepts proven Android v2 tool output'
+      - name: Verify non-debuggable Lab package, established preview signer and hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=output/backlot-s6/owner-preview
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          aapt_tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          signer_tool="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$aapt_tool"
+          test -x "$signer_tool"
+          "$signer_tool" verify --verbose --print-certs "$apk" > "$out/signer.txt"
+          "$aapt_tool" dump badging "$apk" > "$out/identity.txt"
+          grep -Fq "package: name='com.framebynavin.app.lab' versionCode='337'" "$out/identity.txt"
+          grep -Fq "application-label:'Backlot Lab'" "$out/identity.txt"
+          "$aapt_tool" dump xmltree "$apk" AndroidManifest.xml > "$out/manifest-xmltree.txt"
+          debuggable="$(grep -F 'android:debuggable' "$out/manifest-xmltree.txt" || true)"
+          if printf '%s\n' "$debuggable" | grep -Eq '0xffffffff|0x1([[:space:]]|$)'; then
+            echo 'STOP: debug-enabled APK cannot pass preview gate' >&2
+            exit 1
+          fi
+          expected="$(keytool -exportcert -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev 2>/dev/null | sha256sum | awk '{print $1}')"
+          # apksigner v35/v36 writes "V2 Signer: certificate SHA-256 digest:"
+          # rather than the old "Signer #1 certificate SHA-256 digest:".
+          # Parse BOTH documented output families and REQUIRE a full 64-hex value.
+          actual="$(sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\\2/p' "$out/signer.txt" | head -1)"
+          test -n "$expected"
+          if [[ ! "$actual" =~ ^[a-fA-F0-9]{64}$ ]]; then
+            echo 'STOP: could not parse an APK certificate SHA-256 digest' >&2
+            exit 1
+          fi
+          grep -Fq 'Number of signers: 1' "$out/signer.txt"
+          test "${expected,,}" = "${actual,,}" || { echo 'STOP: real incompatible preview signer' >&2; exit 1; }
+          cp "$apk" "$out/Backlot-Lab-R2-Stabilization-S6-Owner-Preview.apk"
+          sha256sum "$out/Backlot-Lab-R2-Stabilization-S6-Owner-Preview.apk" | tee "$out/apk-sha256.txt"
+          printf 'Verified: non-debuggable Lab owner preview, versionCode 337, same established public preview signer, NOT a Play release\n' > "$out/preview-status.txt"
+          echo 'PASS: APK verified; owner physical testing still required'
+      - name: Publish preview ONLY after signer/manifest/hash verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S6-Signer-Verified-Owner-Preview-APK
+          path: |
+            output/backlot-s6/owner-preview/Backlot-Lab-R2-Stabilization-S6-Owner-Preview.apk
+            output/backlot-s6/owner-preview/apk-sha256.txt
+            output/backlot-s6/owner-preview/identity.txt
+            output/backlot-s6/owner-preview/signer.txt
+            output/backlot-s6/owner-preview/preview-status.txt
+            output/backlot-s6/owner-preview/app-source-sha.txt
+          if-no-files-found: error
+          retention-days: 21
+      - name: Preserve Lint/build/manifest diagnostics on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S6-Signer-Repair-Diagnostics
+          path: |
+            output/backlot-s6/owner-preview/compile-personalStable-separate-daemon.log
+            output/backlot-s6/owner-preview/build-with-lint.log
+            output/backlot-s6/owner-preview/manifest-xmltree.txt
+            app/build/reports/lint-results-personalStable.*
+          if-no-files-found: warn
+          retention-days: 21
