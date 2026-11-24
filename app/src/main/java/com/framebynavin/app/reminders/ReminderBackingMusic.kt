@@ -78,17 +78,53 @@ internal class ReminderBackingMusic(private val context: Context) {
     fun setSpeaking(active: Boolean) {
         speaking = active
         if (active) hasSpoken = true
-        val to = ReminderMusicMixPolicy.level(active, hasSpoken)
-        val from = currentGain
+        // Speech may start as soon as speak() returns, so duck synchronously
+        // BEFORE calling TTS. Recovery is gradual to avoid a sudden music jump.
+        cancelGainEvents()
+        val target = ReminderMusicMixPolicy.level(active, hasSpoken)
+        if (active) applyGain(target)
+        else rampTo(target, ReminderMusicMixPolicy.FADE_MILLIS)
+    }
+
+    /**
+     * End naturally INSIDE an existing service-owned music tail. No lease,
+     * foreground service, user action or completion receipt is extended.
+     * Repeated TTS/new reminders cancel this via setSpeaking/start/stop.
+     */
+    fun beginNaturalEnding(existingTailMillis: Long) {
+        if (speaking) return
+        val sequence = ++fadeGeneration
+        volumeHandler.removeCallbacksAndMessages(null)
+        volumeHandler.postDelayed({
+            if (sequence == fadeGeneration && !speaking) {
+                rampTo(0f, minOf(ReminderMusicMixPolicy.FINAL_FADE_MILLIS,
+                    existingTailMillis.coerceAtLeast(0L)))
+            }
+        }, ReminderMusicMixPolicy.tailFadeDelay(existingTailMillis))
+    }
+
+    private fun cancelGainEvents() {
+        ++fadeGeneration
+        volumeHandler.removeCallbacksAndMessages(null)
+    }
+
+    private fun rampTo(target: Float, durationMillis: Long) {
         val generation = ++fadeGeneration
         volumeHandler.removeCallbacksAndMessages(null)
-        val steps = 7
+        val from = currentGain
+        val to = target.coerceIn(0f, 1f)
+        if (durationMillis <= 0L) {
+            applyGain(to)
+            return
+        }
+        val steps = 10
         for (step in 1..steps) {
             volumeHandler.postDelayed({
                 if (generation == fadeGeneration) {
-                    applyGain(from + (to - from) * (step.toFloat() / steps))
+                    applyGain(ReminderMusicMixPolicy.interpolatedGain(
+                        from, to, step.toFloat() / steps))
                 }
-            }, ReminderMusicMixPolicy.FADE_MILLIS * step / steps)
+            }, durationMillis * step / steps)
         }
     }
 
@@ -100,8 +136,7 @@ internal class ReminderBackingMusic(private val context: Context) {
 
     fun stop() {
         ++serial
-        ++fadeGeneration
-        volumeHandler.removeCallbacksAndMessages(null)
+        cancelGainEvents()
         val old = custom
         custom = null
         if (old != null) {
