@@ -41,3 +41,25 @@ APPROVED = scope/direction only. STAGED = branch code present, not proven. COMPI
 - Accessibility: TalkBack semantic labels; touch targets in Settings; animations-off = calm static icons; low-RAM/battery-saver bounded motion.
 - Visual style choice is separate from three existing P10 background families and local P1 gallery media; no retired Classic/Premiere reintroduction.
 - Rollback: revert only this branch's scoped commits to the exact frozen tested SHA, never delete user records or erase Android app data.
+
+## Stage 1 — premium icons (SOURCE-STAGED; NOT BUILT/TESTED)
+- Saved global icon preference defaults to Living Energy; Luminous Glass and Cinematic Emblem remain independently selectable.
+- All three Voice/Alarm Compose vector families use the existing reminder presentation entry, without changing background families, media choices, alarm delivery or cloud state.
+- Settings → Personalization → Reminder backgrounds offers all icon choices and both symbolic previews. Search entry updated.
+- Contract tests added but deliberately NOT run before consolidated founder-approved QA.
+
+## Stage 2 — media/lock-screen presentation (SOURCE-STAGED; NOT BUILT/TESTED)
+- Creator-only lock-screen gallery option persisted in a NEW local key; default OFF and enabling requires explicit privacy-warning confirmation.
+- Shared policy enforces CREATOR AND owner opt-in when keyguard is locked. Personal and 21-day gallery media remain hidden, regardless of the Creator preference.
+- Removed extra initial lock-state frame: Creator and gallery renderer synchronously read Android keyguard status at first Compose presentation rather than assuming locked until the first lifecycle callback.
+- Gallery import builds a bounded <=720px JPEG first-frame poster for still and animated images; existing video imports already produce the first-frame poster. Existing previously imported images obtain missing posters asynchronously on first use without reimport or deleting user media.
+- Still and animated renderer displays bounded poster immediately when available while high-resolution decoding runs on IO; video player keeps its texture alive beneath poster and reveals it on Media3's `onRenderedFirstFrame` callback; soundtrack/voice remains separate and video remains muted.
+- No new notification/receiver/service/scheduling/reminder-action changes; no new permissions, Supabase calls, migration or file deletion.
+- Policy JUnit regression tests added for opt-in Creator visibility, explicit family/gallery mode, safe default and Personal/21-day privacy. Not run yet.
+- QA **must measure** first-frame time with new image, existing legacy image, GIF/WebP, valid video, invalid/corrupt media, low-RAM, battery saver, and Android animations disabled; test keyguard opt-in off/on in Creator and privacy in Personal/21-day. Do not promise zero visual delay until tablet evidence. The first presentation of a LEGACY still that has no saved poster may briefly show the safe fallback while its poster is generated off-thread. Live Photos imported as stills remain still; user must supply a supported short video for motion.
+- QA **must confirm** that keyguard presentation on the owner's tablet permits an over-lock-screen Activity; OS heads-up notification fallback is not app media playback failure. When Creator opt-in is OFF, private selected images/videos never render over keyguard.
+- Do not let Android 15 navigation QA count as video/audio/lock-screen certification.
+
+## Next authorized scope
+- S3: shared music ducking, recovery and safe natural ending/fades. Then S4: Creator onboarding reentry and Home companion alignment.
+- No Gradle build, automated tests, APK release, stable promotion or other expensive campaign until the owner explicitly says all source stages are done and authorizes consolidated checks.
