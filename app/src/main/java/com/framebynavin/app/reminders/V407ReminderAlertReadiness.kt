@@ -33,6 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import com.framebynavin.app.ui.theme.CinemaSurface
+import com.framebynavin.app.ui.theme.CinemaLine
+import com.framebynavin.app.ui.theme.ProjectorIvory
+import com.framebynavin.app.ui.theme.MutedText
 
 /**
  * Read-only, non-guarantee Android capability information.
@@ -151,8 +155,8 @@ internal fun V407ReminderAccessDisclosure(
                 }.getOrNull()
             }
             Surface(
-                color = V336DirectorPalette.panel,
-                border = BorderStroke(1.dp, V336DirectorPalette.line),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
                     .testTag("ux06e-readiness-details"),
@@ -170,7 +174,7 @@ internal fun V407ReminderAccessDisclosure(
                                 "Some access details are not available yet."
                             else -> "Access appears permitted. Actual delivery is not guaranteed."
                         },
-                        color = V336DirectorPalette.ivory, fontSize = 12.sp,
+                        color = ProjectorIvory, fontSize = 12.sp,
                     )
                     if (snapshot != null) {
                         V407AccessRow("App notifications", snapshot.notifications)
@@ -182,7 +186,7 @@ internal fun V407ReminderAccessDisclosure(
                         "A posted alert is not proof it was seen. An audio service " +
                             "request is not proof speech or sound was heard. " +
                             "Android may show a heads-up notification instead of full-screen.",
-                        color = V336DirectorPalette.muted, fontSize = 11.sp,
+                        color = MutedText, fontSize = 11.sp,
                         lineHeight = 16.sp,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -240,7 +244,7 @@ internal fun V407ReminderAccessDisclosure(
 @Composable
 private fun V407AccessRow(label: String, value: V407Access) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = V336DirectorPalette.muted, fontSize = 11.sp)
+        Text(label, color = MutedText, fontSize = 11.sp)
         Text(
             when (value) {
                 V407Access.ALLOWED -> "Allowed"
@@ -249,7 +253,7 @@ private fun V407AccessRow(label: String, value: V407Access) {
                 V407Access.UNKNOWN -> "Not known"
                 V407Access.NOT_APPLICABLE -> "Not used"
             },
-            color = V336DirectorPalette.ivory,
+            color = ProjectorIvory,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
         )

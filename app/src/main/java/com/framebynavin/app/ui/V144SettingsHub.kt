@@ -580,6 +580,7 @@ private fun V144SettingsHome(
 ) {
     var searchText by rememberSaveable { mutableStateOf("") }
     val matches = remember(searchText) { V404SettingsIndex.search(searchText) }
+    val reminderReady = notificationsReady && preciseTimingReady && fullScreenReady && batteryReady
     val reminderSupport = when {
         !notificationsReady -> "Notifications are off"
         !preciseTimingReady || !fullScreenReady || !batteryReady ->
@@ -593,8 +594,33 @@ private fun V144SettingsHome(
     ) {
         V144SettingsHeader("BACKLOT", "Settings", onClose)
         Spacer(Modifier.height(18.dp))
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it.take(80) },
+            modifier = Modifier.fillMaxWidth().testTag("v404-settings-search"),
+            label = { Text("Find a setting") },
+            placeholder = { Text("Voice, theme, reminders…") },
+            leadingIcon = {
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = MutedGold)
+            },
+            trailingIcon = {
+                if (searchText.isNotEmpty()) {
+                    IconButton(onClick = { searchText = "" }) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = "Clear Settings search",
+                            tint = MutedText,
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+        )
+        Spacer(Modifier.height(14.dp))
         // One calm, accessible list instead of eight competing feature cards.
-        Surface(
+        if (searchText.isBlank()) {
+            Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
             color = CinemaSurface,
@@ -610,7 +636,7 @@ private fun V144SettingsHome(
                 V294QuietSettingRow(
                     title = "Notifications & alarms",
                     icon = Icons.Outlined.NotificationsActive,
-                    support = if (reminderReady) null else "Permissions need attention",
+                    support = reminderSupport,
                     isWarning = !reminderReady,
                 ) { onOpen(V167SettingsSection.REMINDERS) }
                 V294QuietSettingsDivider()
@@ -627,10 +653,13 @@ private fun V144SettingsHome(
                 V294QuietSettingRow("Help & about", Icons.Outlined.Info) {
                     onOpen(V167SettingsSection.ABOUT)
                 }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-        )
+                V294QuietSettingsDivider()
+                V294QuietSettingRow("Advanced", Icons.Outlined.Tune) {
+                    onOpen(V167SettingsSection.ADVANCED)
+                }
+            }
+        }
+        }
         Spacer(Modifier.height(14.dp))
 
         if (searchText.isNotBlank()) {
@@ -660,63 +689,6 @@ private fun V144SettingsHome(
                     }
                 }
             }
-        } else {
-            V404SettingsGroupLabel("ACCOUNT & PERSONALIZATION")
-            V294QuietSettingRow(
-                title = "Account & profile",
-                icon = Icons.Outlined.Person,
-                support = "Creator ID, Google sign-in and personal details",
-                onClick = onProfile,
-            )
-            V294QuietSettingsDivider()
-            V294QuietSettingRow(
-                title = "Appearance & sound",
-                icon = Icons.Outlined.Palette,
-                support = "Theme, welcome animation, companion and voice",
-            ) { onOpen(V167SettingsSection.PERSONALIZATION) }
-
-            Spacer(Modifier.height(13.dp))
-            V404SettingsGroupLabel("REMINDERS & PLANNING")
-            V294QuietSettingRow(
-                title = "Notifications & reminders",
-                icon = Icons.Outlined.NotificationsActive,
-                support = reminderSupport,
-                isWarning = !notificationsReady,
-            ) { onOpen(V167SettingsSection.REMINDERS) }
-            V294QuietSettingsDivider()
-            V294QuietSettingRow(
-                title = "Planning & integrations",
-                icon = Icons.Outlined.CalendarMonth,
-                support = if (weeklyAutoPlanEnabled) "Weekly Auto Plan is enabled" else "Weekly plan, automation and calendar",
-            ) { onOpen(V167SettingsSection.PLANNING) }
-
-            Spacer(Modifier.height(13.dp))
-            V404SettingsGroupLabel("PRIVACY & HELP")
-            V294QuietSettingRow(
-                title = "Privacy & data",
-                icon = Icons.Outlined.Shield,
-                support = "Permissions and stored-data information",
-            ) { onOpen(V167SettingsSection.PRIVACY) }
-            V294QuietSettingsDivider()
-            V294QuietSettingRow(
-                title = "Help & about",
-                icon = Icons.Outlined.Info,
-                support = "Guided tour and app version",
-            ) { onOpen(V167SettingsSection.ABOUT) }
-            V294QuietSettingsDivider()
-            V294QuietSettingRow(
-                title = "Advanced",
-                icon = Icons.Outlined.Tune,
-                support = "Review device-only data erasure",
-            ) { onOpen(V167SettingsSection.ADVANCED) }
-
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "Your projects and reminders are not changed by opening Settings. " +
-                    "Device-level alarm permissions may affect delivery.",
-                color = MutedText, fontSize = 11.sp, lineHeight = 17.sp,
-                modifier = Modifier.padding(horizontal = 9.dp),
-            )
         }
     }
 }
@@ -874,19 +846,5 @@ private fun V144SectionTitle(title: String, subtitle: String) {
 private fun V144SettingsNote(text: String) {
     Surface(Modifier.fillMaxWidth(), RoundedCornerShape(15.dp), CinemaSurfaceRaised, border = BacklotUX10Tokens.quietBorder(CinemaLine)) {
         Text(text, color = MutedText, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(12.dp))
-    }
-}
-
-private fun v144PreviewVoice(context: android.content.Context, persona: VoicePersona) {
-    var tts: TextToSpeech? = null
-    tts = TextToSpeech(context.applicationContext) { status ->
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.getDefault()
-            tts?.let { VoicePersonaEngine.applyWithChosenOfflineSpeaker(it, persona, context.applicationContext) }
-            tts?.speak(VoicePersonaEngine.previewText(persona), TextToSpeech.QUEUE_FLUSH, null, "v144-${persona.name}")
-            Handler(Looper.getMainLooper()).postDelayed({ tts?.shutdown() }, 7_000L)
-        } else {
-            tts?.shutdown()
-        }
     }
 }
