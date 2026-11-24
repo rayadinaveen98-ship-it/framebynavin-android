@@ -52,9 +52,9 @@ import java.io.File
  * No pointer handling, audio, alarm scheduling, notification permissions,
  * service ownership, completion or response; no retired visual fallback.
  *
- * All user gallery assets remain private on-device. When Android is locked,
- * return the original neutral fluid backdrop; never render personal gallery
- * media on top of the keyguard (Creator Alerts can open over lock screen).
+ * All user gallery assets stay private on-device. Personal and challenge media
+ * remain hidden over the keyguard. Creator media appears while locked ONLY if
+ * the user explicitly opted in; no account or response behavior is changed.
  */
 @Composable
 internal fun P1EntranceBackdrop(
@@ -65,13 +65,20 @@ internal fun P1EntranceBackdrop(
     overrideMedia: P1Media? = null,
     overrideFraming: P1MediaFraming? = null,
     fallbackAct: P10ReminderAct = P10ReminderAct.ENTRANCE,
+    allowCreatorMediaOverKeyguard: Boolean = false,
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
-    var locked by remember { mutableStateOf(true) }
-    DisposableEffect(owner, context) {
-        val manager = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-        val refresh = { locked = manager?.isKeyguardLocked != false }
+    val keyguard = remember(context) {
+        context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+    }
+    // Read the actual initial state before drawing: avoid a one-frame privacy
+    // fallback flash when an unlocked reminder is first composed.
+    var locked by remember(context) {
+        mutableStateOf(keyguard?.isKeyguardLocked != false)
+    }
+    DisposableEffect(owner, context, keyguard) {
+        val refresh = { locked = keyguard?.isKeyguardLocked != false }
         refresh()
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME || event == Lifecycle.Event.ON_START) refresh()
@@ -81,9 +88,21 @@ internal fun P1EntranceBackdrop(
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     val media = overrideMedia ?: remember(domain) { P1EntranceMediaStore.selected(context, domain) }
-    if (locked || media == null) {
+    val canShowGallery = P10CreatorLockScreenMediaPolicy.allowed(
+        scope = domain, locked = locked, ownerOptedIn = allowCreatorMediaOverKeyguard,
+    )
+    if (!canShowGallery || media == null) {
         P1FamilyFallback(domain, fallbackAct, motionEnabled, lowPower, modifier)
         return
+    }
+    // Previously imported photos/GIFs may not have a poster yet. Generate a
+    // small on-device preview in IO, never blocking speech or alarm delivery.
+    val posterFile by produceState<File?>(media.poster, media.file.absolutePath) {
+        if (media.poster == null && media.kind != P1MediaKind.VIDEO) {
+            value = withContext(Dispatchers.IO) {
+                P1EntranceMediaStore.ensureStillPoster(media)
+            }
+        }
     }
 
     val framing = overrideFraming ?: P1EntranceMediaStore.framing(context, domain)
@@ -98,19 +117,24 @@ internal fun P1EntranceBackdrop(
         // Do not reintroduce the retired Director or Premiere visual.
         P1FamilyFallback(domain, fallbackAct, false, true, Modifier.fillMaxSize())
         when (media.kind) {
-            P1MediaKind.IMAGE -> P1StillImage(media.file, mediaLayer)
+            P1MediaKind.IMAGE ->
+                P1StillImage(media.file, mediaLayer, previewFile = posterFile)
             P1MediaKind.ANIMATED -> {
                 if (Build.VERSION.SDK_INT >= 28 && motionEnabled && !lowPower) {
-                    P1AnimatedImage(media.file, mediaLayer)
-                } else P1StillImage(media.file, mediaLayer)
+                    P1AnimatedImage(media.file, mediaLayer, previewFile = posterFile)
+                } else P1StillImage(media.file, mediaLayer, previewFile = posterFile)
             }
             P1MediaKind.VIDEO -> {
                 // Never spin up a decoder when power saver/reduced motion is active.
                 if (motionEnabled && !lowPower) {
-                    P1MutedVideo(media, mediaLayer)
+                    P1MutedVideo(
+                        media, mediaLayer,
+                        allowOverKeyguard = domain == P1ReminderScope.CREATOR &&
+                            allowCreatorMediaOverKeyguard,
+                    )
                 } else {
-                    if (media.poster != null)
-                        P1StillImage(media.poster, mediaLayer)
+                    if (posterFile != null)
+                        P1StillImage(requireNotNull(posterFile), mediaLayer, posterFile)
                     else P1FamilyFallback(domain, fallbackAct, false, true, Modifier.fillMaxSize())
                 }
             }
@@ -144,7 +168,16 @@ private fun P1FamilyFallback(
 }
 
 @Composable
-private fun P1StillImage(file: File, modifier: Modifier) {
+private fun P1StillImage(
+    file: File, modifier: Modifier, previewFile: File? = null,
+) {
+    // Import produces a <=720px JPEG. Its bounded synchronous decode prevents
+    // the unrelated family background from flashing for 1-2 seconds while
+    // high-resolution decoding proceeds off the UI thread.
+    val instantPoster = remember(previewFile?.absolutePath, previewFile?.lastModified()) {
+        previewFile?.takeIf { it.isFile && it.length() in 1..1_500_000L }
+            ?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
+    }
     val bitmap by produceState<android.graphics.Bitmap?>(null, file.absolutePath) {
         value = withContext(Dispatchers.IO) {
             runCatching {
@@ -159,9 +192,10 @@ private fun P1StillImage(file: File, modifier: Modifier) {
             }.getOrNull()
         }
     }
-    if (bitmap != null) {
+    val displayed = bitmap ?: instantPoster
+    if (displayed != null) {
         Image(
-            bitmap = bitmap!!.asImageBitmap(),
+            bitmap = displayed.asImageBitmap(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = modifier,
@@ -170,9 +204,9 @@ private fun P1StillImage(file: File, modifier: Modifier) {
 }
 
 @Composable
-private fun P1AnimatedImage(file: File, modifier: Modifier) {
+private fun P1AnimatedImage(file: File, modifier: Modifier, previewFile: File? = null) {
     if (Build.VERSION.SDK_INT < 28) {
-        P1StillImage(file, modifier)
+        P1StillImage(file, modifier, previewFile)
         return
     }
     val drawable by produceState<Drawable?>(null, file.absolutePath) {
@@ -186,7 +220,9 @@ private fun P1AnimatedImage(file: File, modifier: Modifier) {
         }
     }
     if (drawable == null) {
-        P1StillImage(file, modifier)
+        // Show the small imported still immediately, without an extra decoder
+        // for the original animation while ImageDecoder prepares its drawable.
+        P1StillImage(previewFile ?: file, modifier, previewFile)
         return
     }
     val owner = LocalLifecycleOwner.current
@@ -221,10 +257,18 @@ private fun P1AnimatedImage(file: File, modifier: Modifier) {
 
 @OptIn(UnstableApi::class)
 @Composable
-private fun P1MutedVideo(media: P1Media, modifier: Modifier) {
+private fun P1MutedVideo(
+    media: P1Media,
+    modifier: Modifier,
+    allowOverKeyguard: Boolean = false,
+) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    val keyguard = remember(context) {
+        context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+    }
     var playerError by remember(media.file.absolutePath) { mutableStateOf(false) }
+    var firstFrameReady by remember(media.file.absolutePath) { mutableStateOf(false) }
     val player = remember(media.file.absolutePath) {
         runCatching {
             ExoPlayer.Builder(context).build().apply {
@@ -238,39 +282,63 @@ private fun P1MutedVideo(media: P1Media, modifier: Modifier) {
         }.getOrNull()
     }
     if (player == null) {
-        if (media.poster != null) P1StillImage(media.poster, modifier)
+        if (media.poster != null)
+            P1StillImage(media.poster, modifier, previewFile = media.poster)
         return
     }
-    DisposableEffect(player, owner) {
+    DisposableEffect(player, owner, allowOverKeyguard) {
         val listener = object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) { playerError = true }
+            override fun onRenderedFirstFrame() { firstFrameReady = true }
+            override fun onPlayerError(error: PlaybackException) {
+                playerError = true
+                firstFrameReady = false
+            }
+        }
+        fun mayPlay(): Boolean {
+            val active = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+            val overKeyguard = allowOverKeyguard &&
+                keyguard?.isKeyguardLocked == true &&
+                owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            return active || overKeyguard
         }
         val lifecycle = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> player.play()
-                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> player.pause()
+                Lifecycle.Event.ON_START, Lifecycle.Event.ON_RESUME ->
+                    if (mayPlay()) player.play()
+                Lifecycle.Event.ON_PAUSE ->
+                    if (!mayPlay()) player.pause()
+                Lifecycle.Event.ON_STOP -> player.pause()
                 else -> Unit
             }
         }
         player.addListener(listener)
         owner.lifecycle.addObserver(lifecycle)
-        if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) player.play()
+        if (mayPlay()) player.play()
         onDispose {
             owner.lifecycle.removeObserver(lifecycle)
             player.removeListener(listener)
             player.release()
         }
     }
-    if (playerError) {
-        if (media.poster != null) P1StillImage(media.poster, modifier)
-    } else {
-        AndroidView(
-            factory = {
-                (LayoutInflater.from(it).inflate(R.layout.p1_entrance_video_texture, null)
-                    as PlayerView).apply { this.player = player }
-            },
-            update = { it.player = player },
-            modifier = modifier,
-        )
+    Box(modifier) {
+        // Already captured during import; rendered before Media3 has its first
+        // decoded frame. No overlapping audio—the selected video is always mute.
+        if (media.poster != null) {
+            P1StillImage(media.poster, Modifier.fillMaxSize(), previewFile = media.poster)
+        }
+        if (!playerError) {
+            AndroidView(
+                factory = {
+                    (LayoutInflater.from(it).inflate(R.layout.p1_entrance_video_texture, null)
+                        as PlayerView).apply { this.player = player }
+                },
+                update = { it.player = player },
+                // This layout uses texture_view, so the poster remains visible
+                // until Media3 reports that a real video frame was rendered.
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = if (firstFrameReady) 1f else 0f
+                },
+            )
+        }
     }
 }
