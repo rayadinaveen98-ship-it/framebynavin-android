@@ -98,6 +98,8 @@ internal fun P1EntranceBackdrop(
     // Previously imported photos/GIFs may not have a poster yet. Generate a
     // small on-device preview in IO, never blocking speech or alarm delivery.
     val posterFile by produceState<File?>(media.poster, media.file.absolutePath) {
+        // Do not carry a previous gallery selection's poster into a new media item.
+        value = media.poster
         if (media.poster == null && media.kind != P1MediaKind.VIDEO) {
             value = withContext(Dispatchers.IO) {
                 P1EntranceMediaStore.ensureStillPoster(media)
@@ -321,24 +323,23 @@ private fun P1MutedVideo(
         }
     }
     Box(modifier) {
-        // Already captured during import; rendered before Media3 has its first
-        // decoded frame. No overlapping audio—the selected video is always mute.
-        if (media.poster != null) {
-            P1StillImage(media.poster, Modifier.fillMaxSize(), previewFile = media.poster)
-        }
         if (!playerError) {
+            // Keep the texture attached/visible so Media3 can actually render
+            // its first frame. Cover its initial black surface with our poster.
             AndroidView(
                 factory = {
                     (LayoutInflater.from(it).inflate(R.layout.p1_entrance_video_texture, null)
                         as PlayerView).apply { this.player = player }
                 },
                 update = { it.player = player },
-                // This layout uses texture_view, so the poster remains visible
-                // until Media3 reports that a real video frame was rendered.
-                modifier = Modifier.fillMaxSize().graphicsLayer {
-                    alpha = if (firstFrameReady) 1f else 0f
-                },
+                modifier = Modifier.fillMaxSize(),
             )
+        }
+        // Already captured during import. Poster stays on TOP of the prepared
+        // video surface until the first real frame is rendered (or on error).
+        // No overlapping audio—the selected video is always mute.
+        if ((!firstFrameReady || playerError) && media.poster != null) {
+            P1StillImage(media.poster, Modifier.fillMaxSize(), previewFile = media.poster)
         }
     }
 }
