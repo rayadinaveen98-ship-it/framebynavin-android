@@ -422,8 +422,10 @@ internal class Phase1HabitVoiceService : Service() {
                         music.setSpeaking(false)
                         val next = Phase1HabitVoicePlaybackPolicy.nextIndex(completed, repeatCount)
                         if (next == null) {
+                            // Fade within the existing tail. The actionable
+                            // notification persists; no automatic day completion.
+                            music.beginNaturalEnding(ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
                             // The separately posted notification stays actionable.
-                            // Allow a brief music tail, but NEVER complete a day.
                             handler.postDelayed({
                                 if (current == generation) stopSelf(startId)
                             }, ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
