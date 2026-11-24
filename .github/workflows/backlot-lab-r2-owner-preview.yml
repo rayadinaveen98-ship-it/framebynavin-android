@@ -1,0 +1,124 @@
+name: Backlot Lab R2 - Owner Preview APK Gate
+
+# One owner-requested QA preview only, never release/publish or stable promotion.
+# An APK is shared only if signature, non-debuggable manifest, identity and hash pass.
+on:
+  pull_request:
+    branches:
+      - qa/backlot-lab-r2-owner-preview-base-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_OWNER_PREVIEW_REQUEST_20261124.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-lab-r2-owner-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  source-gate:
+    name: 01 - Require exact 2-of-2 Android15-tested R2 source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Match exact Android-tested app tree and Lab contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          tested=64ced7c21f0de30c82926505985d81ddcaf5a5f3
+          git merge-base --is-ancestor "$tested" HEAD
+          git diff --quiet "$tested" HEAD -- app
+          bash tools/qa/backlot_lab_p10q_recovery_contract_gate.sh
+          grep -Fq 'applicationId = if (backlotLabMode) "com.framebynavin.app.lab"' app/build.gradle.kts
+          grep -Fq 'create("personalStable")' app/build.gradle.kts
+          grep -Fq 'isDebuggable = false' app/build.gradle.kts
+          grep -Fq 'signingConfig = signingConfigs.getByName("prototypeStable")' app/build.gradle.kts
+          grep -Fq 'BuildConfig.BACKLOT_LAB' app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt
+          echo 'PASS: byte-for-byte identical tested app code, Lab identity and explicit non-debuggable preview configuration'
+
+  owner-preview-apk:
+    name: 02 - Single Lab personalStable build + signer/manifest verification
+    needs: [source-gate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build ONLY isolated non-debuggable Lab owner preview
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/backlot-r2/owner-preview
+          git rev-parse HEAD > output/backlot-r2/owner-preview/source-sha.txt
+          timeout --signal=TERM --kill-after=20s 6000s \
+            gradle :app:assemblePersonalStable -PbacklotLab=true \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-r2/owner-preview/personalStable-build.log
+      - name: Verify package, non-debuggable manifest, preview signer and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          test -s "$apk"
+          aapt_tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          signer_tool="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$aapt_tool"
+          test -x "$signer_tool"
+          "$signer_tool" verify --verbose --print-certs "$apk" > output/backlot-r2/owner-preview/signature.txt
+          badging="$("$aapt_tool" dump badging "$apk")"
+          printf '%s\n' "$badging" | grep -F "package: name='com.framebynavin.app.lab'"
+          printf '%s\n' "$badging" | grep -F "versionCode='337'"
+          printf '%s\n' "$badging" | grep -F "application-label:'Backlot Lab'"
+          "$aapt_tool" dump xmltree "$apk" AndroidManifest.xml > output/backlot-r2/owner-preview/manifest-xmltree.txt
+          debuggable=$(grep -F "android:debuggable" output/backlot-r2/owner-preview/manifest-xmltree.txt || true)
+          if printf '%s\n' "$debuggable" | grep -Eq '0xffffffff|0x1([[:space:]]|$)'; then
+            echo "STOP: generated preview is debuggable!" >&2
+            exit 1
+          fi
+          # Absent android:debuggable is Android's default false.
+          printf 'Manifest debuggable attribute: %s\n' "${debuggable:-absent (Android default false)}" | tee output/backlot-r2/owner-preview/manifest-summary.txt
+          expected_cert_sha="$(keytool -exportcert -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev 2>/dev/null | sha256sum | awk '{print $1}')"
+          actual_cert_sha="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' output/backlot-r2/owner-preview/signature.txt | head -1)"
+          test -n "$expected_cert_sha"
+          test "$actual_cert_sha" = "$expected_cert_sha" || { echo 'STOP: Lab preview signer differs from checked-in existing prototype key' >&2; exit 1; }
+          cp "$apk" output/backlot-r2/owner-preview/Backlot-Lab-R2-owner-preview-personalStable.apk
+          sha256sum output/backlot-r2/owner-preview/Backlot-Lab-R2-owner-preview-personalStable.apk | tee output/backlot-r2/owner-preview/apk-sha256.txt
+          echo 'PASS: verified Lab package, non-debuggable manifest, expected in-place preview signer, SHA256'
+      - name: Publish verified owner preview only when validation passes
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-Owner-Preview-PersonalStable-APK
+          path: |
+            output/backlot-r2/owner-preview/Backlot-Lab-R2-owner-preview-personalStable.apk
+            output/backlot-r2/owner-preview/apk-sha256.txt
+            output/backlot-r2/owner-preview/manifest-summary.txt
+            output/backlot-r2/owner-preview/signature.txt
+            output/backlot-r2/owner-preview/source-sha.txt
+          if-no-files-found: error
+          retention-days: 21
+      - name: Preserve build diagnostics on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-Owner-Preview-Build-Logs
+          path: |
+            output/backlot-r2/owner-preview/personalStable-build.log
+            output/backlot-r2/owner-preview/manifest-xmltree.txt
+          if-no-files-found: warn
+          retention-days: 21
