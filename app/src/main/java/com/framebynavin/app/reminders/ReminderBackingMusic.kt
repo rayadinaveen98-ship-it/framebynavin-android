@@ -93,10 +93,12 @@ internal class ReminderBackingMusic(private val context: Context) {
      */
     fun beginNaturalEnding(existingTailMillis: Long) {
         if (speaking) return
-        val sequence = ++fadeGeneration
-        volumeHandler.removeCallbacksAndMessages(null)
+        // Do NOT cancel the already scheduled post-speech recovery. It must
+        // rise to the normal music gain first, then fade near the tail's end.
+        // A new utterance, occurrence, stop or error invalidates this token.
+        val generation = fadeGeneration
         volumeHandler.postDelayed({
-            if (sequence == fadeGeneration && !speaking) {
+            if (generation == fadeGeneration && !speaking) {
                 rampTo(0f, minOf(ReminderMusicMixPolicy.FINAL_FADE_MILLIS,
                     existingTailMillis.coerceAtLeast(0L)))
             }
