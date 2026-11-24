@@ -1,0 +1,42 @@
+name: Backlot Lab S5 - Maven KSP Connectivity Probe (No JVM)
+
+# Explicit no-build diagnostic after transient Maven plugin resolution failure.
+on:
+  push:
+    branches:
+      - qa/backlot-lab-r2-stabilization-s5-kotlin-repair-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S5_KSP_NETWORK_PROBE_20261124.md
+
+permissions:
+  contents: read
+
+jobs:
+  ksp-plugin-availability:
+    name: Verify existing plugin artifact visibility (curl only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify unchanged Gradle plugin and repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'id("com.google.devtools.ksp") version "2.1.20-2.0.1"' build.gradle.kts
+          grep -Fq 'mavenCentral()' settings.gradle.kts
+          grep -Fq 'gradlePluginPortal()' settings.gradle.kts
+          echo 'PASS: exact previously compiled Kotlin/KSP plugin and declared standard repositories'
+      - name: Test published KSP Gradle plugin marker via Maven Central
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=https://repo.maven.apache.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/2.1.20-2.0.1/com.google.devtools.ksp.gradle.plugin-2.1.20-2.0.1.pom
+          echo 'Checking Maven Central KSP marker access (bounded HTTP only; no Gradle build)'
+          curl --fail --location --silent --show-error \
+            --connect-timeout 10 --max-time 30 --retry 2 --retry-delay 2 \
+            --output /tmp/backlot-ksp-marker.pom \
+            --write-out 'HTTP=%{http_code} DNS=%{time_namelookup} CONNECT=%{time_connect}\n' \
+            "$url"
+          test -s /tmp/backlot-ksp-marker.pom
+          grep -Fq '<version>2.1.20-2.0.1</version>' /tmp/backlot-ksp-marker.pom
+          echo 'PASS: Maven Central KSP marker artifact is reachable'
