@@ -32,9 +32,18 @@ jobs:
           set -euo pipefail
           R2=1577669bc328153a365661a7f3d36fb1558e891c
           git cat-file -e "$R2^{commit}"
-          test "$(git rev-parse "$R2:app")" = "$(git rev-parse HEAD:app)"
           git merge-base --is-ancestor "$R2" HEAD
-          echo "PASS: QA candidate has byte-identical app subtree to founder-reviewed R2"
+          # Exactly two diagnosed compiler repairs; no other R2 application changes.
+          expected=$(printf '%s\n' 'app/src/main/java/com/framebynavin/app/reminders/V407ReminderAlertReadiness.kt' 'app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt' | sort)
+          changed=$(git diff --name-only "$R2" HEAD -- app | sort)
+          if test "$changed" != "$expected"; then
+            printf 'STOP: unexpected application diff.\nExpected:\n%s\nActual:\n%s\n' "$expected" "$changed" >&2
+            exit 1
+          fi
+          test "$(git rev-parse "$R2:app/src/main/java/com/framebynavin/app/cloud")" = "$(git rev-parse HEAD:app/src/main/java/com/framebynavin/app/cloud")"
+          grep -Fq 'testTag("v404-settings-search")' app/src/main/java/com/framebynavin/app/ui/V144SettingsHub.kt
+          ! grep -Fq 'V336DirectorPalette' app/src/main/java/com/framebynavin/app/reminders/V407ReminderAlertReadiness.kt
+          echo "PASS: frozen R2 baseline plus exactly two isolated Kotlin repair paths"
       - name: Run R2 source-contract checks
         shell: bash
         run: |
