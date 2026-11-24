@@ -163,6 +163,10 @@ class VoiceReminderService : Service() {
                             runCatching {
                                 ReminderAcknowledgementStore(applicationContext).markVoiceCompleted(task.id, token)
                             }
+                            // Restore music briefly, then fade it BEFORE the existing
+                            // voice-finish grace ends. Never extend response/lease timing.
+                            music.beginNaturalEnding(
+                                V178PlaybackLifecyclePolicy.VOICE_FINISH_GRACE_MILLIS)
                             // A completed final utterance is the end of audible playback.
                             // Never keep the voice service open until the worst-case TTS window.
                             handler.postDelayed(
