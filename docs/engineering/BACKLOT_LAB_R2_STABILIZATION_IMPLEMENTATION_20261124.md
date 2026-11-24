@@ -60,6 +60,18 @@ APPROVED = scope/direction only. STAGED = branch code present, not proven. COMPI
 - QA **must confirm** that keyguard presentation on the owner's tablet permits an over-lock-screen Activity; OS heads-up notification fallback is not app media playback failure. When Creator opt-in is OFF, private selected images/videos never render over keyguard.
 - Do not let Android 15 navigation QA count as video/audio/lock-screen certification.
 
+## Stage 3 — intelligent reminder audio (SOURCE-STAGED; NOT BUILT/TESTED)
+- Shared `ReminderBackingMusic` is used by Creator Voice, Personal Voice and 21-day Voice. Music now ducks synchronously to 0.18 app-player gain BEFORE TTS speak, restores to the original 0.68 gain over 420 ms after each sentence, then fades to zero across the last 650 ms of the EXISTING service-owned natural tail. Custom SAF music and offline piano share the exact envelope. No track restarts or system-wide stream volume changes.
+- The Creator natural speech tail remains the original 1,500 ms; Personal and 21-day remain 1,900 ms. No playback service extension, lease extension, automatic Done, auto-Snooze or changed retry/notification handoff. TTS errors and explicit Done/Snooze/Dismiss/replacement still stop immediately.
+- The Creator Alarm has a scoped MediaPlayer gain envelope: optional TTS gets a 0.42-gain alarm tone while spoken and a 300 ms recovery; alarm tone fades to zero over the last 350 ms before the *existing* watchdog timeout. Vibrations and the audible signal remain otherwise unchanged.
+- The Personal Alarm likewise fades within the final 350 ms of its existing maximum ring duration. Neither alarm service changes occurrence validation, completion receipts, foreground notifications, wake locks, actual selected duration or alarm-scheduler behavior.
+- The existing 21-day Alarm is Android notification-channel controlled, NOT a dedicated app-owned looping MediaPlayer. It therefore cannot use app-level fading without a separately approved service and Play/Android permission review. This architecture is intentionally unchanged.
+- Contract tests for initial gain, strong duck, exact recovery, fade-inside-tail, bounded alarm mix and no device-volume assumptions are SOURCE-STAGED but NOT run.
+- Required future QA: voice intelligibility on Creator/Personal/21-day across piano and uploaded music, first syllable, multiple repeats, TTS error, custom audio revocation, concurrent/superseded occurrences, user action during fade, screen locked/other app, alarm optional spoken text, natural duration, exact Snooze, notification response/automatic retry, no truncated speech. Check that 21-day notification alarm remains audible; do not present its channel sound as an app-fade success.
+- Policy values are proposed calibration targets. Physical tablet listening and Android runtime tests must confirm that music is neither dominant nor inaudible; no claim of compilation or tested sound yet.
+
 ## Next authorized scope
-- S3: shared music ducking, recovery and safe natural ending/fades. Then S4: Creator onboarding reentry and Home companion alignment.
+- S4: restore deliberate original Creator setup re-entry and anchor/crop the Home companion avatar. Do not revive a returning-account onboarding loop.
+- S5 after all source stages and Founder authorization: frozen SHA source-contract + focused Kotlin compile, then related unit and Android15/owner-tablet tests; repair *only* the failing gate and avoid repeating the long JVM campaign unnecessarily.
+- Separate lintVitalAnalyzePersonalStable internal failure must be diagnosed and gated before signed owner-preview/stable promotion.
 - No Gradle build, automated tests, APK release, stable promotion or other expensive campaign until the owner explicitly says all source stages are done and authorizes consolidated checks.
