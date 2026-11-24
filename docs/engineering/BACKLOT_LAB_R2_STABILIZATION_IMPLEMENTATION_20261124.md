@@ -91,3 +91,14 @@ APPROVED = scope/direction only. STAGED = branch code present, not proven. COMPI
 - Inspect overlapping reminders, late/revoked gallery media, Creator opt-in over keyguard, Personal/21-day privacy, all six Voice/Alarm paths in three device states, TTS/music envelopes, natural fade and immediate Snooze/Done action safety.
 - Repair the `lintVitalAnalyzePersonalStable` internal analysis blocker narrowly in the separate owner-preview build gate; never claim an unsigned/debug APK is certified stable.
 - Preserve verified R2 base `64ced7c21f0de30c82926505985d81ddcaf5a5f3`, rollback references, original Backlot package and all Lab user data throughout.
+
+## Stage 5 — consolidated verification (2026-11-24)
+
+- Founder authorized Stage 5 progression on 2026-11-24; frozen initial app candidate `b69df0db7f0b24ca9c4b504179693a628f22acf6`.
+- Run `45334920930`: frozen source fence PASSED, targeted Lab Kotlin compilation FAILED after 17m14s.
+- All reported compiler diagnostics traced to a single malformed legacy-visual fragment in `P10LivingReminderVisuals.kt:262`: `drawCircle(color.copy(alpha = .5/**` caused the new `P10ReminderIdentityEmblem` to be parsed as a local declaration; downstream unresolved references were symptoms, not independent regressions.
+- One-file repair commit `379a3412ca84bf4fe70671fe14cec0bb56b0d316` restores the original second depth-mote circle and closes the loop/function before the new premium emblem.
+- QA repair branch: `qa/backlot-lab-r2-stabilization-s5-kotlin-repair-20261124`.
+- Repair run `45337219034`: exact one-file source fence PASSED; targeted Kotlin compile underway when this record was written. Do not claim compilation passed until jobs show success.
+- Repaired-source three-class policy test workflow staged and deliberately dormant pending compile pass. No APK, release, PR merge, protected baseline change, cloud mutation or physical device test occurred.
+- Root cause prevention: avoid string-splitting an existing Kotlin file at a partial comment anchor; preserve entire enclosing function, and require source syntax fence before any Gradle run on future edits.
