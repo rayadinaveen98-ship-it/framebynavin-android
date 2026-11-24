@@ -46,6 +46,41 @@ internal object P1EntranceMediaStore {
     }
     private fun poster(file: File) = File(file.parentFile, file.nameWithoutExtension + "_poster.jpg")
 
+    /**
+     * Generate a small on-device preview during gallery import (already on IO).
+     * It appears before the full image decoder, animated drawable or video is ready.
+     * No network/media library write; original gallery asset remains unchanged.
+     */
+    private fun saveImagePoster(file: File, destination: File) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return
+        var sample = 1
+        while (bounds.outWidth / sample > 720 || bounds.outHeight / sample > 720) sample *= 2
+        val preview = BitmapFactory.decodeFile(file.absolutePath,
+            BitmapFactory.Options().apply { inSampleSize = sample }) ?: return
+        try {
+            FileOutputStream(destination).use { output ->
+                check(preview.compress(Bitmap.CompressFormat.JPEG, 80, output)) {
+                    "Could not encode the gallery preview"
+                }
+            }
+        } finally {
+            preview.recycle()
+        }
+    }
+
+    /** Existing image imports can gain a preview without reimport or data deletion. */
+    fun ensureStillPoster(media: P1Media): File? {
+        if (media.kind == P1MediaKind.VIDEO) return media.poster
+        val destination = poster(media.file)
+        if (destination.isFile && destination.length() > 0) return destination
+        return runCatching {
+            saveImagePoster(media.file, destination)
+            destination.takeIf { it.isFile && it.length() > 0 }
+        }.getOrNull()
+    }
+
     @Synchronized
     fun selected(context: Context, domain: P1ReminderScope): P1Media? {
         // A wrong-type/corrupt stored preference must NEVER crash a live
@@ -60,7 +95,7 @@ internal object P1EntranceMediaStore {
             "mp4", "webm", "3gp" -> P1MediaKind.VIDEO
             else -> return null
         }
-        return P1Media(kind, file, poster(file).takeIf { kind == P1MediaKind.VIDEO && it.isFile })
+        return P1Media(kind, file, poster(file).takeIf { it.isFile && it.length() > 0 })
     }
 
     /** Call only on Dispatchers.IO. Failed imports leave the previous choice untouched. */
@@ -124,13 +159,16 @@ internal object P1EntranceMediaStore {
                     if (bounds.outWidth <= 0 || bounds.outHeight <= 0 ||
                         bounds.outWidth > 12_000 || bounds.outHeight > 12_000)
                         throw IllegalArgumentException("This image cannot be safely displayed.")
+                    // Poster failure is presentation-only; never destroy a valid import.
+                    runCatching { saveImagePoster(file, poster) }
+                        .onFailure { poster.delete() }
                 }
                 check(prefs(app).edit().putString(key(domain), file.name).commit()) {
                     "Could not save this entrance background."
                 }
                 old?.file?.takeIf { it != file }?.delete()
                 old?.poster?.takeIf { it != poster }?.delete()
-                P1Media(kind, file, poster.takeIf { it.isFile })
+                P1Media(kind, file, poster.takeIf { it.isFile && it.length() > 0 })
             } catch (failure: Exception) {
                 file.delete()
                 poster.delete()
