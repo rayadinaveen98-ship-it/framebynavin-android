@@ -102,3 +102,10 @@ APPROVED = scope/direction only. STAGED = branch code present, not proven. COMPI
 - Repair run `45337219034`: exact one-file source fence PASSED; targeted Kotlin compile underway when this record was written. Do not claim compilation passed until jobs show success.
 - Repaired-source three-class policy test workflow staged and deliberately dormant pending compile pass. No APK, release, PR merge, protected baseline change, cloud mutation or physical device test occurred.
 - Root cause prevention: avoid string-splitting an existing Kotlin file at a partial comment anchor; preserve entire enclosing function, and require source syntax fence before any Gradle run on future edits.
+
+## Stage 5 follow-up — verified compilation and isolated unit gate (2026-11-24)
+
+- Repaired-source run `45337219034`: exactly-one-file source fence **SUCCESS**, targeted `:app:compileDebugKotlin -PbacklotLab=true` **SUCCESS**, artifact `14895807245`. This verifies Kotlin compilation for repaired application source `379a3412ca84bf4fe70671fe14cec0bb56b0d316`, not device runtime or signed release.
+- Focused policy-run `45340227725` explicitly triggered only after compile pass: icon default/three styles, Creator lock-screen privacy and shared music/alarm gain. Results pending at record-write; do not claim green until logs confirm.
+- Android15 navigation regression workflow is now prepared but **DORMANT**, waiting for the three policy tests to succeed. It reuses the existing twice-run P10J real-first-run test and builds one disposable debug + AndroidTest APK pair. It must not be misreported as media/voice/locked-device physical certification.
+- Permanent protected original R2 and all earlier stable Lab references remain intact. No Supabase writes, Play release, stable promotion, owner APK or full test suite was performed.
