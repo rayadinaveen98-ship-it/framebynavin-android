@@ -424,36 +424,36 @@ internal fun V18HeroGreetingBar(
     companionAvatar: @Composable () -> Unit = {},
     galleryInOverflow: Boolean = false,
 ) {
-    // V339: on the live Home screen the Gallery entry is moved to one
-    // overflow rail. Keep standalone Hero/legacy callers unchanged by default.
-    // On live Home the three actions share one overflow trigger. Legacy callers
-    // still receive the original Gallery + by default. Never shrink tap targets.
-    val wrapActions = LocalConfiguration.current.screenWidthDp < 440 ||
+    // Keep the avatar attached to the top-right of the SAME header row on
+    // phones, tablets and high-font layouts. The old narrow-screen branch
+    // placed it in a separate row BELOW the greeting (founder-reported bug).
+    // Only the optional legacy Gallery action may wrap below when necessary.
+    val wrapGallery = LocalConfiguration.current.screenWidthDp < 440 ||
         LocalDensity.current.fontScale >= 1.55f
-    if (wrapActions) {
-        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            V18GreetingText(greeting)
-            Spacer(Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.align(Alignment.End),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().testTag("p10q-home-header"),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            V18GreetingText(
+                greeting = greeting,
+                modifier = Modifier.weight(1f).testTag("p10q-home-greeting"),
+            )
+            Box(
+                modifier = Modifier.testTag("p10q-home-avatar-top-right"),
+                contentAlignment = Alignment.TopEnd,
             ) {
                 companionAvatar()
-                if (!galleryInOverflow) {
-                    V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
-                }
+            }
+            if (!galleryInOverflow && !wrapGallery) {
+                V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
             }
         }
-    } else {
-        Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            V18GreetingText(greeting, Modifier.weight(1f))
-            companionAvatar()
-            if (!galleryInOverflow) {
+        if (!galleryInOverflow && wrapGallery) {
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End) {
                 V18HeroPhotoButton(hasFrames, importing, onPhotoClick)
             }
         }
