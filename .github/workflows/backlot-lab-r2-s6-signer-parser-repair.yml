@@ -45,6 +45,15 @@ jobs:
           grep -Fq 'BuildConfig.BACKLOT_LAB' app/src/main/java/com/framebynavin/app/cloud/CloudConfig.kt
           echo "PASS: byte-identical Android15-tested repaired Lab application tree and preview signer contract"
 
+      - name: Validate robust signer parser against previously observed apksigner output
+        shell: bash
+        run: |
+          set -euo pipefail
+          line='V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
+          got="$(printf '%s\n' "$line" | sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\2/p')"
+          test "$got" = f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
+          echo 'PASS: signer parser accepts proven Android v2 tool output'
+
   verified-owner-preview:
     name: '02 - One non-debuggable Lab personalStable APK with FULL Lint enabled'
     needs: [fixed-source-and-lab-identity]
@@ -98,14 +107,6 @@ jobs:
               '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
               '-Porg.gradle.parallel=false' \
               2>&1 | tee output/backlot-s6/owner-preview/build-with-lint.log
-      - name: Validate robust signer parser against previously observed apksigner output
-        shell: bash
-        run: |
-          set -euo pipefail
-          line='V2 Signer: certificate SHA-256 digest: f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0'
-          got="$(printf '%s\n' "$line" | sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\2/p')"
-          test "$got" = f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
-          echo 'PASS: signer parser accepts proven Android v2 tool output'
       - name: Verify non-debuggable Lab package, established preview signer and hash
         shell: bash
         run: |
