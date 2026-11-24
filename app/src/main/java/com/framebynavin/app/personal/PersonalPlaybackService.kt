@@ -248,7 +248,10 @@ internal class PersonalPlaybackService : Service() {
                                 ?: run { endPlayback(); return@post }
                             val next = PersonalPlaybackPolicy.nextVoiceIndex(completed, repeatCount)
                             if (next == null) {
-                                // Let the stronger post-voice music be heard briefly.
+                                // Keep the existing short tail, fading to zero
+                                // before the service's normal retry-safe cleanup.
+                                music.beginNaturalEnding(
+                                    com.framebynavin.app.reminders.ReminderMusicMixPolicy.RETURN_TAIL_MILLIS)
                                 handler.postDelayed({
                                     if (expectedGeneration == generation && activeId == null)
                                         endPlayback(naturallyFinished = true)
