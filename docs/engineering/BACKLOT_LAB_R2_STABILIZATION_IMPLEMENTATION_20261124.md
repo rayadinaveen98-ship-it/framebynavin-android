@@ -109,3 +109,14 @@ APPROVED = scope/direction only. STAGED = branch code present, not proven. COMPI
 - Focused policy-run `45340227725` explicitly triggered only after compile pass: icon default/three styles, Creator lock-screen privacy and shared music/alarm gain. Results pending at record-write; do not claim green until logs confirm.
 - Android15 navigation regression workflow is now prepared but **DORMANT**, waiting for the three policy tests to succeed. It reuses the existing twice-run P10J real-first-run test and builds one disposable debug + AndroidTest APK pair. It must not be misreported as media/voice/locked-device physical certification.
 - Permanent protected original R2 and all earlier stable Lab references remain intact. No Supabase writes, Play release, stable promotion, owner APK or full test suite was performed.
+
+
+## Stage 5 Android15 assembly incident and scoped recovery (2026-11-24)
+- Three focused policies PASSED in run `45340227725`, after repaired source Kotlin compile PASSED in run `45337219034`.
+- Android15 disposable test pipeline `45343275501` passed exact repaired source/Lab app identity fence.
+- Its APK assembly job `138271795411` failed after ~20 seconds at Gradle configuration, BEFORE app compile, due inability to resolve plugin marker `com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:2.1.20-2.0.1`. This is not a diagnosed Kotlin/source error. Zero APKs were produced by the failed attempt; emulator regression remained blocked.
+- Same KSP plugin/version/repositories produced a successful previous compile, and independent published Maven Central artifact metadata showed the version exists. A non-JVM/non-Gradle runner check in run `45343549100` confirmed the exact Maven Central KSP plugin marker can be fetched.
+- A single exact failed GitHub Actions job rerun was requested with `rerun_workflow_job(138271795411)`, preserving successful prior source/tests; GitHub accepted the request. This is NOT a new arbitrary full pipeline nor a production build.
+- Recheck rerun job `138272799394` outcome before Android15 validation. Do not treat a queued/running build as passed.
+- Source remains frozen at `379a3412ca84bf4fe70671fe14cec0bb56b0d316`; no Gradle/KSP version changes, no app source changes, no migrations or cloud writes.
+- Physical 18-scenario and real-media/audio acceptance protocol is `docs/qa/BACKLOT_LAB_R2_STABILIZATION_DEVICE_ACCEPTANCE_MATRIX_20261124.md`. Two Android15 first-run navigation checks alone do not certify those behaviors.
