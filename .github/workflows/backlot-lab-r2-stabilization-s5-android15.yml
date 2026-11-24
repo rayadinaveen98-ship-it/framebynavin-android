@@ -1,0 +1,132 @@
+name: Backlot Lab S5 - Repaired Android 15 Navigation Regressions
+
+# Explicit trigger only after focused policy unit gate PASSES.
+# Builds the disposable Lab APK + instrumentation APK ONCE; emulator never runs Gradle.
+on:
+  push:
+    branches:
+      - qa/backlot-lab-r2-stabilization-s5-kotlin-repair-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S5_ANDROID15_REQUEST_20261124.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-lab-r2-s5-repaired-android15
+  cancel-in-progress: false
+
+jobs:
+  immutable-source-fence:
+    name: '01 - Repaired app tree and Lab-only identity (no JVM)'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact compiled application source and test runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPAIR=379a3412ca84bf4fe70671fe14cec0bb56b0d316
+          git cat-file -e "$REPAIR^{commit}"
+          git merge-base --is-ancestor "$REPAIR" HEAD
+          test "$(git rev-parse "$REPAIR:app")" = "$(git rev-parse HEAD:app)"
+          test -s tools/qa/backlot_lab_r2_android15_navigation.sh
+          grep -Fq 'com.framebynavin.app.lab.test' tools/qa/backlot_lab_r2_android15_navigation.sh
+          grep -Fq 'com.framebynavin.app.lab' tools/qa/backlot_lab_r2_android15_navigation.sh
+          grep -Fq 'applicationId = if (backlotLabMode) "com.framebynavin.app.lab"' app/build.gradle.kts
+          echo 'PASS: exact repaired app tree and original disposable Lab Android15 runner'
+
+  disposable-test-apks:
+    name: '02 - Build disposable Lab debug and AndroidTest APKs ONCE'
+    needs: [immutable-source-fence]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Assemble only two QA packages, serial worker
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/backlot-r2/build output/backlot-r2/apks
+          git rev-parse HEAD > output/backlot-r2/build/qa-head-sha.txt
+          printf '%s\n' 379a3412ca84bf4fe70671fe14cec0bb56b0d316 > output/backlot-r2/build/verified-application-source-sha.txt
+          timeout --signal=TERM --kill-after=20s 6000s \
+            gradle :app:assembleDebug :app:assembleDebugAndroidTest -PbacklotLab=true \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-r2/build/stabilization-android15-compile.log
+      - name: Copy and hash disposable APK pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/debug/app-debug.apk output/backlot-r2/apks/
+          cp app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk output/backlot-r2/apks/
+          sha256sum output/backlot-r2/apks/*.apk | tee output/backlot-r2/build/disposable-apk-sha256.txt
+      - name: Upload exact disposable QA APK pair (NOT owner preview)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-S5-Repaired-Android15-Disposable-QA-APK-Pair
+          path: output/backlot-r2/apks/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve compile logs even on error
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-S5-Repaired-Android15-Build-Evidence
+          path: output/backlot-r2/build/
+          if-no-files-found: warn
+          retention-days: 14
+
+  two-first-runs:
+    name: '03 - Two genuine first-runs on disposable Android15 emulator'
+    needs: [disposable-test-apks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 48
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-S5-Repaired-Android15-Disposable-QA-APK-Pair
+          path: output/backlot-r2/apks
+      - name: Enforce prebuilt APK reuse, no Gradle inside emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s output/backlot-r2/apks/app-debug.apk
+          test -s output/backlot-r2/apks/app-debug-androidTest.apk
+          sha256sum output/backlot-r2/apks/*.apk
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Android 15 Creator-first navigation with Personal-first Reminder Hub
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_lab_r2_android15_navigation.sh
+      - name: Preserve instrumentation and Android system logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-S5-Repaired-Android15-FirstRun-Results
+          path: output/backlot-r2/android15/
+          if-no-files-found: warn
+          retention-days: 14
