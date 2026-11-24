@@ -1,0 +1,234 @@
+name: Backlot Lab R2 S7 - Firebase Startup Fix Signed Owner Gate
+
+# Explicit one-shot user-reported startup-crash correction. Never auto-release.
+on:
+  push:
+    branches:
+      - feature/backlot-lab-r2-s7-personalstable-firebase-crash-fix-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S7_FIREBASE_CRASH_FIX_BUILD_REQUEST_20261124.md
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: backlot-lab-r2-s7-firebase-fixed-signed-gate
+  cancel-in-progress: false
+
+jobs:
+  exact-source:
+    name: '01 - Exact one-source-file startup fix and isolated Lab guard'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Only owner-specific personalStable Firebase guard changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD=379a3412ca84bf4fe70671fe14cec0bb56b0d316
+          PATCH=28a7000159554f254ab1ecc1aecc7792a1385ac2
+          path=app/src/personalStable/java/com/framebynavin/app/CreatorAppCheck.kt
+          git cat-file -e "$PATCH^{commit}"
+          git merge-base --is-ancestor "$OLD" HEAD
+          git merge-base --is-ancestor "$PATCH" HEAD
+          test "$(git rev-parse "$PATCH:app")" = "$(git rev-parse HEAD:app)"
+          test "$(git diff --name-only "$OLD" "$PATCH" -- app)" = "$path"
+          grep -Fq 'if (BuildConfig.BACKLOT_LAB) return' "$path"
+          grep -Fq 'FirebaseApp.initializeApp(context.applicationContext)' "$path"
+          grep -Fq 'if (BuildConfig.BACKLOT_LAB) return' app/src/debug/java/com/framebynavin/app/CreatorAppCheck.kt
+          grep -Fq 'applicationId = if (backlotLabMode) "com.framebynavin.app.lab"' app/build.gradle.kts
+          grep -Fq 'versionCode = 337' app/build.gradle.kts
+          grep -Fq 'signingConfig = signingConfigs.getByName("prototypeStable")' app/build.gradle.kts
+          test -s dev-signing/framebynavin-public-debug.jks
+          test -s tools/qa/backlot_lab_r2_s7_fixed_owner_runtime.sh
+          echo 'PASS: only personalStable Lab FirebaseApp guard changed; debug and production untouched'
+
+  build-once:
+    name: '02 - Compile signed Lab once, full Lint, preserve private unverified APK'
+    needs: [exact-source]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 135
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Stage A - Compile personalStable with independent Kotlin daemon
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/backlot-s7/fixed-owner
+          git rev-parse HEAD > output/backlot-s7/fixed-owner/build-head-sha.txt
+          printf '%s\n' 28a7000159554f254ab1ecc1aecc7792a1385ac2 > output/backlot-s7/fixed-owner/verified-app-source-commit.txt
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:compilePersonalStableKotlin -PbacklotLab=true \
+              '-Pkotlin.compiler.execution.strategy=daemon' \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-s7/fixed-owner/compile.log
+      - name: Stage B - Package APK with full vital Lint enabled
+        shell: bash
+        env:
+          LINT_PRINT_STACKTRACE: 'true'
+        run: |
+          set -o pipefail
+          timeout --signal=TERM --kill-after=20s 4800s \
+            gradle :app:assemblePersonalStable -PbacklotLab=true \
+              '-Pkotlin.compiler.execution.strategy=daemon' \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-s7/fixed-owner/assembly-with-lint.log
+      - name: Checkpoint signed APK bytes BEFORE any downstream validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=app/build/outputs/apk/personalStable/app-personalStable.apk
+          out=output/backlot-s7/fixed-owner
+          test -s "$apk"
+          cp "$apk" "$out/Backlot-Lab-R2-S7-Firebase-Fixed-Owner-Preview.apk"
+          (cd "$out" && sha256sum Backlot-Lab-R2-S7-Firebase-Fixed-Owner-Preview.apk > apk-sha256.txt)
+          echo 'PASS: built APK preserved privately before signature/runtime gates'
+      - name: Preserve PRIVATE not-yet-approved APK checkpoint
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Private-UNVERIFIED-APK-Checkpoint
+          path: |
+            output/backlot-s7/fixed-owner/Backlot-Lab-R2-S7-Firebase-Fixed-Owner-Preview.apk
+            output/backlot-s7/fixed-owner/apk-sha256.txt
+            output/backlot-s7/fixed-owner/verified-app-source-commit.txt
+          if-no-files-found: error
+          retention-days: 21
+      - name: Preserve compiler and lint error evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Compiler-Lint-Diagnostics
+          path: |
+            output/backlot-s7/fixed-owner/compile.log
+            output/backlot-s7/fixed-owner/assembly-with-lint.log
+            app/build/reports/lint-results-personalStable.*
+          if-no-files-found: warn
+          retention-days: 21
+
+  verify-owner:
+    name: '03 - Verify exact cached APK, signer, manifest and SHA (NO Gradle)'
+    needs: [build-once]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Private-UNVERIFIED-APK-Checkpoint
+          path: output/backlot-s7/fixed-owner
+      - name: Verify same signing certificate, Lab identity, non-debuggable and hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          out=output/backlot-s7/fixed-owner
+          apk="$out/Backlot-Lab-R2-S7-Firebase-Fixed-Owner-Preview.apk"
+          test -s "$apk"
+          (cd "$out" && sha256sum -c apk-sha256.txt)
+          test "$(cat "$out/verified-app-source-commit.txt")" = 28a7000159554f254ab1ecc1aecc7792a1385ac2
+          aapt="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          signer="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$aapt"; test -x "$signer"
+          "$signer" verify --verbose --print-certs "$apk" > "$out/signer.txt"
+          "$aapt" dump badging "$apk" > "$out/identity.txt"
+          grep -Fq "package: name='com.framebynavin.app.lab' versionCode='337'" "$out/identity.txt"
+          grep -Fq "application-label:'Backlot Lab'" "$out/identity.txt"
+          "$aapt" dump xmltree "$apk" AndroidManifest.xml > "$out/manifest.txt"
+          debug="$(grep -F 'android:debuggable' "$out/manifest.txt" || true)"
+          if printf '%s\n' "$debug" | grep -Eq '0xffffffff|0x1([[:space:]]|$)'; then
+            echo 'STOP: debug-enabled owner APK'; exit 1
+          fi
+          expected="$(keytool -exportcert -keystore dev-signing/framebynavin-public-debug.jks -storepass framebynavin-dev -alias framebynavin-dev 2>/dev/null | sha256sum | awk '{print $1}')"
+          actual="$(sed -n -E 's/^(V[0-9.]+ Signer|Signer #[0-9]+): certificate SHA-256 digest: ([a-fA-F0-9]{64})$/\2/p' "$out/signer.txt" | head -1)"
+          test "$actual" = "$expected" && test "$expected" = f0ddec789172ec9f83a037a95b14e90293126f61936d8bab056d3a57e0d472a0
+          grep -Fq 'Number of signers: 1' "$out/signer.txt"
+          printf 'PASS: non-debuggable, signed, certified Lab APK; still awaits signed runtime test\n' > "$out/package-verified.txt"
+          echo 'PASS: byte-preserved APK verified without rebuild'
+      - name: Preserve package/signature evidence even if rejected
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Owner-APK-Identity-Signer-Evidence
+          path: |
+            output/backlot-s7/fixed-owner/identity.txt
+            output/backlot-s7/fixed-owner/signer.txt
+            output/backlot-s7/fixed-owner/manifest.txt
+            output/backlot-s7/fixed-owner/package-verified.txt
+            output/backlot-s7/fixed-owner/apk-sha256.txt
+          if-no-files-found: warn
+          retention-days: 21
+
+  actual-signed-runtime:
+    name: '04 - Launch ACTUAL signed personalStable APK fresh and in-place on Android15'
+    needs: [verify-owner]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Private-UNVERIFIED-APK-Checkpoint
+          path: output/backlot-s7/fixed-owner
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: 45343275501
+          repository: rayadinaveen98-ship-it/framebynavin-android
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: Backlot-Lab-S5-Repaired-Android15-Disposable-QA-APK-Pair
+          path: output/backlot-s7/previous-debug
+      - name: Check exact APK checkpoint and emulator hardware
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd output/backlot-s7/fixed-owner && sha256sum -c apk-sha256.txt)
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -s output/backlot-s7/previous-debug/app-debug.apk
+          test -s output/backlot-s7/previous-debug/app-debug-androidTest.apk
+      - name: Real signed APK startup smoke, restart and in-place guest upgrade
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: bash tools/qa/backlot_lab_r2_s7_fixed_owner_runtime.sh
+      - name: Make owner-preview distributable ONLY AFTER signed runtime PASS
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Firebase-Fixed-SIGNED-RUNTIME-PASSED-Owner-APK
+          path: |
+            output/backlot-s7/fixed-owner/Backlot-Lab-R2-S7-Firebase-Fixed-Owner-Preview.apk
+            output/backlot-s7/fixed-owner/apk-sha256.txt
+            output/backlot-s7/fixed-owner/verified-app-source-commit.txt
+            output/backlot-s7/owner-apk-repro/SUMMARY.txt
+          if-no-files-found: error
+          retention-days: 21
+      - name: Always preserve signed variant runtime crash logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S7-Fixed-Signed-APK-Runtime-Evidence
+          path: output/backlot-s7/owner-apk-repro/
+          if-no-files-found: warn
+          retention-days: 21
