@@ -1,0 +1,81 @@
+name: Backlot Lab S5 - Repaired Source Focused Policy Tests
+
+# Optional founder-approved next gate. Does not run on every code push.
+on:
+  push:
+    branches:
+      - qa/backlot-lab-r2-stabilization-s5-kotlin-repair-20261124
+    paths:
+      - docs/qa/BACKLOT_LAB_R2_S5_REPAIRED_UNIT_REQUEST_20261124.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlot-lab-r2-s5-repaired-policy-unit
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: '01 - Repaired source fence and focused unit inventory'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject drift from repaired application tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPAIR=379a3412ca84bf4fe70671fe14cec0bb56b0d316
+          git cat-file -e "$REPAIR^{commit}"
+          test "$(git rev-parse "$REPAIR:app")" = "$(git rev-parse HEAD:app)"
+          for test_file in \
+            P10ReminderIconStylePolicyTest.kt \
+            P10CreatorLockScreenMediaPolicyTest.kt \
+            ReminderExperienceMixPolicyTest.kt; do
+            test -s "app/src/test/java/com/framebynavin/app/reminders/$test_file"
+          done
+          echo 'PASS: exact repaired application source, only three approved unit tests'
+
+  tests:
+    name: '02 - Three policy test classes only (no full suite)'
+    needs: [source]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Focused Backlot Lab source tests
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p output/backlot-r2/stabilization-s5-policy
+          git rev-parse HEAD > output/backlot-r2/stabilization-s5-policy/source-qa-sha.txt
+          timeout --signal=TERM --kill-after=20s 5400s \
+            gradle :app:testDebugUnitTest -PbacklotLab=true \
+              --tests com.framebynavin.app.reminders.P10ReminderIconStylePolicyTest \
+              --tests com.framebynavin.app.reminders.P10CreatorLockScreenMediaPolicyTest \
+              --tests com.framebynavin.app.reminders.ReminderExperienceMixPolicyTest \
+              --no-daemon --max-workers=1 --console=plain \
+              '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8' \
+              '-Pkotlin.daemon.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC' \
+              '-Porg.gradle.parallel=false' \
+              2>&1 | tee output/backlot-r2/stabilization-s5-policy/three-policy-tests.log
+      - name: Preserve evidence even if failed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Backlot-Lab-R2-S5-Repaired-Three-Policy-Tests
+          path: |
+            output/backlot-r2/stabilization-s5-policy/
+            app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: warn
+          retention-days: 14
