@@ -40,10 +40,14 @@ internal fun P10ReminderSceneBackground(
     val lowRam = remember(context) {
         context.getSystemService(ActivityManager::class.java)?.isLowRamDevice == true
     }
+    val creatorLockScreenOptIn = scope == P1ReminderScope.CREATOR &&
+        P10CreatorLockScreenMediaStore.enabled(context)
     val galleryVisible = P10ReminderBackgroundPolicy.showGallery(
         source = source,
         galleryAvailable = media != null,
         locked = locked,
+        scope = scope,
+        creatorLockScreenOptIn = creatorLockScreenOptIn,
     )
     val palette = family.pigments()
     Box(modifier.fillMaxSize().testTag(
@@ -59,6 +63,7 @@ internal fun P10ReminderSceneBackground(
                 overrideMedia = requireNotNull(media),
                 overrideFraming = framing,
                 fallbackAct = act,
+                allowCreatorMediaOverKeyguard = creatorLockScreenOptIn,
             )
             // Family-colored atmosphere is a lightweight wash, not a new media decoder.
             P10LivingReminderBackdrop(
