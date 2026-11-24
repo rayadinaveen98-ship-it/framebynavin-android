@@ -57,7 +57,7 @@ internal fun P1GalleryBackgroundLaunchCard() {
             Column(Modifier.weight(1f)) {
                 Text("Reminder backgrounds", color = ProjectorIvory,
                     fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("Living Bloom, Pulse Studio, Rise Core · photos and videos",
+                Text("Living scenes, gallery photos/videos · three icon styles",
                     color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
             }
             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MutedText)
