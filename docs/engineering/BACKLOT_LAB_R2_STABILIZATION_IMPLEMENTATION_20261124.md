@@ -120,3 +120,15 @@ APPROVED = scope/direction only. STAGED = branch code present, not proven. COMPI
 - Recheck rerun job `138272799394` outcome before Android15 validation. Do not treat a queued/running build as passed.
 - Source remains frozen at `379a3412ca84bf4fe70671fe14cec0bb56b0d316`; no Gradle/KSP version changes, no app source changes, no migrations or cloud writes.
 - Physical 18-scenario and real-media/audio acceptance protocol is `docs/qa/BACKLOT_LAB_R2_STABILIZATION_DEVICE_ACCEPTANCE_MATRIX_20261124.md`. Two Android15 first-run navigation checks alone do not certify those behaviors.
+
+
+## Stage 5 complete and Stage 6 owner-preview gate (2026-11-24)
+- Repaired application source `379a3412ca84bf4fe70671fe14cec0bb56b0d316` compiled successfully in run `45337219034`.
+- Three scoped policy unit classes passed in run `45340227725`.
+- Exact-source Lab APK + AndroidTest pair built in run `45343275501`, following one transient KSP plugin marker resolution failure; probe `45343549100` passed and only the failed assembly job was retried.
+- Run `45343275501` also passed two real Android15 emulator fresh-install journeys (Original five-page Creator onboarding -> Creator Home -> Personal-first Reminder Hub -> Creator/Personal switching). The same prebuilt APK pair was reused; no repeat Gradle inside emulator.
+- QA artifact `14897628762` contains disposable debug/test APKs. This is **not** a signed owner preview and does not establish media/audio/lock-screen behavior.
+- Stage 6 isolated source branch: `qa/backlot-lab-r2-stabilization-s6-owner-preview-20261124` forked from exact tested app commit, with workflow/docs-only additions. Its dedicated workflow `backlot-lab-r2-stabilization-s6-owner-preview.yml` started as run `45347700158`. Source identity preflight PASSED; APK build was RUNNING at the time of this record.
+- Stage 6 uses `assemblePersonalStable -PbacklotLab=true`, retains Android vital Lint, raises Gradle heap from the previously insufficient 2 GiB to 5 GiB and runs Kotlin in process, one worker. This is a bounded resource diagnosis, NOT lint suppression or a changed app.
+- APK output is accepted ONLY if non-debuggable, package `com.framebynavin.app.lab`, versionCode 337, label `Backlot Lab`, exact previously used public preview signer and SHA-256 are all independently verified. Failed gate must not publish a verified preview.
+- Full 18-condition reminder/audio/media and phone/tablet acceptance remains PENDING after successful owner-preview build; production/stable promotion remains forbidden without owner review.
