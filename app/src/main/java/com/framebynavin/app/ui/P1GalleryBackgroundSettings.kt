@@ -87,10 +87,14 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
     var showFraming by rememberSaveable { mutableStateOf(false) }
     var showMediaDetails by rememberSaveable { mutableStateOf(false) }
     var confirmRemoveMedia by remember { mutableStateOf(false) }
+    var confirmCreatorLockMedia by remember { mutableStateOf(false) }
     var mode by rememberSaveable { mutableStateOf(ReminderCheckInKind.VOICE) }
     val selectedMedia = remember(domain, revision) { P1EntranceMediaStore.selected(context, domain) }
     val family = remember(domain, revision) { P10ReminderFamilyStore.selected(context, domain) }
     val iconStyle = remember(revision) { P10ReminderIconStyleStore.selected(context) }
+    val showCreatorMediaOnLockScreen = remember(revision) {
+        P10CreatorLockScreenMediaStore.enabled(context)
+    }
     val backgroundSource = remember(domain, revision, selectedMedia?.file?.absolutePath) {
         P10ReminderBackgroundStore.selected(context, domain, selectedMedia != null)
     }
@@ -141,6 +145,14 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
         if (saved) revision++
         feedback = if (saved) "${choice.label} selected for all reminder spaces."
             else "Could not save the reminder icon style. Try again."
+    }
+
+    fun saveCreatorLockScreenMedia(enabled: Boolean) {
+        val saved = P10CreatorLockScreenMediaStore.select(context, enabled)
+        if (saved) revision++
+        feedback = if (!saved) "Could not save lock-screen media preference."
+            else if (enabled) "Creator media can appear over the lock screen."
+            else "Creator gallery stays private while locked."
     }
 
     fun useGallery() {
@@ -214,10 +226,42 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                         activeScope = option.name
                         feedback = null
                         showFraming = false
+                        confirmCreatorLockMedia = false
                     },
                     label = { Text(title, fontSize = 11.sp) },
                     modifier = Modifier.weight(1f).testTag("p1-scope-" + option.name),
                 )
+            }
+        }
+        if (domain == P1ReminderScope.CREATOR) {
+            Surface(
+                shape = RoundedCornerShape(17.dp),
+                color = CinemaSurface,
+                border = BorderStroke(1.dp, CinemaLine),
+                modifier = Modifier.fillMaxWidth().testTag("p10-creator-lockscreen-media"),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Show Creator media while locked", color = ProjectorIvory,
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Optional: display your selected Creator image or video " +
+                            "above the lock screen when Android permits it. Off by default.",
+                            color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
+                    }
+                    Switch(
+                        checked = showCreatorMediaOnLockScreen,
+                        enabled = !importing,
+                        onCheckedChange = { enabled ->
+                            if (enabled) confirmCreatorLockMedia = true
+                            else saveCreatorLockScreenMedia(false)
+                        },
+                        modifier = Modifier.testTag("p10-creator-lockscreen-media-toggle"),
+                    )
+                }
             }
         }
         // Do not keep a second gallery video decoder running underneath the
@@ -386,7 +430,9 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
         if (showMediaDetails) {
             Text("Photo, animated GIF/WebP or silent looping video (up to 15 seconds and 40 MB). Live Photos may import as still images; export motion to video when needed. Third-party live wallpapers cannot be imported directly.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
-            Text("Local media only. Personal gallery content is hidden while Android is locked. No cloud uploads or changes to reminder delivery.",
+            Text("On-device only. Personal and 21-day media remain hidden while locked. " +
+                "Creator media is private by default; the separate opt-in above permits " +
+                "its lock-screen display. No cloud uploads or delivery changes.",
                 color = MutedText, fontSize = 11.sp, lineHeight = 16.sp)
         }
         if (!feedback.isNullOrBlank())
@@ -394,6 +440,27 @@ private fun P1GalleryBackgroundStudio(onClose: () -> Unit) {
                 modifier = Modifier.testTag("p1-gallery-feedback"))
         Spacer(Modifier.height(12.dp))
     }
+    if (confirmCreatorLockMedia) AlertDialog(
+        onDismissRequest = { confirmCreatorLockMedia = false },
+        title = { Text("Display Creator background over lock screen?") },
+        text = {
+            Text("Anyone nearby may see the selected Creator photo or video " +
+                "without unlocking the device. This does not change reminder " +
+                "notifications, scheduling or response controls. Android may " +
+                "still show only a notification instead of a full-screen view.")
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                confirmCreatorLockMedia = false
+                saveCreatorLockScreenMedia(true)
+            }) { Text("ALLOW CREATOR MEDIA", color = RecRed) }
+        },
+        dismissButton = {
+            TextButton(onClick = { confirmCreatorLockMedia = false }) {
+                Text("KEEP PRIVATE")
+            }
+        },
+    )
     if (confirmRemoveMedia) AlertDialog(
         onDismissRequest = { confirmRemoveMedia = false },
         title = { Text("Remove saved gallery background?") },
