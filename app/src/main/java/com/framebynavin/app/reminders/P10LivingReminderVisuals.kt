@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import kotlin.math.PI
 import kotlin.math.cos
@@ -258,78 +259,25 @@ private fun DrawScope.drawP10DepthMotes(t: Float, tuning: P10MotionTuning, p: P1
         val color = if (i % 3 == 0) p.warm else p.secondary
         val r = (1.4f + (i % 4) * .62f) * density
         drawCircle(color.copy(alpha = .13f), radius = r * 3.6f, center = Offset(x, y))
-        drawCircle(color.copy(alpha = .54f), radius = r, center = Offset(x, y))
-    }
-}
-
-/**
- * New optical-weight Voice/Alarm emblem, independent of old dotted mic/clock.
- * The mark is a decorative icon, NOT evidence that the device is recording.
+        drawCircle(color.copy(alpha = .5/**
+ * Shared live icon entrance point for all three reminder domains.
+ * This is presentation only; the selected visual cannot affect delivery.
+ * Preview callers may specify a style and disable animation.
  */
 @Composable
 internal fun P10ReminderIdentityEmblem(
     kind: ReminderCheckInKind,
     family: P10ReminderFamily,
     modifier: Modifier = Modifier,
+    style: P10ReminderIconStyle? = null,
+    animate: Boolean = true,
 ) {
-    val colors = family.pigments()
-    Canvas(modifier.testTag("p10-identity-" + kind.name.lowercase())) {
-        val u = min(size.width, size.height)
-        val c = Offset(size.width / 2f, size.height / 2f)
-        val ink = colors.warm
-        val halo = colors.light
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(halo.copy(alpha = .27f), halo.copy(alpha = .025f), Color.Transparent),
-                center = c, radius = u * .47f,
-            ),
-            center = c, radius = u * .47f,
-        )
-        drawCircle(halo.copy(alpha = .60f), radius = u * .32f, center = c,
-            style = Stroke(width = u * .011f))
-        drawArc(ink, 210f, 88f, false, topLeft = Offset(c.x - u * .40f, c.y - u * .40f),
-            size = Size(u * .80f, u * .80f),
-            style = Stroke(width = u * .018f, cap = StrokeCap.Round))
-        when (kind) {
-            ReminderCheckInKind.VOICE -> {
-                // Premium capsule body, stem and breathing sound contour.
-                drawRoundRect(
-                    color = ink,
-                    topLeft = Offset(c.x - u * .072f, c.y - u * .205f),
-                    size = Size(u * .144f, u * .275f),
-                    cornerRadius = CornerRadius(u * .07f),
-                )
-                drawArc(
-                    color = ink, startAngle = 0f, sweepAngle = 180f,
-                    useCenter = false,
-                    topLeft = Offset(c.x - u * .136f, c.y - u * .065f),
-                    size = Size(u * .272f, u * .268f),
-                    style = Stroke(width = u * .022f, cap = StrokeCap.Round),
-                )
-                drawLine(ink, Offset(c.x, c.y + u * .197f),
-                    Offset(c.x, c.y + u * .260f), strokeWidth = u * .022f,
-                    cap = StrokeCap.Round)
-                drawLine(ink, Offset(c.x - u * .085f, c.y + u * .260f),
-                    Offset(c.x + u * .085f, c.y + u * .260f), strokeWidth = u * .022f,
-                    cap = StrokeCap.Round)
-            }
-            ReminderCheckInKind.ALARM -> {
-                drawCircle(ink, radius = u * .185f, center = c,
-                    style = Stroke(width = u * .026f))
-                drawLine(ink, c, Offset(c.x, c.y - u * .105f),
-                    strokeWidth = u * .025f, cap = StrokeCap.Round)
-                drawLine(ink, c, Offset(c.x + u * .082f, c.y + u * .062f),
-                    strokeWidth = u * .025f, cap = StrokeCap.Round)
-                drawCircle(ink, radius = u * .022f, center = c)
-                drawArc(halo, 202f, 64f, false,
-                    topLeft = Offset(c.x - u * .275f, c.y - u * .275f),
-                    size = Size(u * .55f, u * .55f),
-                    style = Stroke(width = u * .016f, cap = StrokeCap.Round))
-                drawArc(halo, 278f, 61f, false,
-                    topLeft = Offset(c.x - u * .275f, c.y - u * .275f),
-                    size = Size(u * .55f, u * .55f),
-                    style = Stroke(width = u * .016f, cap = StrokeCap.Round))
-            }
-        }
-    }
+    val context = LocalContext.current
+    P10PremiumReminderIcon(
+        kind = kind,
+        family = family,
+        style = style ?: P10ReminderIconStyleStore.selected(context),
+        modifier = modifier.testTag("p10-identity-" + kind.name.lowercase()),
+        animated = animate,
+    )
 }
